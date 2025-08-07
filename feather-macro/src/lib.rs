@@ -338,21 +338,13 @@ pub fn state_machine_child(input: TokenStream) -> TokenStream {
     );
 
     let ast = parse_macro_input!(input as DeriveInput);
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
     let data = if let Data::Struct(data_enum) = &ast.data {
         data_enum
     } else {
         panic!("`StateMachineChild` derive can only be used on a struct.");
     };
-
-    if ast.generics.type_params().count() != 1 {
-        // TODO: support multiple generics
-        panic!(
-            "`StateMachineChild` derive doesn't know how to deal with multiple generic parameters!"
-        )
-    }
-
-    let generics = ast.generics.type_params().next().unwrap();
-    let genparams = &generics.ident;
 
     let has_children = data.fields.members().any(|x| {
         if let syn::Member::Named(f) = x {
@@ -379,7 +371,7 @@ pub fn state_machine_child(input: TokenStream) -> TokenStream {
 
     let sname = ast.ident;
     quote! {
-        impl<#generics> #crate_name::StateMachineChild for #sname<#genparams> {
+        impl #impl_generics #crate_name::StateMachineChild for #sname #ty_generics #where_clause {
             fn id(&self) -> std::sync::Arc<SourceID> {
                 self.id.clone()
             }

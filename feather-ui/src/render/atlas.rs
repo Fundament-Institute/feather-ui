@@ -356,6 +356,9 @@ pub struct Region {
     pub index: u8,
 }
 
+// Technically, this should implement !Forget (or !Leak), because it should never be put in an Rc<>. If rust ever stabilizes
+// that trait, it would be good to add it here. However, using a stale Region will simply render incorrect data, it won't
+// access invalid memory, so there is no safety or soundness problem here, only a correctness issue.
 impl Drop for Region {
     fn drop(&mut self) {
         if self.id != AllocId::deserialize(u32::MAX) {

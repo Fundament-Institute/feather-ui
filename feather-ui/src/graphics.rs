@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use std::collections::HashMap;
+use std::io::Read;
 
-use crate::render;
 use crate::render::atlas::ATLAS_FORMAT;
 use crate::render::{atlas, compositor};
+use crate::resource::{ResourceLoader, ResourceLocation};
+use crate::{Error, render};
 use guillotiere::AllocId;
 use parking_lot::RwLock;
 use std::any::TypeId;
@@ -50,12 +52,57 @@ pub struct GlyphRegion {
 
 pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, GlyphRegion>;
 
+/// Represents a particular realized instance of a resource on the GPU. This includes the target size, DPI, and
+/// whether mipmaps have been generated.
+#[derive(Debug)]
+pub struct ResourceInstance<'a> {
+    location: Result<Box<dyn ResourceLocation>, &'a dyn ResourceLocation>,
+    /// If finite, this is used for vector resources, which must care about DPI beyond simply changing their size.
+    dpi: f32,
+    /// If true, mipmaps should be generated for this resource because the user expects to resize it in realtime.
+    resizable: bool,
+}
+
+impl std::hash::Hash for ResourceInstance<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match &self.location {
+            Ok(l) => l.hash(state),
+            Err(l) => l.hash(state),
+        }
+        // This works because DPI is always non-zero
+        f32::to_bits(self.dpi).hash(state);
+        self.resizable.hash(state);
+    }
+}
+
+impl PartialEq for ResourceInstance<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        let l = match &self.location {
+            Ok(l) => l.as_ref(),
+            Err(l) => *l,
+        };
+
+        let r = match &other.location {
+            Ok(l) => l.as_ref(),
+            Err(l) => *l,
+        };
+
+        *l == *r && self.dpi == other.dpi && self.resizable == other.resizable
+    }
+}
+
+// We don't put NaNs in our DPI float so this is fine.
+impl Eq for ResourceInstance<'_> {}
+
 // We want to share our device/adapter state across windows, but can't create it until we have at least one window,
 // so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
 // sensible behavior.
 #[derive_where::derive_where(Debug)]
 pub struct Driver {
     pub(crate) glyphs: RwLock<GlyphCache>,
+    pub(crate) resources: RwLock<HashMap<Box<dyn ResourceLocation>, Box<dyn ResourceLoader>>>, // TODO: needs to be cleaned up when we clean up mutable states
+    pub(crate) loaders:
+        RwLock<HashMap<ResourceInstance<'static>, smallvec::SmallVec<[atlas::Region; 1]>>>,
     pub(crate) atlas: RwLock<atlas::Atlas>,
     pub(crate) layer_atlas: [RwLock<atlas::Atlas>; 2],
     pub(crate) layer_composite: [RwLock<compositor::Compositor>; 2],
@@ -137,6 +184,8 @@ impl Driver {
             device,
             queue,
             swash_cache: ScaleContext::new().into(),
+            resources: HashMap::new().into(),
+            loaders: HashMap::new().into(),
             font_system: cosmic_text::FontSystem::new().into(),
             cursor: CursorIcon::Default.into(),
             pipelines: HashMap::new().into(),
@@ -228,6 +277,77 @@ impl Driver {
                 .downcast_mut()
                 .unwrap(),
         );
+    }
+
+    pub fn prefetch(&self, location: &dyn ResourceLocation) -> Result<(), Error> {
+        let mut resources = self.resources.write();
+
+        if !resources.contains_key(location) {
+            resources.insert(dyn_clone::clone_box(location), location.fetch()?);
+        }
+        Ok(())
+    }
+
+    pub fn load(
+        &self,
+        location: &dyn ResourceLocation,
+        size: &guillotiere::Size,
+        dpi: f32,
+        resize: bool,
+        mut f: impl FnMut(&atlas::Region) -> Result<(), Error>,
+    ) -> Result<(), Error> {
+        if let Some(regions) = self.loaders.read().get(&ResourceInstance {
+            location: Err(location),
+            dpi,
+            resizable: resize,
+        }) {
+            // Check if our requested size is within reasonable resize range - slightly bigger or smaller is fine, and
+            // much smaller is fine if we have access to mipmaps.
+            for r in regions {
+                if r.uv.size() == *size {
+                    return f(r);
+                } else if r.uv.area() >= crate::resource::MIN_AREA
+                    && crate::resource::within_variance(
+                        size.width,
+                        r.uv.width(),
+                        crate::resource::MAX_VARIANCE,
+                    )
+                    && crate::resource::within_variance(
+                        size.width,
+                        r.uv.width(),
+                        crate::resource::MAX_VARIANCE,
+                    )
+                {
+                    return f(r);
+                } else if resize && size.width <= r.uv.width() && size.height < r.uv.height() {
+                    return f(r);
+                }
+            }
+        }
+
+        // Check for a prefetched resource
+        let region = {
+            let loader;
+            let reader = self.resources.read();
+            if let Some(res) = reader.get(location) {
+                res
+            } else {
+                loader = location.fetch()?;
+                &loader
+            }
+            .load(self, size, dpi, resize)?
+        };
+
+        f(&self
+            .loaders
+            .write()
+            .entry(ResourceInstance {
+                location: Ok(dyn_clone::clone_box(location)),
+                dpi,
+                resizable: resize,
+            })
+            .insert_entry(smallvec::SmallVec::from_buf([region]))
+            .get()[0])
     }
 }
 

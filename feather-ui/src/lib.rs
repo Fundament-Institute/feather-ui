@@ -14,6 +14,7 @@ pub mod lua;
 pub mod persist;
 mod propbag;
 pub mod render;
+pub mod resource;
 mod rtree;
 mod shaders;
 pub mod text;
@@ -69,7 +70,7 @@ use std::any::TypeId;
 pub enum Error {
     #[error("Not an error, this component simply has no layout state.")]
     Stateless,
-    #[error("Enun object didn't match tag {0}! Expected {1:?} but got {2:?}")]
+    #[error("Enum object didn't match tag {0}! Expected {1:?} but got {2:?}")]
     MismatchedEnumTag(u64, TypeId, TypeId),
     #[error("Invalid enum tag: {0}")]
     InvalidEnumTag(u64),
@@ -87,6 +88,16 @@ pub enum Error {
     GlyphCacheFailure,
     #[error("An assumption about internal state was incorrect.")]
     InternalFailure,
+    #[error("A filesystem error occurred: {0}")]
+    FileError(std::io::Error),
+    #[error("An error happened when loading a resource: {0:?}")]
+    ResourceError(Box<dyn std::fmt::Debug + Send + Sync>),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Self::FileError(value)
+    }
 }
 
 pub const UNSIZED_AXIS: f32 = f32::MAX;
@@ -335,6 +346,33 @@ impl From<AbsRect> for DAbsRect {
         DAbsRect {
             dp: value,
             px: ZERO_RECT,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+/// A point with both pixel and display independent units, but no relative component.
+pub struct DAbsPoint {
+    dp: Vec2,
+    px: Vec2,
+}
+
+pub const ZERO_DABSPOINT: DAbsPoint = DAbsPoint {
+    dp: ZERO_POINT,
+    px: ZERO_POINT,
+};
+
+impl DAbsPoint {
+    fn resolve(&self, dpi: Vec2) -> Vec2 {
+        self.px + (self.dp * dpi)
+    }
+}
+
+impl From<Vec2> for DAbsPoint {
+    fn from(value: Vec2) -> Self {
+        DAbsPoint {
+            dp: value,
+            px: ZERO_POINT,
         }
     }
 }
@@ -946,7 +984,7 @@ pub trait DynHashEq: DynClone + std::fmt::Debug {
 
 dyn_clone::clone_trait_object!(DynHashEq);
 
-impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + 'static + Clone + std::fmt::Debug>
+impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + Clone + std::fmt::Debug + Any>
     DynHashEq for H
 {
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
