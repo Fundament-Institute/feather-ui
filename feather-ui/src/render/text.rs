@@ -7,7 +7,6 @@ use std::rc::Rc;
 use cosmic_text::{CacheKey, FontSystem};
 use guillotiere::{AllocId, Size};
 use ultraviolet::Vec2;
-use wgpu::{Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo};
 
 use crate::color::{Premultiplied, sRGB32};
 use crate::graphics::{GlyphCache, GlyphRegion};
@@ -137,30 +136,13 @@ impl Instance {
                 }
             }
 
-            queue.write_texture(
-                TexelCopyTextureInfo {
-                    texture: atlas.get_texture(),
-                    mip_level: 0,
-                    origin: Origin3d {
-                        x: region.uv.min.x as u32,
-                        y: region.uv.min.y as u32,
-                        z: region.index as u32,
-                    },
-                    aspect: wgpu::TextureAspect::All,
-                },
+            crate::resource::queue_atlas_data(
                 &image.data,
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        image.placement.width * atlas.get_texture().format().components() as u32,
-                    ),
-                    rows_per_image: None,
-                },
-                Extent3d {
-                    width: image.placement.width,
-                    height: image.placement.height,
-                    depth_or_array_layers: 1,
-                },
+                &region,
+                queue,
+                image.placement.width,
+                image.placement.height,
+                atlas,
             );
         }
 

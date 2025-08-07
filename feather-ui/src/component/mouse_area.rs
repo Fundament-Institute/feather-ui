@@ -247,7 +247,7 @@ impl super::EventRouter for MouseAreaState {
 }
 
 #[derive_where(Clone)]
-pub struct MouseArea<T: leaf::Prop + 'static> {
+pub struct MouseArea<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     deadzone: f32, // A deadzone of infinity disables drag events

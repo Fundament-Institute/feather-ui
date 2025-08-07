@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct Paragraph<T: flex::Prop + 'static> {
+pub struct Paragraph<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,

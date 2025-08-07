@@ -41,22 +41,22 @@ default-formats = [
   "tiff",
   "webp",
 ]
-rayon = ["dep:image", "image/rayon"]
-avif = ["dep:image", "image/avif"]
-bmp = ["dep:image", "image/bmp"]
-dds = ["dep:image", "image/dds"]
-exr = ["dep:image", "image/exr"]
-ff = ["dep:image", "image/ff"]
-gif = ["dep:image", "image/gif"]
-hdr = ["dep:image", "image/hdr"]
-ico = ["dep:image", "image/ico"]
-jpeg = ["dep:image", "image/jpeg"]
-png = ["dep:image", "image/png"]
-pnm = ["dep:image", "image/pnm"]
-qoi = ["dep:image", "image/qoi"]
-tga = ["dep:image", "image/tga"]
-tiff = ["dep:image", "image/tiff"]
-webp = ["dep:image", "image/webp"]
+rayon = ["image?/rayon", "fast_image_resize?/rayon"]
+avif = ["dep:image", "image/avif", "fast_image_resize/image"]
+bmp = ["dep:image", "image/bmp", "fast_image_resize/image"]
+dds = ["dep:image", "image/dds", "fast_image_resize/image"]
+exr = ["dep:image", "image/exr", "fast_image_resize/image"]
+ff = ["dep:image", "image/ff", "fast_image_resize/image"]
+gif = ["dep:image", "image/gif", "fast_image_resize/image"]
+hdr = ["dep:image", "image/hdr", "fast_image_resize/image"]
+ico = ["dep:image", "image/ico", "fast_image_resize/image"]
+jpeg = ["dep:load_image", "load_image/jpeg"]
+png = ["dep:load_image", "load_image/zlibrs"]
+pnm = ["dep:image", "image/pnm", "fast_image_resize/image"]
+qoi = ["dep:image", "image/qoi", "fast_image_resize/image"]
+tga = ["dep:image", "image/tga", "fast_image_resize/image"]
+tiff = ["dep:image", "image/tiff", "fast_image_resize/image"]
+webp = ["dep:image", "image/webp", "fast_image_resize/image"]
 vello = ["dep:vello"]
 vello-svg = ["dep:vello_svg"]
 
@@ -68,7 +68,6 @@ eyre.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 ultraviolet.workspace = true
-fast_image_resize = { version = "5.2.1", features = ["image"] }
 dyn-clone = "1.0"
 derive-where = "1.2.7"
 enum_variant_type = "0.3.1"
@@ -100,10 +99,14 @@ mlua = { version = "0.10", features = [
   "luajit52",
   "vendored",
 ], optional = true }
-image = { version = "0.25.6", optional = true }
+image = { version = "0.25.6", optional = true, default-features = false }
 resvg = { version = "0.45.1", optional = true }
 vello = { version = "0.5.0", optional = true }
 vello_svg = { version = "0.7.1", optional = true }
+load_image = { version = "3.3.0", optional = true, default-features = false, features = [
+  "lcms2-static",
+] }
+fast_image_resize = { version = "5.2.1", optional = true, features = ["image"] }
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }

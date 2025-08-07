@@ -27,7 +27,7 @@ impl PartialEq for TextState {
 }
 
 #[derive_where(Clone)]
-pub struct Text<T: leaf::Padded + 'static> {
+pub struct Text<T> {
     pub id: Arc<SourceID>,
     pub props: Rc<T>,
     pub font_size: f32,

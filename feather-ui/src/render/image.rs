@@ -2,12 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use super::compositor::CompositorView;
-use crate::{AbsRect, resource::ResourceLocation};
+use crate::{AbsRect, resource::Location};
 
 pub struct Instance {
-    pub image: Box<dyn ResourceLocation>,
+    pub image: Box<dyn Location>,
     pub padding: AbsRect,
-    pub size: guillotiere::Size,
     pub dpi: f32,
     pub resize: bool,
 }
@@ -26,7 +25,7 @@ impl super::Renderable for Instance {
 
         driver.load(
             self.image.as_ref(),
-            &self.size,
+            guillotiere::Size::new(dim.x.ceil() as i32, dim.y.ceil() as i32),
             self.dpi,
             self.resize,
             |region| {
