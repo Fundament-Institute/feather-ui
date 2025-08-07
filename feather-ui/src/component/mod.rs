@@ -6,6 +6,7 @@ pub mod domain_line;
 pub mod domain_point;
 pub mod flexbox;
 pub mod gridbox;
+pub mod image;
 pub mod line;
 pub mod listbox;
 pub mod mouse_area;
