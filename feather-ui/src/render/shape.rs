@@ -13,7 +13,7 @@ use std::num::NonZero;
 use ultraviolet::Vec4;
 use wgpu::BindGroupLayout;
 
-pub struct Instance<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> {
+pub struct Instance<PIPELINE> {
     pub padding: crate::AbsRect,
     pub border: f32,
     pub blur: f32,

@@ -481,7 +481,7 @@ impl TextBoxState {}
 pub trait Prop: leaf::Padded + base::TextEdit {}
 
 #[derive_where(Clone)]
-pub struct TextBox<T: Prop + 'static> {
+pub struct TextBox<T> {
     id: Arc<SourceID>,
     props: Rc<T>,
     pub font_size: f32,

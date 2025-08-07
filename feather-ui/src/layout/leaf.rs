@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
+use ultraviolet::Vec2;
+
 use super::base::Empty;
 use super::{Concrete, Desc, Layout, Renderable, Staged, base, map_unsized_area};
 use crate::{AbsRect, DRect, SourceID, ZERO_POINT, rtree};
@@ -58,35 +60,29 @@ impl Desc for dyn Prop {
 
 /// A sized leaf is one with inherent size, like an image. This is used to preserve aspect ratio when
 /// encounting an unsized axis. This must be provided in pixels.
-pub trait Sized: Padded {
-    fn size(&self) -> &ultraviolet::Vec2 {
-        &crate::ZERO_POINT
-    }
+
+#[derive_where::derive_where(Clone)]
+pub struct Sized<T> {
+    pub id: std::sync::Weak<SourceID>,
+    pub props: Rc<T>,
+    pub size: Vec2,
+    pub renderable: Option<Rc<dyn Renderable>>,
 }
 
-crate::gen_from_to_dyn!(Sized);
-
-impl Sized for DRect {}
-
-impl Desc for dyn Sized {
-    type Props = dyn Sized;
-    type Child = dyn Empty;
-    type Children = PhantomData<dyn Layout<Self::Child>>;
-
+impl<T: Padded> Layout<T> for Sized<T> {
+    fn get_props(&self) -> &T {
+        &self.props
+    }
     fn stage<'a>(
-        props: &Self::Props,
+        &self,
         outer_area: AbsRect,
         outer_limits: crate::AbsLimits,
-        _: &Self::Children,
-        id: std::sync::Weak<SourceID>,
-        renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a> {
-        let limits = outer_limits + props.limits().resolve(window.dpi);
-
-        let area = props.area().resolve(window.dpi);
-        let size = *props.size();
-        let aspect_ratio = size.x / size.y; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
+    ) -> Box<dyn super::Staged + 'a> {
+        let limits = outer_limits + self.props.limits().resolve(window.dpi);
+        let padding = self.props.padding().resolve(window.dpi);
+        let area = self.props.area().resolve(window.dpi);
+        let aspect_ratio = self.size.x / self.size.y; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
 
         // The way we handle unsized here is different from how we normally handle it. If both axes are unsized, we
         // simply set the area to the internal size. If only one axis is unsized, we stretch it to maintain an aspect
@@ -109,18 +105,27 @@ impl Desc for dyn Sized {
                 v[3] += adjust;
                 presize
             }
-            _ => map_unsized_area(area, size) * outer_area,
+            _ => {
+                map_unsized_area(area, self.size + padding.topleft() + padding.bottomright())
+                    * outer_area
+            }
         };
 
         let evaluated_area = super::limit_area(mapped_area, limits);
 
-        let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
+        let anchor = self.props.anchor().resolve(window.dpi) * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;
 
         Box::new(Concrete {
             area: evaluated_area,
-            renderable,
-            rtree: rtree::Node::new(evaluated_area, None, Default::default(), id, window),
+            renderable: self.renderable.clone(),
+            rtree: rtree::Node::new(
+                evaluated_area,
+                None,
+                Default::default(),
+                self.id.clone(),
+                window,
+            ),
             children: Default::default(),
             layer: None,
         })
