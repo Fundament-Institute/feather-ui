@@ -153,7 +153,7 @@ impl<T: Clone> FnPersist<(im::Vector<T>, im::Vector<T>), im::Vector<T>> for Conc
 }
 
 #[derive_where(Clone, Default)]
-pub struct OrdSetMapStore<T: Ord + Clone, U: Ord + Clone, F: FnPersist<T, U>> {
+pub struct OrdSetMapStore<T: Clone, U: Clone, F: FnPersist<T, U>> {
     arg: im::OrdSet<T>,
     result: im::OrdSet<U>,
     store: im::OrdMap<T, F::Store>,
@@ -234,12 +234,7 @@ impl<T: Ord + Clone, U: Ord + Clone> MapPersist<T, U> for im::OrdSet<T> {
 }
 
 #[derive_where(Clone, Default)]
-pub struct OrdMapMapStore<
-    K: Ord + std::cmp::PartialEq + Clone,
-    V: std::cmp::PartialEq,
-    U: Ord + Clone,
-    F: FnPersist<V, U>,
-> {
+pub struct OrdMapMapStore<K: Clone, V, U: Clone, F: FnPersist<V, U>> {
     arg: im::OrdMap<K, V>,
     result: im::OrdMap<K, U>,
     store: im::OrdMap<K, F::Store>,

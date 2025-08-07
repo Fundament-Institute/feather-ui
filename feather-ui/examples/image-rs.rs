@@ -12,7 +12,7 @@ use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
 use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, RelRect, Slot, SourceID, UNSIZED_AXIS, URect, ZERO_RECT,
+    AbsRect, App, DAbsRect, DPoint, DRect, RelRect, SourceID, UNSIZED_AXIS, URect, ZERO_RECT,
     ZERO_RELRECT, gen_id, im, winit,
 };
 use std::path::PathBuf;
@@ -69,17 +69,28 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 sRGB::transparent(),
             );
 
+            // Test image with both unsized
+            // test image with one axis unsized
+            // test image force to unusual aspect ratio
+            // test image with both unsized, but with forced resizing to 100.0 on one axis
+            // test image stretched out after resized to 100.0 on one axis.
             let image = Image::<DRect>::new(
                 gen_id!(),
                 Rc::new(DRect {
-                    px: AbsRect::new(100.0, 100.0, 200.0, 200.0),
-                    dp: ZERO_RECT,
-                    rel: ZERO_RELRECT,
+                    px: ZERO_RECT,
+                    dp: AbsRect::new(100.0, 100.0, 0.0, 0.0),
+                    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
                 }),
                 &testimage,
-                Vec2::new(100.0, 100.0).into(),
+                Vec2::zero().into(),
                 false,
             );
+
+            // Test svg with both unsized
+            // test svg with one axis unsized
+            // test svg force to unusual aspect ratio
+            // test svg with both unsized, but with forced resizing to 100.0 on one axis
+            // test svg stretched out after resized to 100.0 on one axis.
 
             let region = Region::new(
                 gen_id!(),

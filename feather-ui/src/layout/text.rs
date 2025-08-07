@@ -11,7 +11,7 @@ use crate::{AbsRect, SourceID, render, rtree};
 use super::{Layout, check_unsized, leaf, limit_area};
 
 #[derive_where(Clone)]
-pub struct Node<T: leaf::Padded> {
+pub struct Node<T> {
     pub id: std::sync::Weak<SourceID>,
     pub props: Rc<T>,
     pub buffer: Rc<RefCell<cosmic_text::Buffer>>,

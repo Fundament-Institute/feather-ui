@@ -2,14 +2,16 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use std::collections::HashMap;
-use std::io::Read;
 
-use crate::render::atlas::ATLAS_FORMAT;
+use crate::render::atlas::{ATLAS_FORMAT, Atlas, AtlasKind};
+use crate::render::compositor::Compositor;
+use crate::render::shape::Shape;
 use crate::render::{atlas, compositor};
-use crate::resource::{ResourceLoader, ResourceLocation};
+use crate::resource::{Loader, Location};
 use crate::{Error, render};
 use guillotiere::AllocId;
 use parking_lot::RwLock;
+use smallvec::SmallVec;
 use std::any::TypeId;
 use std::sync::Arc;
 use swash::scale::ScaleContext;
@@ -56,11 +58,21 @@ pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, GlyphRegion>;
 /// whether mipmaps have been generated.
 #[derive(Debug)]
 pub struct ResourceInstance<'a> {
-    location: Result<Box<dyn ResourceLocation>, &'a dyn ResourceLocation>,
+    location: Result<Box<dyn Location>, &'a dyn Location>,
     /// If finite, this is used for vector resources, which must care about DPI beyond simply changing their size.
     dpi: f32,
     /// If true, mipmaps should be generated for this resource because the user expects to resize it in realtime.
     resizable: bool,
+}
+
+impl Clone for ResourceInstance<'static> {
+    fn clone(&self) -> Self {
+        Self {
+            location: self.location.clone(),
+            dpi: self.dpi.clone(),
+            resizable: self.resizable.clone(),
+        }
+    }
 }
 
 impl std::hash::Hash for ResourceInstance<'_> {
@@ -100,11 +112,14 @@ impl Eq for ResourceInstance<'_> {}
 #[derive_where::derive_where(Debug)]
 pub struct Driver {
     pub(crate) glyphs: RwLock<GlyphCache>,
-    pub(crate) resources: RwLock<HashMap<Box<dyn ResourceLocation>, Box<dyn ResourceLoader>>>, // TODO: needs to be cleaned up when we clean up mutable states
-    pub(crate) loaders:
-        RwLock<HashMap<ResourceInstance<'static>, smallvec::SmallVec<[atlas::Region; 1]>>>,
-    pub(crate) atlas: RwLock<atlas::Atlas>,
-    pub(crate) layer_atlas: [RwLock<atlas::Atlas>; 2],
+    pub(crate) prefetch: RwLock<HashMap<Box<dyn Location>, Box<dyn Loader>>>,
+    pub(crate) resources: RwLock<
+        HashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, guillotiere::Size)>,
+    >,
+    pub(crate) locations:
+        RwLock<HashMap<Box<dyn Location>, SmallVec<[ResourceInstance<'static>; 1]>>>,
+    pub(crate) atlas: RwLock<Atlas>,
+    pub(crate) layer_atlas: [RwLock<Atlas>; 2],
     pub(crate) layer_composite: [RwLock<compositor::Compositor>; 2],
     pub(crate) shared: compositor::Shared,
     pub(crate) pipelines: RwLock<HashMap<PipelineID, Box<dyn crate::render::AnyPipeline>>>,
@@ -122,6 +137,12 @@ impl Drop for Driver {
     fn drop(&mut self) {
         for (_, mut r) in self.glyphs.get_mut().drain() {
             r.region.id = AllocId::deserialize(u32::MAX);
+        }
+
+        for (_, (regions, _)) in self.resources.get_mut().drain() {
+            for mut region in regions {
+                region.id = AllocId::deserialize(u32::MAX);
+            }
         }
     }
 }
@@ -156,13 +177,13 @@ impl Driver {
             .await?;
 
         let shared = compositor::Shared::new(&device);
-        let atlas = atlas::Atlas::new(&device, 512, atlas::AtlasKind::Primary);
-        let layer0 = atlas::Atlas::new(&device, 128, atlas::AtlasKind::Layer0);
-        let layer1 = atlas::Atlas::new(&device, 128, atlas::AtlasKind::Layer1);
-        let shape_shader = crate::render::shape::Shape::<0>::shader(&device);
-        let shape_pipeline = crate::render::shape::Shape::<0>::layout(&device);
+        let atlas = Atlas::new(&device, 512, AtlasKind::Primary);
+        let layer0 = Atlas::new(&device, 128, AtlasKind::Layer0);
+        let layer1 = Atlas::new(&device, 128, AtlasKind::Layer1);
+        let shape_shader = Shape::<0>::shader(&device);
+        let shape_pipeline = Shape::<0>::layout(&device);
 
-        let comp1 = crate::render::compositor::Compositor::new(
+        let comp1 = Compositor::new(
             &device,
             &shared,
             &atlas.view,
@@ -170,7 +191,7 @@ impl Driver {
             ATLAS_FORMAT,
             true,
         );
-        let comp2 = crate::render::compositor::Compositor::new(
+        let comp2 = Compositor::new(
             &device,
             &shared,
             &atlas.view,
@@ -184,8 +205,9 @@ impl Driver {
             device,
             queue,
             swash_cache: ScaleContext::new().into(),
+            prefetch: HashMap::new().into(),
             resources: HashMap::new().into(),
-            loaders: HashMap::new().into(),
+            locations: HashMap::new().into(),
             font_system: cosmic_text::FontSystem::new().into(),
             cursor: CursorIcon::Default.into(),
             pipelines: HashMap::new().into(),
@@ -197,25 +219,25 @@ impl Driver {
             layer_composite: [comp1.into(), comp2.into()],
         };
 
-        driver.register_pipeline::<crate::render::shape::Shape<0>>(
+        driver.register_pipeline::<Shape<0>>(
             shape_pipeline.clone(),
             shape_shader.clone(),
-            crate::render::shape::Shape::<0>::create,
+            Shape::<0>::create,
         );
-        driver.register_pipeline::<crate::render::shape::Shape<1>>(
+        driver.register_pipeline::<Shape<1>>(
             shape_pipeline.clone(),
             shape_shader.clone(),
-            crate::render::shape::Shape::<1>::create,
+            Shape::<1>::create,
         );
-        driver.register_pipeline::<crate::render::shape::Shape<2>>(
+        driver.register_pipeline::<Shape<2>>(
             shape_pipeline.clone(),
             shape_shader.clone(),
-            crate::render::shape::Shape::<2>::create,
+            Shape::<2>::create,
         );
-        driver.register_pipeline::<crate::render::shape::Shape<3>>(
+        driver.register_pipeline::<Shape<3>>(
             shape_pipeline.clone(),
             shape_shader.clone(),
-            crate::render::shape::Shape::<3>::create,
+            Shape::<3>::create,
         );
 
         let driver = Arc::new(driver);
@@ -279,8 +301,8 @@ impl Driver {
         );
     }
 
-    pub fn prefetch(&self, location: &dyn ResourceLocation) -> Result<(), Error> {
-        let mut resources = self.resources.write();
+    pub fn prefetch(&self, location: &dyn Location) -> Result<(), Error> {
+        let mut resources = self.prefetch.write();
 
         if !resources.contains_key(location) {
             resources.insert(dyn_clone::clone_box(location), location.fetch()?);
@@ -288,35 +310,61 @@ impl Driver {
         Ok(())
     }
 
+    /// This function is called during layout, outside of a render pass, which allows the texture atlas to be
+    /// immediately resized to accomdate the new resource. As a result, it assumes you don't need the region,
+    /// only the final intrinsic size.
+    pub fn load_and_resize(
+        &self,
+        location: &dyn Location,
+        size: guillotiere::Size,
+        dpi: f32,
+        resize: bool,
+    ) -> Result<guillotiere::Size, Error> {
+        let mut uvsize = guillotiere::Size::zero();
+        match self.load(location, size, dpi, resize, |r| {
+            uvsize = r.uv.size();
+            Ok(())
+        }) {
+            Err(Error::ResizeTextureAtlas(layers, kind)) => {
+                // Resize the texture atlas with the requested number of layers (the extent has already been changed)
+                match kind {
+                    AtlasKind::Primary => self.atlas.write(),
+                    AtlasKind::Layer0 => self.layer_atlas[0].write(),
+                    AtlasKind::Layer1 => self.layer_atlas[1].write(),
+                }
+                .resize(&self.device, &self.queue, layers);
+                self.load_and_resize(location, size, dpi, resize) // Retry load
+            }
+            Err(e) => Err(e),
+            Ok(_) => Ok(uvsize),
+        }
+    }
+
     pub fn load(
         &self,
-        location: &dyn ResourceLocation,
-        size: &guillotiere::Size,
+        location: &dyn Location,
+        mut size: guillotiere::Size,
         dpi: f32,
         resize: bool,
         mut f: impl FnMut(&atlas::Region) -> Result<(), Error>,
     ) -> Result<(), Error> {
-        if let Some(regions) = self.loaders.read().get(&ResourceInstance {
+        use crate::resource;
+
+        if let Some((regions, native_size)) = self.resources.read().get(&ResourceInstance {
             location: Err(location),
-            dpi,
+            dpi: f32::INFINITY,
             resizable: resize,
         }) {
+            size = resource::fill_size(size, *native_size);
+
             // Check if our requested size is within reasonable resize range - slightly bigger or smaller is fine, and
             // much smaller is fine if we have access to mipmaps.
             for r in regions {
-                if r.uv.size() == *size {
+                if r.uv.size() == size {
                     return f(r);
-                } else if r.uv.area() >= crate::resource::MIN_AREA
-                    && crate::resource::within_variance(
-                        size.width,
-                        r.uv.width(),
-                        crate::resource::MAX_VARIANCE,
-                    )
-                    && crate::resource::within_variance(
-                        size.width,
-                        r.uv.width(),
-                        crate::resource::MAX_VARIANCE,
-                    )
+                } else if r.uv.area() >= resource::MIN_AREA
+                    && resource::within_variance(size.width, r.uv.width(), resource::MAX_VARIANCE)
+                    && resource::within_variance(size.width, r.uv.width(), resource::MAX_VARIANCE)
                 {
                     return f(r);
                 } else if resize && size.width <= r.uv.width() && size.height < r.uv.height() {
@@ -326,9 +374,9 @@ impl Driver {
         }
 
         // Check for a prefetched resource
-        let region = {
+        let (region, native) = {
             let loader;
-            let reader = self.resources.read();
+            let reader = self.prefetch.read();
             if let Some(res) = reader.get(location) {
                 res
             } else {
@@ -338,16 +386,43 @@ impl Driver {
             .load(self, size, dpi, resize)?
         };
 
-        f(&self
-            .loaders
+        let key = ResourceInstance {
+            location: Ok(dyn_clone::clone_box(location)),
+            dpi: f32::INFINITY,
+            resizable: resize,
+        };
+
+        self.locations
             .write()
-            .entry(ResourceInstance {
-                location: Ok(dyn_clone::clone_box(location)),
-                dpi,
-                resizable: resize,
-            })
-            .insert_entry(smallvec::SmallVec::from_buf([region]))
-            .get()[0])
+            .entry(dyn_clone::clone_box(location))
+            .and_modify(|x| x.push(key.clone()))
+            .or_insert(SmallVec::from_buf([key.clone()]));
+
+        if let Some((entry, _)) = self.resources.write().get_mut(&key) {
+            entry.push(region);
+            f(entry.last().as_ref().ok_or(Error::InternalFailure)?)
+        } else {
+            f(&self
+                .resources
+                .write()
+                .entry(key)
+                .insert_entry((SmallVec::from_buf([region]), native))
+                .get()
+                .0[0])
+        }
+    }
+
+    /// Removes all loaded instances of a particular resource location. Generally used for hotloading resources that changed on disk.
+    pub fn evict(&self, location: &dyn Location) {
+        if let Some(instances) = self.locations.read().get(location) {
+            for instance in instances {
+                if let Some((regions, _)) = self.resources.write().remove(instance) {
+                    for mut region in regions {
+                        self.atlas.write().destroy(&mut region);
+                    }
+                }
+            }
+        }
     }
 }
 

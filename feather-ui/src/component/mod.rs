@@ -105,7 +105,7 @@ where
     }
 }
 
-pub struct StateMachine<State: EventRouter + 'static, const OUTPUT_SIZE: usize> {
+pub struct StateMachine<State, const OUTPUT_SIZE: usize> {
     pub state: Option<State>,
     pub output: [Option<Slot>; OUTPUT_SIZE],
     pub input_mask: u64,

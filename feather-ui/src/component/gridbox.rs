@@ -12,7 +12,7 @@ use super::ChildOf;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct GridBox<T: grid::Prop + 'static> {
+pub struct GridBox<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>>,

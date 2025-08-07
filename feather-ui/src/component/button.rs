@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 // A button component that contains a mousearea alongside it's children
 #[derive_where(Clone)]
-pub struct Button<T: fixed::Prop + 'static> {
+pub struct Button<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     marea: MouseArea<DRect>,

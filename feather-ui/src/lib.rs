@@ -22,6 +22,7 @@ pub mod util;
 
 use crate::component::window::Window;
 use crate::graphics::Driver;
+use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
 use bytemuck::NoUninit;
 use component::window::WindowStateMachine;
@@ -34,14 +35,21 @@ use persist::FnPersist;
 use smallvec::SmallVec;
 use std::any::Any;
 use std::cell::OnceCell;
+use std::cmp::PartialEq;
 use std::collections::{BTreeMap, HashMap};
-use std::hash::Hasher;
+use std::ffi::c_void;
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 use std::sync::Arc;
 use ultraviolet::f32x4;
 use ultraviolet::vec::Vec2;
 use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::{CmpGe, CmpGt};
+use winit::event::WindowEvent;
+use winit::event_loop::ActiveEventLoop;
+#[cfg(target_os = "windows")]
+use winit::event_loop::EventLoop;
 use winit::window::WindowId;
 pub use {cosmic_text, im, notify, ultraviolet, wgpu, winit};
 
@@ -251,7 +259,7 @@ impl AbsRect {
     }
 }
 
-impl std::fmt::Display for AbsRect {
+impl Display for AbsRect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let ltrb = self.0.as_array_ref();
         write!(
@@ -984,9 +992,7 @@ pub trait DynHashEq: DynClone + std::fmt::Debug {
 
 dyn_clone::clone_trait_object!(DynHashEq);
 
-impl<H: std::hash::Hash + std::cmp::PartialEq + std::cmp::Eq + Clone + std::fmt::Debug + Any>
-    DynHashEq for H
-{
+impl<H: Hash + PartialEq + std::cmp::Eq + Clone + std::fmt::Debug + Any> DynHashEq for H {
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         self.hash(&mut state);
     }
@@ -1009,7 +1015,7 @@ pub enum DataID {
     None, // Marks an invalid default ID, crashes if you ever try to actually use it.
 }
 
-impl std::hash::Hash for DataID {
+impl Hash for DataID {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             DataID::Named(s) => s.hash(state),
@@ -1024,7 +1030,7 @@ impl std::hash::Hash for DataID {
 }
 
 impl std::cmp::Eq for DataID {}
-impl std::cmp::PartialEq for DataID {
+impl PartialEq for DataID {
     fn eq(&self, other: &Self) -> bool {
         match self {
             DataID::Named(s) => {
@@ -1108,7 +1114,7 @@ impl SourceID {
     }
 }
 impl std::cmp::Eq for SourceID {}
-impl std::cmp::PartialEq for SourceID {
+impl PartialEq for SourceID {
     fn eq(&self, other: &Self) -> bool {
         if let Some(parent) = self.parent.get() {
             if let Some(pother) = other.parent.get() {
@@ -1121,7 +1127,7 @@ impl std::cmp::PartialEq for SourceID {
         }
     }
 }
-impl std::hash::Hash for SourceID {
+impl Hash for SourceID {
     fn hash<H: Hasher>(&self, state: &mut H) {
         if let Some(parent) = self.parent.get() {
             parent.id.hash(state);
@@ -1129,7 +1135,7 @@ impl std::hash::Hash for SourceID {
         self.id.hash(state);
     }
 }
-impl std::fmt::Display for SourceID {
+impl Display for SourceID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(parent) = self.parent.get() {
             parent.fmt(f)?;
@@ -1160,12 +1166,12 @@ pub struct Slot(pub Arc<SourceID>, pub u64);
 
 pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, State) -> Result<State, State>>;
 
-pub trait WrapEventEx<State: 'static + std::cmp::PartialEq, Input: Dispatchable + 'static> {
+pub trait WrapEventEx<State: 'static + PartialEq, Input: Dispatchable + 'static> {
     fn wrap(self) -> impl FnMut(DispatchPair, State) -> Result<State, State>;
 }
 
-impl<AppData: 'static + std::cmp::PartialEq, Input: Dispatchable + 'static, T>
-    WrapEventEx<AppData, Input> for T
+impl<AppData: 'static + PartialEq, Input: Dispatchable + 'static, T> WrapEventEx<AppData, Input>
+    for T
 where
     T: FnMut(Input, AppData) -> Result<AppData, AppData>,
 {
@@ -1287,23 +1293,23 @@ impl<T> Drop for StateCellRefMut<'_, T> {
 #[derive(Default)]
 pub struct StateManager {
     states: HashMap<Arc<SourceID>, Box<dyn StateMachineWrapper>>,
-    pointers: HashMap<*const std::ffi::c_void, Arc<SourceID>>,
+    pointers: HashMap<*const c_void, Arc<SourceID>>,
     changed: bool,
 }
 
 impl StateManager {
     pub fn register_pointer<T>(&mut self, p: *const T, id: Arc<SourceID>) -> Option<Arc<SourceID>> {
-        let ptr = p as *const std::ffi::c_void;
+        let ptr = p as *const c_void;
         self.pointers.insert(ptr, id)
     }
 
     pub fn invalidate_pointer<T>(&mut self, p: *const T) -> Option<Arc<SourceID>> {
-        let ptr = p as *const std::ffi::c_void;
+        let ptr = p as *const c_void;
         self.pointers.remove(&ptr)
     }
 
     pub fn mutate_pointer<T>(&mut self, p: *const T) {
-        let ptr = p as *const std::ffi::c_void;
+        let ptr = p as *const c_void;
         let id = self
             .pointers
             .get(&ptr)
@@ -1440,10 +1446,7 @@ pub const APP_SOURCE_ID: SourceID = SourceID {
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
-pub struct App<
-    AppData: 'static + std::cmp::PartialEq,
-    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
-> {
+pub struct App<AppData, O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
     state: StateManager,
@@ -1454,13 +1457,13 @@ pub struct App<
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
 }
 
-struct AppDataMachine<AppData: 'static + std::cmp::PartialEq> {
+struct AppDataMachine<AppData> {
     pub state: Option<AppData>,
     input: Vec<AppEvent<AppData>>,
     changed: bool,
 }
 
-impl<AppData: 'static + std::cmp::PartialEq> StateMachineWrapper for AppDataMachine<AppData> {
+impl<AppData: 'static + PartialEq> StateMachineWrapper for AppDataMachine<AppData> {
     fn output_slot(&self, _: usize) -> eyre::Result<&Option<Slot>> {
         Ok(&None)
     }
@@ -1507,7 +1510,7 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 use winit::platform::x11::EventLoopBuilderExtX11;
 
 impl<
-    AppData: std::cmp::PartialEq,
+    AppData: PartialEq + 'static,
     O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
 > App<AppData, O>
 {
@@ -1516,7 +1519,7 @@ impl<
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
-    ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
+    ) -> eyre::Result<(Self, EventLoop<T>)> {
         #[cfg(test)]
         let any_thread = true;
         #[cfg(not(test))]
@@ -1531,7 +1534,7 @@ impl<
         outline: O,
         any_thread: bool,
         driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
-    ) -> eyre::Result<(Self, winit::event_loop::EventLoop<T>)> {
+    ) -> eyre::Result<(Self, EventLoop<T>)> {
         let mut manager: StateManager = Default::default();
         manager.init(
             Arc::new(APP_SOURCE_ID),
@@ -1543,12 +1546,12 @@ impl<
         );
 
         #[cfg(target_os = "windows")]
-        let event_loop = winit::event_loop::EventLoop::with_user_event()
+        let event_loop = EventLoop::with_user_event()
             .with_any_thread(any_thread)
             .with_dpi_aware(true)
             .build()?;
         #[cfg(not(target_os = "windows"))]
-        let event_loop = winit::event_loop::EventLoop::with_user_event()
+        let event_loop = EventLoop::with_user_event()
             .with_any_thread(any_thread)
             .build()
             .map_err(|e| {
@@ -1590,7 +1593,7 @@ impl<
     }
 
     #[allow(clippy::borrow_interior_mutable_const)]
-    fn update_outline(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, store: O::Store) {
+    fn update_outline(&mut self, event_loop: &ActiveEventLoop, store: O::Store) {
         let app_state: &AppDataMachine<AppData> = self.state.get(&APP_SOURCE_ID).unwrap();
         let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
         debug_assert!(
@@ -1619,21 +1622,21 @@ impl<
 }
 
 impl<
-    AppData: std::cmp::PartialEq,
+    AppData: PartialEq + 'static,
     T: 'static,
     O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
 > winit::application::ApplicationHandler<T> for App<AppData, O>
 {
-    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // If this is our first resume, call the start function that can create the necessary graphics context
         let store = self.store.take();
         self.update_outline(event_loop, store.unwrap_or_else(|| O::init(&self.outline)));
     }
     fn window_event(
         &mut self,
-        event_loop: &winit::event_loop::ActiveEventLoop,
+        event_loop: &ActiveEventLoop,
         window_id: WindowId,
-        event: winit::event::WindowEvent,
+        event: WindowEvent,
     ) {
         let mut delete = None;
         if let Some(root) = self.root.states.get_mut(&window_id) {
@@ -1645,7 +1648,7 @@ impl<
                 let window = window.as_ref().unwrap();
                 let mut resized = false;
                 let _ = match event {
-                    winit::event::WindowEvent::CloseRequested => Window::on_window_event(
+                    WindowEvent::CloseRequested => Window::on_window_event(
                         window.id(),
                         rtree,
                         event,
@@ -1655,7 +1658,7 @@ impl<
                     .inspect_err(|_| {
                         delete = Some(window.id());
                     }),
-                    winit::event::WindowEvent::RedrawRequested => {
+                    WindowEvent::RedrawRequested => {
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
                             if let Some(driver) = self.driver.upgrade() {
                                 if let Some(staging) = root.staging.as_ref() {
@@ -1689,13 +1692,11 @@ impl<
                                                 Error::ResizeTextureAtlas(layers, kind) => {
                                                     // Resize the texture atlas with the requested number of layers (the extent has already been changed)
                                                     match kind {
-                                                        render::atlas::AtlasKind::Primary => {
-                                                            driver.atlas.write()
-                                                        }
-                                                        render::atlas::AtlasKind::Layer0 => {
+                                                        AtlasKind::Primary => driver.atlas.write(),
+                                                        AtlasKind::Layer0 => {
                                                             driver.layer_atlas[0].write()
                                                         }
-                                                        render::atlas::AtlasKind::Layer1 => {
+                                                        AtlasKind::Layer1 => {
                                                             driver.layer_atlas[1].write()
                                                         }
                                                     }
@@ -1795,7 +1796,7 @@ impl<
                         }
                         Ok(())
                     }
-                    winit::event::WindowEvent::Resized(_) => {
+                    WindowEvent::Resized(_) => {
                         resized = true;
                         Window::on_window_event(
                             window.id(),
@@ -1833,18 +1834,18 @@ impl<
 
     fn device_event(
         &mut self,
-        event_loop: &winit::event_loop::ActiveEventLoop,
+        event_loop: &ActiveEventLoop,
         device_id: winit::event::DeviceId,
         event: winit::event::DeviceEvent,
     ) {
         let _ = (event_loop, device_id, event);
     }
 
-    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, _: T) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, _: T) {
         event_loop.exit();
     }
 
-    fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
         let _ = event_loop;
     }
 }
@@ -1895,7 +1896,7 @@ impl FnPersist<u8, im::HashMap<Arc<SourceID>, Option<Window>>> for TestApp {
 
 #[test]
 fn test_basic() {
-    let (mut app, event_loop): (App<u8, TestApp>, winit::event_loop::EventLoop<()>) =
+    let (mut app, event_loop): (App<u8, TestApp>, EventLoop<()>) =
         App::new(0u8, vec![], TestApp {}, |_| ()).unwrap();
 
     let proxy = event_loop.create_proxy();

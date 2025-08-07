@@ -222,7 +222,7 @@ impl super::EventRouter for ScrollAreaState {
 }
 
 #[derive_where(Clone)]
-pub struct ScrollArea<T: fixed::Prop + 'static> {
+pub struct ScrollArea<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     stepsize: (Option<f32>, Option<f32>),

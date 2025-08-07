@@ -10,7 +10,7 @@ use std::sync::Arc;
 // This simply writes it's area to the given cross-reference domain during the layout phase
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct DomainPoint<T: domain_write::Prop + 'static> {
+pub struct DomainPoint<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
 }

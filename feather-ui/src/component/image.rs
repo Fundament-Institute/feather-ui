@@ -2,17 +2,17 @@
 // SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
 
 use crate::layout::{Layout, leaf};
-use crate::{DAbsPoint, SourceID, UNSIZED_AXIS, layout};
+use crate::{DAbsPoint, SourceID, UNSIZED_AXIS};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct Image<T: leaf::Padded + 'static> {
+pub struct Image<T> {
     pub id: Arc<SourceID>,
     pub props: Rc<T>,
-    pub resource: Box<dyn crate::resource::ResourceLocation>,
+    pub resource: Box<dyn crate::resource::Location>,
     pub size: DAbsPoint,
     pub dynamic: bool,
 }
@@ -21,7 +21,7 @@ impl<T: leaf::Padded + 'static> Image<T> {
     pub fn new(
         id: Arc<SourceID>,
         props: Rc<T>,
-        resource: &dyn crate::resource::ResourceLocation,
+        resource: &dyn crate::resource::Location,
         size: DAbsPoint,
         dynamic: bool,
     ) -> Self {
@@ -63,27 +63,27 @@ where
             .unwrap_or(crate::BASE_DPI);
 
         let size = self.size.resolve(dpi);
-        let size = guillotiere::Size::new(zero_float(size.x), zero_float(size.y));
 
-        // TODO: allow layout to return an error
-        driver
-            .load(self.resource.as_ref(), &size, dpi.x, self.dynamic, |_| {
-                Ok(())
-            })
+        // TODO: Layout cannot easily return an error because this messes up the persistent functions
+        let uvsize = driver
+            .load_and_resize(
+                self.resource.as_ref(),
+                guillotiere::Size::new(zero_float(size.x), zero_float(size.y)),
+                dpi.x,
+                self.dynamic,
+            )
             .unwrap();
 
-        Box::new(layout::Node::<T, dyn leaf::Prop> {
+        Box::new(leaf::Sized::<T> {
             props: self.props.clone(),
-            children: Default::default(),
             id: Arc::downgrade(&self.id),
+            size: ultraviolet::Vec2::new(uvsize.width as f32, uvsize.height as f32),
             renderable: Some(Rc::new(crate::render::image::Instance {
                 image: self.resource.clone(),
                 padding: self.props.padding().resolve(dpi),
                 dpi: dpi.x,
-                size,
                 resize: self.dynamic,
             })),
-            layer: None,
         })
     }
 }
