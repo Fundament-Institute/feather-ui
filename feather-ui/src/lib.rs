@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 extern crate alloc;
 
@@ -100,6 +100,10 @@ pub enum Error {
     FileError(std::io::Error),
     #[error("An error happened when loading a resource: {0:?}")]
     ResourceError(Box<dyn std::fmt::Debug + Send + Sync>),
+    #[error(
+        "The resource was in an unrecognized format. Are you sure you enabled the right feature flags?"
+    )]
+    UnknownResourceFormat,
 }
 
 impl From<std::io::Error> for Error {

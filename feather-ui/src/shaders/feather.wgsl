@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 const UNITX = array(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
 const UNITY = array(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);

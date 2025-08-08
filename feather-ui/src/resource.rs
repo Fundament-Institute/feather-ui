@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::any::Any;
 use std::fs::File;
 
+#[cfg(feature = "svg")]
 use resvg::{tiny_skia, usvg};
 
 use crate::Error;
 use crate::color::sRGB64;
 use crate::render::atlas;
-use fast_image_resize::{IntoImageView, ResizeOptions};
 use std::hash::Hash;
+use ultraviolet::Vec2;
 
 pub(crate) const MIN_AREA: i32 = 64 * 64;
 pub(crate) const MAX_VARIANCE: f32 = 0.1;
@@ -34,6 +35,16 @@ pub fn fill_size(size: guillotiere::Size, native: guillotiere::Size) -> guilloti
             (native.width as f32 * (y as f32 / native.height as f32)).round() as i32,
             y,
         ),
+        _ => size,
+    }
+}
+
+#[inline]
+pub fn fill_vec2(size: Vec2, native: Vec2) -> Vec2 {
+    match (size.x, size.y) {
+        (0.0, 0.0) => native,
+        (x, 0.0) => Vec2::new(x, native.y * (x / native.x)),
+        (0.0, y) => Vec2::new(native.x * (y / native.y), y),
         _ => size,
     }
 }
@@ -68,20 +79,22 @@ impl PartialEq for dyn Location {
 
 impl Eq for dyn Location {}
 
+#[cfg(feature = "svg")]
 #[derive(Debug)]
 // resvg requires the DPI when it parses the XML, and we can't store the XML tree directly, so we store the string instead.
-struct SVGXML(String);
+struct SvgXml(String);
 
 impl Location for std::path::PathBuf {
     fn fetch(&self) -> Result<Box<dyn Loader>, Error> {
         use std::io::Read;
 
+        #[cfg(feature = "svg")]
         if let Some(extension) = self.extension() {
             let ext = extension.to_str().unwrap().to_ascii_lowercase();
             if &ext == "svgz" {
                 let mut buf = Vec::new();
                 {
-                    let mut f = File::open(&self)?;
+                    let mut f = File::open(self)?;
                     f.read_to_end(&mut buf)?;
                 }
 
@@ -90,32 +103,49 @@ impl Location for std::path::PathBuf {
                         .map_err(|e| Error::ResourceError(Box::new(e)))?;
                 }
 
-                return Ok(Box::new(SVGXML(
+                return Ok(Box::new(SvgXml(
                     String::from_utf8(buf).map_err(|e| Error::ResourceError(Box::new(e)))?,
                 )));
             } else if &ext == "svg" {
                 let mut buf = String::new();
-                File::open(&self)?.read_to_string(&mut buf)?;
-                return Ok(Box::new(SVGXML(buf)));
+                File::open(self)?.read_to_string(&mut buf)?;
+                return Ok(Box::new(SvgXml(buf)));
             }
         }
+
+        #[cfg(feature = "svg")]
         {
-            let mut f = File::open(&self)?;
+            let mut f = File::open(self)?;
             let mut header = [0_u8; 2];
             if f.read(&mut header)? == 2 && header == [0x1f_u8, 0x8b_u8] {
                 let mut buf: Vec<u8> = header.into();
                 f.read_to_end(&mut buf)?;
                 buf = usvg::decompress_svgz(&buf).map_err(|e| Error::ResourceError(Box::new(e)))?;
 
-                return Ok(Box::new(SVGXML(
+                return Ok(Box::new(SvgXml(
                     String::from_utf8(buf).map_err(|e| Error::ResourceError(Box::new(e)))?,
                 )));
             }
         }
 
         // We start by guessing the format from ImageReader, because it only reads a maximum of 16 bytes from the file.
+        #[cfg(any(
+            feature = "avif",
+            feature = "bmp",
+            feature = "dds",
+            feature = "exr",
+            feature = "ff",
+            feature = "gif",
+            feature = "hdr",
+            feature = "ico",
+            feature = "pnm",
+            feature = "qoi",
+            feature = "tga",
+            feature = "tiff",
+            feature = "webp"
+        ))]
         {
-            let image = image::ImageReader::open(&self)?.with_guessed_format()?;
+            let image = image::ImageReader::open(self)?.with_guessed_format()?;
 
             match image.format() {
                 Some(image::ImageFormat::Png) | Some(image::ImageFormat::Jpeg) => (),
@@ -129,25 +159,30 @@ impl Location for std::path::PathBuf {
             }
         }
 
-        // If we get here, it's a PNG or JPEG, so we drop the image to close the file handle, then load it with load_image instead
-        // so we can correctly convert it to sRGB color space using the embedded color profile information.
-        Ok(Box::new(
-            load_image::load_path(&self).map_err(|e| Error::ResourceError(Box::new(e)))?,
-        ))
+        // If we get here, it's a PNG or JPEG, (or an unsupported format) so we drop the image to close the file handle,
+        // then load it with load_image instead to correctly convert it to sRGB color space using the embedded color profile.
+        #[cfg(any(feature = "png", feature = "jpeg"))]
+        return Ok(Box::new(load_image::load_path(self).map_err(
+            |e| match e {
+                load_image::Error::UnsupportedFileFormat => Error::UnknownResourceFormat,
+                _ => Error::ResourceError(Box::new(e)),
+            },
+        )?));
+
+        #[allow(unreachable_code)]
+        Err(Error::UnknownResourceFormat)
     }
 }
 
-impl Loader for SVGXML {
+#[cfg(feature = "svg")]
+impl Loader for SvgXml {
     fn load(
         &self,
         driver: &crate::graphics::Driver,
-        size: guillotiere::Size,
+        mut size: guillotiere::Size,
         dpi: f32,
         _resize: bool,
     ) -> Result<(atlas::Region, guillotiere::Size), Error> {
-        use crate::color::Premultiplied;
-        use crate::color::sRGB32;
-
         let xml_opt = usvg::roxmltree::ParsingOptions {
             allow_dtd: true,
             ..Default::default()
@@ -155,106 +190,84 @@ impl Loader for SVGXML {
         let xml_tree = usvg::roxmltree::Document::parse_with_options(&self.0, xml_opt)
             .map_err(|e| Error::ResourceError(Box::new(e)))?;
 
-        let svg_opt = usvg::Options {
+        let mut svg_opt = usvg::Options {
             dpi,
             font_size: 12.0, // TODO: change this based on system text-scaling property.
-            shape_rendering: usvg::ShapeRendering::CrispEdges,
-            default_size: tiny_skia::Size::from_wh(size.width as f32, size.height as f32).unwrap(),
             ..Default::default()
         };
 
+        if let Some(sz) = tiny_skia::Size::from_wh(size.width as f32, size.height as f32) {
+            svg_opt.default_size = sz;
+        }
+
         let svg = usvg::Tree::from_xmltree(&xml_tree, &svg_opt)
             .map_err(|e| Error::ResourceError(Box::new(e)))
-            .map(|x| Box::new(x))?;
+            .map(Box::new)?;
 
-        let svg_size = svg.size().to_int_size();
-        // If we provided an intended draw size, smoosh the SVG into that size.
-        let (t, w, h) = match (size.width, size.height) {
-            (0, 0) => (
-                tiny_skia::Transform::identity(),
-                svg_size.width(),
-                svg_size.height(),
-            ),
-            (x, 0) => {
-                let scale = x as f32 / svg.size().width();
-                (
-                    tiny_skia::Transform::from_scale(scale, scale),
-                    x as u32,
-                    (svg.size().height() * scale) as u32,
-                )
-            }
-            (0, y) => {
-                let scale = y as f32 / svg.size().height();
-                (
-                    tiny_skia::Transform::from_scale(scale, scale),
-                    (svg.size().width() * scale) as u32,
-                    y as u32,
-                )
-            }
-            (x, y) => (
-                tiny_skia::Transform::from_scale(
-                    x as f32 / svg.size().width(),
-                    y as f32 / svg.size().height(),
-                ),
-                x as u32,
-                y as u32,
-            ),
+        // TODO: This rounds, which might not give accurate results. It might instead need to use ceiling.
+        let svg_size = svg.size();
+        let native_size = Vec2::new(svg_size.width(), svg_size.height());
+        let sizevec = fill_vec2(
+            Vec2::new(size.height as f32, size.width as f32),
+            native_size,
+        );
+
+        let t = if sizevec == native_size {
+            tiny_skia::Transform::identity()
+        } else {
+            tiny_skia::Transform::from_scale(sizevec.x / native_size.x, sizevec.y / native_size.y)
         };
 
-        let mut pixmap = tiny_skia::Pixmap::new(w, h).unwrap();
+        let mut pixmap =
+            tiny_skia::Pixmap::new(sizevec.x.ceil() as u32, sizevec.y.ceil() as u32).unwrap();
 
         resvg::render(&svg, t, &mut pixmap.as_mut());
 
-        // Here we flip this into our BGRA representation
-        for c in pixmap.data_mut().chunks_exact_mut(4) {
-            // Pre-multiply color, then extract in BGRA form.
-            c.copy_from_slice(
-                &sRGB32::new(c[0], c[1], c[2], c[3])
-                    .as_f32()
-                    .srgb_pre()
-                    .as_bgra(),
-            );
+        // The pixels are already premultiplied for us, we just have to flip the order.
+        for c in pixmap.data_mut().as_chunks_mut::<4>().0 {
+            c.swap(0, 2);
         }
 
-        let region = driver
-            .atlas
-            .write()
-            .reserve(&driver.device, guillotiere::Size::new(w as i32, h as i32))?;
+        size = guillotiere::Size::new(pixmap.width() as i32, pixmap.height() as i32);
+        let region = driver.atlas.write().reserve(&driver.device, size)?;
 
         queue_atlas_data(
             pixmap.data(),
             &region,
             &driver.queue,
-            w,
-            h,
+            pixmap.width(),
+            pixmap.height(),
             &driver.atlas.read(),
         );
 
         // TODO: generate mipmaps
-        Ok((
-            region,
-            guillotiere::Size::new(svg_size.width() as i32, svg_size.height() as i32),
-        ))
+        Ok((region, size))
     }
 }
 
+#[cfg(any(feature = "png", feature = "jpeg"))]
 struct LoadImageView<'a>(&'a load_image::Image);
 
+#[cfg(any(feature = "png", feature = "jpeg"))]
 fn image_data_as_bytes(data: &load_image::ImageData) -> &[u8] {
-    use load_image::export::rgb::ComponentBytes;
     match data {
-        load_image::ImageData::RGB8(rgbs) => rgbs.as_slice().as_bytes(),
-        load_image::ImageData::RGBA8(rgbas) => rgbas.as_slice().as_bytes(),
-        load_image::ImageData::RGB16(rgbs) => rgbs.as_slice().as_bytes(),
-        load_image::ImageData::RGBA16(rgbas) => rgbas.as_slice().as_bytes(),
-        load_image::ImageData::GRAY8(gray_v08s) => gray_v08s.as_slice().as_bytes(),
-        load_image::ImageData::GRAY16(gray_v08s) => gray_v08s.as_slice().as_bytes(),
-        load_image::ImageData::GRAYA8(gray_alpha_v08s) => gray_alpha_v08s.as_slice().as_bytes(),
-        load_image::ImageData::GRAYA16(gray_alpha_v08s) => gray_alpha_v08s.as_slice().as_bytes(),
+        load_image::ImageData::RGB8(rgbs) => bytemuck::cast_slice(rgbs.as_slice()),
+        load_image::ImageData::RGBA8(rgbas) => bytemuck::cast_slice(rgbas.as_slice()),
+        load_image::ImageData::RGB16(rgbs) => bytemuck::cast_slice(rgbs.as_slice()),
+        load_image::ImageData::RGBA16(rgbas) => bytemuck::cast_slice(rgbas.as_slice()),
+        load_image::ImageData::GRAY8(gray_v08s) => bytemuck::cast_slice(gray_v08s.as_slice()),
+        load_image::ImageData::GRAY16(gray_v08s) => bytemuck::cast_slice(gray_v08s.as_slice()),
+        load_image::ImageData::GRAYA8(gray_alpha_v08s) => {
+            bytemuck::cast_slice(gray_alpha_v08s.as_slice())
+        }
+        load_image::ImageData::GRAYA16(gray_alpha_v08s) => {
+            bytemuck::cast_slice(gray_alpha_v08s.as_slice())
+        }
     }
 }
 
-impl<'a> IntoImageView for LoadImageView<'a> {
+#[cfg(any(feature = "png", feature = "jpeg"))]
+impl<'a> fast_image_resize::IntoImageView for LoadImageView<'a> {
     fn pixel_type(&self) -> Option<fast_image_resize::PixelType> {
         use fast_image_resize::PixelType;
         use load_image::ImageData;
@@ -293,6 +306,23 @@ impl<'a> IntoImageView for LoadImageView<'a> {
     }
 }
 
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "png",
+    feature = "jpeg",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
 fn process_pixels<P: fast_image_resize::pixels::InnerPixel>(
     output: &mut [u8],
     dst_image: &fast_image_resize::images::Image<'_>,
@@ -312,7 +342,7 @@ fn process_pixels<P: fast_image_resize::pixels::InnerPixel>(
 
 fn process_load_pixels<T>(
     output: &mut [u8],
-    source: &Vec<T>,
+    source: &[T],
     convert: fn(p: &T) -> crate::color::sRGB,
 ) {
     use crate::color::Premultiplied;
@@ -322,10 +352,27 @@ fn process_load_pixels<T>(
     }
 }
 
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "png",
+    feature = "jpeg",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
 fn image_resize_loader(
     inner_format: fast_image_resize::PixelType,
     srgb_map: fast_image_resize::PixelComponentMapper,
-    source: &impl IntoImageView,
+    source: &impl fast_image_resize::IntoImageView,
     size: guillotiere::Size,
 ) -> Result<(Vec<u8>, u32, u32), Error> {
     let mut inner_src_image =
@@ -342,11 +389,11 @@ fn image_resize_loader(
         .resize(
             &inner_src_image,
             &mut dst_image,
-            &ResizeOptions::new().use_alpha(true).resize_alg(
-                fast_image_resize::ResizeAlg::Convolution(
+            &fast_image_resize::ResizeOptions::new()
+                .use_alpha(true)
+                .resize_alg(fast_image_resize::ResizeAlg::Convolution(
                     fast_image_resize::FilterType::CatmullRom,
-                ),
-            ),
+                )),
         )
         .map_err(|e| Error::ResourceError(Box::new(e)))?;
 
@@ -385,6 +432,7 @@ fn image_resize_loader(
     Ok((output, dst_image.width(), dst_image.height()))
 }
 
+#[cfg(any(feature = "png", feature = "jpeg",))]
 impl Loader for load_image::Image {
     fn load(
         &self,
@@ -404,8 +452,8 @@ impl Loader for load_image::Image {
         // If we're too close to the native size of the image, skip resizing it and simply store the native size to the atlas.
         let force_native = within_variance(size.height, self.height as i32, 0.05)
             && within_variance(size.width, self.width as i32, 0.05);
-        let (raw, w, h) = if !force_native
-            && !(size.width as usize > self.width && size.height as usize > self.height)
+        let (raw, w, h) = if !(force_native
+            || size.width as usize > self.width && size.height as usize > self.height)
         {
             use load_image::ImageData;
 
@@ -427,7 +475,7 @@ impl Loader for load_image::Image {
                 ImageData::GRAYA8(_) | ImageData::GRAYA16(_) => fast_image_resize::PixelType::U16x2,
             };
 
-            image_resize_loader(inner_format, srgb_map, &LoadImageView(&self), size)?
+            image_resize_loader(inner_format, srgb_map, &LoadImageView(self), size)?
         } else {
             let mut output =
                 unsafe { vec![std::mem::zeroed::<u8>(); self.width * self.height * 4] };
@@ -491,6 +539,21 @@ impl Loader for load_image::Image {
     }
 }
 
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
 impl Loader for image::DynamicImage {
     fn load(
         &self,
@@ -499,8 +562,7 @@ impl Loader for image::DynamicImage {
         _: f32,
         _resize: bool,
     ) -> Result<(atlas::Region, guillotiere::Size), Error> {
-        use crate::color::Premultiplied;
-        use crate::color::sRGB32;
+        use crate::color::{Premultiplied, sRGB32};
 
         let native = guillotiere::Size::new(self.width() as i32, self.height() as i32);
         size = fill_size(size, native);
@@ -509,8 +571,8 @@ impl Loader for image::DynamicImage {
         let force_native = within_variance(size.height, self.height() as i32, 0.05)
             && within_variance(size.width, self.width() as i32, 0.05);
 
-        let (raw, w, h) = if !force_native
-            && !(size.width as u32 > self.width() && size.height as u32 > self.height())
+        let (raw, w, h) = if !(force_native
+            || size.width as u32 > self.width() && size.height as u32 > self.height())
         {
             let srgb_map = if self.color().has_color() {
                 fast_image_resize::create_srgb_mapper()
