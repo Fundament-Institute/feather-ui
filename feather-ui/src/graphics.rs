@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::collections::HashMap;
 
@@ -7,7 +7,7 @@ use crate::render::atlas::{ATLAS_FORMAT, Atlas, AtlasKind};
 use crate::render::compositor::Compositor;
 use crate::render::shape::Shape;
 use crate::render::{atlas, compositor};
-use crate::resource::{Loader, Location};
+use crate::resource::{Loader, Location, MAX_VARIANCE};
 use crate::{Error, render};
 use guillotiere::AllocId;
 use parking_lot::RwLock;
@@ -69,8 +69,8 @@ impl Clone for ResourceInstance<'static> {
     fn clone(&self) -> Self {
         Self {
             location: self.location.clone(),
-            dpi: self.dpi.clone(),
-            resizable: self.resizable.clone(),
+            dpi: self.dpi,
+            resizable: self.resizable,
         }
     }
 }
@@ -109,6 +109,7 @@ impl Eq for ResourceInstance<'_> {}
 // We want to share our device/adapter state across windows, but can't create it until we have at least one window,
 // so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
 // sensible behavior.
+#[allow(clippy::type_complexity)]
 #[derive_where::derive_where(Debug)]
 pub struct Driver {
     pub(crate) glyphs: RwLock<GlyphCache>,
@@ -360,14 +361,12 @@ impl Driver {
             // Check if our requested size is within reasonable resize range - slightly bigger or smaller is fine, and
             // much smaller is fine if we have access to mipmaps.
             for r in regions {
-                if r.uv.size() == size {
-                    return f(r);
-                } else if r.uv.area() >= resource::MIN_AREA
-                    && resource::within_variance(size.width, r.uv.width(), resource::MAX_VARIANCE)
-                    && resource::within_variance(size.width, r.uv.width(), resource::MAX_VARIANCE)
+                if r.uv.size() == size
+                    || (r.uv.area() >= resource::MIN_AREA
+                        && resource::within_variance(size.width, r.uv.width(), MAX_VARIANCE)
+                        && resource::within_variance(size.height, r.uv.height(), MAX_VARIANCE))
+                    || (resize && size.width <= r.uv.width() && size.height < r.uv.height())
                 {
-                    return f(r);
-                } else if resize && size.width <= r.uv.width() && size.height < r.uv.height() {
                     return f(r);
                 }
             }

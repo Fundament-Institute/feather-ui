@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use feather_macro::*;
 use feather_ui::color::sRGB;
@@ -53,8 +53,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
         args: &CounterState,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let testimage = PathBuf::from("./blendtest.png");
-
             let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                 gen_id!(),
                 Rc::new(DRect {
@@ -69,28 +67,58 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 sRGB::transparent(),
             );
 
+            let mut children: im::Vector<
+                Option<Box<feather_ui::component::ChildOf<dyn fixed::Prop>>>,
+            > = im::Vector::new();
+            children.push_back(Some(Box::new(pixel)));
+
+            #[cfg(feature = "png")]
+            let testimage = PathBuf::from("./test_color.png");
             // Test image with both unsized
             // test image with one axis unsized
             // test image force to unusual aspect ratio
             // test image with both unsized, but with forced resizing to 100.0 on one axis
             // test image stretched out after resized to 100.0 on one axis.
+
+            #[cfg(feature = "png")]
             let image = Image::<DRect>::new(
                 gen_id!(),
                 Rc::new(DRect {
                     px: ZERO_RECT,
-                    dp: AbsRect::new(100.0, 100.0, 0.0, 0.0),
-                    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+                    dp: AbsRect::new(100.0, 100.0, 0.0, 200.0),
+                    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
                 }),
                 &testimage,
                 Vec2::zero().into(),
                 false,
             );
 
+            #[cfg(feature = "png")]
+            children.push_back(Some(Box::new(image)));
+
+            #[cfg(feature = "svg")]
+            let testsvg = PathBuf::from("./FRI_logo.svg");
             // Test svg with both unsized
             // test svg with one axis unsized
             // test svg force to unusual aspect ratio
             // test svg with both unsized, but with forced resizing to 100.0 on one axis
             // test svg stretched out after resized to 100.0 on one axis.
+
+            #[cfg(feature = "svg")]
+            let svg = Image::<DRect>::new(
+                gen_id!(),
+                Rc::new(DRect {
+                    px: ZERO_RECT,
+                    dp: AbsRect::new(250.0, 250.0, 0.0, 0.0),
+                    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+                }),
+                &testsvg,
+                Vec2::zero().into(),
+                false,
+            );
+
+            #[cfg(feature = "svg")]
+            children.push_back(Some(Box::new(svg)));
 
             let region = Region::new(
                 gen_id!(),
@@ -104,7 +132,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                     ..Default::default()
                 }
                 .into(),
-                feather_ui::children![fixed::Prop, image, pixel],
+                children,
             );
 
             let window = Window::new(

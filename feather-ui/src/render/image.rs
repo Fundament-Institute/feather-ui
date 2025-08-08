@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::compositor::CompositorView;
-use crate::{AbsRect, resource::Location};
+use crate::AbsRect;
+use crate::resource::Location;
 
 pub struct Instance {
     pub image: Box<dyn Location>,
