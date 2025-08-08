@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
 use ultraviolet::{Vec2, Vec3};
-use winit::{
-    dpi::PhysicalPosition,
-    event::{DeviceId, TouchPhase},
-};
+use winit::dpi::PhysicalPosition;
+use winit::event::{DeviceId, TouchPhase};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]

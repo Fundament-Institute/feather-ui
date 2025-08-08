@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::StateMachine;
 use crate::component::{ChildOf, Layout};
 use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Desc, base, fixed};
-use crate::persist::FnPersist;
-use crate::persist::VectorMap;
+use crate::persist::{FnPersist, VectorMap};
 use crate::{AbsRect, Dispatchable, Slot, SourceID, UNSIZED_AXIS, ZERO_RECT, layout};
 use core::f32;
 use derive_where::derive_where;

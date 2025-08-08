@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use num_traits::NumCast;
 use wide::f32x4;
@@ -499,13 +499,13 @@ impl sRGB64 {
             ((self.rgba >> 48) & 0xFFFF) as u16,
             ((self.rgba >> 32) & 0xFFFF) as u16,
             ((self.rgba >> 16) & 0xFFFF) as u16,
-            ((self.rgba >> 0) & 0xFFFF) as u16,
+            (self.rgba & 0xFFFF) as u16,
         ]
     }
 
     pub const fn new(r: u16, g: u16, b: u16, a: u16) -> Self {
         Self {
-            rgba: ((r as u64) << 48) | ((g as u64) << 32) | ((b as u64) << 16) | ((a as u64) << 0),
+            rgba: ((r as u64) << 48) | ((g as u64) << 32) | ((b as u64) << 16) | (a as u64),
         }
     }
 

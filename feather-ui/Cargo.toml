@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+# SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 [package]
 name = "feather-ui"
@@ -50,8 +50,8 @@ ff = ["dep:image", "image/ff", "fast_image_resize/image"]
 gif = ["dep:image", "image/gif", "fast_image_resize/image"]
 hdr = ["dep:image", "image/hdr", "fast_image_resize/image"]
 ico = ["dep:image", "image/ico", "fast_image_resize/image"]
-jpeg = ["dep:load_image", "load_image/jpeg"]
-png = ["dep:load_image", "load_image/zlibrs"]
+jpeg = ["dep:load_image", "load_image/jpeg", "dep:fast_image_resize"]
+png = ["dep:load_image", "load_image/zlibrs", "dep:fast_image_resize"]
 pnm = ["dep:image", "image/pnm", "fast_image_resize/image"]
 qoi = ["dep:image", "image/qoi", "fast_image_resize/image"]
 tga = ["dep:image", "image/tga", "fast_image_resize/image"]
@@ -100,7 +100,11 @@ mlua = { version = "0.10", features = [
   "vendored",
 ], optional = true }
 image = { version = "0.25.6", optional = true, default-features = false }
-resvg = { version = "0.45.1", optional = true }
+resvg = { version = "0.45.1", optional = true, default-features = false, features = [
+  "text",
+  "system-fonts",
+  "memmap-fonts",
+] }
 vello = { version = "0.5.0", optional = true }
 vello_svg = { version = "0.7.1", optional = true }
 load_image = { version = "3.3.0", optional = true, default-features = false, features = [
