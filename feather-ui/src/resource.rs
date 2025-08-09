@@ -181,7 +181,7 @@ impl Loader for SvgXml {
         driver: &crate::graphics::Driver,
         mut size: guillotiere::Size,
         dpi: f32,
-        _resize: bool,
+        resize: bool,
     ) -> Result<(atlas::Region, guillotiere::Size), Error> {
         let xml_opt = usvg::roxmltree::ParsingOptions {
             allow_dtd: true,
@@ -229,7 +229,11 @@ impl Loader for SvgXml {
         }
 
         size = guillotiere::Size::new(pixmap.width() as i32, pixmap.height() as i32);
-        let region = driver.atlas.write().reserve(&driver.device, size)?;
+        let region = driver.atlas.write().reserve(
+            &driver.device,
+            size,
+            if resize { Some(&driver.queue) } else { None },
+        )?;
 
         queue_atlas_data(
             pixmap.data(),
@@ -240,7 +244,6 @@ impl Loader for SvgXml {
             &driver.atlas.read(),
         );
 
-        // TODO: generate mipmaps
         Ok((region, size))
     }
 }
@@ -432,7 +435,28 @@ fn image_resize_loader(
     Ok((output, dst_image.width(), dst_image.height()))
 }
 
-#[cfg(any(feature = "png", feature = "jpeg",))]
+/*
+fn gen_test_image() {
+    let mut imgbuf = image::ImageBuffer::new(128, 128);
+
+    for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+        let v = match ((x / 4) % 2, (y / 4) % 2) {
+            (0, 0) => [255, 0, 0, 0],
+            (1, 0) => [0, 255, 0, 0],
+            (0, 1) => [0, 0, 255, 0],
+            (1, 1) => [0, 0, 0, 255],
+            _ => panic!("math stopped working!"),
+        };
+        *pixel = image::Rgba::<u8>(v);
+    }
+
+    imgbuf
+        .save_with_format("premul_test.png", image::ImageFormat::Png)
+        .unwrap();
+}
+*/
+
+#[cfg(any(feature = "png", feature = "jpeg"))]
 impl Loader for load_image::Image {
     fn load(
         &self,
@@ -526,15 +550,14 @@ impl Loader for load_image::Image {
             (output, self.width as u32, self.height as u32)
         };
 
-        let region = driver
-            .atlas
-            .write()
-            .reserve(&driver.device, guillotiere::Size::new(w as i32, h as i32))?;
+        let region = driver.atlas.write().reserve(
+            &driver.device,
+            guillotiere::Size::new(w as i32, h as i32),
+            if resize { Some(&driver.queue) } else { None },
+        )?;
 
         queue_atlas_data(&raw, &region, &driver.queue, w, h, &driver.atlas.read());
 
-        // TODO: We generate mipmaps by queueing a "generate mipmaps" operation, which is done by queueing up a series of compositor operations
-        // that operate on the atlas itself.
         Ok((region, native))
     }
 }
@@ -560,7 +583,7 @@ impl Loader for image::DynamicImage {
         driver: &crate::graphics::Driver,
         mut size: guillotiere::Size,
         _: f32,
-        _resize: bool,
+        resize: bool,
     ) -> Result<(atlas::Region, guillotiere::Size), Error> {
         use crate::color::{Premultiplied, sRGB32};
 
@@ -606,15 +629,14 @@ impl Loader for image::DynamicImage {
             (raw, self.width(), self.height())
         };
 
-        let region = driver
-            .atlas
-            .write()
-            .reserve(&driver.device, guillotiere::Size::new(w as i32, h as i32))?;
+        let region = driver.atlas.write().reserve(
+            &driver.device,
+            guillotiere::Size::new(w as i32, h as i32),
+            if resize { Some(&driver.queue) } else { None },
+        )?;
 
         queue_atlas_data(&raw, &region, &driver.queue, w, h, &driver.atlas.read());
 
-        // TODO: We generate mipmaps by queueing a "generate mipmaps" operation, which is done by queueing up a series of compositor operations
-        // that operate on the atlas itself.
         Ok((region, native))
     }
 }
