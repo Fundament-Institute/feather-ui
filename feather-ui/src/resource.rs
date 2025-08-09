@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::any::Any;
-use std::fs::File;
 
+#[cfg(feature = "jxl")]
+use jxl_oxide::{EnumColourEncoding, JxlImage};
 #[cfg(feature = "svg")]
 use resvg::{tiny_skia, usvg};
 
 use crate::Error;
-use crate::color::sRGB64;
 use crate::render::atlas;
 use std::hash::Hash;
 use ultraviolet::Vec2;
@@ -86,10 +86,11 @@ struct SvgXml(String);
 
 impl Location for std::path::PathBuf {
     fn fetch(&self) -> Result<Box<dyn Loader>, Error> {
-        use std::io::Read;
-
         #[cfg(feature = "svg")]
         if let Some(extension) = self.extension() {
+            use std::fs::File;
+            use std::io::Read;
+
             let ext = extension.to_str().unwrap().to_ascii_lowercase();
             if &ext == "svgz" {
                 let mut buf = Vec::new();
@@ -115,6 +116,9 @@ impl Location for std::path::PathBuf {
 
         #[cfg(feature = "svg")]
         {
+            use std::fs::File;
+            use std::io::Read;
+
             let mut f = File::open(self)?;
             let mut header = [0_u8; 2];
             if f.read(&mut header)? == 2 && header == [0x1f_u8, 0x8b_u8] {
@@ -126,6 +130,14 @@ impl Location for std::path::PathBuf {
                     String::from_utf8(buf).map_err(|e| Error::ResourceError(Box::new(e)))?,
                 )));
             }
+        }
+
+        #[cfg(feature = "jxl")]
+        if let Ok(mut img) = JxlImage::builder().open(self) {
+            img.request_color_encoding(EnumColourEncoding::srgb(
+                jxl_oxide::RenderingIntent::Relative,
+            ));
+            return Ok(Box::new(img));
         }
 
         // We start by guessing the format from ImageReader, because it only reads a maximum of 16 bytes from the file.
@@ -171,6 +183,282 @@ impl Location for std::path::PathBuf {
 
         #[allow(unreachable_code)]
         Err(Error::UnknownResourceFormat)
+    }
+}
+
+#[cfg(feature = "jxl")]
+struct JxlFrameView<'a>(&'a jxl_oxide::FrameBuffer);
+
+#[cfg(feature = "jxl")]
+impl<'a> fast_image_resize::IntoImageView for JxlFrameView<'a> {
+    fn pixel_type(&self) -> Option<fast_image_resize::PixelType> {
+        use fast_image_resize::PixelType;
+        match self.0.channels() {
+            1 => Some(PixelType::F32),
+            2 => Some(PixelType::F32x2),
+            3 => Some(PixelType::F32x3),
+            4 => Some(PixelType::F32x4),
+            _ => None,
+        }
+    }
+
+    fn width(&self) -> u32 {
+        self.0.width() as u32
+    }
+
+    fn height(&self) -> u32 {
+        self.0.height() as u32
+    }
+
+    fn image_view<P: fast_image_resize::PixelTrait>(
+        &self,
+    ) -> Option<impl fast_image_resize::ImageView<Pixel = P>> {
+        if P::pixel_type() == self.pixel_type().unwrap() {
+            return fast_image_resize::images::TypedImageRef::<P>::from_buffer(
+                self.width(),
+                self.height(),
+                bytemuck::cast_slice(self.0.buf()),
+            )
+            .ok();
+        }
+        None
+    }
+}
+
+#[cfg(feature = "jxl")]
+fn gamma_into_linear(input: f32) -> f32 {
+    input.powf(2.2)
+}
+
+#[cfg(feature = "jxl")]
+fn linear_into_gamma(input: f32) -> f32 {
+    input.powf(1.0 / 2.2)
+}
+
+#[cfg(feature = "jxl")]
+fn in_place_map<const N: usize, const FORWARD: bool>(
+    buf: &mut [[f32; N]],
+) -> fast_image_resize::PixelType {
+    let gamma: fn(f32) -> f32 = if FORWARD {
+        gamma_into_linear
+    } else {
+        linear_into_gamma
+    };
+    let color = if FORWARD {
+        crate::color::srgb_to_linear
+    } else {
+        crate::color::linear_to_srgb
+    };
+
+    match N {
+        1 => {
+            for p in buf {
+                p[0] = gamma(p[0]);
+            }
+            fast_image_resize::PixelType::F32
+        }
+        2 => {
+            for p in buf {
+                p[0] = gamma(p[0]);
+            }
+            fast_image_resize::PixelType::F32x2
+        }
+        3 => {
+            for p in buf {
+                p[0] = color(p[0]);
+                p[1] = color(p[1]);
+                p[2] = color(p[2]);
+            }
+            fast_image_resize::PixelType::F32x3
+        }
+        4 => {
+            for p in buf {
+                p[0] = color(p[0]);
+                p[1] = color(p[1]);
+                p[2] = color(p[2]);
+            }
+            fast_image_resize::PixelType::F32x4
+        }
+        _ => unreachable!(),
+    }
+}
+
+#[cfg(feature = "jxl")]
+impl Loader for JxlImage {
+    fn load(
+        &self,
+        driver: &crate::graphics::Driver,
+        mut size: guillotiere::Size,
+        _: f32,
+        resize: bool,
+    ) -> Result<(atlas::Region, guillotiere::Size), Error> {
+        use crate::color::sRGB;
+        use wide::f32x4;
+
+        if self.num_loaded_keyframes() == 0 {
+            return Err(Error::ResourceError(Box::new(eyre::eyre!(
+                "JpegXL had no keyframes to load???"
+            ))));
+        }
+
+        let native = guillotiere::Size::new(self.width() as i32, self.height() as i32);
+        size = fill_size(
+            size,
+            guillotiere::Size::new(self.width() as i32, self.height() as i32),
+        );
+
+        let render = self
+            .render_frame(0)
+            .map_err(|e| Error::ResourceError(Box::new(e)))?;
+        let mut frame = render.image_all_channels();
+
+        // If we're too close to the native size of the image, skip resizing it and simply store the native size to the atlas.
+        let force_native = within_variance(size.height, self.height() as i32, 0.05)
+            && within_variance(size.width, self.width() as i32, 0.05);
+        let (raw, w, h) = if !(force_native
+            || size.width as u32 > self.width() && size.height as u32 > self.height())
+        {
+            use fast_image_resize::PixelType;
+
+            let inner_format = match frame.channels() {
+                1 => in_place_map::<1, true>(frame.buf_grouped_mut::<1>()),
+                2 => in_place_map::<2, true>(frame.buf_grouped_mut::<2>()),
+                3 => in_place_map::<3, true>(frame.buf_grouped_mut::<3>()),
+                4 => in_place_map::<4, true>(frame.buf_grouped_mut::<4>()),
+                _ => {
+                    return Err(Error::ResourceError(Box::new(eyre::eyre!(
+                        "Channel count not 1-4"
+                    ))));
+                }
+            };
+
+            let mut dst_image = fast_image_resize::images::Image::new(
+                size.width as u32,
+                size.height as u32,
+                inner_format,
+            );
+
+            fast_image_resize::Resizer::new()
+                .resize(
+                    &JxlFrameView(&frame),
+                    &mut dst_image,
+                    &fast_image_resize::ResizeOptions::new()
+                        .use_alpha(true)
+                        .resize_alg(fast_image_resize::ResizeAlg::Convolution(
+                            fast_image_resize::FilterType::CatmullRom,
+                        )),
+                )
+                .map_err(|e| Error::ResourceError(Box::new(e)))?;
+
+            let mut output = unsafe {
+                vec![
+                    std::mem::zeroed::<u8>();
+                    (dst_image.width() * dst_image.height() * 4) as usize
+                ]
+            };
+
+            use fast_image_resize::pixels;
+
+            use crate::color::linear_to_srgb;
+            match dst_image.pixel_type() {
+                PixelType::F32 => process_load_pixels(
+                    output.as_mut_slice(),
+                    dst_image.typed_image::<pixels::F32>().unwrap().pixels(),
+                    |p| sRGB {
+                        rgba: f32x4::new([
+                            linear_into_gamma(p.0),
+                            linear_into_gamma(p.0),
+                            linear_into_gamma(p.0),
+                            1.0,
+                        ]),
+                    },
+                ),
+                PixelType::F32x2 => process_load_pixels(
+                    output.as_mut_slice(),
+                    dst_image.typed_image::<pixels::F32x2>().unwrap().pixels(),
+                    |p| sRGB {
+                        rgba: f32x4::new([
+                            linear_into_gamma(p.0[0]),
+                            linear_into_gamma(p.0[0]),
+                            linear_into_gamma(p.0[0]),
+                            p.0[1],
+                        ]),
+                    },
+                ),
+                PixelType::F32x3 => process_load_pixels(
+                    output.as_mut_slice(),
+                    dst_image.typed_image::<pixels::F32x3>().unwrap().pixels(),
+                    |p| sRGB {
+                        rgba: f32x4::new([
+                            linear_to_srgb(p.0[0]),
+                            linear_to_srgb(p.0[1]),
+                            linear_to_srgb(p.0[2]),
+                            1.0,
+                        ]),
+                    },
+                ),
+                PixelType::F32x4 => process_load_pixels(
+                    output.as_mut_slice(),
+                    dst_image.typed_image::<pixels::F32x4>().unwrap().pixels(),
+                    |p| sRGB {
+                        rgba: f32x4::new([
+                            linear_to_srgb(p.0[0]),
+                            linear_to_srgb(p.0[1]),
+                            linear_to_srgb(p.0[2]),
+                            p.0[3],
+                        ]),
+                    },
+                ),
+                _ => {
+                    return Err(Error::ResourceError(Box::new(eyre::eyre!(
+                        "Channel count not 1-4"
+                    ))));
+                }
+            }
+
+            (output, dst_image.width(), dst_image.height())
+        } else {
+            let mut output =
+                unsafe { vec![std::mem::zeroed::<u8>(); frame.width() * frame.height() * 4] };
+
+            match frame.channels() {
+                1 => process_load_pixels(output.as_mut_slice(), frame.buf(), |p| sRGB {
+                    rgba: f32x4::new([*p, *p, *p, 1.0]),
+                }),
+                2 => {
+                    process_load_pixels(output.as_mut_slice(), frame.buf_grouped::<2>(), |p| sRGB {
+                        rgba: f32x4::new([p[0], p[0], p[0], p[1]]),
+                    })
+                }
+                3 => {
+                    process_load_pixels(output.as_mut_slice(), frame.buf_grouped::<3>(), |p| sRGB {
+                        rgba: f32x4::new([p[0], p[1], p[2], 1.0]),
+                    })
+                }
+                4 => {
+                    process_load_pixels(output.as_mut_slice(), frame.buf_grouped::<4>(), |p| sRGB {
+                        rgba: f32x4::new(*p),
+                    })
+                }
+                _ => {
+                    return Err(Error::ResourceError(Box::new(eyre::eyre!(
+                        "Channel count not 1-4"
+                    ))));
+                }
+            }
+
+            (output, self.width() as u32, self.height() as u32)
+        };
+
+        let region = driver.atlas.write().reserve(
+            &driver.device,
+            guillotiere::Size::new(w as i32, h as i32),
+            if resize { Some(&driver.queue) } else { None },
+        )?;
+
+        queue_atlas_data(&raw, &region, &driver.queue, w, h, &driver.atlas.read());
+
+        Ok((region, native))
     }
 }
 
@@ -378,6 +666,9 @@ fn image_resize_loader(
     source: &impl fast_image_resize::IntoImageView,
     size: guillotiere::Size,
 ) -> Result<(Vec<u8>, u32, u32), Error> {
+    use crate::color::sRGB64;
+    use fast_image_resize::PixelType;
+
     let mut inner_src_image =
         fast_image_resize::images::Image::new(source.width(), source.height(), inner_format);
 
@@ -409,22 +700,22 @@ fn image_resize_loader(
     };
 
     match inner_format {
-        fast_image_resize::PixelType::U16 => process_pixels::<fast_image_resize::pixels::U16>(
+        PixelType::U16 => process_pixels::<fast_image_resize::pixels::U16>(
             output.as_mut_slice(),
             &dst_image,
             |p| sRGB64::new(p.0, p.0, p.0, u16::MAX).as_f32(),
         ),
-        fast_image_resize::PixelType::U16x2 => process_pixels::<fast_image_resize::pixels::U16x2>(
+        PixelType::U16x2 => process_pixels::<fast_image_resize::pixels::U16x2>(
             output.as_mut_slice(),
             &dst_image,
             |p| sRGB64::new(p.0[0], p.0[0], p.0[0], p.0[1]).as_f32(),
         ),
-        fast_image_resize::PixelType::U16x3 => process_pixels::<fast_image_resize::pixels::U16x3>(
+        PixelType::U16x3 => process_pixels::<fast_image_resize::pixels::U16x3>(
             output.as_mut_slice(),
             &dst_image,
             |p| sRGB64::new(p.0[0], p.0[1], p.0[2], u16::MAX).as_f32(),
         ),
-        fast_image_resize::PixelType::U16x4 => process_pixels::<fast_image_resize::pixels::U16x4>(
+        PixelType::U16x4 => process_pixels::<fast_image_resize::pixels::U16x4>(
             output.as_mut_slice(),
             &dst_image,
             |p| sRGB64::new(p.0[0], p.0[1], p.0[2], p.0[3]).as_f32(),
@@ -466,6 +757,7 @@ impl Loader for load_image::Image {
         resize: bool,
     ) -> Result<(atlas::Region, guillotiere::Size), Error> {
         use crate::color::sRGB32;
+        use crate::color::sRGB64;
 
         let native = guillotiere::Size::new(self.width as i32, self.height as i32);
         size = fill_size(

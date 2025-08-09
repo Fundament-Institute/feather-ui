@@ -33,3 +33,9 @@ path = "*.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 Fundament Research Institute <https://fundament.institute>"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "dice.jxl"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2005 version by Daniel G. 2009 version by Ed g2s. 2019 version by CyberShadow."
+SPDX-License-Identifier = "CC-BY-SA-3.0"
