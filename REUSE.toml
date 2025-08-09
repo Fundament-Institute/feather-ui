@@ -4,13 +4,6 @@ SPDX-PackageSupplier = "Fundament Research Institute <https://fundament.institut
 SPDX-PackageDownloadLocation = "https://github.com/Fundament-Software/feathergui"
 
 [[annotations]]
-path = "feather-ui/src/shaders/**"
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 Fundament Research Institute <https://fundament.institute>"
-SPDX-License-Identifier = "Apache-2.0"
-
-
-[[annotations]]
 path = "feather-ui/examples/calculator-rs/calculator-cs/**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 Fundament Research Institute <https://fundament.institute>"

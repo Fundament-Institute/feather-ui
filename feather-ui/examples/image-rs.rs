@@ -72,60 +72,164 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             > = im::Vector::new();
             children.push_back(Some(Box::new(pixel)));
 
-            #[cfg(feature = "png")]
-            let testimage = PathBuf::from("./test_color.png");
-            // Test image with both unsized
-            // test image with one axis unsized
-            // test image force to unusual aspect ratio
-            // test image with both unsized, but with forced resizing to 100.0 on one axis
-            // test image stretched out after resized to 100.0 on one axis.
+            let genimage = |id: Arc<SourceID>,
+                            pos: Vec2,
+                            w: Option<f32>,
+                            h: Option<f32>,
+                            res: &dyn feather_ui::resource::Location,
+                            size: Option<Vec2>| {
+                Image::<DRect>::new(
+                    id,
+                    Rc::new(DRect {
+                        px: ZERO_RECT,
+                        dp: AbsRect::new(
+                            pos.x,
+                            pos.y,
+                            w.map(|x| x + pos.x).unwrap_or_default(),
+                            h.map(|y| y + pos.y).unwrap_or_default(),
+                        ),
+                        rel: RelRect::new(
+                            0.0,
+                            0.0,
+                            if w.is_none() { UNSIZED_AXIS } else { 0.0 },
+                            if h.is_none() { UNSIZED_AXIS } else { 0.0 },
+                        ),
+                    }),
+                    res,
+                    size.unwrap_or_default().into(),
+                    false,
+                )
+            };
 
             #[cfg(feature = "png")]
-            let image = Image::<DRect>::new(
-                gen_id!(),
-                Rc::new(DRect {
-                    px: ZERO_RECT,
-                    dp: AbsRect::new(100.0, 100.0, 0.0, 200.0),
-                    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
-                }),
-                &testimage,
-                Vec2::zero().into(),
-                false,
-            );
+            {
+                let testimage = PathBuf::from("./premul_test.png");
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(0.0, 0.0),
+                    Some(100.0),
+                    Some(100.0),
+                    &testimage,
+                    None,
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(100.0, 0.0),
+                    None,
+                    Some(100.0),
+                    &testimage,
+                    None,
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(0.0, 100.0),
+                    None,
+                    None,
+                    &testimage,
+                    Some(Vec2::broadcast(100.0)),
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(100.0, 100.0),
+                    None,
+                    None,
+                    &testimage,
+                    None,
+                ))));
+            }
+
+            #[cfg(feature = "svg")]
+            {
+                let testsvg = PathBuf::from("./FRI_logo.svg");
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(200.0, 0.0),
+                    Some(100.0),
+                    Some(100.0),
+                    &testsvg,
+                    None,
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(300.0, 0.0),
+                    None,
+                    Some(100.0),
+                    &testsvg,
+                    None,
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(200.0, 100.0),
+                    None,
+                    None,
+                    &testsvg,
+                    Some(Vec2::broadcast(100.0)),
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(300.0, 100.0),
+                    None,
+                    None,
+                    &testsvg,
+                    None,
+                ))));
+            }
 
             #[cfg(feature = "png")]
-            children.push_back(Some(Box::new(image)));
+            {
+                let testimage = PathBuf::from("./test_color.png");
 
-            #[cfg(feature = "svg")]
-            let testsvg = PathBuf::from("./FRI_logo.svg");
-            // Test svg with both unsized
-            // test svg with one axis unsized
-            // test svg force to unusual aspect ratio
-            // test svg with both unsized, but with forced resizing to 100.0 on one axis
-            // test svg stretched out after resized to 100.0 on one axis.
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(0.0, 200.0),
+                    Some(100.0),
+                    Some(100.0),
+                    &testimage,
+                    None,
+                ))));
 
-            #[cfg(feature = "svg")]
-            let svg = Image::<DRect>::new(
-                gen_id!(),
-                Rc::new(DRect {
-                    px: ZERO_RECT,
-                    dp: AbsRect::new(250.0, 250.0, 0.0, 0.0),
-                    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-                }),
-                &testsvg,
-                Vec2::zero().into(),
-                false,
-            );
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(100.0, 200.0),
+                    Some(100.0),
+                    None,
+                    &testimage,
+                    None,
+                ))));
 
-            #[cfg(feature = "svg")]
-            children.push_back(Some(Box::new(svg)));
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(0.0, 300.0),
+                    None,
+                    None,
+                    &testimage,
+                    Some(Vec2::broadcast(100.0)),
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(100.0, 300.0),
+                    None,
+                    None,
+                    &testimage,
+                    None,
+                ))));
+            }
 
             let region = Region::new(
                 gen_id!(),
                 FixedData {
                     area: URect {
-                        abs: AbsRect::new(90.0, 90.0, 0.0, 200.0),
-                        rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
+                        abs: AbsRect::new(10.0, 10.0, -10.0, -10.0),
+                        rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
                     }
                     .into(),
                     zindex: 0,

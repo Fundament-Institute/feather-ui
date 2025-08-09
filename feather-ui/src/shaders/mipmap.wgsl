@@ -1,4 +1,19 @@
-var<private> pos: array<vec2<f32>, 4> = array<vec2<f32>, 4>(vec2<f32>(- 1.0, 1.0), vec2<f32>(1.0, 1.0), vec2<f32>(- 1.0, - 1.0), vec2<f32>(1.0, - 1.0));
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
+
+const UNITX = array(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
+const UNITY = array(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+
+@group(0) @binding(0)
+var<uniform> MVP: mat4x4f;
+@group(0) @binding(1)
+var<uniform> buf: array<vec4<f32>, 256>;
+@group(0) @binding(2)
+var sampling: sampler;
+@group(0) @binding(3)
+var source: texture_2d<f32>;
+@group(0) @binding(4)
+var<uniform> basesize: vec2<f32>;
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
@@ -6,19 +21,19 @@ struct VertexOutput {
 }
 
 @vertex
-fn vs_main(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
-  var output: VertexOutput;
-  output.uv = pos[vertexIndex] * vec2<f32>(0.5, - 0.5) + vec2<f32>(0.5);
-  output.position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
-  return output;
-}
+fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
+  let vert = idx % 6;
+  let index = idx / 6;
+  var vpos = vec2(UNITX[vert], UNITY[vert]);
+  let d = buf[index];
 
-@group(0) @binding(0)
-var samp: sampler;
-@group(0) @binding(1)
-var atlas: texture_2d<f32>;
+  let uv = d.xy / basesize;
+  let uvdim = (d.zw - d.xy) / basesize;
+
+  return VertexOutput(MVP * vec4(d.xy + ((d.zw - d.xy) * vpos), 1f, 1f), uv + (uvdim * vpos));
+}
 
 @fragment
 fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-  return textureSample(atlas, samp, uv);
+  return textureSample(source, sampling, uv);
 }

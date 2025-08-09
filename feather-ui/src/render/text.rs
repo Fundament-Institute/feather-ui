@@ -100,6 +100,7 @@ impl Instance {
             atlas.reserve(
                 device,
                 Size::new(image.placement.width as i32, image.placement.height as i32),
+                None,
             )?
         };
 

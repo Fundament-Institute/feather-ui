@@ -27,6 +27,8 @@ allow = [
     "CC0-1.0",
     "ISC",
     "BSL-1.0",
+    "NCSA",
+    "GPL-3.0",                        # Temporary until license situation is clarified
 ]
 confidence-threshold = 0.8
 
