@@ -224,6 +224,47 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
             }
 
+            #[cfg(feature = "jxl")]
+            {
+                let testimage = PathBuf::from("./dice.jxl");
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(200.0, 200.0),
+                    Some(100.0),
+                    Some(100.0),
+                    &testimage,
+                    None,
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(300.0, 200.0),
+                    Some(100.0),
+                    None,
+                    &testimage,
+                    None,
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(200.0, 300.0),
+                    None,
+                    None,
+                    &testimage,
+                    Some(Vec2::broadcast(100.0)),
+                ))));
+
+                children.push_back(Some(Box::new(genimage(
+                    gen_id!(),
+                    Vec2::new(300.0, 300.0),
+                    None,
+                    None,
+                    &testimage,
+                    None,
+                ))));
+            }
+
             let region = Region::new(
                 gen_id!(),
                 FixedData {

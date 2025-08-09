@@ -41,7 +41,7 @@ default-formats = [
   "tiff",
   "webp",
 ]
-rayon = ["image?/rayon", "fast_image_resize?/rayon"]
+rayon = ["image?/rayon", "fast_image_resize?/rayon", "jxl-oxide?/rayon"]
 avif = ["dep:image", "image/avif", "fast_image_resize/image"]
 bmp = ["dep:image", "image/bmp", "fast_image_resize/image"]
 dds = ["dep:image", "image/dds", "fast_image_resize/image"]
@@ -57,6 +57,7 @@ qoi = ["dep:image", "image/qoi", "fast_image_resize/image"]
 tga = ["dep:image", "image/tga", "fast_image_resize/image"]
 tiff = ["dep:image", "image/tiff", "fast_image_resize/image"]
 webp = ["dep:image", "image/webp", "fast_image_resize/image"]
+jxl = ["dep:jxl-oxide", "lcms2/static", "fast_image_resize/image"]
 vello = ["dep:vello"]
 vello-svg = ["dep:vello_svg"]
 
@@ -111,6 +112,10 @@ load_image = { version = "3.3.0", optional = true, default-features = false, fea
   "lcms2-static",
 ] }
 fast_image_resize = { version = "5.2.1", optional = true, features = ["image"] }
+jxl-oxide = { version = "0.12", optional = true, default-features = false, features = [
+  "lcms2",
+] }
+lcms2 = { version = "6.1.0", optional = true }
 
 [lints.clippy]
 too_many_arguments = { level = "allow" }
