@@ -1723,6 +1723,7 @@ impl<
                                     },
                                 );
 
+                                driver.atlas.write().process_mipmaps(&driver, &mut encoder);
                                 driver.atlas.read().draw(&driver, &mut encoder);
 
                                 let max_depth = driver.layer_composite[0]

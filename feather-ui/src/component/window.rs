@@ -310,8 +310,8 @@ impl Window {
 
             // This causes an unwanted flash, but makes it easier to capture the initial frame for debugging, so it's left here
             // to be uncommented for debugging purposes
-            //let frame = windowstate.surface.get_current_texture().unwrap();
-            //frame.present();
+            let frame = windowstate.surface.get_current_texture().unwrap();
+            frame.present();
 
             manager.init(
                 self.id.clone(),
