@@ -1,30 +1,41 @@
 version = 1
 SPDX-PackageName = "Feather-UI"
-SPDX-PackageSupplier = "Fundament Software <https://fundament.software>"
+SPDX-PackageSupplier = "Fundament Research Institute <https://fundament.institute>"
 SPDX-PackageDownloadLocation = "https://github.com/Fundament-Software/feathergui"
-
-[[annotations]]
-path = "feather-ui/src/shaders/**"
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 Fundament Software SPC <https://fundament.software>"
-SPDX-License-Identifier = "Apache-2.0"
-
 
 [[annotations]]
 path = "feather-ui/examples/calculator-rs/calculator-cs/**"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 Fundament Software SPC <https://fundament.software>"
+SPDX-FileCopyrightText = "2025 Fundament Research Institute <https://fundament.institute>"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = "*.lock"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 Fundament Software SPC <https://fundament.software>"
+SPDX-FileCopyrightText = "2025 Fundament Research Institute <https://fundament.institute>"
 SPDX-License-Identifier = "Apache-2.0"
 
 
 [[annotations]]
 path = ".envrc"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 Fundament Software SPC <https://fundament.software>"
+SPDX-FileCopyrightText = "2025 Fundament Research Institute <https://fundament.institute>"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "*.png"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Fundament Research Institute <https://fundament.institute>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "*.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 Fundament Research Institute <https://fundament.institute>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "dice.jxl"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2005 version by Daniel G. 2009 version by Ed g2s. 2019 version by CyberShadow."
+SPDX-License-Identifier = "CC-BY-SA-3.0"

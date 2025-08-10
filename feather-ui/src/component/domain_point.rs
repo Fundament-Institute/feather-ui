@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::SourceID;
 use crate::layout::domain_write;
@@ -10,7 +10,7 @@ use std::sync::Arc;
 // This simply writes it's area to the given cross-reference domain during the layout phase
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct DomainPoint<T: domain_write::Prop + 'static> {
+pub struct DomainPoint<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
 }

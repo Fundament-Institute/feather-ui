@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
 use crate::layout::{Layout, base};
@@ -11,7 +11,7 @@ use std::sync::Arc;
 // This draws a line between two points that were previously stored in a Cross-reference Domain
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct DomainLine<T: base::Empty + 'static> {
+pub struct DomainLine<T> {
     pub id: Arc<SourceID>,
     pub domain: Arc<CrossReferenceDomain>,
     pub start: Arc<SourceID>,

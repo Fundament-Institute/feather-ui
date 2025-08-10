@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -11,7 +11,7 @@ use crate::{AbsRect, SourceID, render, rtree};
 use super::{Layout, check_unsized, leaf, limit_area};
 
 #[derive_where(Clone)]
-pub struct Node<T: leaf::Padded> {
+pub struct Node<T> {
     pub id: std::sync::Weak<SourceID>,
     pub props: Rc<T>,
     pub buffer: Rc<RefCell<cosmic_text::Buffer>>,

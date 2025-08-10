@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::component::ChildOf;
 use crate::layout::{Desc, Layout, fixed};
@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone, Default)]
-pub struct Region<T: fixed::Prop + Default + 'static> {
+pub struct Region<T: Default> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,

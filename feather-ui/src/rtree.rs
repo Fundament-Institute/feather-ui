@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -203,28 +203,28 @@ impl Node {
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
     ) -> Result<u64, u64> {
-        if let Some(id) = self.id.upgrade() {
-            if let Ok(state) = manager.get_trait(&id) {
-                let mask = state.input_mask();
-                if (kind as u64 & mask) != 0
-                    && manager
-                        .process(
-                            event.clone().extract(),
-                            &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
-                            dpi,
-                            self.area + offset,
-                            self.extent,
-                            driver,
-                        )
-                        .is_ok()
-                {
-                    return match self.postprocess(event, dpi, offset, window_id, manager) {
-                        Ok(()) => Ok(mask),
-                        Err(()) => Err(mask),
-                    };
-                }
-                return Err(mask);
+        if let Some(id) = self.id.upgrade()
+            && let Ok(state) = manager.get_trait(&id)
+        {
+            let mask = state.input_mask();
+            if (kind as u64 & mask) != 0
+                && manager
+                    .process(
+                        event.clone().extract(),
+                        &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
+                        dpi,
+                        self.area + offset,
+                        self.extent,
+                        driver,
+                    )
+                    .is_ok()
+            {
+                return match self.postprocess(event, dpi, offset, window_id, manager) {
+                    Ok(()) => Ok(mask),
+                    Err(()) => Err(mask),
+                };
             }
+            return Err(mask);
         }
         Err(u64::MAX)
     }

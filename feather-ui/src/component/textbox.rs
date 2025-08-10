@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::StateMachine;
 use crate::color::sRGB;
@@ -101,249 +101,232 @@ impl super::EventRouter for TextBoxState {
                 ..
             } => match logical_key {
                 Key::Named(named_key) => {
-                    if down {
-                        if let Some(driver) = driver.upgrade() {
-                            let change = match named_key {
-                                NamedKey::Enter => self.editor.action(
-                                    &mut driver.font_system.write(),
-                                    buffer,
-                                    Action::Enter,
-                                ),
-                                NamedKey::Tab => self.editor.action(
-                                    &mut driver.font_system.write(),
-                                    buffer,
-                                    if (modifiers & ModifierKeys::Shift as u8) != 0 {
-                                        Action::Unindent
-                                    } else {
-                                        Action::Indent
-                                    },
-                                ),
-                                NamedKey::Space => self.editor.action(
-                                    &mut driver.font_system.write(),
-                                    buffer,
-                                    Action::Insert(' '),
-                                ),
-                                NamedKey::ArrowLeft
-                                | NamedKey::ArrowRight
-                                | NamedKey::ArrowDown
-                                | NamedKey::ArrowUp
-                                | NamedKey::End
-                                | NamedKey::Home
-                                | NamedKey::PageDown
-                                | NamedKey::PageUp => {
-                                    let ctrl = (modifiers & ModifierKeys::Control as u8) != 0;
-                                    let shift = (modifiers & ModifierKeys::Shift as u8) != 0;
-                                    let font_system = &mut driver.font_system.write();
-                                    if !shift {
-                                        match (named_key, ctrl) {
-                                            (NamedKey::ArrowUp, true)
-                                            | (NamedKey::ArrowDown, true) => {
-                                                self.editor.action(
-                                                    font_system,
-                                                    buffer,
-                                                    Action::Scroll {
-                                                        lines: if named_key == NamedKey::ArrowUp {
-                                                            -1
-                                                        } else {
-                                                            1
-                                                        },
+                    if down && let Some(driver) = driver.upgrade() {
+                        let change = match named_key {
+                            NamedKey::Enter => self.editor.action(
+                                &mut driver.font_system.write(),
+                                buffer,
+                                Action::Enter,
+                            ),
+                            NamedKey::Tab => self.editor.action(
+                                &mut driver.font_system.write(),
+                                buffer,
+                                if (modifiers & ModifierKeys::Shift as u8) != 0 {
+                                    Action::Unindent
+                                } else {
+                                    Action::Indent
+                                },
+                            ),
+                            NamedKey::Space => self.editor.action(
+                                &mut driver.font_system.write(),
+                                buffer,
+                                Action::Insert(' '),
+                            ),
+                            NamedKey::ArrowLeft
+                            | NamedKey::ArrowRight
+                            | NamedKey::ArrowDown
+                            | NamedKey::ArrowUp
+                            | NamedKey::End
+                            | NamedKey::Home
+                            | NamedKey::PageDown
+                            | NamedKey::PageUp => {
+                                let ctrl = (modifiers & ModifierKeys::Control as u8) != 0;
+                                let shift = (modifiers & ModifierKeys::Shift as u8) != 0;
+                                let font_system = &mut driver.font_system.write();
+                                if !shift {
+                                    match (named_key, ctrl) {
+                                        (NamedKey::ArrowUp, true) | (NamedKey::ArrowDown, true) => {
+                                            self.editor.action(
+                                                font_system,
+                                                buffer,
+                                                Action::Scroll {
+                                                    lines: if named_key == NamedKey::ArrowUp {
+                                                        -1
+                                                    } else {
+                                                        1
                                                     },
-                                                );
-                                                return Ok((self, SmallVec::new()));
-                                            }
-                                            _ => (),
+                                                },
+                                            );
+                                            return Ok((self, SmallVec::new()));
                                         }
-
-                                        if let Some((start, end)) =
-                                            self.editor.selection_bounds(buffer)
-                                        {
-                                            if named_key == NamedKey::ArrowLeft {
-                                                self.editor.set_cursor(buffer, start);
-                                            } else if named_key == NamedKey::ArrowRight {
-                                                self.editor.set_cursor(buffer, end);
-                                            }
-                                        }
-                                        self.editor.action(font_system, buffer, Action::Escape);
-                                    } else if self.editor.selection()
-                                        == cosmic_text::Selection::None
-                                    {
-                                        // if a selection doesn't exist, make one.
-                                        self.editor.set_selection(
-                                            buffer,
-                                            cosmic_text::Selection::Normal(self.editor.cursor()),
-                                        );
+                                        _ => (),
                                     }
-                                    self.editor.action(
-                                        font_system,
-                                        buffer,
-                                        Action::Motion(match (named_key, ctrl) {
-                                            (NamedKey::ArrowLeft, false) => {
-                                                cosmic_text::Motion::Previous
-                                            }
-                                            (NamedKey::ArrowRight, false) => {
-                                                cosmic_text::Motion::Next
-                                            }
-                                            (NamedKey::ArrowUp, false) => cosmic_text::Motion::Up,
-                                            (NamedKey::ArrowDown, false) => {
-                                                cosmic_text::Motion::Down
-                                            }
-                                            (NamedKey::Home, false) => cosmic_text::Motion::Home,
-                                            (NamedKey::End, false) => cosmic_text::Motion::End,
-                                            (NamedKey::PageUp, false) => {
-                                                cosmic_text::Motion::PageUp
-                                            }
-                                            (NamedKey::PageDown, false) => {
-                                                cosmic_text::Motion::PageDown
-                                            }
-                                            (NamedKey::ArrowLeft, true) => {
-                                                cosmic_text::Motion::PreviousWord
-                                            }
-                                            (NamedKey::ArrowRight, true) => {
-                                                cosmic_text::Motion::NextWord
-                                            }
-                                            (NamedKey::Home, true) => {
-                                                cosmic_text::Motion::BufferStart
-                                            }
-                                            (NamedKey::End, true) => cosmic_text::Motion::BufferEnd,
-                                            _ => return Ok((self, SmallVec::new())),
-                                        }),
-                                    )
-                                }
-                                NamedKey::Select => {
-                                    // Represents a Select All operation
-                                    self.editor.set_selection(
-                                        buffer,
-                                        cosmic_text::Selection::Normal(Cursor {
-                                            line: 0,
-                                            index: 0,
-                                            affinity: cosmic_text::Affinity::Before,
-                                        }),
-                                    );
-                                    self.editor.action(
-                                        &mut driver.font_system.write(),
-                                        buffer,
-                                        Action::Motion(cosmic_text::Motion::BufferEnd),
-                                    );
-                                    SmallVec::new()
-                                }
-                                NamedKey::Backspace => self.editor.action(
-                                    &mut driver.font_system.write(),
-                                    buffer,
-                                    Action::Backspace,
-                                ),
-                                NamedKey::Delete => self.editor.action(
-                                    &mut driver.font_system.write(),
-                                    buffer,
-                                    Action::Delete,
-                                ),
-                                NamedKey::Clear => {
-                                    let change = self
-                                        .editor
-                                        .delete_selection(&mut driver.font_system.write(), buffer)
-                                        .map(|x| SmallVec::from_buf([x]))
-                                        .unwrap_or_default();
-                                    self.editor.shape_as_needed(
-                                        &mut driver.font_system.write(),
-                                        buffer,
-                                        false,
-                                    );
-                                    change
-                                }
-                                NamedKey::EraseEof => {
+
+                                    if let Some((start, end)) = self.editor.selection_bounds(buffer)
+                                    {
+                                        if named_key == NamedKey::ArrowLeft {
+                                            self.editor.set_cursor(buffer, start);
+                                        } else if named_key == NamedKey::ArrowRight {
+                                            self.editor.set_cursor(buffer, end);
+                                        }
+                                    }
+                                    self.editor.action(font_system, buffer, Action::Escape);
+                                } else if self.editor.selection() == cosmic_text::Selection::None {
+                                    // if a selection doesn't exist, make one.
                                     self.editor.set_selection(
                                         buffer,
                                         cosmic_text::Selection::Normal(self.editor.cursor()),
                                     );
-                                    self.editor.action(
-                                        &mut driver.font_system.write(),
-                                        buffer,
-                                        Action::Motion(cosmic_text::Motion::BufferEnd),
-                                    );
-                                    let change = self
+                                }
+                                self.editor.action(
+                                    font_system,
+                                    buffer,
+                                    Action::Motion(match (named_key, ctrl) {
+                                        (NamedKey::ArrowLeft, false) => {
+                                            cosmic_text::Motion::Previous
+                                        }
+                                        (NamedKey::ArrowRight, false) => cosmic_text::Motion::Next,
+                                        (NamedKey::ArrowUp, false) => cosmic_text::Motion::Up,
+                                        (NamedKey::ArrowDown, false) => cosmic_text::Motion::Down,
+                                        (NamedKey::Home, false) => cosmic_text::Motion::Home,
+                                        (NamedKey::End, false) => cosmic_text::Motion::End,
+                                        (NamedKey::PageUp, false) => cosmic_text::Motion::PageUp,
+                                        (NamedKey::PageDown, false) => {
+                                            cosmic_text::Motion::PageDown
+                                        }
+                                        (NamedKey::ArrowLeft, true) => {
+                                            cosmic_text::Motion::PreviousWord
+                                        }
+                                        (NamedKey::ArrowRight, true) => {
+                                            cosmic_text::Motion::NextWord
+                                        }
+                                        (NamedKey::Home, true) => cosmic_text::Motion::BufferStart,
+                                        (NamedKey::End, true) => cosmic_text::Motion::BufferEnd,
+                                        _ => return Ok((self, SmallVec::new())),
+                                    }),
+                                )
+                            }
+                            NamedKey::Select => {
+                                // Represents a Select All operation
+                                self.editor.set_selection(
+                                    buffer,
+                                    cosmic_text::Selection::Normal(Cursor {
+                                        line: 0,
+                                        index: 0,
+                                        affinity: cosmic_text::Affinity::Before,
+                                    }),
+                                );
+                                self.editor.action(
+                                    &mut driver.font_system.write(),
+                                    buffer,
+                                    Action::Motion(cosmic_text::Motion::BufferEnd),
+                                );
+                                SmallVec::new()
+                            }
+                            NamedKey::Backspace => self.editor.action(
+                                &mut driver.font_system.write(),
+                                buffer,
+                                Action::Backspace,
+                            ),
+                            NamedKey::Delete => self.editor.action(
+                                &mut driver.font_system.write(),
+                                buffer,
+                                Action::Delete,
+                            ),
+                            NamedKey::Clear => {
+                                let change = self
+                                    .editor
+                                    .delete_selection(&mut driver.font_system.write(), buffer)
+                                    .map(|x| SmallVec::from_buf([x]))
+                                    .unwrap_or_default();
+                                self.editor.shape_as_needed(
+                                    &mut driver.font_system.write(),
+                                    buffer,
+                                    false,
+                                );
+                                change
+                            }
+                            NamedKey::EraseEof => {
+                                self.editor.set_selection(
+                                    buffer,
+                                    cosmic_text::Selection::Normal(self.editor.cursor()),
+                                );
+                                self.editor.action(
+                                    &mut driver.font_system.write(),
+                                    buffer,
+                                    Action::Motion(cosmic_text::Motion::BufferEnd),
+                                );
+                                let change = self
+                                    .editor
+                                    .delete_selection(&mut driver.font_system.write(), buffer)
+                                    .map(|x| SmallVec::from_buf([x]))
+                                    .unwrap_or_default();
+                                self.editor.shape_as_needed(
+                                    &mut driver.font_system.write(),
+                                    buffer,
+                                    false,
+                                );
+                                change
+                            }
+                            NamedKey::Insert => {
+                                self.insert_mode = !self.insert_mode;
+                                SmallVec::new()
+                            }
+                            NamedKey::Cut | NamedKey::Copy => {
+                                if modifiers & ModifierKeys::Held as u8 == 0
+                                    && let Some(s) = self.editor.copy_selection(buffer)
+                                    && let Ok(mut clipboard) = arboard::Clipboard::new()
+                                    && clipboard.set_text(&s).is_ok()
+                                    && named_key == NamedKey::Cut
+                                {
+                                    // Only delete the text for a cut command if the operation succeeds
+                                    if let Some(c) = self
                                         .editor
                                         .delete_selection(&mut driver.font_system.write(), buffer)
-                                        .map(|x| SmallVec::from_buf([x]))
-                                        .unwrap_or_default();
+                                    {
+                                        self.editor.shape_as_needed(
+                                            &mut driver.font_system.write(),
+                                            buffer,
+                                            false,
+                                        );
+                                        self.append(SmallVec::from_buf([c]))
+                                    }
+                                }
+                                SmallVec::new()
+                            }
+                            NamedKey::Paste => {
+                                if let Ok(mut clipboard) = arboard::Clipboard::new()
+                                    && let Ok(s) = clipboard.get_text()
+                                {
+                                    let c = self.editor.insert_string(
+                                        &mut driver.font_system.write(),
+                                        buffer,
+                                        &s,
+                                        None,
+                                    );
                                     self.editor.shape_as_needed(
                                         &mut driver.font_system.write(),
                                         buffer,
                                         false,
                                     );
-                                    change
+                                    self.append(SmallVec::from_buf([c]))
                                 }
-                                NamedKey::Insert => {
-                                    self.insert_mode = !self.insert_mode;
-                                    SmallVec::new()
+                                SmallVec::new()
+                            }
+                            NamedKey::Redo => {
+                                if self.undo_index > 0 {
+                                    self.undo_index =
+                                        self.redo(&mut driver.font_system.write(), buffer)
                                 }
-                                NamedKey::Cut | NamedKey::Copy => {
-                                    if modifiers & ModifierKeys::Held as u8 == 0 {
-                                        if let Some(s) = self.editor.copy_selection(buffer) {
-                                            if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                                                if clipboard.set_text(&s).is_ok()
-                                                    && named_key == NamedKey::Cut
-                                                {
-                                                    // Only delete the text for a cut command if the operation succeeds
-                                                    if let Some(c) = self.editor.delete_selection(
-                                                        &mut driver.font_system.write(),
-                                                        buffer,
-                                                    ) {
-                                                        self.editor.shape_as_needed(
-                                                            &mut driver.font_system.write(),
-                                                            buffer,
-                                                            false,
-                                                        );
-                                                        self.append(SmallVec::from_buf([c]))
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    SmallVec::new()
+                                SmallVec::new()
+                            }
+                            NamedKey::Undo => {
+                                if self.undo_index > 0 {
+                                    self.undo_index =
+                                        self.undo(&mut driver.font_system.write(), buffer)
                                 }
-                                NamedKey::Paste => {
-                                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                                        if let Ok(s) = clipboard.get_text() {
-                                            let c = self.editor.insert_string(
-                                                &mut driver.font_system.write(),
-                                                buffer,
-                                                &s,
-                                                None,
-                                            );
-                                            self.editor.shape_as_needed(
-                                                &mut driver.font_system.write(),
-                                                buffer,
-                                                false,
-                                            );
-                                            self.append(SmallVec::from_buf([c]))
-                                        }
-                                    }
-                                    SmallVec::new()
-                                }
-                                NamedKey::Redo => {
-                                    if self.undo_index > 0 {
-                                        self.undo_index =
-                                            self.redo(&mut driver.font_system.write(), buffer)
-                                    }
-                                    SmallVec::new()
-                                }
-                                NamedKey::Undo => {
-                                    if self.undo_index > 0 {
-                                        self.undo_index =
-                                            self.undo(&mut driver.font_system.write(), buffer)
-                                    }
-                                    SmallVec::new()
-                                }
-                                // Do not capture key events we don't recognize
-                                _ => return Err((self, SmallVec::new())),
-                            };
+                                SmallVec::new()
+                            }
+                            // Do not capture key events we don't recognize
+                            _ => return Err((self, SmallVec::new())),
+                        };
 
-                            self.append(change);
-                            obj.set_selection(
-                                EditBuffer::from_cursor(buffer, self.editor.selection_or_cursor()),
-                                EditBuffer::from_cursor(buffer, self.editor.cursor()),
-                            );
-                            return Ok((self, SmallVec::new()));
-                        }
+                        self.append(change);
+                        obj.set_selection(
+                            EditBuffer::from_cursor(buffer, self.editor.selection_or_cursor()),
+                            EditBuffer::from_cursor(buffer, self.editor.cursor()),
+                        );
+                        return Ok((self, SmallVec::new()));
                     }
                     // Always capture the key event if we recognize it even if we don't do anything with it
                     return Ok((self, SmallVec::new()));
@@ -481,7 +464,7 @@ impl TextBoxState {}
 pub trait Prop: leaf::Padded + base::TextEdit {}
 
 #[derive_where(Clone)]
-pub struct TextBox<T: Prop + 'static> {
+pub struct TextBox<T> {
     id: Arc<SourceID>,
     props: Rc<T>,
     pub font_size: f32,

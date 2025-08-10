@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
@@ -222,10 +222,10 @@ impl Shared {
             target,
         };
 
-        if let Some(prev) = self.layers.read().get(&id) {
-            if *prev == layer {
-                return None;
-            }
+        if let Some(prev) = self.layers.read().get(&id)
+            && *prev == layer
+        {
+            return None;
         }
 
         self.layers.write().insert(id, layer)
