@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use num_traits::NumCast;
 use wide::f32x4;
@@ -54,6 +54,8 @@ pub fn srgb_to_linear<T: num_traits::Float>(c: T) -> T {
     }
 }
 
+/// https://en.wikipedia.org/wiki/SRGB#From_CIE_XYZ_to_sRGB
+/// http://www.ericbrasseur.org/gamma.html?i=2#formulas
 pub fn linear_to_srgb<T: num_traits::Float>(c: T) -> T {
     if c < fconv(0.0031308) {
         c * fconv(12.92)
@@ -445,7 +447,9 @@ impl sRGB32 {
 
     /// Returns opaque black
     pub const fn black() -> Self {
-        Self { rgba: 0x000000FF }
+        Self {
+            rgba: u32::from_be_bytes([0, 0, 0, 255]),
+        }
     }
 
     /// Returns pure white
@@ -455,7 +459,7 @@ impl sRGB32 {
 
     pub const fn from_alpha(alpha: u8) -> Self {
         Self {
-            rgba: 0xFFFFFF00 | alpha as u32,
+            rgba: u32::from_be_bytes([255, 255, 255, alpha]),
         }
     }
 
@@ -478,6 +482,82 @@ impl sRGB32 {
     pub fn as_f32(&self) -> sRGB {
         sRGB {
             rgba: f32x4::new(self.as_array().map(|x| x as f32 / 255.0)),
+        }
+    }
+}
+
+/// Represents an sRGB color (not premultiplied) as a 64-bit signed integer, 16-bits per channel
+#[allow(non_camel_case_types)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct sRGB64 {
+    pub rgba: u64,
+}
+
+impl sRGB64 {
+    pub const fn as_array(&self) -> [u16; 4] {
+        [
+            ((self.rgba >> 48) & 0xFFFF) as u16,
+            ((self.rgba >> 32) & 0xFFFF) as u16,
+            ((self.rgba >> 16) & 0xFFFF) as u16,
+            (self.rgba & 0xFFFF) as u16,
+        ]
+    }
+
+    pub const fn new(r: u16, g: u16, b: u16, a: u16) -> Self {
+        Self {
+            rgba: ((r as u64) << 48) | ((g as u64) << 32) | ((b as u64) << 16) | (a as u64),
+        }
+    }
+
+    /// Returns transparent black (zero)
+    pub const fn transparent() -> Self {
+        Self { rgba: 0 }
+    }
+
+    /// Returns opaque black
+    pub const fn black() -> Self {
+        Self {
+            rgba: 0x000000000000FFFF,
+        }
+    }
+
+    /// Returns pure white
+    pub const fn white() -> Self {
+        Self { rgba: u64::MAX }
+    }
+
+    pub const fn from_alpha(alpha: u16) -> Self {
+        Self {
+            rgba: 0xFFFFFFFFFFFF0000 | alpha as u64,
+        }
+    }
+
+    pub const fn r(&self) -> u16 {
+        self.as_array()[0]
+    }
+
+    pub const fn g(&self) -> u16 {
+        self.as_array()[1]
+    }
+
+    pub const fn b(&self) -> u16 {
+        self.as_array()[2]
+    }
+
+    pub const fn a(&self) -> u16 {
+        self.as_array()[3]
+    }
+
+    pub fn as_f32(&self) -> sRGB {
+        sRGB {
+            rgba: f32x4::new(self.as_array().map(|x| x as f32 / 65535.0)),
+        }
+    }
+
+    /// 16-bit precision has a potentially arbitrary 1.0 point, since it can potentially store HDR data from different formats.
+    pub fn as_f32_scaled(&self, scale: f32) -> sRGB {
+        sRGB {
+            rgba: f32x4::new(self.as_array().map(|x| x as f32 / (65535.0 / scale))),
         }
     }
 }

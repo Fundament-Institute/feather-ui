@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::Renderable;
 use crate::{AbsRect, CrossReferenceDomain, SourceID};
-use std::{rc::Rc, sync::Arc};
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub mod line;
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
 use crate::layout::{Layout, leaf};
@@ -17,7 +17,7 @@ pub enum ShapeKind {
     Arc,
 }
 
-pub struct Shape<T: leaf::Padded + 'static, const KIND: u8> {
+pub struct Shape<T, const KIND: u8> {
     pub id: std::sync::Arc<SourceID>,
     pub props: Rc<T>,
     border: f32,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::layout::{Desc, Layout, grid};
 use crate::persist::{FnPersist, VectorMap};
@@ -12,7 +12,7 @@ use super::ChildOf;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct GridBox<T: grid::Prop + 'static> {
+pub struct GridBox<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>>,

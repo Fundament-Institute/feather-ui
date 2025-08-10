@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
 use crate::layout::{Layout, base};
@@ -12,7 +12,7 @@ use ultraviolet::Vec2;
 // This draws a line between two points relative to the parent
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct Line<T: base::Empty + 'static> {
+pub struct Line<T> {
     pub id: Arc<SourceID>,
     pub start: Vec2,
     pub end: Vec2,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
 use crate::component::text::Text;
@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
-pub struct Paragraph<T: flex::Prop + 'static> {
+pub struct Paragraph<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,
