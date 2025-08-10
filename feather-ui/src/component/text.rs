@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
 use crate::component::{EventRouter, StateMachine};
@@ -27,7 +27,7 @@ impl PartialEq for TextState {
 }
 
 #[derive_where(Clone)]
-pub struct Text<T: leaf::Padded + 'static> {
+pub struct Text<T> {
     pub id: Arc<SourceID>,
     pub props: Rc<T>,
     pub font_size: f32,

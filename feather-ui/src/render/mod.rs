@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::render::compositor::CompositorView;
 use crate::{AbsRect, graphics};
@@ -9,6 +9,7 @@ use std::rc::Rc;
 pub mod atlas;
 pub mod compositor;
 pub mod domain;
+pub mod image;
 pub mod line;
 pub mod shape;
 pub mod text;

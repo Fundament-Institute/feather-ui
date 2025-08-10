@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
+
 const FILES: [(&str, &str); 3] = [
     ("feather.wgsl", include_str!("feather.wgsl")),
     ("shape.wgsl", include_str!("shape.wgsl")),

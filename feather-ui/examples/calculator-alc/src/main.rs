@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use feather_ui::lua::{AppState, LuaApp};
 use feather_ui::App;
-use mlua::prelude::*;
+use feather_ui::lua::{AppState, LuaApp};
 use mlua::Function;
+use mlua::prelude::*;
 use std::any::{Any, TypeId};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};

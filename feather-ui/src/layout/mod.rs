@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 pub mod base;
 pub mod domain_write;
@@ -244,7 +244,8 @@ impl Staged for Concrete {
                 };
 
                 let mut atlas = driver.layer_atlas[index - 1].write();
-                let region = atlas.cache_region(&driver.device, &id, layer.area.dim().into())?;
+                let region =
+                    atlas.cache_region(&driver.device, &id, layer.area.dim().into(), None)?;
                 region_uv = Some(region.uv);
 
                 // Make sure we aren't cached in the opposite atlas

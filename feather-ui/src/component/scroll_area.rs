@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::StateMachine;
 use crate::component::{ChildOf, Layout};
 use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Desc, base, fixed};
-use crate::persist::FnPersist;
-use crate::persist::VectorMap;
+use crate::persist::{FnPersist, VectorMap};
 use crate::{AbsRect, Dispatchable, Slot, SourceID, UNSIZED_AXIS, ZERO_RECT, layout};
 use core::f32;
 use derive_where::derive_where;
@@ -164,11 +163,11 @@ impl super::EventRouter for ScrollAreaState {
                         }
                     }
                     (MouseState::Up, MouseButton::Left) => {
-                        if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, 0)) {
-                            if area.contains(pos) {
-                                let e = self.apply_scroll(pos - last_pos, &area, &extent, dpi);
-                                return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
-                            }
+                        if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, 0))
+                            && area.contains(pos)
+                        {
+                            let e = self.apply_scroll(pos - last_pos, &area, &extent, dpi);
+                            return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
                         }
                     }
                     _ => (),
@@ -201,16 +200,16 @@ impl super::EventRouter for ScrollAreaState {
                 }
                 crate::input::TouchState::End => {
                     // TODO: implement kinetic drag
-                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index)) {
-                        if area.contains(pos.xy()) {
-                            let e = self.apply_scroll(
-                                (pos.xy() - last_pos) * self.stepvec(),
-                                &area,
-                                &extent,
-                                dpi,
-                            );
-                            return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
-                        }
+                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index))
+                        && area.contains(pos.xy())
+                    {
+                        let e = self.apply_scroll(
+                            (pos.xy() - last_pos) * self.stepvec(),
+                            &area,
+                            &extent,
+                            dpi,
+                        );
+                        return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
                     }
                 }
             },
@@ -222,7 +221,7 @@ impl super::EventRouter for ScrollAreaState {
 }
 
 #[derive_where(Clone)]
-pub struct ScrollArea<T: fixed::Prop + 'static> {
+pub struct ScrollArea<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     stepsize: (Option<f32>, Option<f32>),

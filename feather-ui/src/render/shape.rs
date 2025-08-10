@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::compositor;
 use crate::color::sRGB;
@@ -13,7 +13,7 @@ use std::num::NonZero;
 use ultraviolet::Vec4;
 use wgpu::BindGroupLayout;
 
-pub struct Instance<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> {
+pub struct Instance<PIPELINE> {
     pub padding: crate::AbsRect,
     pub border: f32,
     pub blur: f32,
@@ -40,7 +40,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
 
         let (region_uv, region_index) = {
             let mut atlas = driver.atlas.write();
-            let region = atlas.cache_region(&driver.device, &self.id, area.dim().into())?;
+            let region = atlas.cache_region(&driver.device, &self.id, area.dim().into(), None)?;
             (region.uv, region.index)
         };
 

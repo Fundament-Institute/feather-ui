@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 pub mod button;
 pub mod domain_line;
 pub mod domain_point;
 pub mod flexbox;
 pub mod gridbox;
+pub mod image;
 pub mod line;
 pub mod listbox;
 pub mod mouse_area;
@@ -104,7 +105,7 @@ where
     }
 }
 
-pub struct StateMachine<State: EventRouter + 'static, const OUTPUT_SIZE: usize> {
+pub struct StateMachine<State, const OUTPUT_SIZE: usize> {
     pub state: Option<State>,
     pub output: [Option<Slot>; OUTPUT_SIZE],
     pub input_mask: u64,

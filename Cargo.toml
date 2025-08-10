@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+# SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 [workspace]
 members = [
@@ -15,7 +15,7 @@ default-members = ["feather-ui", "feather-macro"]
 [workspace.package]
 version = "0.2.0"
 edition = "2024"
-rust-version = "1.87.0"
+rust-version = "1.88.0"
 license = "Apache-2.0"
 homepage = "https://github.com/Fundament-Software/feathergui"
 repository = "https://github.com/Fundament-Software/feathergui/"

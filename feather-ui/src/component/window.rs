@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::{Component, StateMachine};
 use crate::component::ComponentWrap;
@@ -114,10 +114,10 @@ impl WindowState {
 
     pub(crate) fn update_node(&mut self, id: Arc<SourceID>, node: Weak<Node>) {
         for i in 0..self.trackers.len() {
-            if let Some(device) = self.lookup.get(&(id.clone(), i as u8)) {
-                if let Some(RcNode(_, n)) = self.trackers[i].get_mut(device) {
-                    *n = node.clone();
-                }
+            if let Some(device) = self.lookup.get(&(id.clone(), i as u8))
+                && let Some(RcNode(_, n)) = self.trackers[i].get_mut(device)
+            {
+                *n = node.clone();
             }
         }
     }
@@ -310,8 +310,8 @@ impl Window {
 
             // This causes an unwanted flash, but makes it easier to capture the initial frame for debugging, so it's left here
             // to be uncommented for debugging purposes
-            //let frame = windowstate.surface.get_current_texture().unwrap();
-            //frame.present();
+            let frame = windowstate.surface.get_current_texture().unwrap();
+            frame.present();
 
             manager.init(
                 self.id.clone(),
