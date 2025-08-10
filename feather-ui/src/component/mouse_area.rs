@@ -140,10 +140,36 @@ impl super::EventRouter for MouseAreaState {
                     MouseState::Up => {
                         if let Some((last_pos, drag)) =
                             self.lastdown.remove(&(device_id, button as u64))
+                            && area.contains(pos)
                         {
-                            if area.contains(pos) {
-                                return Ok((
-                                    self,
+                            return Ok((
+                                self,
+                                SmallVec::from_iter([
+                                    if drag {
+                                        let diff = pos - last_pos;
+                                        MouseAreaEvent::OnDrag(button, diff / dpi)
+                                    } else {
+                                        MouseAreaEvent::OnClick(button, pos / dpi)
+                                    },
+                                    hover,
+                                ]),
+                            ));
+                        }
+                    }
+                    MouseState::DblClick => {
+                        if let Some((last_pos, drag)) =
+                            self.lastdown.remove(&(device_id, button as u64))
+                            && area.contains(pos)
+                        {
+                            return Ok((
+                                self,
+                                if drag {
+                                    SmallVec::from_iter([
+                                        MouseAreaEvent::OnClick(button, pos / dpi),
+                                        MouseAreaEvent::OnDblClick(button, pos / dpi),
+                                        hover,
+                                    ])
+                                } else {
                                     SmallVec::from_iter([
                                         if drag {
                                             let diff = pos - last_pos;
@@ -152,37 +178,9 @@ impl super::EventRouter for MouseAreaState {
                                             MouseAreaEvent::OnClick(button, pos / dpi)
                                         },
                                         hover,
-                                    ]),
-                                ));
-                            }
-                        }
-                    }
-                    MouseState::DblClick => {
-                        if let Some((last_pos, drag)) =
-                            self.lastdown.remove(&(device_id, button as u64))
-                        {
-                            if area.contains(pos) {
-                                return Ok((
-                                    self,
-                                    if drag {
-                                        SmallVec::from_iter([
-                                            MouseAreaEvent::OnClick(button, pos / dpi),
-                                            MouseAreaEvent::OnDblClick(button, pos / dpi),
-                                            hover,
-                                        ])
-                                    } else {
-                                        SmallVec::from_iter([
-                                            if drag {
-                                                let diff = pos - last_pos;
-                                                MouseAreaEvent::OnDrag(button, diff / dpi)
-                                            } else {
-                                                MouseAreaEvent::OnClick(button, pos / dpi)
-                                            },
-                                            hover,
-                                        ])
-                                    },
-                                ));
-                            }
+                                    ])
+                                },
+                            ));
                         }
                     }
                 }
@@ -222,21 +220,21 @@ impl super::EventRouter for MouseAreaState {
                 }
                 crate::input::TouchState::End => {
                     let hover = Self::hover_event(0, self.hover);
-                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index)) {
-                        if area.contains(pos.xy()) {
-                            let diff = pos.xy() - last_pos;
-                            return Ok((
-                                self,
-                                SmallVec::from_iter([
-                                    if drag {
-                                        MouseAreaEvent::OnDrag(MouseButton::Left, diff / dpi)
-                                    } else {
-                                        MouseAreaEvent::OnClick(MouseButton::Left, pos.xy() / dpi)
-                                    },
-                                    hover,
-                                ]),
-                            ));
-                        }
+                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index))
+                        && area.contains(pos.xy())
+                    {
+                        let diff = pos.xy() - last_pos;
+                        return Ok((
+                            self,
+                            SmallVec::from_iter([
+                                if drag {
+                                    MouseAreaEvent::OnDrag(MouseButton::Left, diff / dpi)
+                                } else {
+                                    MouseAreaEvent::OnClick(MouseButton::Left, pos.xy() / dpi)
+                                },
+                                hover,
+                            ]),
+                        ));
                     }
                 }
             },

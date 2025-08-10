@@ -114,10 +114,10 @@ impl WindowState {
 
     pub(crate) fn update_node(&mut self, id: Arc<SourceID>, node: Weak<Node>) {
         for i in 0..self.trackers.len() {
-            if let Some(device) = self.lookup.get(&(id.clone(), i as u8)) {
-                if let Some(RcNode(_, n)) = self.trackers[i].get_mut(device) {
-                    *n = node.clone();
-                }
+            if let Some(device) = self.lookup.get(&(id.clone(), i as u8))
+                && let Some(RcNode(_, n)) = self.trackers[i].get_mut(device)
+            {
+                *n = node.clone();
             }
         }
     }

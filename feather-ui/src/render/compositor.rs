@@ -222,10 +222,10 @@ impl Shared {
             target,
         };
 
-        if let Some(prev) = self.layers.read().get(&id) {
-            if *prev == layer {
-                return None;
-            }
+        if let Some(prev) = self.layers.read().get(&id)
+            && *prev == layer
+        {
+            return None;
         }
 
         self.layers.write().insert(id, layer)
