@@ -54,10 +54,10 @@ impl<'b> Iterator for FixedRunIter<'b> {
                 let glyph_height = layout_line.max_ascent + layout_line.max_descent;
                 let centering_offset = (line_height - glyph_height) / 2.0;
                 let line_y = line_top + centering_offset + layout_line.max_ascent;
-                if let Some(height) = self.buffer.size().1 {
-                    if line_y - layout_line.max_ascent > height {
-                        return None;
-                    }
+                if let Some(height) = self.buffer.size().1
+                    && line_y - layout_line.max_ascent > height
+                {
+                    return None;
                 }
                 self.line_top += line_height;
                 if line_y + layout_line.max_descent < 0.0 {
@@ -885,11 +885,11 @@ impl Editor {
             Action::Click { x, y } => {
                 self.set_selection(buffer, Selection::None);
 
-                if let Some(new_cursor) = hit_fixed(buffer, x as f32, y as f32) {
-                    if new_cursor != self.cursor {
-                        self.set_cursor(buffer, new_cursor);
-                        buffer.set_redraw(true);
-                    }
+                if let Some(new_cursor) = hit_fixed(buffer, x as f32, y as f32)
+                    && new_cursor != self.cursor
+                {
+                    self.set_cursor(buffer, new_cursor);
+                    buffer.set_redraw(true);
                 }
                 SmallVec::new()
             }

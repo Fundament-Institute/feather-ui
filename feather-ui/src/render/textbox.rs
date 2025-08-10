@@ -97,67 +97,68 @@ impl crate::render::Renderable for Instance {
             let line_height = run.line_height;
 
             // Highlight selection
-            if let Some((start, end)) = &self.selection {
-                if line_i >= start.line && line_i <= end.line {
-                    let mut range_opt = None;
-                    for glyph in run.glyphs.iter() {
-                        // Guess x offset based on characters
-                        let cluster = &run.text[glyph.start..glyph.end];
-                        let total = cluster.grapheme_indices(true).count();
-                        let mut c_x = glyph.x;
-                        let c_w = glyph.w / total as f32;
-                        for (i, c) in cluster.grapheme_indices(true) {
-                            let c_start = glyph.start + i;
-                            let c_end = glyph.start + i + c.len();
-                            if (start.line != line_i || c_end > start.index)
-                                && (end.line != line_i || c_start < end.index)
-                            {
-                                range_opt = match range_opt.take() {
-                                    Some((min, max)) => Some((
-                                        std::cmp::min(min, c_x as i32),
-                                        std::cmp::max(max, (c_x + c_w) as i32),
-                                    )),
-                                    None => Some((c_x as i32, (c_x + c_w) as i32)),
-                                };
-                            } else if let Some((min, max)) = range_opt.take() {
-                                compositor.preprocessed(Self::draw_box(
-                                    min as f32 + pos.x,
-                                    line_top + pos.y,
-                                    std::cmp::max(0, max - min) as f32,
-                                    line_height,
-                                    bounds,
-                                    self.selection_bg,
-                                ));
-                            }
-                            c_x += c_w;
+            if let Some((start, end)) = &self.selection
+                && line_i >= start.line
+                && line_i <= end.line
+            {
+                let mut range_opt = None;
+                for glyph in run.glyphs.iter() {
+                    // Guess x offset based on characters
+                    let cluster = &run.text[glyph.start..glyph.end];
+                    let total = cluster.grapheme_indices(true).count();
+                    let mut c_x = glyph.x;
+                    let c_w = glyph.w / total as f32;
+                    for (i, c) in cluster.grapheme_indices(true) {
+                        let c_start = glyph.start + i;
+                        let c_end = glyph.start + i + c.len();
+                        if (start.line != line_i || c_end > start.index)
+                            && (end.line != line_i || c_start < end.index)
+                        {
+                            range_opt = match range_opt.take() {
+                                Some((min, max)) => Some((
+                                    std::cmp::min(min, c_x as i32),
+                                    std::cmp::max(max, (c_x + c_w) as i32),
+                                )),
+                                None => Some((c_x as i32, (c_x + c_w) as i32)),
+                            };
+                        } else if let Some((min, max)) = range_opt.take() {
+                            compositor.preprocessed(Self::draw_box(
+                                min as f32 + pos.x,
+                                line_top + pos.y,
+                                std::cmp::max(0, max - min) as f32,
+                                line_height,
+                                bounds,
+                                self.selection_bg,
+                            ));
+                        }
+                        c_x += c_w;
+                    }
+                }
+
+                if run.glyphs.is_empty() && end.line > line_i {
+                    // Highlight all of internal empty lines
+                    range_opt = Some((0, buffer.size().0.unwrap_or(0.0) as i32));
+                }
+
+                if let Some((mut min, mut max)) = range_opt.take() {
+                    if end.line > line_i {
+                        // Draw to end of line
+                        if run.rtl {
+                            min = 0;
+                        } else if let (Some(w), _) = buffer.size() {
+                            max = w.round() as i32;
+                        } else if max == 0 {
+                            max = (buffer.metrics().font_size * 0.5) as i32;
                         }
                     }
-
-                    if run.glyphs.is_empty() && end.line > line_i {
-                        // Highlight all of internal empty lines
-                        range_opt = Some((0, buffer.size().0.unwrap_or(0.0) as i32));
-                    }
-
-                    if let Some((mut min, mut max)) = range_opt.take() {
-                        if end.line > line_i {
-                            // Draw to end of line
-                            if run.rtl {
-                                min = 0;
-                            } else if let (Some(w), _) = buffer.size() {
-                                max = w.round() as i32;
-                            } else if max == 0 {
-                                max = (buffer.metrics().font_size * 0.5) as i32;
-                            }
-                        }
-                        compositor.preprocessed(Self::draw_box(
-                            min as f32 + pos.x,
-                            line_top + pos.y,
-                            std::cmp::max(0, max - min) as f32,
-                            line_height,
-                            bounds,
-                            self.selection_bg,
-                        ));
-                    }
+                    compositor.preprocessed(Self::draw_box(
+                        min as f32 + pos.x,
+                        line_top + pos.y,
+                        std::cmp::max(0, max - min) as f32,
+                        line_height,
+                        bounds,
+                        self.selection_bg,
+                    ));
                 }
             }
 
@@ -170,14 +171,13 @@ impl crate::render::Renderable for Instance {
                     None => color,
                 };
 
-                if let Some((start, end)) = self.selection {
-                    if line_i >= start.line
-                        && line_i <= end.line
-                        && (start.line != line_i || glyph.end > start.index)
-                        && (end.line != line_i || glyph.start < end.index)
-                    {
-                        color = selection_color;
-                    }
+                if let Some((start, end)) = self.selection
+                    && line_i >= start.line
+                    && line_i <= end.line
+                    && (start.line != line_i || glyph.end > start.index)
+                    && (end.line != line_i || glyph.start < end.index)
+                {
+                    color = selection_color;
                 }
 
                 text::Instance::write_glyph(

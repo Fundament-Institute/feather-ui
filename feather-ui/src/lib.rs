@@ -48,7 +48,6 @@ use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::{CmpGe, CmpGt};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
-#[cfg(target_os = "windows")]
 use winit::event_loop::EventLoop;
 use winit::window::WindowId;
 pub use {cosmic_text, im, notify, ultraviolet, wgpu, winit};
@@ -1663,142 +1662,142 @@ impl<
                         delete = Some(window.id());
                     }),
                     WindowEvent::RedrawRequested => {
-                        if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id()) {
-                            if let Some(driver) = self.driver.upgrade() {
-                                if let Some(staging) = root.staging.as_ref() {
-                                    let inner = state.state.as_mut().unwrap();
-                                    let surface_dim = inner.surface_dim();
+                        if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id())
+                            && let Some(driver) = self.driver.upgrade()
+                        {
+                            if let Some(staging) = root.staging.as_ref() {
+                                let inner = state.state.as_mut().unwrap();
+                                let surface_dim = inner.surface_dim();
 
-                                    loop {
-                                        // Construct a default compositor view with no offset.
-                                        let mut viewer = CompositorView {
-                                            index: 0,
-                                            window: &mut inner.compositor,
-                                            layer0: &mut driver.layer_composite[0].write(),
-                                            layer1: &mut driver.layer_composite[1].write(),
-                                            clipstack: &mut inner.clipstack,
-                                            offset: Vec2::zero(),
-                                            surface_dim,
-                                            pass: 0,
-                                            slice: 0,
-                                        };
+                                loop {
+                                    // Construct a default compositor view with no offset.
+                                    let mut viewer = CompositorView {
+                                        index: 0,
+                                        window: &mut inner.compositor,
+                                        layer0: &mut driver.layer_composite[0].write(),
+                                        layer1: &mut driver.layer_composite[1].write(),
+                                        clipstack: &mut inner.clipstack,
+                                        offset: Vec2::zero(),
+                                        surface_dim,
+                                        pass: 0,
+                                        slice: 0,
+                                    };
 
-                                        // Reset our layer tracker before beginning a render
-                                        inner.layers.clear();
-                                        viewer.clipstack.clear();
-                                        if let Err(e) = staging.render(
-                                            Vec2::zero(),
-                                            &driver,
-                                            &mut viewer,
-                                            &mut inner.layers,
-                                        ) {
-                                            match e {
-                                                Error::ResizeTextureAtlas(layers, kind) => {
-                                                    // Resize the texture atlas with the requested number of layers (the extent has already been changed)
-                                                    match kind {
-                                                        AtlasKind::Primary => driver.atlas.write(),
-                                                        AtlasKind::Layer0 => {
-                                                            driver.layer_atlas[0].write()
-                                                        }
-                                                        AtlasKind::Layer1 => {
-                                                            driver.layer_atlas[1].write()
-                                                        }
+                                    // Reset our layer tracker before beginning a render
+                                    inner.layers.clear();
+                                    viewer.clipstack.clear();
+                                    if let Err(e) = staging.render(
+                                        Vec2::zero(),
+                                        &driver,
+                                        &mut viewer,
+                                        &mut inner.layers,
+                                    ) {
+                                        match e {
+                                            Error::ResizeTextureAtlas(layers, kind) => {
+                                                // Resize the texture atlas with the requested number of layers (the extent has already been changed)
+                                                match kind {
+                                                    AtlasKind::Primary => driver.atlas.write(),
+                                                    AtlasKind::Layer0 => {
+                                                        driver.layer_atlas[0].write()
                                                     }
-                                                    .resize(&driver.device, &driver.queue, layers);
-                                                    viewer.window.cleanup();
-                                                    viewer.layer0.cleanup();
-                                                    viewer.layer1.cleanup();
-                                                    continue; // Retry frame
+                                                    AtlasKind::Layer1 => {
+                                                        driver.layer_atlas[1].write()
+                                                    }
                                                 }
-                                                e => panic!("Fatal draw error: {e}"),
+                                                .resize(&driver.device, &driver.queue, layers);
+                                                viewer.window.cleanup();
+                                                viewer.layer0.cleanup();
+                                                viewer.layer1.cleanup();
+                                                continue; // Retry frame
                                             }
+                                            e => panic!("Fatal draw error: {e}"),
                                         }
-                                        break;
                                     }
+                                    break;
                                 }
+                            }
 
-                                let mut encoder = driver.device.create_command_encoder(
-                                    &wgpu::CommandEncoderDescriptor {
-                                        label: Some("Root Encoder"),
+                            let mut encoder = driver.device.create_command_encoder(
+                                &wgpu::CommandEncoderDescriptor {
+                                    label: Some("Root Encoder"),
+                                },
+                            );
+
+                            driver.atlas.write().process_mipmaps(&driver, &mut encoder);
+                            driver.atlas.read().draw(&driver, &mut encoder);
+
+                            let max_depth = driver.layer_composite[0]
+                                .read()
+                                .segments
+                                .len()
+                                .max(driver.layer_composite[1].read().segments.len());
+
+                            for i in 0..2 {
+                                let surface_dim = driver.layer_atlas[i].read().texture.size();
+                                driver.layer_composite[i].write().prepare(
+                                    &driver,
+                                    &mut encoder,
+                                    Vec2 {
+                                        x: surface_dim.width as f32,
+                                        y: surface_dim.height as f32,
                                     },
                                 );
-
-                                driver.atlas.write().process_mipmaps(&driver, &mut encoder);
-                                driver.atlas.read().draw(&driver, &mut encoder);
-
-                                let max_depth = driver.layer_composite[0]
-                                    .read()
-                                    .segments
-                                    .len()
-                                    .max(driver.layer_composite[1].read().segments.len());
-
-                                for i in 0..2 {
-                                    let surface_dim = driver.layer_atlas[i].read().texture.size();
-                                    driver.layer_composite[i].write().prepare(
-                                        &driver,
-                                        &mut encoder,
-                                        Vec2 {
-                                            x: surface_dim.width as f32,
-                                            y: surface_dim.height as f32,
-                                        },
-                                    );
-                                }
-
-                                // A depth of "zero" means the window compositor, so we only go down to 1.
-                                for i in (1..max_depth).rev() {
-                                    // Odd is layer0, even is layer1, so we add one before modulo to reverse the result
-                                    let idx: usize = (i + 1) % 2;
-                                    let mut compositor = driver.layer_composite[idx].write();
-                                    let atlas = driver.layer_atlas[idx].read();
-
-                                    // We create one render pass for each slice of the layer atlas
-                                    for slice in 0..atlas.texture.depth_or_array_layers() {
-                                        let name = format!(
-                                            "Layer {idx} (depth {i}) Atlas (slice {slice}) Pass"
-                                        );
-                                        let mut pass = encoder.begin_render_pass(
-                                            &wgpu::RenderPassDescriptor {
-                                                label: Some(&name),
-                                                color_attachments: &[Some(
-                                                    wgpu::RenderPassColorAttachment {
-                                                        view: &atlas.targets[slice as usize],
-                                                        resolve_target: None,
-                                                        ops: wgpu::Operations {
-                                                            load: if true {
-                                                                wgpu::LoadOp::Clear(
-                                                                    wgpu::Color::TRANSPARENT,
-                                                                )
-                                                            } else {
-                                                                wgpu::LoadOp::Load
-                                                            },
-                                                            store: wgpu::StoreOp::Store,
-                                                        },
-                                                    },
-                                                )],
-                                                depth_stencil_attachment: None,
-                                                timestamp_writes: None,
-                                                occlusion_query_set: None,
-                                            },
-                                        );
-
-                                        pass.set_viewport(
-                                            0.0,
-                                            0.0,
-                                            atlas.texture.width() as f32,
-                                            atlas.texture.height() as f32,
-                                            0.0,
-                                            1.0,
-                                        );
-
-                                        compositor.draw(&driver, &mut pass, i as u8, slice as u8);
-                                    }
-                                }
-
-                                state.state.as_mut().unwrap().draw(encoder);
-                                driver.layer_composite[0].write().cleanup();
-                                driver.layer_composite[1].write().cleanup();
                             }
+
+                            // A depth of "zero" means the window compositor, so we only go down to 1.
+                            for i in (1..max_depth).rev() {
+                                // Odd is layer0, even is layer1, so we add one before modulo to reverse the result
+                                let idx: usize = (i + 1) % 2;
+                                let mut compositor = driver.layer_composite[idx].write();
+                                let atlas = driver.layer_atlas[idx].read();
+
+                                // We create one render pass for each slice of the layer atlas
+                                for slice in 0..atlas.texture.depth_or_array_layers() {
+                                    let name = format!(
+                                        "Layer {idx} (depth {i}) Atlas (slice {slice}) Pass"
+                                    );
+                                    let mut pass =
+                                        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                                            label: Some(&name),
+                                            color_attachments: &[Some(
+                                                wgpu::RenderPassColorAttachment {
+                                                    view: &atlas.targets[slice as usize],
+                                                    resolve_target: None,
+                                                    ops: wgpu::Operations {
+                                                        load: if true {
+                                                            wgpu::LoadOp::Clear(
+                                                                wgpu::Color::TRANSPARENT,
+                                                            )
+                                                        } else {
+                                                            wgpu::LoadOp::Load
+                                                        },
+                                                        store: wgpu::StoreOp::Store,
+                                                    },
+                                                },
+                                            )],
+                                            depth_stencil_attachment: None,
+                                            timestamp_writes: None,
+                                            occlusion_query_set: None,
+                                        });
+
+                                    pass.set_viewport(
+                                        0.0,
+                                        0.0,
+                                        atlas.texture.width() as f32,
+                                        atlas.texture.height() as f32,
+                                        0.0,
+                                        1.0,
+                                    );
+
+                                    compositor.draw(&driver, &mut pass, i as u8, slice as u8);
+                                }
+                            }
+
+                            state.state.as_mut().unwrap().draw(encoder);
+                            driver.layer_composite[0].write().cleanup();
+                            driver.layer_composite[1].write().cleanup();
                         }
+
                         Ok(())
                     }
                     WindowEvent::Resized(_) => {

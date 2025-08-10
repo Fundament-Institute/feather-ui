@@ -163,11 +163,11 @@ impl super::EventRouter for ScrollAreaState {
                         }
                     }
                     (MouseState::Up, MouseButton::Left) => {
-                        if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, 0)) {
-                            if area.contains(pos) {
-                                let e = self.apply_scroll(pos - last_pos, &area, &extent, dpi);
-                                return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
-                            }
+                        if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, 0))
+                            && area.contains(pos)
+                        {
+                            let e = self.apply_scroll(pos - last_pos, &area, &extent, dpi);
+                            return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
                         }
                     }
                     _ => (),
@@ -200,16 +200,16 @@ impl super::EventRouter for ScrollAreaState {
                 }
                 crate::input::TouchState::End => {
                     // TODO: implement kinetic drag
-                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index)) {
-                        if area.contains(pos.xy()) {
-                            let e = self.apply_scroll(
-                                (pos.xy() - last_pos) * self.stepvec(),
-                                &area,
-                                &extent,
-                                dpi,
-                            );
-                            return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
-                        }
+                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index))
+                        && area.contains(pos.xy())
+                    {
+                        let e = self.apply_scroll(
+                            (pos.xy() - last_pos) * self.stepvec(),
+                            &area,
+                            &extent,
+                            dpi,
+                        );
+                        return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
                     }
                 }
             },
