@@ -104,15 +104,17 @@ impl Atlas {
         queue.write_buffer(
             &self.mvp,
             0,
-            crate::graphics::mat4_ortho(
-                0.0,
-                self.texture.height() as f32,
-                self.texture.width() as f32,
-                -(self.texture.height() as f32),
-                1.0,
-                10000.0,
-            )
-            .as_byte_slice(),
+            bytemuck::cast_slice(
+                &crate::graphics::mat4_ortho(
+                    0.0,
+                    self.texture.height() as f32,
+                    self.texture.width() as f32,
+                    -(self.texture.height() as f32),
+                    1.0,
+                    10000.0,
+                )
+                .to_array(),
+            ),
         );
 
         queue.write_buffer(
@@ -147,15 +149,17 @@ impl Atlas {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(name),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            contents: crate::graphics::mat4_ortho(
-                0.0,
-                texture.height() as f32,
-                texture.width() as f32,
-                -(texture.height() as f32),
-                1.0,
-                10000.0,
-            )
-            .as_byte_slice(),
+            contents: bytemuck::cast_slice(
+                &crate::graphics::mat4_ortho(
+                    0.0,
+                    texture.height() as f32,
+                    texture.width() as f32,
+                    -(texture.height() as f32),
+                    1.0,
+                    10000.0,
+                )
+                .to_array(),
+            ),
         })
     }
 
@@ -199,7 +203,7 @@ impl Atlas {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: NonZero::new(size_of::<ultraviolet::Mat4>() as u64),
+                        min_binding_size: NonZero::new(size_of::<crate::Mat4x4>() as u64),
                     },
                     count: None,
                 },

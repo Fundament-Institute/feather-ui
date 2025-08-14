@@ -3,9 +3,12 @@
 
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
-use ultraviolet::{Vec2, Vec3};
+use guillotiere::euclid::default::Rotation3D;
+use guillotiere::euclid::{Point3D, Vector3D};
 use winit::dpi::PhysicalPosition;
 use winit::event::{DeviceId, TouchPhase};
+
+use crate::{Pixel, PxPoint, PxVector, RelVector};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -81,8 +84,8 @@ pub enum RawEvent {
     JoyOrientation {
         // 32 bytes
         device_id: DeviceId,
-        velocity: Vec3,
-        rotation: Vec3,
+        velocity: Vector3D<f32, crate::Pixel>,
+        rotation: Rotation3D<f32>,
     },
     Key {
         // 48 bytes
@@ -97,20 +100,20 @@ pub enum RawEvent {
         // 24 bytes
         device_id: DeviceId,
         state: MouseState,
-        pos: PhysicalPosition<f32>,
+        pos: PxPoint,
         button: MouseButton,
         all_buttons: u16,
         modifiers: u8,
     },
     MouseOn {
         device_id: DeviceId,
-        pos: PhysicalPosition<f32>,
+        pos: PxPoint,
         modifiers: u8,
         all_buttons: u16,
     },
     MouseMove {
         device_id: DeviceId,
-        pos: PhysicalPosition<f32>,
+        pos: PxPoint,
         modifiers: u8,
         all_buttons: u16,
     },
@@ -122,17 +125,16 @@ pub enum RawEvent {
     MouseScroll {
         device_id: DeviceId,
         state: TouchState,
-        pos: PhysicalPosition<f32>,
-        delta: Vec2,
-        pixels: bool, // If true, delta is expressed in pixels
+        pos: PxPoint,
+        delta: Result<PxVector, RelVector>,
     },
     Touch {
         // 48 bytes
         device_id: DeviceId,
-        index: u64,
+        index: u32,
         state: TouchState,
-        pos: Vec3,
-        angle: Vec2,
+        pos: Point3D<f32, Pixel>,
+        angle: Rotation3D<f32>,
         pressure: f64,
     },
 }
