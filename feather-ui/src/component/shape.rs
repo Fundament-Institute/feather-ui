@@ -246,7 +246,7 @@ where
             renderable: Some(Rc::new(crate::render::shape::Instance::<
                 crate::render::shape::Shape<KIND>,
             > {
-                padding: self.props.padding().to_perimeter(dpi),
+                padding: self.props.padding().as_perimeter(dpi),
                 border: self.border,
                 blur: self.blur,
                 fill: self.fill,

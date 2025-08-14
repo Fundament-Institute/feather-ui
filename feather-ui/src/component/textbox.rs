@@ -7,7 +7,7 @@ use crate::editor::Editor;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
 use crate::text::{Change, EditBuffer};
-use crate::{AnyRect, Dispatchable, Error, SourceID, WindowStateMachine, layout};
+use crate::{Dispatchable, Error, PxRect, SourceID, WindowStateMachine, layout};
 use cosmic_text::{Action, Buffer, Cursor};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -77,8 +77,8 @@ impl super::EventRouter for TextBoxState {
     fn process(
         mut self,
         input: Self::Input,
-        area: AnyRect,
-        _: AnyRect,
+        area: PxRect,
+        _: PxRect,
         dpi: crate::RelDim,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)>
@@ -362,14 +362,8 @@ impl super::EventRouter for TextBoxState {
             } => {
                 if let Some(d) = driver.upgrade() {
                     *d.cursor.write() = winit::window::CursorIcon::Text;
-                    let p = area.topleft()
-                        + self
-                            .props
-                            .padding()
-                            .resolve(dpi)
-                            .topleft()
-                            .to_untyped()
-                            .to_vector();
+                    let p =
+                        area.topleft() + self.props.padding().resolve(dpi).topleft().to_vector();
 
                     if (all_buttons & MouseButton::Left as u16) != 0 {
                         self.editor.action(
@@ -392,14 +386,8 @@ impl super::EventRouter for TextBoxState {
                 pos, state, button, ..
             } => {
                 if let Some(d) = driver.upgrade() {
-                    let p = area.topleft()
-                        + self
-                            .props
-                            .padding()
-                            .resolve(dpi)
-                            .topleft()
-                            .to_untyped()
-                            .to_vector();
+                    let p =
+                        area.topleft() + self.props.padding().resolve(dpi).topleft().to_vector();
 
                     let action = match (state, button) {
                         (MouseState::Down, MouseButton::Left) => Action::Click {
@@ -624,7 +612,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
 
         let instance = crate::render::textbox::Instance {
             text_buffer: self.props.textedit().obj.buffer.clone(),
-            padding: self.props.padding().to_perimeter(dpi),
+            padding: self.props.padding().as_perimeter(dpi),
             selection: textstate
                 .editor
                 .selection_bounds(&self.props.textedit().obj.buffer.borrow()),

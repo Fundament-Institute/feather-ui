@@ -37,8 +37,8 @@ impl crate::layout::Desc for dyn Empty {
 
     fn stage<'a>(
         _: &Self::Props,
-        mut outer_area: crate::ERect,
-        outer_limits: crate::ELimits,
+        mut outer_area: crate::PxRect,
+        outer_limits: crate::PxLimits,
         _: &Self::Children,
         id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::render::Renderable>>,

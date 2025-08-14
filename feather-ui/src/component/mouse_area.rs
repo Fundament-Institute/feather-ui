@@ -54,8 +54,8 @@ impl super::EventRouter for MouseAreaState {
     fn process(
         mut self,
         input: Self::Input,
-        area: crate::AnyRect,
-        _: crate::AnyRect,
+        area: crate::PxRect,
+        _: crate::PxRect,
         dpi: crate::RelDim,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<
@@ -131,7 +131,7 @@ impl super::EventRouter for MouseAreaState {
                 let hover = Self::hover_event(button as u16, self.hover);
                 match state {
                     MouseState::Down => {
-                        if area.contains(pos.to_untyped()) {
+                        if area.contains(pos) {
                             self.lastdown
                                 .insert((device_id, button as u64), (pos, false));
                             return Ok((self, [hover].into()));
@@ -140,7 +140,7 @@ impl super::EventRouter for MouseAreaState {
                     MouseState::Up => {
                         if let Some((last_pos, drag)) =
                             self.lastdown.remove(&(device_id, button as u64))
-                            && area.contains(pos.to_untyped())
+                            && area.contains(pos)
                         {
                             return Ok((
                                 self,
@@ -159,7 +159,7 @@ impl super::EventRouter for MouseAreaState {
                     MouseState::DblClick => {
                         if let Some((last_pos, drag)) =
                             self.lastdown.remove(&(device_id, button as u64))
-                            && area.contains(pos.to_untyped())
+                            && area.contains(pos)
                         {
                             return Ok((
                                 self,
@@ -194,7 +194,7 @@ impl super::EventRouter for MouseAreaState {
             } => match state {
                 crate::input::TouchState::Start => {
                     let hover = Self::hover_event(MouseButton::Left as u16, self.hover);
-                    if area.contains(pos.xy().to_untyped()) {
+                    if area.contains(pos.xy()) {
                         self.lastdown
                             .insert((device_id, index as u64), (pos.xy(), false));
                         return Ok((self, [hover].into()));
@@ -224,7 +224,7 @@ impl super::EventRouter for MouseAreaState {
                 crate::input::TouchState::End => {
                     let hover = Self::hover_event(0, self.hover);
                     if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index as u64))
-                        && area.contains(pos.xy().to_untyped())
+                        && area.contains(pos.xy())
                     {
                         let diff = pos.xy() - last_pos;
                         return Ok((

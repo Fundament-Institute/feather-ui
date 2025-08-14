@@ -5,13 +5,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use cosmic_text::{CacheKey, FontSystem};
-use guillotiere::{AllocId, Size};
+use guillotiere::AllocId;
 
 use crate::color::{Premultiplied, sRGB32};
 use crate::graphics::{GlyphCache, GlyphRegion};
-use crate::render::atlas::Atlas;
+use crate::render::atlas::{Atlas, Size};
 use crate::render::compositor::{CompositorView, DataFlags};
-use crate::{AnyRect, Error};
+use crate::{Error, PxRect};
 
 use swash::scale::{Render, ScaleContext, Source, StrikeWith};
 use swash::zeno::{Format, Vector};
@@ -21,7 +21,7 @@ pub use swash::zeno::{Angle, Command, Placement, Transform};
 
 pub struct Instance {
     pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
-    pub padding: std::cell::Cell<crate::Perimeter<crate::Evaluated>>,
+    pub padding: std::cell::Cell<crate::PxPerimeter>,
 }
 
 impl Instance {
@@ -239,9 +239,9 @@ impl Instance {
 
     fn evaluate(
         buffer: &cosmic_text::Buffer,
-        pos: crate::AnyPoint,
+        pos: crate::PxPoint,
         scale: f32,
-        mut bounds: AnyRect,
+        mut bounds: PxRect,
         color: cosmic_text::Color,
         compositor: &mut super::compositor::CompositorView<'_>,
         font_system: &mut FontSystem,
@@ -315,7 +315,7 @@ impl Instance {
 impl super::Renderable for Instance {
     fn render(
         &self,
-        area: AnyRect,
+        area: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {
@@ -323,7 +323,7 @@ impl super::Renderable for Instance {
 
         Self::evaluate(
             &self.text_buffer.borrow(),
-            area.topleft().add_size(&padding.topleft().to_untyped()),
+            area.topleft().add_size(&padding.topleft()),
             1.0,
             area,
             cosmic_text::Color::rgb(255, 255, 255),

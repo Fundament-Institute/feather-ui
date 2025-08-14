@@ -3,7 +3,7 @@
 
 use super::base::Empty;
 use super::{Concrete, Desc, Layout, Renderable, Staged, base, map_unsized_area};
-use crate::{DRect, EDim, ERect, SourceID, rtree};
+use crate::{DRect, PxDim, PxRect, SourceID, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -29,8 +29,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: ERect,
-        outer_limits: crate::ELimits,
+        outer_area: PxRect,
+        outer_limits: crate::PxLimits,
         _: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -38,7 +38,7 @@ impl Desc for dyn Prop {
     ) -> Box<dyn Staged + 'a> {
         let limits = outer_limits + props.limits().resolve(window.dpi);
         let evaluated_area = super::limit_area(
-            map_unsized_area(props.area().resolve(window.dpi), EDim::zero())
+            map_unsized_area(props.area().resolve(window.dpi), PxDim::zero())
                 * super::nuetralize_unsized(outer_area),
             limits,
         );
@@ -69,7 +69,7 @@ impl Desc for dyn Prop {
 pub struct Sized<T> {
     pub id: std::sync::Weak<SourceID>,
     pub props: Rc<T>,
-    pub size: crate::EDim,
+    pub size: crate::PxDim,
     pub renderable: Option<Rc<dyn Renderable>>,
 }
 
@@ -79,12 +79,12 @@ impl<T: Padded> Layout<T> for Sized<T> {
     }
     fn stage<'a>(
         &self,
-        outer_area: crate::ERect,
-        outer_limits: crate::ELimits,
+        outer_area: crate::PxRect,
+        outer_limits: crate::PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn super::Staged + 'a> {
         let limits = outer_limits + self.props.limits().resolve(window.dpi);
-        let padding = self.props.padding().to_perimeter(window.dpi);
+        let padding = self.props.padding().as_perimeter(window.dpi);
         let area = self.props.area().resolve(window.dpi);
         let aspect_ratio = self.size.width / self.size.height; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
 
@@ -95,14 +95,14 @@ impl<T: Padded> Layout<T> for Sized<T> {
         let outer_area = super::nuetralize_unsized(outer_area);
         let mapped_area = match (unsized_x, unsized_y, aspect_ratio.is_nan()) {
             (true, false, false) => {
-                let mut presize = map_unsized_area(area, EDim::zero()) * outer_area;
+                let mut presize = map_unsized_area(area, PxDim::zero()) * outer_area;
                 let adjust = presize.dim().height * aspect_ratio;
                 let v = presize.v.as_array_mut();
                 v[2] += adjust;
                 presize
             }
             (false, true, false) => {
-                let mut presize = map_unsized_area(area, EDim::zero()) * outer_area;
+                let mut presize = map_unsized_area(area, PxDim::zero()) * outer_area;
                 // Be careful, the aspect ratio here is being divided instead of multiplied
                 let adjust = presize.dim().width / aspect_ratio;
                 let v = presize.v.as_array_mut();

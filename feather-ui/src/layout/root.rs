@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::{Desc, Layout, Renderable, Staged, base};
-use crate::{ERect, PxDim};
+use crate::{PxDim, PxRect};
 use std::rc::Rc;
 
 // The root node represents some area on the screen that contains a feather layout. Later this will turn
@@ -26,8 +26,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        _: ERect,
-        _: crate::ELimits,
+        _: PxRect,
+        _: crate::PxLimits,
         child: &Self::Children,
         _: std::sync::Weak<crate::SourceID>,
         _: Option<Rc<dyn Renderable>>,

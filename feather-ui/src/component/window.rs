@@ -8,8 +8,8 @@ use crate::layout::root;
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
 use crate::{
-    AnyPoint, AnyVector, PxDim, PxPoint, RelDim, RelVector, SourceID, StateMachineChild,
-    StateManager, graphics, layout, rtree,
+    PxDim, PxPoint, PxVector, RelDim, RelVector, SourceID, StateMachineChild, StateManager,
+    graphics, layout, rtree,
 };
 use alloc::sync::Arc;
 use core::f32;
@@ -45,7 +45,7 @@ pub struct WindowState {
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Arc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
-    pub clipstack: Vec<crate::AnyRect>, // Current clipping rectangle stack. These only get added to the GPU clip list if something is rotated
+    pub clipstack: Vec<crate::PxRect>, // Current clipping rectangle stack. These only get added to the GPU clip list if something is rotated
     pub layers: Vec<std::sync::Weak<SourceID>>, // All layers that render directly to the final compositor
 }
 
@@ -421,7 +421,7 @@ impl Window {
                         &evt,
                         evt.kind(),
                         dpi,
-                        AnyVector::zero(),
+                        PxVector::zero(),
                         id.clone(),
                         &driver,
                         manager,
@@ -610,7 +610,7 @@ impl Window {
                                         &e,
                                         e.kind(),
                                         dpi,
-                                        AnyVector::zero(),
+                                        PxVector::zero(),
                                         id.clone(),
                                         &driver,
                                         manager,
@@ -637,7 +637,7 @@ impl Window {
                                 &e,
                                 e.kind(),
                                 dpi,
-                                AnyVector::zero(),
+                                PxVector::zero(),
                                 id.clone(),
                                 &driver,
                                 manager,
@@ -650,7 +650,7 @@ impl Window {
                                 &e,
                                 e.kind(),
                                 dpi,
-                                AnyVector::zero(),
+                                PxVector::zero(),
                                 id.clone(),
                                 &driver,
                                 manager,
@@ -713,8 +713,8 @@ impl Window {
                             rt.process(
                                 &e,
                                 e.kind(),
-                                AnyPoint::new(x, y),
-                                AnyVector::zero(),
+                                PxPoint::new(x, y),
+                                PxVector::zero(),
                                 dpi,
                                 &driver,
                                 manager,
@@ -754,7 +754,7 @@ impl Window {
                                     &evt,
                                     evt.kind(),
                                     dpi,
-                                    AnyVector::zero(),
+                                    PxVector::zero(),
                                     id.clone(),
                                     &driver,
                                     manager,
@@ -795,7 +795,7 @@ impl Window {
                                     &evt,
                                     evt.kind(),
                                     dpi,
-                                    AnyVector::zero(),
+                                    PxVector::zero(),
                                     id.clone(),
                                     &driver,
                                     manager,

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::render::compositor::CompositorView;
-use crate::{AnyRect, graphics};
+use crate::{PxRect, graphics};
 use std::any::Any;
 use std::rc::Rc;
 
@@ -18,7 +18,7 @@ pub mod textbox;
 pub trait Renderable {
     fn render(
         &self,
-        area: AnyRect,
+        area: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error>;
@@ -73,7 +73,7 @@ pub struct Chain<const N: usize>(pub [Rc<dyn Renderable>; N]);
 impl<const N: usize> Renderable for Chain<N> {
     fn render(
         &self,
-        area: AnyRect,
+        area: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {

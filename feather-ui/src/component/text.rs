@@ -154,7 +154,7 @@ where
 
         let render = Rc::new(crate::render::text::Instance {
             text_buffer: textstate.0.clone(),
-            padding: self.props.padding().to_perimeter(dpi).into(),
+            padding: self.props.padding().as_perimeter(dpi).into(),
         });
 
         Box::new(layout::text::Node::<T> {

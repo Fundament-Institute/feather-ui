@@ -5,7 +5,7 @@ use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, map_unsized_area,
     nuetralize_unsized,
 };
-use crate::{DPoint, DValue, EDim, ERect, RowDirection, SourceID, UNSIZED_AXIS, rtree};
+use crate::{DPoint, DValue, PxDim, PxRect, RowDirection, SourceID, UNSIZED_AXIS, rtree};
 use std::rc::Rc;
 
 // TODO: use sparse vectors here? Does that even make sense if rows require a default size of some kind?
@@ -35,8 +35,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: crate::ERect,
-        outer_limits: crate::ELimits,
+        outer_area: crate::PxRect,
+        outer_limits: crate::PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -45,7 +45,7 @@ impl Desc for dyn Prop {
         use super::Swappable;
 
         let mut limits = outer_limits + props.limits().resolve(window.dpi);
-        let padding = props.padding().to_perimeter(window.dpi);
+        let padding = props.padding().as_perimeter(window.dpi);
         let myarea = props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
         let allpadding = padding.topleft() + padding.bottomright();
@@ -75,111 +75,115 @@ impl Desc for dyn Prop {
         let spacing = props
             .spacing()
             .resolve(crate::RelDim::new(dpi_row, dpi_column))
-            * EDim::new(outer_row, outer_column);
+            * PxDim::new(outer_row, outer_column);
         let nrows = props.rows().len();
         let ncolumns = props.columns().len();
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
-        let evaluated_area = crate::util::alloca_array::<f32, ERect>((nrows + ncolumns) * 2, |x| {
-            let (resolved, sizes) = x.split_at_mut(nrows + ncolumns);
-            {
+        let evaluated_area =
+            crate::util::alloca_array::<f32, PxRect>((nrows + ncolumns) * 2, |x| {
+                let (resolved, sizes) = x.split_at_mut(nrows + ncolumns);
+                {
+                    let (rows, columns) = resolved.split_at_mut(nrows);
+
+                    // Fill our max calculation rows with NANs (this ensures max()/min() behave properly)
+                    sizes.fill(f32::NAN);
+
+                    let (maxrows, maxcolumns) = sizes.split_at_mut(nrows);
+
+                    // First we precalculate all row/column sizes that we can (if an outer axis is unsized, relative sizes are set to 0)
+                    for (i, row) in props.rows().iter().enumerate() {
+                        rows[i] = row.resolve(dpi_row).resolve(outer_row);
+                    }
+                    for (i, column) in props.columns().iter().enumerate() {
+                        columns[i] = column.resolve(dpi_column).resolve(outer_column);
+                    }
+
+                    // Then we go through all child elements so we can precalculate the maximum area of all rows and columns
+                    for child in children.iter() {
+                        let child_props = child.as_ref().unwrap().get_props();
+                        let child_limit =
+                            super::apply_limit(inner_dim, limits, *child_props.rlimits());
+                        let (row, column) = child_props.index();
+
+                        if rows[row] == UNSIZED_AXIS || columns[column] == UNSIZED_AXIS {
+                            let (w, h) = super::swap_pair(yaxis, (columns[column], rows[row]));
+                            let child_area = PxRect::new(0.0, 0.0, w, h);
+
+                            let stage =
+                                child
+                                    .as_ref()
+                                    .unwrap()
+                                    .stage(child_area, child_limit, window);
+                            let area = stage.get_area();
+                            let (c, r) = area.dim().swap_axis(yaxis);
+                            maxrows[row] = maxrows[row].max(r);
+                            maxcolumns[column] = maxcolumns[column].max(c);
+                        }
+                    }
+                }
+
+                // Copy back our resolved row or column to any unsized ones
+                for (i, size) in sizes.iter().enumerate() {
+                    if resolved[i] == UNSIZED_AXIS {
+                        resolved[i] = if size.is_nan() { 0.0 } else { *size };
+                    }
+                }
                 let (rows, columns) = resolved.split_at_mut(nrows);
+                let (x_used, y_used) = super::swap_pair(
+                    yaxis,
+                    (
+                        columns.iter().fold(0.0, |x, y| x + y)
+                            + (spacing.y * ncolumns.saturating_sub(1) as f32),
+                        rows.iter().fold(0.0, |x, y| x + y)
+                            + (spacing.x * nrows.saturating_sub(1) as f32),
+                    ),
+                );
+                let area = map_unsized_area(myarea, PxDim::new(x_used, y_used));
 
-                // Fill our max calculation rows with NANs (this ensures max()/min() behave properly)
-                sizes.fill(f32::NAN);
+                // Calculate the offset to each row or column, without overwriting the size we stored in resolved
+                let (row_offsets, column_offsets) = sizes.split_at_mut(nrows);
+                let mut offset = 0.0;
 
-                let (maxrows, maxcolumns) = sizes.split_at_mut(nrows);
-
-                // First we precalculate all row/column sizes that we can (if an outer axis is unsized, relative sizes are set to 0)
-                for (i, row) in props.rows().iter().enumerate() {
-                    rows[i] = row.resolve(dpi_row).resolve(outer_row);
+                for (i, row) in rows.iter().enumerate() {
+                    row_offsets[i] = offset;
+                    offset += row + spacing.x;
                 }
-                for (i, column) in props.columns().iter().enumerate() {
-                    columns[i] = column.resolve(dpi_column).resolve(outer_column);
+
+                offset = 0.0;
+                for (i, column) in columns.iter().enumerate() {
+                    column_offsets[i] = offset;
+                    offset += column + spacing.y;
                 }
 
-                // Then we go through all child elements so we can precalculate the maximum area of all rows and columns
                 for child in children.iter() {
                     let child_props = child.as_ref().unwrap().get_props();
                     let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
                     let (row, column) = child_props.index();
 
-                    if rows[row] == UNSIZED_AXIS || columns[column] == UNSIZED_AXIS {
-                        let (w, h) = super::swap_pair(yaxis, (columns[column], rows[row]));
-                        let child_area = ERect::new(0.0, 0.0, w, h);
+                    let (x, y) =
+                        super::swap_pair(yaxis, (column_offsets[column], row_offsets[row]));
+                    let (w, h) = super::swap_pair(yaxis, (columns[column], rows[row]));
+                    let child_area = PxRect::new(x, y, x + w, y + h);
 
-                        let stage = child
-                            .as_ref()
-                            .unwrap()
-                            .stage(child_area, child_limit, window);
-                        let area = stage.get_area();
-                        let (c, r) = area.dim().swap_axis(yaxis);
-                        maxrows[row] = maxrows[row].max(r);
-                        maxcolumns[column] = maxcolumns[column].max(c);
+                    let stage = child
+                        .as_ref()
+                        .unwrap()
+                        .stage(child_area, child_limit, window);
+                    if let Some(node) = stage.get_rtree().upgrade() {
+                        nodes.push_back(Some(node));
                     }
+                    staging.push_back(Some(stage));
                 }
-            }
 
-            // Copy back our resolved row or column to any unsized ones
-            for (i, size) in sizes.iter().enumerate() {
-                if resolved[i] == UNSIZED_AXIS {
-                    resolved[i] = if size.is_nan() { 0.0 } else { *size };
-                }
-            }
-            let (rows, columns) = resolved.split_at_mut(nrows);
-            let (x_used, y_used) = super::swap_pair(
-                yaxis,
-                (
-                    columns.iter().fold(0.0, |x, y| x + y)
-                        + (spacing.y * ncolumns.saturating_sub(1) as f32),
-                    rows.iter().fold(0.0, |x, y| x + y)
-                        + (spacing.x * nrows.saturating_sub(1) as f32),
-                ),
-            );
-            let area = map_unsized_area(myarea, EDim::new(x_used, y_used));
+                // No need to cap this because unsized axis have now been resolved
+                let evaluated_area = super::limit_area(area * outer_safe, limits) + padding;
 
-            // Calculate the offset to each row or column, without overwriting the size we stored in resolved
-            let (row_offsets, column_offsets) = sizes.split_at_mut(nrows);
-            let mut offset = 0.0;
-
-            for (i, row) in rows.iter().enumerate() {
-                row_offsets[i] = offset;
-                offset += row + spacing.x;
-            }
-
-            offset = 0.0;
-            for (i, column) in columns.iter().enumerate() {
-                column_offsets[i] = offset;
-                offset += column + spacing.y;
-            }
-
-            for child in children.iter() {
-                let child_props = child.as_ref().unwrap().get_props();
-                let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
-                let (row, column) = child_props.index();
-
-                let (x, y) = super::swap_pair(yaxis, (column_offsets[column], row_offsets[row]));
-                let (w, h) = super::swap_pair(yaxis, (columns[column], rows[row]));
-                let child_area = ERect::new(x, y, x + w, y + h);
-
-                let stage = child
-                    .as_ref()
-                    .unwrap()
-                    .stage(child_area, child_limit, window);
-                if let Some(node) = stage.get_rtree().upgrade() {
-                    nodes.push_back(Some(node));
-                }
-                staging.push_back(Some(stage));
-            }
-
-            // No need to cap this because unsized axis have now been resolved
-            let evaluated_area = super::limit_area(area * outer_safe, limits) + padding;
-
-            let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
-            evaluated_area - anchor
-        });
+                let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
+                evaluated_area - anchor
+            });
 
         Box::new(Concrete {
             area: evaluated_area,

@@ -7,8 +7,8 @@ use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Desc, base, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{
-    AbsRect, AbsVector, AnyRect, Dispatchable, PxPoint, PxRect, PxVector, RelDim, RelVector, Slot,
-    SourceID, UNSIZED_AXIS, UnResolve, layout,
+    AbsRect, AbsVector, Dispatchable, PxPoint, PxRect, PxVector, RelDim, RelVector, Slot, SourceID,
+    UNSIZED_AXIS, UnResolve, layout,
 };
 use core::f32;
 use derive_where::derive_where;
@@ -58,15 +58,15 @@ impl ScrollAreaState {
     fn apply_scroll(
         &mut self,
         mut change: PxVector,
-        area: &AnyRect,
-        extent: &AnyRect,
+        area: &PxRect,
+        extent: &PxRect,
         dpi: RelDim,
     ) -> ScrollAreaEvent {
         let bounds = area.dim();
         //let extension = self.extension.resolve(dpi);
 
         let mut scroll = self.scroll + change;
-        let max = (bounds - extent.dim()).min(crate::AnyDim::zero());
+        let max = (bounds - extent.dim()).min(crate::PxDim::zero());
 
         // We should never scroll by a positive amount (this would scroll past topleft corner), and we should
         // never scroll by an amount that would put us past the bottomright corner.
@@ -94,8 +94,8 @@ impl super::EventRouter for ScrollAreaState {
     fn process(
         mut self,
         input: Self::Input,
-        area: AnyRect,
-        extent: AnyRect,
+        area: PxRect,
+        extent: PxRect,
         dpi: crate::RelDim,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<
@@ -157,14 +157,14 @@ impl super::EventRouter for ScrollAreaState {
                 ..
             } => match (state, button) {
                 (MouseState::Down, MouseButton::Left) => {
-                    if area.contains(pos.to_untyped()) {
+                    if area.contains(pos) {
                         self.lastdown.insert((device_id, 0), (pos, false));
                         return Ok((self, SmallVec::new()));
                     }
                 }
                 (MouseState::Up, MouseButton::Left) => {
                     if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, 0))
-                        && area.contains(pos.to_untyped())
+                        && area.contains(pos)
                     {
                         let e = self.apply_scroll(pos - last_pos, &area, &extent, dpi);
                         return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
@@ -180,7 +180,7 @@ impl super::EventRouter for ScrollAreaState {
                 ..
             } => match state {
                 crate::input::TouchState::Start => {
-                    if area.contains(pos.xy().to_untyped()) {
+                    if area.contains(pos.xy()) {
                         self.lastdown
                             .insert((device_id, index as u64), (pos.xy(), false));
                         return Ok((self, SmallVec::new()));
@@ -203,7 +203,7 @@ impl super::EventRouter for ScrollAreaState {
                 crate::input::TouchState::End => {
                     // TODO: implement kinetic drag
                     if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index as u64))
-                        && area.contains(pos.xy().to_untyped())
+                        && area.contains(pos.xy())
                     {
                         let e = self.apply_scroll(
                             (pos.xy() - last_pos).component_mul(self.stepvec().cast_unit()),

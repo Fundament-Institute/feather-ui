@@ -17,7 +17,7 @@ pub struct Instance {
 impl super::Renderable for Instance {
     fn render(
         &self,
-        _: crate::AnyRect,
+        _: crate::PxRect,
         _: &crate::graphics::Driver,
         compositor: &mut compositor::CompositorView<'_>,
     ) -> Result<(), crate::Error> {
@@ -36,7 +36,7 @@ impl super::Renderable for Instance {
 
             *data = compositor::Data {
                 pos: (((p1 + p2.to_vector()) * 0.5)
-                    - (crate::AnyVector::new(p.length() * 0.5, 0.0)))
+                    - (crate::PxVector::new(p.length() * 0.5, 0.0)))
                 .to_array()
                 .into(),
                 dim: [p.length(), 1.0].into(),
