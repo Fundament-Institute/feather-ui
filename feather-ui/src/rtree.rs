@@ -8,7 +8,7 @@ use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{
-    AnyPoint, AnyRect, AnyVector, Dispatchable, Pixel, RelDim, SourceID, StateManager,
+    Dispatchable, Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID, StateManager,
     WindowStateMachine,
 };
 use eyre::Result;
@@ -17,8 +17,8 @@ use std::rc::Rc;
 use winit::dpi::PhysicalPosition;
 
 pub struct Node {
-    pub area: AnyRect, // This is the calculated area of the node from the layout relative to the topleft corner of the parent.
-    pub extent: AnyRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
+    pub area: PxRect, // This is the calculated area of the node from the layout relative to the topleft corner of the parent.
+    pub extent: PxRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
     pub bottom: i32,
     pub mask: AtomicU64,
@@ -33,7 +33,7 @@ pub struct Node {
 
 impl Node {
     pub fn new(
-        area: AnyRect,
+        area: PxRect,
         z: Option<i32>,
         children: im::Vector<Option<Rc<Node>>>,
         id: std::sync::Weak<SourceID>,
@@ -41,9 +41,9 @@ impl Node {
     ) -> Rc<Self> {
         let this = Rc::new_cyclic(|this| {
             let mut fold = VectorFold::new(
-                |(rect, top, bottom): &(AnyRect, i32, i32),
+                |(rect, top, bottom): &(PxRect, i32, i32),
                  n: &Option<Rc<Node>>|
-                 -> (AnyRect, i32, i32) {
+                 -> (PxRect, i32, i32) {
                     let n = n.as_ref().unwrap();
                     (
                         rect.extend(n.area),
@@ -93,7 +93,7 @@ impl Node {
         self: &Rc<Self>,
         event: &RawEvent,
         dpi: RelDim,
-        offset: AnyVector,
+        offset: PxVector,
         window_id: Arc<SourceID>,
         manager: &mut StateManager,
     ) -> Result<(), ()> {
@@ -133,7 +133,7 @@ impl Node {
                         &evt,
                         evt.kind(),
                         dpi,
-                        AnyVector::zero(),
+                        PxVector::zero(),
                         window_id.clone(),
                         &driver,
                         manager,
@@ -201,7 +201,7 @@ impl Node {
         event: &RawEvent,
         kind: RawEventKind,
         dpi: RelDim,
-        offset: AnyVector,
+        offset: PxVector,
         window_id: Arc<SourceID>,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
@@ -245,8 +245,8 @@ impl Node {
         Rc::downgrade(&node)
     }
 
-    pub(crate) fn offset(mut node: Rc<Node>) -> AnyVector {
-        let mut offset = AnyVector::zero();
+    pub(crate) fn offset(mut node: Rc<Node>) -> PxVector {
+        let mut offset = PxVector::zero();
         while let Some(parent) = node.parent.get().and_then(|x| x.upgrade()) {
             offset = (parent.area.topleft() + offset).to_vector();
             node = parent;
@@ -258,8 +258,8 @@ impl Node {
         self: &Rc<Self>,
         event: &RawEvent,
         kind: RawEventKind,
-        position: AnyPoint,
-        offset: AnyVector,
+        position: PxPoint,
+        offset: PxVector,
         dpi: RelDim,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
@@ -359,7 +359,7 @@ impl Node {
                                 &evt,
                                 evt.kind(),
                                 dpi,
-                                AnyVector::zero(),
+                                PxVector::zero(),
                                 window_id.clone(),
                                 driver,
                                 manager,

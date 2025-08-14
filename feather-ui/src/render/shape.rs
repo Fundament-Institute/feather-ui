@@ -13,7 +13,7 @@ use std::num::NonZero;
 use wgpu::BindGroupLayout;
 
 pub struct Instance<PIPELINE> {
-    pub padding: crate::Perimeter<crate::Evaluated>,
+    pub padding: crate::PxPerimeter,
     pub border: f32,
     pub blur: f32,
     pub fill: sRGB,
@@ -28,11 +28,11 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
 {
     fn render(
         &self,
-        area: crate::AnyRect,
+        area: crate::PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {
-        let dim = area.dim() - self.padding.bottomright().to_untyped();
+        let dim = area.dim() - self.padding.bottomright();
         if dim.width <= 0.0 || dim.height <= 0.0 {
             return Ok(());
         }
@@ -67,8 +67,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         });
 
         compositor.append_data(
-            area.topleft()
-                .add_size(&self.padding.topleft().to_untyped()),
+            area.topleft().add_size(&self.padding.topleft()),
             dim,
             region_uv.min.to_f32().to_array().into(),
             region_uv.size().to_f32().to_array().into(),

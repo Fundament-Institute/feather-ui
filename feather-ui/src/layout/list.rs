@@ -5,7 +5,7 @@ use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, check_unsized_abs, map_unsized_area,
     nuetralize_unsized,
 };
-use crate::{EDim, EPoint, ERect, RowDirection, SourceID, rtree};
+use crate::{PxDim, PxPoint, PxRect, RowDirection, SourceID, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Direction {}
@@ -24,8 +24,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: ERect,
-        outer_limits: crate::ELimits,
+        outer_area: PxRect,
+        outer_limits: crate::PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -52,17 +52,17 @@ impl Desc for dyn Prop {
 
         // This should eventually be a persistent fold
         let mut aux_margins: im::Vector<f32> = im::Vector::new();
-        let mut areas: im::Vector<Option<(ERect, f32)>> = im::Vector::new();
+        let mut areas: im::Vector<Option<(PxRect, f32)>> = im::Vector::new();
 
         let area = {
-            let mut cur = EPoint::zero();
+            let mut cur = PxPoint::zero();
             let mut max_main = 0.0;
             let mut max_aux: f32 = 0.0;
             let mut prev_margin = f32::NAN;
             let mut aux_margin: f32 = 0.0;
             let mut aux_margin_bottom = f32::NAN;
             let mut prev_aux_margin = f32::NAN;
-            let inner_area = ERect::from(inner_dim);
+            let inner_area = PxRect::from(inner_dim);
 
             for child in children.iter() {
                 let child_props = child.as_ref().unwrap().get_props();
@@ -112,7 +112,7 @@ impl Desc for dyn Prop {
             aux_margins.push_back(aux_merge);
             cur.y += max_aux + aux_margin;
             let (bounds_x, bounds_y) = super::swap_pair(xaxis, (max_main, cur.y));
-            map_unsized_area(myarea, EDim::new(bounds_x, bounds_y))
+            map_unsized_area(myarea, PxDim::new(bounds_x, bounds_y))
         };
 
         // No need to cap this because unsized axis have now been resolved
@@ -136,9 +136,9 @@ impl Desc for dyn Prop {
 
         let evaluated_dim = evaluated_area.dim();
         let mut cur = match dir {
-            RowDirection::LeftToRight | RowDirection::TopToBottom => EPoint::zero(),
-            RowDirection::RightToLeft => EPoint::new(evaluated_dim.width, 0.0),
-            RowDirection::BottomToTop => EPoint::new(0.0, evaluated_dim.height),
+            RowDirection::LeftToRight | RowDirection::TopToBottom => PxPoint::zero(),
+            RowDirection::RightToLeft => PxPoint::new(evaluated_dim.width, 0.0),
+            RowDirection::BottomToTop => PxPoint::new(0.0, evaluated_dim.height),
         };
         let mut maxaux: f32 = 0.0;
         aux_margins.pop_front();

@@ -108,9 +108,8 @@ impl Eq for ResourceInstance<'_> {}
 pub struct Driver {
     pub(crate) glyphs: RwLock<GlyphCache>,
     pub(crate) prefetch: RwLock<HashMap<Box<dyn Location>, Box<dyn Loader>>>,
-    pub(crate) resources: RwLock<
-        HashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, guillotiere::Size)>,
-    >,
+    pub(crate) resources:
+        RwLock<HashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, atlas::Size)>>,
     pub(crate) locations:
         RwLock<HashMap<Box<dyn Location>, SmallVec<[ResourceInstance<'static>; 1]>>>,
     pub(crate) atlas: RwLock<Atlas>,
@@ -311,11 +310,11 @@ impl Driver {
     pub fn load_and_resize(
         &self,
         location: &dyn Location,
-        size: guillotiere::Size,
+        size: atlas::Size,
         dpi: f32,
         resize: bool,
-    ) -> Result<guillotiere::Size, Error> {
-        let mut uvsize = guillotiere::Size::zero();
+    ) -> Result<atlas::Size, Error> {
+        let mut uvsize = atlas::Size::zero();
         match self.load(location, size, dpi, resize, |r| {
             uvsize = r.uv.size();
             Ok(())
@@ -338,7 +337,7 @@ impl Driver {
     pub fn load(
         &self,
         location: &dyn Location,
-        mut size: guillotiere::Size,
+        mut size: atlas::Size,
         dpi: f32,
         resize: bool,
         mut f: impl FnMut(&atlas::Region) -> Result<(), Error>,

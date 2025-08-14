@@ -23,14 +23,14 @@ pub(crate) fn within_variance(l: i32, r: i32, range: f32) -> bool {
 /// An empty size request equates to requesting the native size of the image. One axis being zero equates to requesting the
 /// equivelent aspect ratio from tha native aspect ratio.
 #[inline]
-pub fn fill_size(size: guillotiere::Size, native: guillotiere::Size) -> guillotiere::Size {
+pub fn fill_size(size: atlas::Size, native: atlas::Size) -> atlas::Size {
     match (size.width, size.height) {
         (0, 0) => native,
-        (x, 0) => guillotiere::Size::new(
+        (x, 0) => atlas::Size::new(
             x,
             (native.height as f32 * (x as f32 / native.width as f32)).round() as i32,
         ),
-        (0, y) => guillotiere::Size::new(
+        (0, y) => atlas::Size::new(
             (native.width as f32 * (y as f32 / native.height as f32)).round() as i32,
             y,
         ),
@@ -58,10 +58,10 @@ pub trait Loader: std::fmt::Debug + Send + Sync {
     fn load(
         &self,
         driver: &crate::graphics::Driver,
-        size: guillotiere::Size,
+        size: atlas::Size,
         dpi: f32,
         resize: bool,
-    ) -> Result<(atlas::Region, guillotiere::Size), Error>;
+    ) -> Result<(atlas::Region, atlas::Size), Error>;
 }
 
 impl Hash for dyn Location {
@@ -287,10 +287,10 @@ impl Loader for JxlImage {
     fn load(
         &self,
         driver: &crate::graphics::Driver,
-        mut size: guillotiere::Size,
+        mut size: atlas::Size,
         _: f32,
         resize: bool,
-    ) -> Result<(atlas::Region, guillotiere::Size), Error> {
+    ) -> Result<(atlas::Region, atlas::Size), Error> {
         use crate::color::sRGB;
         use wide::f32x4;
 
@@ -300,10 +300,10 @@ impl Loader for JxlImage {
             ))));
         }
 
-        let native = guillotiere::Size::new(self.width() as i32, self.height() as i32);
+        let native = atlas::Size::new(self.width() as i32, self.height() as i32);
         size = fill_size(
             size,
-            guillotiere::Size::new(self.width() as i32, self.height() as i32),
+            atlas::Size::new(self.width() as i32, self.height() as i32),
         );
 
         let render = self
@@ -451,7 +451,7 @@ impl Loader for JxlImage {
 
         let region = driver.atlas.write().reserve(
             &driver.device,
-            guillotiere::Size::new(w as i32, h as i32),
+            atlas::Size::new(w as i32, h as i32),
             if resize { Some(&driver.queue) } else { None },
         )?;
 
@@ -466,10 +466,10 @@ impl Loader for SvgXml {
     fn load(
         &self,
         driver: &crate::graphics::Driver,
-        mut size: guillotiere::Size,
+        mut size: atlas::Size,
         dpi: f32,
         resize: bool,
-    ) -> Result<(atlas::Region, guillotiere::Size), Error> {
+    ) -> Result<(atlas::Region, atlas::Size), Error> {
         let xml_opt = usvg::roxmltree::ParsingOptions {
             allow_dtd: true,
             ..Default::default()
@@ -519,7 +519,7 @@ impl Loader for SvgXml {
             c.swap(0, 2);
         }
 
-        size = guillotiere::Size::new(pixmap.width() as i32, pixmap.height() as i32);
+        size = atlas::Size::new(pixmap.width() as i32, pixmap.height() as i32);
         let region = driver.atlas.write().reserve(
             &driver.device,
             size,
@@ -667,7 +667,7 @@ fn image_resize_loader(
     inner_format: fast_image_resize::PixelType,
     srgb_map: fast_image_resize::PixelComponentMapper,
     source: &impl fast_image_resize::IntoImageView,
-    size: guillotiere::Size,
+    size: atlas::Size,
 ) -> Result<(Vec<u8>, u32, u32), Error> {
     use crate::color::sRGB64;
     use fast_image_resize::PixelType;
@@ -755,16 +755,16 @@ impl Loader for load_image::Image {
     fn load(
         &self,
         driver: &crate::graphics::Driver,
-        mut size: guillotiere::Size,
+        mut size: atlas::Size,
         _: f32,
         resize: bool,
-    ) -> Result<(atlas::Region, guillotiere::Size), Error> {
+    ) -> Result<(atlas::Region, atlas::Size), Error> {
         use crate::color::{sRGB32, sRGB64};
 
-        let native = guillotiere::Size::new(self.width as i32, self.height as i32);
+        let native = atlas::Size::new(self.width as i32, self.height as i32);
         size = fill_size(
             size,
-            guillotiere::Size::new(self.width as i32, self.height as i32),
+            atlas::Size::new(self.width as i32, self.height as i32),
         );
 
         // If we're too close to the native size of the image, skip resizing it and simply store the native size to the atlas.
@@ -846,7 +846,7 @@ impl Loader for load_image::Image {
 
         let region = driver.atlas.write().reserve(
             &driver.device,
-            guillotiere::Size::new(w as i32, h as i32),
+            atlas::Size::new(w as i32, h as i32),
             if resize { Some(&driver.queue) } else { None },
         )?;
 
@@ -875,13 +875,13 @@ impl Loader for image::DynamicImage {
     fn load(
         &self,
         driver: &crate::graphics::Driver,
-        mut size: guillotiere::Size,
+        mut size: atlas::Size,
         _: f32,
         resize: bool,
-    ) -> Result<(atlas::Region, guillotiere::Size), Error> {
+    ) -> Result<(atlas::Region, atlas::Size), Error> {
         use crate::color::{Premultiplied, sRGB32};
 
-        let native = guillotiere::Size::new(self.width() as i32, self.height() as i32);
+        let native = atlas::Size::new(self.width() as i32, self.height() as i32);
         size = fill_size(size, native);
 
         // If we're too close to the native size of the image, skip resizing it and simply store the native size to the atlas.
@@ -925,7 +925,7 @@ impl Loader for image::DynamicImage {
 
         let region = driver.atlas.write().reserve(
             &driver.device,
-            guillotiere::Size::new(w as i32, h as i32),
+            atlas::Size::new(w as i32, h as i32),
             if resize { Some(&driver.queue) } else { None },
         )?;
 

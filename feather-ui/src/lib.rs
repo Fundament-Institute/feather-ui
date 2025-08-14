@@ -135,30 +135,21 @@ pub struct Pixel {}
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 /// Represents a combination of DIP and Pixels that have been resolved for the current DPI
 pub struct Resolved {}
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-/// Represents a fully evaluate rectangle in raw pixels.
-pub struct Evaluated {}
 
 pub type AbsPoint = Point2D<f32, DIP>;
 pub type PxPoint = Point2D<f32, Pixel>;
 pub type RelPoint = Point2D<f32, Relative>;
 pub type ResPoint = Point2D<f32, Resolved>;
-pub type EPoint = Point2D<f32, Evaluated>;
-pub type AnyPoint = Point2D<f32, guillotiere::euclid::UnknownUnit>;
 
 pub type AbsVector = Vector2D<f32, DIP>;
 pub type PxVector = Vector2D<f32, Pixel>;
 pub type RelVector = Vector2D<f32, Relative>;
 pub type ResVector = Vector2D<f32, Resolved>;
-pub type EVector = Vector2D<f32, Evaluated>;
-pub type AnyVector = Vector2D<f32, guillotiere::euclid::UnknownUnit>;
 
 pub type AbsDim = Size2D<f32, DIP>;
 pub type PxDim = Size2D<f32, Pixel>;
 pub type RelDim = Size2D<f32, Relative>;
 pub type ResDim = Size2D<f32, Resolved>;
-pub type EDim = Size2D<f32, Evaluated>;
-pub type AnyDim = Size2D<f32, guillotiere::euclid::UnknownUnit>;
 
 pub trait UnResolve<U> {
     fn unresolve(self, dpi: RelDim) -> U;
@@ -216,8 +207,6 @@ pub type AbsRect = Rect<DIP>;
 pub type PxRect = Rect<Pixel>;
 pub type RelRect = Rect<Relative>;
 pub type ResRect = Rect<Resolved>;
-pub type ERect = Rect<Evaluated>;
-pub type AnyRect = Rect<guillotiere::euclid::UnknownUnit>;
 
 unsafe impl<U: Copy + 'static> NoUninit for Rect<U> {}
 
@@ -356,7 +345,7 @@ impl<U> Rect<U> {
 
     /// Discard the units
     #[inline]
-    pub fn to_untyped(self) -> AnyRect {
+    pub fn to_untyped(self) -> PxRect {
         self.cast_unit()
     }
 
@@ -510,7 +499,7 @@ impl<U> Perimeter<U> {
 
     /// Discard the units
     #[inline]
-    pub fn to_untyped(self) -> AnyPerimeter {
+    pub fn to_untyped(self) -> Perimeter<euclid::UnknownUnit> {
         self.cast_unit()
     }
 
@@ -524,8 +513,7 @@ impl<U> Perimeter<U> {
     }
 }
 
-pub type EPerimeter = Perimeter<Evaluated>;
-pub type AnyPerimeter = Perimeter<guillotiere::euclid::UnknownUnit>;
+pub type PxPerimeter = Perimeter<Pixel>;
 
 impl<U> Add<Perimeter<U>> for Rect<U> {
     type Output = Self;
@@ -559,15 +547,15 @@ pub const ZERO_DABSRECT: DAbsRect = DAbsRect {
 };
 
 impl DAbsRect {
-    fn resolve(&self, dpi: RelDim) -> ERect {
-        ERect {
+    fn resolve(&self, dpi: RelDim) -> PxRect {
+        PxRect {
             v: self.px.v + (self.dp.v * splat_size(dpi)),
             _unit: PhantomData,
         }
     }
 
-    fn to_perimeter(&self, dpi: RelDim) -> Perimeter<Evaluated> {
-        Perimeter::<Evaluated> {
+    fn as_perimeter(&self, dpi: RelDim) -> PxPerimeter {
+        PxPerimeter {
             v: self.resolve(dpi).v,
             _unit: PhantomData,
         }
@@ -704,11 +692,11 @@ impl Sub for UPoint {
     }
 }
 
-impl Mul<EDim> for UPoint {
-    type Output = EPoint;
+impl Mul<PxDim> for UPoint {
+    type Output = PxPoint;
 
     #[inline]
-    fn mul(self, rhs: EDim) -> Self::Output {
+    fn mul(self, rhs: PxDim) -> Self::Output {
         let rel = self.rel();
         self.abs()
             .add_size(&Size2D::<f32, Resolved>::new(
@@ -850,20 +838,20 @@ impl URect {
     }
 
     #[inline]
-    pub fn resolve(&self, rect: ERect) -> ERect {
+    pub fn resolve(&self, rect: PxRect) -> PxRect {
         let ltrb = rect.v.as_array_ref();
         let topleft = f32x4::new([ltrb[0], ltrb[1], ltrb[0], ltrb[1]]);
         let bottomright = f32x4::new([ltrb[2], ltrb[3], ltrb[2], ltrb[3]]);
 
-        ERect {
+        PxRect {
             v: topleft + self.abs.v + self.rel.v * (bottomright - topleft),
             _unit: PhantomData,
         }
     }
 
     #[inline]
-    pub fn to_perimeter(&self, rect: ERect) -> Perimeter<Evaluated> {
-        Perimeter::<Evaluated> {
+    pub fn to_perimeter(&self, rect: PxRect) -> PxPerimeter {
+        PxPerimeter {
             v: self.resolve(rect).v,
             _unit: PhantomData,
         }
@@ -885,20 +873,20 @@ pub const AUTO_URECT: URect = URect {
     rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
 };
 
-impl Mul<ERect> for URect {
-    type Output = ERect;
+impl Mul<PxRect> for URect {
+    type Output = PxRect;
 
     #[inline]
-    fn mul(self, rhs: ERect) -> Self::Output {
+    fn mul(self, rhs: PxRect) -> Self::Output {
         self.resolve(rhs)
     }
 }
 
-impl Mul<EDim> for URect {
-    type Output = ERect;
+impl Mul<PxDim> for URect {
+    type Output = PxRect;
 
     #[inline]
-    fn mul(self, rhs: EDim) -> Self::Output {
+    fn mul(self, rhs: PxDim) -> Self::Output {
         Self::Output {
             v: self.abs.v + self.rel.v * splat_size(rhs),
             _unit: PhantomData,
@@ -1075,7 +1063,6 @@ pub type PxLimits = Limits<Pixel>;
 pub type AbsLimits = Limits<DIP>;
 pub type RelLimits = Limits<Relative>;
 pub type ResLimits = Limits<Resolved>;
-pub type ELimits = Limits<Evaluated>;
 
 //pub const Unbounded: std::ops::Range<f32> = std::ops::Range
 // It would be cheaper to avoid using actual infinities here but we currently need them to make the math work
@@ -1105,13 +1092,12 @@ impl<U> Limits<U> {
         }
     }
     pub fn new(x: impl std::ops::RangeBounds<f32>, y: impl std::ops::RangeBounds<f32>) -> Self {
-        use std::f32::{INFINITY, NEG_INFINITY};
         Self {
             v: f32x4::new([
-                Self::from_bound(x.start_bound(), NEG_INFINITY),
-                Self::from_bound(y.start_bound(), NEG_INFINITY),
-                Self::from_bound(x.end_bound(), INFINITY),
-                Self::from_bound(y.end_bound(), INFINITY),
+                Self::from_bound(x.start_bound(), f32::NEG_INFINITY),
+                Self::from_bound(y.start_bound(), f32::NEG_INFINITY),
+                Self::from_bound(x.end_bound(), f32::INFINITY),
+                Self::from_bound(y.end_bound(), f32::INFINITY),
             ]),
             _unit: PhantomData,
         }
@@ -1192,9 +1178,9 @@ pub const DEFAULT_DLIMITS: DLimits = DLimits {
 };
 
 impl DLimits {
-    pub fn resolve(&self, dpi: RelDim) -> ELimits {
+    pub fn resolve(&self, dpi: RelDim) -> PxLimits {
         self.px.cast_unit()
-            + ELimits {
+            + PxLimits {
                 v: self.dp.v * splat_size(dpi),
                 _unit: PhantomData,
             }
@@ -1219,11 +1205,11 @@ impl From<PxLimits> for DLimits {
     }
 }
 
-impl Mul<EDim> for RelLimits {
-    type Output = ELimits;
+impl Mul<PxDim> for RelLimits {
+    type Output = PxLimits;
 
     #[inline]
-    fn mul(self, rhs: EDim) -> Self::Output {
+    fn mul(self, rhs: PxDim) -> Self::Output {
         let (unsized_x, unsized_y) = crate::layout::check_unsized_dim(rhs);
         let minmax = self.v.as_array_ref();
         Self::Output {
@@ -1326,15 +1312,15 @@ pub enum RowDirection {
 // retrieved during the render step via a source ID.
 #[derive(Default)]
 pub struct CrossReferenceDomain {
-    mappings: RwLock<im::HashMap<Arc<SourceID>, AnyRect>>,
+    mappings: RwLock<im::HashMap<Arc<SourceID>, PxRect>>,
 }
 
 impl CrossReferenceDomain {
-    pub fn write_area(&self, target: Arc<SourceID>, area: AnyRect) {
+    pub fn write_area(&self, target: Arc<SourceID>, area: PxRect) {
         self.mappings.write().insert(target, area);
     }
 
-    pub fn get_area(&self, target: &Arc<SourceID>) -> Option<AnyRect> {
+    pub fn get_area(&self, target: &Arc<SourceID>) -> Option<PxRect> {
         self.mappings.read().get(target).copied()
     }
 
@@ -1593,13 +1579,15 @@ impl<T> StateCell<T> {
         Self { value: v, id }
     }
 
-    pub fn borrow(&self) -> &Self {
-        self
-    }
-
-    pub fn borrow_mut<'a>(&'a mut self, manager: &mut StateManager) -> &'a mut Self {
+    pub fn borrow_mut<'a>(&'a mut self, manager: &mut StateManager) -> &'a mut T {
         manager.mutate_id(&self.id);
-        self
+        &mut self.value
+    }
+}
+
+impl<T> std::borrow::Borrow<T> for StateCell<T> {
+    fn borrow(&self) -> &T {
+        &self.value
     }
 }
 
@@ -1716,8 +1704,8 @@ impl StateManager {
         event: DispatchPair,
         slot: &Slot,
         dpi: RelDim,
-        area: AnyRect,
-        extent: AnyRect,
+        area: PxRect,
+        extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<()> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
@@ -1807,8 +1795,8 @@ impl<AppData: 'static + PartialEq> StateMachineWrapper for AppDataMachine<AppDat
         input: DispatchPair,
         index: u64,
         _: RelDim,
-        _: AnyRect,
-        _: AnyRect,
+        _: PxRect,
+        _: PxRect,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<SmallVec<[DispatchPair; 1]>> {
         let f = self
@@ -1996,7 +1984,7 @@ impl<
                                         layer0: &mut driver.layer_composite[0].write(),
                                         layer1: &mut driver.layer_composite[1].write(),
                                         clipstack: &mut inner.clipstack,
-                                        offset: AnyVector::zero(),
+                                        offset: PxVector::zero(),
                                         surface_dim,
                                         pass: 0,
                                         slice: 0,
@@ -2006,7 +1994,7 @@ impl<
                                     inner.layers.clear();
                                     viewer.clipstack.clear();
                                     if let Err(e) = staging.render(
-                                        EPoint::zero(),
+                                        PxPoint::zero(),
                                         &driver,
                                         &mut viewer,
                                         &mut inner.layers,
@@ -2184,12 +2172,13 @@ impl FnPersist<u8, im::HashMap<Arc<SourceID>, Option<Window>>> for TestApp {
     fn init(&self) -> Self::Store {
         use crate::color::sRGB;
         use crate::component::shape::Shape;
+        use bytemuck::Zeroable;
         let rect = Shape::<DRect, { component::shape::ShapeKind::RoundRect as u8 }>::new(
             gen_id!(),
             crate::FILL_DRECT.into(),
             0.0,
             0.0,
-            [0.0, 0.0, 0.0, 0.0],
+            f32x4::zeroed(),
             sRGB::new(1.0, 0.0, 0.0, 1.0),
             sRGB::transparent(),
         );
