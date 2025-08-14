@@ -5,7 +5,7 @@ use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, check_unsized_abs,
     map_unsized_area,
 };
-use crate::{EDim, ERect, rtree};
+use crate::{PxDim, PxRect, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Anchor + base::Limits + base::ZIndex {}
@@ -25,8 +25,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: ERect,
-        outer_limits: crate::ELimits,
+        outer_area: PxRect,
+        outer_limits: crate::PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -55,9 +55,9 @@ impl Desc for dyn Prop {
             // When an axis is unsized, we don't apply any limits to it, so we don't have to worry about
             // cases where the full evaluated area would invalidate the limit.
             let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
-            let inner_area = ERect::from(inner_dim);
+            let inner_area = PxRect::from(inner_dim);
             // The area we pass to children must be independent of our own area, so it starts at 0,0
-            let mut bottomright = EDim::zero();
+            let mut bottomright = PxDim::zero();
 
             for child in children.iter() {
                 let child_props = child.as_ref().unwrap().get_props();
@@ -106,7 +106,7 @@ impl Desc for dyn Prop {
         // unsized cases. Thus, we calculate the final inner_area for the children from this evaluated area.
         let evaluated_dim = evaluated_area.dim();
 
-        let inner_area = ERect::from(evaluated_dim);
+        let inner_area = PxRect::from(evaluated_dim);
 
         for child in children.iter() {
             let child_props = child.as_ref().unwrap().get_props();

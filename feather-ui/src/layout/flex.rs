@@ -8,7 +8,7 @@ use super::{
 use crate::layout::Swappable;
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{
-    DAbsRect, DValue, EDim, ELimits, EPoint, ERect, Evaluated, Perimeter, RelDim, RowDirection,
+    DAbsRect, DValue, PxDim, PxLimits, PxPerimeter, PxPoint, PxRect, RelDim, RowDirection,
     UNSIZED_AXIS, rtree,
 };
 use derive_more::TryFrom;
@@ -138,8 +138,8 @@ struct ChildCache {
     grow: f32,
     shrink: f32,
     aux: f32,
-    margin: Perimeter<Evaluated>,
-    limits: ELimits,
+    margin: PxPerimeter,
+    limits: PxLimits,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -290,8 +290,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: crate::ERect,
-        outer_limits: crate::ELimits,
+        outer_area: crate::PxRect,
+        outer_limits: crate::PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -327,12 +327,12 @@ impl Desc for dyn Prop {
                 "Basis can be unsized, but never infinite!"
             );
 
-            let inner_area = ERect::corners(
-                EPoint::zero(),
+            let inner_area = PxRect::corners(
+                PxPoint::zero(),
                 if xaxis {
-                    EPoint::new(basis, UNSIZED_AXIS)
+                    PxPoint::new(basis, UNSIZED_AXIS)
                 } else {
-                    EPoint::new(UNSIZED_AXIS, basis)
+                    PxPoint::new(UNSIZED_AXIS, basis)
                 },
             );
 
@@ -389,7 +389,7 @@ impl Desc for dyn Prop {
 
         let evaluated_area = {
             let (used_x, used_y) = super::swap_pair(xaxis, (used_main, used_aux));
-            let area = map_unsized_area(myarea, EDim::new(used_x, used_y));
+            let area = map_unsized_area(myarea, PxDim::new(used_x, used_y));
 
             // No need to cap this because unsized axis have now been resolved
             super::limit_area(area * outer_safe, limits)
@@ -560,14 +560,14 @@ impl Desc for dyn Prop {
                 let mut area = if props.direction() == RowDirection::RightToLeft
                     || props.direction() == RowDirection::BottomToTop
                 {
-                    ERect::new(
+                    PxRect::new(
                         total_main - main,
                         aux,
                         total_main - (main + c.basis),
                         aux + max_aux,
                     )
                 } else {
-                    ERect::new(main, aux, main + c.basis, aux + max_aux)
+                    PxRect::new(main, aux, main + c.basis, aux + max_aux)
                 };
 
                 area = cap_unsized(area);

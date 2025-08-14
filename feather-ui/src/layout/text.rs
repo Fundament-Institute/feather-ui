@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use derive_where::derive_where;
 
-use crate::{ERect, SourceID, render, rtree};
+use crate::{PxRect, SourceID, render, rtree};
 
 use super::{Layout, check_unsized, leaf, limit_area};
 
@@ -24,14 +24,14 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
     }
     fn stage<'a>(
         &self,
-        outer_area: ERect,
-        outer_limits: crate::ELimits,
+        outer_area: PxRect,
+        outer_limits: crate::PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn super::Staged + 'a> {
         let mut limits = self.props.limits().resolve(window.dpi) + outer_limits;
         let myarea = self.props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
-        let padding = self.props.padding().to_perimeter(window.dpi);
+        let padding = self.props.padding().as_perimeter(window.dpi);
         let allpadding = myarea.bottomright().abs().to_vector().to_size().cast_unit()
             + padding.topleft()
             + padding.bottomright();

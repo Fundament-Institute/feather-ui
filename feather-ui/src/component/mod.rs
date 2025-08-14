@@ -21,7 +21,7 @@ pub mod window;
 use crate::component::window::Window;
 use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
-    AnyRect, DispatchPair, Dispatchable, Slot, SourceID, StateMachineChild, StateManager, graphics,
+    DispatchPair, Dispatchable, PxRect, Slot, SourceID, StateMachineChild, StateManager, graphics,
     rtree,
 };
 use dyn_clone::DynClone;
@@ -73,8 +73,8 @@ pub trait StateMachineWrapper: Any {
         input: DispatchPair,
         index: u64,
         dpi: crate::RelDim,
-        area: AnyRect,
-        extent: AnyRect,
+        area: PxRect,
+        extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<SmallVec<[DispatchPair; 1]>>;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
@@ -96,8 +96,8 @@ where
     fn process(
         self,
         input: Self::Input,
-        area: AnyRect,
-        extent: AnyRect,
+        area: PxRect,
+        extent: PxRect,
         dpi: crate::RelDim,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)> {
@@ -120,8 +120,8 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
         input: DispatchPair,
         _index: u64,
         dpi: crate::RelDim,
-        area: AnyRect,
-        extent: AnyRect,
+        area: PxRect,
+        extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<SmallVec<[DispatchPair; 1]>> {
         if input.0 & self.input_mask == 0 {

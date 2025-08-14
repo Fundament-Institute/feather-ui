@@ -18,7 +18,9 @@ use wide::f32x4;
 use crate::color::sRGB32;
 use crate::render::Renderable;
 use crate::render::compositor::CompositorView;
-use crate::{EDim, ELimits, EPoint, ERect, Error, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree};
+use crate::{
+    Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree,
+};
 use derive_where::derive_where;
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
@@ -28,8 +30,8 @@ pub trait Layout<Props: ?Sized>: DynClone {
     fn get_props(&self) -> &Props;
     fn stage<'a>(
         &self,
-        area: ERect,
-        limits: ELimits,
+        area: PxRect,
+        limits: PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a>;
 }
@@ -47,8 +49,8 @@ where
 
     fn stage<'a>(
         &self,
-        area: ERect,
-        limits: ELimits,
+        area: PxRect,
+        limits: PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         use std::ops::Deref;
@@ -66,8 +68,8 @@ where
 
     fn stage<'a>(
         &self,
-        area: ERect,
-        limits: ELimits,
+        area: PxRect,
+        limits: PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         (*self).stage(area, limits, window)
@@ -82,8 +84,8 @@ pub trait Desc {
     /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: ERect,
-        limits: ELimits,
+        outer_area: PxRect,
+        limits: PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -109,8 +111,8 @@ where
     }
     fn stage<'a>(
         &self,
-        area: ERect,
-        limits: ELimits,
+        area: PxRect,
+        limits: PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         let mut staged = D::stage(
@@ -141,13 +143,13 @@ where
 pub trait Staged: DynClone {
     fn render(
         &self,
-        parent_pos: EPoint,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error>;
     fn get_rtree(&self) -> Weak<rtree::Node>;
-    fn get_area(&self) -> ERect;
+    fn get_area(&self) -> PxRect;
     fn set_layer(&mut self, _id: std::sync::Weak<SourceID>) {
         panic!("This staged object doesn't support layers!");
     }
@@ -158,7 +160,7 @@ dyn_clone::clone_trait_object!(Staged);
 #[derive(Clone)]
 pub(crate) struct Concrete {
     renderable: Option<Rc<dyn Renderable>>,
-    area: ERect,
+    area: PxRect,
     rtree: Rc<rtree::Node>,
     children: im::Vector<Option<Box<dyn Staged>>>,
     layer: Option<std::sync::Weak<SourceID>>,
@@ -167,7 +169,7 @@ pub(crate) struct Concrete {
 impl Concrete {
     pub fn new(
         renderable: Option<Rc<dyn Renderable>>,
-        area: ERect,
+        area: PxRect,
         rtree: Rc<rtree::Node>,
         children: im::Vector<Option<Box<dyn Staged>>>,
     ) -> Self {
@@ -187,7 +189,7 @@ impl Concrete {
 
     fn render_self(
         &self,
-        parent_pos: EPoint,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {
@@ -199,7 +201,7 @@ impl Concrete {
 
     fn render_children(
         &self,
-        parent_pos: EPoint,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
@@ -220,7 +222,7 @@ impl Concrete {
 impl Staged for Concrete {
     fn render(
         &self,
-        parent_pos: EPoint,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
@@ -263,9 +265,7 @@ impl Staged for Concrete {
                     layer0: compositor.layer0,
                     layer1: compositor.layer1,
                     clipstack: compositor.clipstack,
-                    offset: region.uv.min.to_f32()
-                        - layer.area.topleft()
-                        - parent_pos.to_untyped().to_vector(),
+                    offset: region.uv.min.to_f32() - layer.area.topleft() - parent_pos.to_vector(),
                     surface_dim: compositor.surface_dim,
                     pass: compositor.pass + 1,
                     slice: region.index,
@@ -294,7 +294,7 @@ impl Staged for Concrete {
             };
 
             // Always push a new clipping area, but remember that a layer can only store it's relative area.
-            view.with_clip(layer.area + parent_pos.to_untyped(), |refview| {
+            view.with_clip(layer.area + parent_pos, |refview| {
                 self.render_self(parent_pos, driver, refview)?;
                 self.render_children(parent_pos, driver, refview, depview)
             })?;
@@ -303,7 +303,7 @@ impl Staged for Concrete {
                 // If this was a real layer, now we need to actually assign the result of our dependencies, and
                 // append ourselves to the parent layer. We must be very careful not to use the wrong view here.
                 target.write().dependents = deps;
-                compositor.append_layer(layer, parent_pos.to_untyped(), region_uv.unwrap());
+                compositor.append_layer(layer, parent_pos, region_uv.unwrap());
             }
         } else {
             self.render_self(parent_pos, driver, compositor)?;
@@ -317,7 +317,7 @@ impl Staged for Concrete {
         Rc::downgrade(&self.rtree)
     }
 
-    fn get_area(&self) -> ERect {
+    fn get_area(&self) -> PxRect {
         self.area
     }
 
@@ -328,7 +328,7 @@ impl Staged for Concrete {
 
 #[must_use]
 #[inline]
-pub(crate) fn map_unsized_area(mut area: URect, adjust: EDim) -> URect {
+pub(crate) fn map_unsized_area(mut area: URect, adjust: PxDim) -> URect {
     let (unsized_x, unsized_y) = check_unsized(area);
     let abs = area.abs.v.as_array_mut();
     let rel = area.rel.v.as_array_mut();
@@ -347,10 +347,10 @@ pub(crate) fn map_unsized_area(mut area: URect, adjust: EDim) -> URect {
 
 #[must_use]
 #[inline]
-pub(crate) fn nuetralize_unsized(v: ERect) -> ERect {
+pub(crate) fn nuetralize_unsized(v: PxRect) -> PxRect {
     let (unsized_x, unsized_y) = check_unsized_abs(v.bottomright());
     let ltrb = v.v.to_array();
-    ERect {
+    PxRect {
         v: f32x4::new([
             ltrb[0],
             ltrb[1],
@@ -363,7 +363,7 @@ pub(crate) fn nuetralize_unsized(v: ERect) -> ERect {
 
 #[must_use]
 #[inline]
-pub(crate) fn limit_area(mut v: ERect, limits: ELimits) -> ERect {
+pub(crate) fn limit_area(mut v: PxRect, limits: PxLimits) -> PxRect {
     // We do this by checking clamp(topleft + limit) instead of clamp(bottomright - topleft)
     // because this avoids floating point precision issues.
     v.set_bottomright(
@@ -376,9 +376,9 @@ pub(crate) fn limit_area(mut v: ERect, limits: ELimits) -> ERect {
 
 #[must_use]
 #[inline]
-pub(crate) fn limit_dim(v: EDim, limits: ELimits) -> EDim {
+pub(crate) fn limit_dim(v: PxDim, limits: PxLimits) -> PxDim {
     let (unsized_x, unsized_y) = check_unsized_dim(v);
-    EDim::new(
+    PxDim::new(
         if unsized_x {
             v.width
         } else {
@@ -394,9 +394,9 @@ pub(crate) fn limit_dim(v: EDim, limits: ELimits) -> EDim {
 
 #[must_use]
 #[inline]
-pub(crate) fn eval_dim(area: URect, dim: EDim) -> EDim {
+pub(crate) fn eval_dim(area: URect, dim: PxDim) -> PxDim {
     let (unsized_x, unsized_y) = check_unsized(area);
-    EDim::new(
+    PxDim::new(
         if unsized_x {
             area.bottomright().rel().x
         } else {
@@ -416,9 +416,9 @@ pub(crate) fn eval_dim(area: URect, dim: EDim) -> EDim {
 
 #[must_use]
 #[inline]
-pub(crate) fn apply_limit(dim: EDim, limits: ELimits, rlimits: RelLimits) -> ELimits {
+pub(crate) fn apply_limit(dim: PxDim, limits: PxLimits, rlimits: RelLimits) -> PxLimits {
     let (unsized_x, unsized_y) = check_unsized_dim(dim);
-    ELimits {
+    PxLimits {
         v: f32x4::new([
             if unsized_x {
                 limits.min().width
@@ -465,15 +465,15 @@ pub(crate) fn check_unsized_abs<U>(bottomright: Point2D<f32, U>) -> (bool, bool)
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[must_use]
 #[inline]
-pub(crate) fn check_unsized_dim(dim: EDim) -> (bool, bool) {
+pub(crate) fn check_unsized_dim(dim: PxDim) -> (bool, bool) {
     check_unsized_abs(dim.to_vector().to_point())
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn cap_unsized(area: ERect) -> ERect {
+pub(crate) fn cap_unsized(area: PxRect) -> PxRect {
     let ltrb = area.v.to_array();
-    ERect {
+    PxRect {
         v: f32x4::new(ltrb.map(|x| {
             if x.is_finite() {
                 x
@@ -487,7 +487,7 @@ pub(crate) fn cap_unsized(area: ERect) -> ERect {
 
 #[must_use]
 #[inline]
-pub(crate) fn apply_anchor(area: ERect, outer_area: ERect, mut anchor: EPoint) -> ERect {
+pub(crate) fn apply_anchor(area: PxRect, outer_area: PxRect, mut anchor: PxPoint) -> PxRect {
     let (unsized_outer_x, unsized_outer_y) = check_unsized_abs(outer_area.bottomright());
     if unsized_outer_x {
         anchor.x = 0.0;
