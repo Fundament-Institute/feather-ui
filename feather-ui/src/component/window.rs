@@ -8,7 +8,7 @@ use crate::layout::root;
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
 use crate::{
-    AbsDim, AnyPoint, AnyVector, PxDim, PxPoint, RelDim, RelVector, SourceID, StateMachineChild,
+    AnyPoint, AnyVector, PxDim, PxPoint, RelDim, RelVector, SourceID, StateMachineChild,
     StateManager, graphics, layout, rtree,
 };
 use alloc::sync::Arc;

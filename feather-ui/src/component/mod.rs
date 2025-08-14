@@ -21,8 +21,8 @@ pub mod window;
 use crate::component::window::Window;
 use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
-    AnyRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, ERect, Slot, SourceID, StateMachineChild,
-    StateManager, graphics, rtree,
+    AnyRect, DispatchPair, Dispatchable, Slot, SourceID, StateMachineChild, StateManager, graphics,
+    rtree,
 };
 use dyn_clone::DynClone;
 use eyre::{OptionExt, Result};

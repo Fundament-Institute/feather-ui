@@ -9,7 +9,7 @@ use crate::render::shape::Shape;
 use crate::render::{atlas, compositor};
 use crate::resource::{Loader, Location, MAX_VARIANCE};
 use crate::{Error, Mat4x4, render};
-use guillotiere::{AllocId, euclid};
+use guillotiere::AllocId;
 use parking_lot::RwLock;
 use smallvec::SmallVec;
 use std::any::TypeId;

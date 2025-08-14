@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 use cosmic_text::Cursor;

@@ -5,7 +5,6 @@ use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
 use crate::{AnyDim, AnyPoint, AnyRect, AnyVector, PxDim, RelDim, SourceID};
 use derive_where::derive_where;
-use guillotiere::euclid;
 use num_traits::Zero;
 use smallvec::SmallVec;
 use std::collections::HashMap;

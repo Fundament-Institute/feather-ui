@@ -8,8 +8,8 @@ use super::{
 use crate::layout::Swappable;
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{
-    AbsLimits, AbsRect, DAbsRect, DValue, EDim, ELimits, EPoint, ERect, Evaluated, Perimeter,
-    RelDim, RowDirection, UNSIZED_AXIS, rtree,
+    DAbsRect, DValue, EDim, ELimits, EPoint, ERect, Evaluated, Perimeter, RelDim, RowDirection,
+    UNSIZED_AXIS, rtree,
 };
 use derive_more::TryFrom;
 use smallvec::SmallVec;

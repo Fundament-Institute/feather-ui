@@ -759,8 +759,7 @@ impl Loader for load_image::Image {
         _: f32,
         resize: bool,
     ) -> Result<(atlas::Region, guillotiere::Size), Error> {
-        use crate::color::sRGB32;
-        use crate::color::sRGB64;
+        use crate::color::{sRGB32, sRGB64};
 
         let native = guillotiere::Size::new(self.width as i32, self.height as i32);
         size = fill_size(

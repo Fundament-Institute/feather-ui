@@ -10,10 +10,9 @@ use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::FnPersist;
-use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, RelRect, SourceID, UNSIZED_AXIS, URect, ZERO_RECT,
-    ZERO_RELRECT, gen_id, im, winit,
+    AbsPoint, AbsRect, App, DAbsRect, DPoint, DRect, PxRect, RelRect, SourceID, UNSIZED_AXIS,
+    gen_id, im, winit,
 };
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -55,14 +54,10 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
         if store.0 != *args {
             let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                 gen_id!(),
-                Rc::new(DRect {
-                    px: AbsRect::new(1.0, 1.0, 2.0, 2.0),
-                    dp: ZERO_RECT,
-                    rel: ZERO_RELRECT,
-                }),
+                Rc::new(PxRect::new(1.0, 1.0, 2.0, 2.0).into()),
                 0.0,
                 0.0,
-                Vec4::broadcast(0.0),
+                wide::f32x4::splat(0.0),
                 sRGB::new(1.0, 1.0, 1.0, 1.0),
                 sRGB::transparent(),
             );
@@ -73,28 +68,26 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             children.push_back(Some(Box::new(pixel)));
 
             let genimage = |id: Arc<SourceID>,
-                            pos: Vec2,
+                            pos: AbsPoint,
                             w: Option<f32>,
                             h: Option<f32>,
                             res: &dyn feather_ui::resource::Location,
-                            size: Option<Vec2>| {
+                            size: Option<AbsPoint>| {
                 Image::<DRect>::new(
                     id,
-                    Rc::new(DRect {
-                        px: ZERO_RECT,
-                        dp: AbsRect::new(
+                    Rc::new(
+                        AbsRect::new(
                             pos.x,
                             pos.y,
                             w.map(|x| x + pos.x).unwrap_or_default(),
                             h.map(|y| y + pos.y).unwrap_or_default(),
-                        ),
-                        rel: RelRect::new(
+                        ) + RelRect::new(
                             0.0,
                             0.0,
                             if w.is_none() { UNSIZED_AXIS } else { 0.0 },
                             if h.is_none() { UNSIZED_AXIS } else { 0.0 },
                         ),
-                    }),
+                    ),
                     res,
                     size.unwrap_or_default().into(),
                     false,
@@ -107,7 +100,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(0.0, 0.0),
+                    AbsPoint::new(0.0, 0.0),
                     Some(100.0),
                     Some(100.0),
                     &testimage,
@@ -116,7 +109,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(100.0, 0.0),
+                    AbsPoint::new(100.0, 0.0),
                     None,
                     Some(100.0),
                     &testimage,
@@ -125,16 +118,16 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(0.0, 100.0),
+                    AbsPoint::new(0.0, 100.0),
                     None,
                     None,
                     &testimage,
-                    Some(Vec2::broadcast(100.0)),
+                    Some(AbsPoint::new(100.0, 100.0)),
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(100.0, 100.0),
+                    AbsPoint::new(100.0, 100.0),
                     None,
                     None,
                     &testimage,
@@ -148,7 +141,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(200.0, 0.0),
+                    AbsPoint::new(200.0, 0.0),
                     Some(100.0),
                     Some(100.0),
                     &testsvg,
@@ -157,7 +150,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(300.0, 0.0),
+                    AbsPoint::new(300.0, 0.0),
                     None,
                     Some(100.0),
                     &testsvg,
@@ -166,16 +159,16 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(200.0, 100.0),
+                    AbsPoint::new(200.0, 100.0),
                     None,
                     None,
                     &testsvg,
-                    Some(Vec2::broadcast(100.0)),
+                    Some(AbsPoint::new(100.0, 100.0)),
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(300.0, 100.0),
+                    AbsPoint::new(300.0, 100.0),
                     None,
                     None,
                     &testsvg,
@@ -189,7 +182,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(0.0, 200.0),
+                    AbsPoint::new(0.0, 200.0),
                     Some(100.0),
                     Some(100.0),
                     &testimage,
@@ -198,7 +191,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(100.0, 200.0),
+                    AbsPoint::new(100.0, 200.0),
                     Some(100.0),
                     None,
                     &testimage,
@@ -207,16 +200,16 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(0.0, 300.0),
+                    AbsPoint::new(0.0, 300.0),
                     None,
                     None,
                     &testimage,
-                    Some(Vec2::broadcast(100.0)),
+                    Some(AbsPoint::new(100.0, 100.0)),
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(100.0, 300.0),
+                    AbsPoint::new(100.0, 300.0),
                     None,
                     None,
                     &testimage,
@@ -230,7 +223,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(200.0, 200.0),
+                    AbsPoint::new(200.0, 200.0),
                     Some(100.0),
                     Some(100.0),
                     &testimage,
@@ -239,7 +232,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(300.0, 200.0),
+                    AbsPoint::new(300.0, 200.0),
                     Some(100.0),
                     None,
                     &testimage,
@@ -248,16 +241,16 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(200.0, 300.0),
+                    AbsPoint::new(200.0, 300.0),
                     None,
                     None,
                     &testimage,
-                    Some(Vec2::broadcast(100.0)),
+                    Some(AbsPoint::new(100.0, 100.0)),
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
                     gen_id!(),
-                    Vec2::new(300.0, 300.0),
+                    AbsPoint::new(300.0, 300.0),
                     None,
                     None,
                     &testimage,
@@ -268,11 +261,8 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             let region = Region::new(
                 gen_id!(),
                 FixedData {
-                    area: URect {
-                        abs: AbsRect::new(10.0, 10.0, -10.0, -10.0),
-                        rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
-                    }
-                    .into(),
+                    area: AbsRect::new(10.0, 10.0, -10.0, -10.0) + RelRect::new(0.0, 0.0, 1.0, 1.0),
+
                     zindex: 0,
                     ..Default::default()
                 }
