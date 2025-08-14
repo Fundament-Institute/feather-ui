@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 use std::collections::HashMap;
 
-use crate::DEFAULT_RLIMITS;
-
 #[derive(Default)]
 pub struct PropBag {
     props: HashMap<PropBagElement, Box<dyn std::any::Any>>,
@@ -169,9 +167,9 @@ gen_prop_bag!(
   crate::layout::base::Padding, padding, set_padding, crate::DAbsRect, &crate::ZERO_DABSRECT,
   crate::layout::base::Margin, margin, set_margin, crate::DRect, &crate::ZERO_DRECT,
   crate::layout::base::Limits, limits, set_limits, crate::DLimits, &crate::DEFAULT_DLIMITS,
-  crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelLimits, &DEFAULT_RLIMITS,
+  crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelLimits, &crate::DEFAULT_RLIMITS,
   crate::layout::base::Anchor, anchor, set_anchor, crate::DPoint, &crate::ZERO_DPOINT,
-  crate::layout::root::Prop, dim, set_dim, crate::AbsDim, panic!("No dim set and no default available!")
+  crate::layout::root::Prop, dim, set_dim, crate::PxDim, panic!("No dim set and no default available!")
 );
 
 impl crate::layout::base::Empty for PropBag {}

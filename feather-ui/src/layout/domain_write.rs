@@ -32,8 +32,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        mut outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        mut outer_area: crate::ERect,
+        outer_limits: crate::ELimits,
         _: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -49,7 +49,13 @@ impl Desc for dyn Prop {
                 domain: props.domain().clone(),
                 base: renderable,
             })),
-            rtree: rtree::Node::new(outer_area, None, Default::default(), id, window),
+            rtree: rtree::Node::new(
+                outer_area.to_untyped(),
+                None,
+                Default::default(),
+                id,
+                window,
+            ),
             children: Default::default(),
             layer: None,
         })

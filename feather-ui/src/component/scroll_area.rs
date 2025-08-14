@@ -6,7 +6,10 @@ use crate::component::{ChildOf, Layout};
 use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Desc, base, fixed};
 use crate::persist::{FnPersist, VectorMap};
-use crate::{AbsRect, Dispatchable, Slot, SourceID, UNSIZED_AXIS, ZERO_RECT, layout};
+use crate::{
+    AbsRect, AbsVector, AnyRect, Dispatchable, ERect, PxDim, PxPoint, PxRect, PxVector, RelDim,
+    RelPoint, RelVector, Slot, SourceID, UNSIZED_AXIS, UnResolve, ZERO_RECT, layout,
+};
 use core::f32;
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -15,7 +18,6 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use ultraviolet::Vec2;
 use winit::event::DeviceId;
 use winit::keyboard::NamedKey;
 
@@ -41,13 +43,13 @@ impl fixed::Child for MinimalArea {}
 #[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq)]
 #[evt(derive(Clone), module = "scroll_area_event")]
 pub enum ScrollAreaEvent {
-    OnScroll(Vec2),
+    OnScroll(AbsVector),
 }
 
 #[derive(Default, Clone, PartialEq)]
 struct ScrollAreaState {
-    lastdown: HashMap<(DeviceId, u64), (Vec2, bool)>,
-    scroll: Vec2,
+    lastdown: HashMap<(DeviceId, u64), (PxPoint, bool)>,
+    scroll: PxVector,
     stepsize: (Option<f32>, Option<f32>),
     extension: crate::DAbsRect,
 }
@@ -55,33 +57,33 @@ struct ScrollAreaState {
 impl ScrollAreaState {
     fn apply_scroll(
         &mut self,
-        mut change: Vec2,
-        area: &AbsRect,
-        extent: &AbsRect,
-        dpi: Vec2,
+        mut change: PxVector,
+        area: &AnyRect,
+        extent: &AnyRect,
+        dpi: RelDim,
     ) -> ScrollAreaEvent {
         let bounds = area.dim();
         //let extension = self.extension.resolve(dpi);
 
         let mut scroll = self.scroll + change;
-        let max = (bounds.0 - extent.dim().0).min_by_component(Vec2::zero());
+        let max = (bounds - extent.dim()).min(crate::AnyDim::zero());
 
         // We should never scroll by a positive amount (this would scroll past topleft corner), and we should
         // never scroll by an amount that would put us past the bottomright corner.
-        scroll = scroll.max_by_component(max);
-        scroll = scroll.min_by_component(Vec2::zero());
+        scroll = scroll.max(max.to_vector().cast_unit());
+        scroll = scroll.min(PxVector::zero());
 
         change = scroll - self.scroll;
         self.scroll += change;
 
-        ScrollAreaEvent::OnScroll(change / dpi)
+        ScrollAreaEvent::OnScroll(change.unresolve(dpi))
     }
 
-    fn stepvec(&self) -> Vec2 {
-        Vec2 {
-            x: if self.stepsize.0.is_some() { 1.0 } else { 0.0 },
-            y: if self.stepsize.1.is_some() { 1.0 } else { 0.0 },
-        }
+    fn stepvec(&self) -> RelVector {
+        RelVector::new(
+            if self.stepsize.0.is_some() { 1.0 } else { 0.0 },
+            if self.stepsize.1.is_some() { 1.0 } else { 0.0 },
+        )
     }
 }
 
@@ -92,9 +94,9 @@ impl super::EventRouter for ScrollAreaState {
     fn process(
         mut self,
         input: Self::Input,
-        area: AbsRect,
-        extent: AbsRect,
-        dpi: crate::Vec2,
+        area: AnyRect,
+        extent: AnyRect,
+        dpi: crate::RelDim,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<
         (Self, smallvec::SmallVec<[Self::Output; 1]>),
@@ -107,34 +109,34 @@ impl super::EventRouter for ScrollAreaState {
                 ..
             } => {
                 if let Some(change) = match (code, self.stepsize.0, self.stepsize.1) {
-                    (NamedKey::ArrowUp, _, Some(y)) => Some(Vec2::new(0.0, -y)),
-                    (NamedKey::ArrowDown, _, Some(y)) => Some(Vec2::new(0.0, y)),
-                    (NamedKey::ArrowLeft, Some(x), _) => Some(Vec2::new(-x, 0.0)),
-                    (NamedKey::ArrowRight, Some(x), _) => Some(Vec2::new(x, 0.0)),
-                    (NamedKey::PageUp, _, Some(_)) => Some(Vec2::new(0.0, -area.dim().0.y)),
-                    (NamedKey::PageDown, _, Some(_)) => Some(Vec2::new(0.0, area.dim().0.y)),
+                    (NamedKey::ArrowUp, _, Some(y)) => Some(PxVector::new(0.0, -y)),
+                    (NamedKey::ArrowDown, _, Some(y)) => Some(PxVector::new(0.0, y)),
+                    (NamedKey::ArrowLeft, Some(x), _) => Some(PxVector::new(-x, 0.0)),
+                    (NamedKey::ArrowRight, Some(x), _) => Some(PxVector::new(x, 0.0)),
+                    (NamedKey::PageUp, _, Some(_)) => Some(PxVector::new(0.0, -area.dim().height)),
+                    (NamedKey::PageDown, _, Some(_)) => Some(PxVector::new(0.0, area.dim().height)),
                     _ => None,
                 } {
                     let e = self.apply_scroll(change, &area, &extent, dpi);
                     return Ok((self, [e].into()));
                 }
             }
-            RawEvent::MouseScroll {
-                mut delta, pixels, ..
-            } => {
-                if !pixels {
-                    delta.x *= self.stepsize.0.unwrap_or_default();
-                    delta.y *= self.stepsize.1.unwrap_or_default();
-                }
+            RawEvent::MouseScroll { delta, .. } => {
+                let change = match delta {
+                    Ok(change) => change,
+                    Err(change) => PxVector::new(
+                        change.x * self.stepsize.0.unwrap_or_default(),
+                        change.y * self.stepsize.1.unwrap_or_default(),
+                    ),
+                };
 
-                let e = self.apply_scroll(delta, &area, &extent, dpi);
+                let e = self.apply_scroll(change, &area, &extent, dpi);
                 return Ok((self, [e].into()));
             }
             RawEvent::MouseMove { device_id, pos, .. } => {
-                let pos = crate::graphics::pixel_to_vec(pos);
                 let stepvec = self.stepvec();
                 if let Some((last_pos, drag)) = self.lastdown.get_mut(&(device_id, 0)) {
-                    let diff = (pos - *last_pos) * stepvec;
+                    let diff = (pos - *last_pos).component_mul(stepvec.cast_unit());
                     if !*drag {
                         *drag = true;
                     }
@@ -153,26 +155,23 @@ impl super::EventRouter for ScrollAreaState {
                 pos,
                 button,
                 ..
-            } => {
-                let pos = crate::graphics::pixel_to_vec(pos);
-                match (state, button) {
-                    (MouseState::Down, MouseButton::Left) => {
-                        if area.contains(pos) {
-                            self.lastdown.insert((device_id, 0), (pos, false));
-                            return Ok((self, SmallVec::new()));
-                        }
+            } => match (state, button) {
+                (MouseState::Down, MouseButton::Left) => {
+                    if area.contains(pos.to_untyped()) {
+                        self.lastdown.insert((device_id, 0), (pos, false));
+                        return Ok((self, SmallVec::new()));
                     }
-                    (MouseState::Up, MouseButton::Left) => {
-                        if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, 0))
-                            && area.contains(pos)
-                        {
-                            let e = self.apply_scroll(pos - last_pos, &area, &extent, dpi);
-                            return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
-                        }
-                    }
-                    _ => (),
                 }
-            }
+                (MouseState::Up, MouseButton::Left) => {
+                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, 0))
+                        && area.contains(pos.to_untyped())
+                    {
+                        let e = self.apply_scroll(pos - last_pos, &area, &extent, dpi);
+                        return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
+                    }
+                }
+                _ => (),
+            },
             RawEvent::Touch {
                 device_id,
                 index,
@@ -181,15 +180,18 @@ impl super::EventRouter for ScrollAreaState {
                 ..
             } => match state {
                 crate::input::TouchState::Start => {
-                    if area.contains(pos.xy()) {
-                        self.lastdown.insert((device_id, index), (pos.xy(), false));
+                    if area.contains(pos.xy().to_untyped()) {
+                        self.lastdown
+                            .insert((device_id, index as u64), (pos.xy(), false));
                         return Ok((self, SmallVec::new()));
                     }
                 }
                 crate::input::TouchState::Move => {
                     let stepvec = self.stepvec();
-                    if let Some((last_pos, drag)) = self.lastdown.get_mut(&(device_id, index)) {
-                        let diff = (pos.xy() - *last_pos) * stepvec;
+                    if let Some((last_pos, drag)) =
+                        self.lastdown.get_mut(&(device_id, index as u64))
+                    {
+                        let diff = (pos.xy() - *last_pos).component_mul(stepvec.cast_unit());
                         if !*drag {
                             *drag = true;
                         }
@@ -200,11 +202,11 @@ impl super::EventRouter for ScrollAreaState {
                 }
                 crate::input::TouchState::End => {
                     // TODO: implement kinetic drag
-                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index))
-                        && area.contains(pos.xy())
+                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index as u64))
+                        && area.contains(pos.xy().to_untyped())
                     {
                         let e = self.apply_scroll(
-                            (pos.xy() - last_pos) * self.stepvec(),
+                            (pos.xy() - last_pos).component_mul(self.stepvec().cast_unit()),
                             &area,
                             &extent,
                             dpi,
@@ -320,7 +322,7 @@ where
             Box::new(layout::Node::<MinimalArea, dyn fixed::Prop> {
                 props: Rc::new(MinimalArea {
                     area: crate::DRect {
-                        px: ZERO_RECT,
+                        px: PxRect::zero(),
                         dp: AbsRect::new(scroll.x, scroll.y, 0.0, 0.0),
                         rel: crate::RelRect::new(
                             0.0,
@@ -362,7 +364,7 @@ pub struct Node<T: fixed::Prop> {
     pub id: std::sync::Weak<SourceID>,
     pub props: Rc<T>,
     pub children: im::Vector<Option<Box<dyn Layout<dyn fixed::Child>>>>,
-    pub size: Rc<RefCell<Vec2>>,
+    pub size: Rc<RefCell<PxDim>>,
     //pub renderable: Rc<dyn crate::render::Renderable>,
 }
 

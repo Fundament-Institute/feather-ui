@@ -8,10 +8,9 @@ use jxl_oxide::{EnumColourEncoding, JxlImage};
 #[cfg(feature = "svg")]
 use resvg::{tiny_skia, usvg};
 
-use crate::Error;
 use crate::render::atlas;
+use crate::{Error, PxDim};
 use std::hash::Hash;
-use ultraviolet::Vec2;
 
 pub(crate) const MIN_AREA: i32 = 64 * 64;
 pub(crate) const MAX_VARIANCE: f32 = 0.1;
@@ -40,11 +39,11 @@ pub fn fill_size(size: guillotiere::Size, native: guillotiere::Size) -> guilloti
 }
 
 #[inline]
-pub fn fill_vec2(size: Vec2, native: Vec2) -> Vec2 {
-    match (size.x, size.y) {
+pub fn fill_dim(size: PxDim, native: PxDim) -> PxDim {
+    match (size.width, size.height) {
         (0.0, 0.0) => native,
-        (x, 0.0) => Vec2::new(x, native.y * (x / native.x)),
-        (0.0, y) => Vec2::new(native.x * (y / native.y), y),
+        (x, 0.0) => PxDim::new(x, native.height * (x / native.width)),
+        (0.0, y) => PxDim::new(native.width * (y / native.height), y),
         _ => size,
     }
 }
@@ -494,20 +493,24 @@ impl Loader for SvgXml {
 
         // TODO: This rounds, which might not give accurate results. It might instead need to use ceiling.
         let svg_size = svg.size();
-        let native_size = Vec2::new(svg_size.width(), svg_size.height());
-        let sizevec = fill_vec2(
-            Vec2::new(size.height as f32, size.width as f32),
+        let native_size = PxDim::new(svg_size.width(), svg_size.height());
+        let sizevec = fill_dim(
+            PxDim::new(size.height as f32, size.width as f32),
             native_size,
         );
 
         let t = if sizevec == native_size {
             tiny_skia::Transform::identity()
         } else {
-            tiny_skia::Transform::from_scale(sizevec.x / native_size.x, sizevec.y / native_size.y)
+            tiny_skia::Transform::from_scale(
+                sizevec.width / native_size.width,
+                sizevec.height / native_size.height,
+            )
         };
 
         let mut pixmap =
-            tiny_skia::Pixmap::new(sizevec.x.ceil() as u32, sizevec.y.ceil() as u32).unwrap();
+            tiny_skia::Pixmap::new(sizevec.width.ceil() as u32, sizevec.height.ceil() as u32)
+                .unwrap();
 
         resvg::render(&svg, t, &mut pixmap.as_mut());
 
