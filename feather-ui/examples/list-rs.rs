@@ -14,10 +14,9 @@ use feather_ui::component::window::Window;
 use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, flex, leaf, list};
 use feather_ui::persist::FnPersist;
-use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::{
-    AbsRect, App, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID, UNSIZED_AXIS,
-    ZERO_POINT, gen_id, im,
+    AbsRect, App, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID, UNSIZED_AXIS, gen_id,
+    im,
 };
 use std::sync::Arc;
 
@@ -132,12 +131,10 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 let text = Text::<FixedData> {
                     id: gen_id!(),
                     props: FixedData {
-                        area: feather_ui::URect {
-                            abs: AbsRect::new(10.0, 15.0, 10.0, 15.0),
-                            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-                        }
-                        .into(),
-                        anchor: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }).into(),
+                        area: AbsRect::new(10.0, 15.0, 10.0, 15.0)
+                            + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+
+                        anchor: feather_ui::RelPoint::new(0.0, 0.0).into(),
                         ..Default::default()
                     }
                     .into(),
@@ -152,7 +149,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
-                    Vec4::broadcast(10.0),
+                    wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
                 );
@@ -160,12 +157,10 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 Button::<FixedData>::new(
                     gen_id!(),
                     FixedData {
-                        area: feather_ui::URect {
-                            abs: AbsRect::new(0.0, 20.0, 0.0, 0.0),
-                            rel: RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-                        }
-                        .into(),
-                        anchor: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }).into(),
+                        area: AbsRect::new(0.0, 20.0, 0.0, 0.0)
+                            + RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+
+                        anchor: feather_ui::RelPoint::new(0.5, 0.0).into(),
                         zindex: 0,
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
@@ -192,7 +187,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                         .into(),
                         0.0,
                         0.0,
-                        Vec4::broadcast(8.0),
+                        wide::f32x4::splat(8.0),
                         sRGB::new(
                             (0.1 * i as f32) % 1.0,
                             (0.65 * i as f32) % 1.0,
@@ -206,15 +201,10 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ListBox::<ListData>::new(
                     gen_id!(),
                     ListData {
-                        area: feather_ui::URect {
-                            abs: AbsRect::new(0.0, 200.0, 0.0, 0.0),
-                            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
-                        }
-                        .into(),
-                        rlimits: feather_ui::RelLimits::new(
-                            ZERO_POINT,
-                            Vec2::new(1.0, f32::INFINITY),
-                        ),
+                        area: AbsRect::new(0.0, 200.0, 0.0, 0.0)
+                            + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
+
+                        rlimits: feather_ui::RelLimits::new(0.0..1.0, 0.0..),
                         direction: feather_ui::RowDirection::BottomToTop,
                     }
                     .into(),
@@ -234,11 +224,9 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                     >::new(
                         box_id.child(DataID::Int(i as i64)),
                         FlexChild {
-                            area: feather_ui::URect {
-                                abs: AbsRect::new(0.0, 0.0, 0.0, 40.0),
-                                rel: RelRect::new(0.0, 0.0, 1.0, 0.0),
-                            }
-                            .into(),
+                            area: AbsRect::new(0.0, 0.0, 0.0, 40.0)
+                                + RelRect::new(0.0, 0.0, 1.0, 0.0),
+
                             margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
                             basis: 40.0.into(),
                             grow: 0.0,
@@ -247,7 +235,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                         .into(),
                         0.0,
                         0.0,
-                        Vec4::broadcast(8.0),
+                        wide::f32x4::splat(8.0),
                         sRGB::new(
                             (0.1 * i as f32) % 1.0,
                             (0.65 * i as f32) % 1.0,

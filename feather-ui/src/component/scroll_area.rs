@@ -7,8 +7,8 @@ use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Desc, base, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{
-    AbsRect, AbsVector, AnyRect, Dispatchable, ERect, PxDim, PxPoint, PxRect, PxVector, RelDim,
-    RelPoint, RelVector, Slot, SourceID, UNSIZED_AXIS, UnResolve, ZERO_RECT, layout,
+    AbsRect, AbsVector, AnyRect, Dispatchable, PxPoint, PxRect, PxVector, RelDim, RelVector, Slot,
+    SourceID, UNSIZED_AXIS, UnResolve, layout,
 };
 use core::f32;
 use derive_where::derive_where;

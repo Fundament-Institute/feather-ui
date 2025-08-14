@@ -468,7 +468,7 @@ fn create_button(
         crate::FILL_DRECT.into(),
         0.0,
         0.0,
-        Vec4::broadcast(10.0),
+        wide::f32x4::splat(10.0),
         args.4.into(),
         Default::default(),
     );
@@ -543,7 +543,7 @@ fn create_round_rect(
             bag.into(),
             args.4,
             0.0,
-            Vec4::broadcast(args.3),
+            wide::f32x4::splat(args.3),
             fill.into(),
             outline.into(),
         ),

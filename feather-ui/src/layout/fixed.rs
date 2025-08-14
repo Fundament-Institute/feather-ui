@@ -5,7 +5,7 @@ use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, check_unsized_abs,
     map_unsized_area,
 };
-use crate::{AbsRect, EDim, ERect, rtree};
+use crate::{EDim, ERect, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Anchor + base::Limits + base::ZIndex {}

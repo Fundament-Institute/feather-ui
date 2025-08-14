@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::{AbsRect, DAbsRect, DPoint, DRect, ZERO_DRECT};
+use crate::{DAbsRect, DPoint, DRect, ZERO_DRECT};
 use std::rc::Rc;
 
 #[macro_export]
