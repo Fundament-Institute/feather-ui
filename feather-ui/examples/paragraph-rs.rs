@@ -11,7 +11,6 @@ use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
 use feather_ui::layout::base;
 use feather_ui::persist::FnPersist;
-use feather_ui::ultraviolet::Vec4;
 use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};
 use std::f32;
 use std::sync::Arc;
@@ -118,7 +117,7 @@ impl FnPersist<Blocker, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp
                     .into(),
                     0.0,
                     0.0,
-                    Vec4::broadcast(10.0),
+                    wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
                 );
@@ -152,11 +151,7 @@ impl FnPersist<Blocker, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp
             let region = Region::new(
                 gen_id!(),
                 MinimalArea {
-                    area: feather_ui::URect {
-                        abs: AbsRect::new(90.0, 90.0, -90.0, -90.0),
-                        rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
-                    }
-                    .into(),
+                    area: AbsRect::new(90.0, 90.0, -90.0, -90.0) + RelRect::new(0.0, 0.0, 1.0, 1.0),
                 }
                 .into(),
                 feather_ui::children![fixed::Prop, flex],

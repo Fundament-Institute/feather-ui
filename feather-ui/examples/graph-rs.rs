@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use feather_ui::color::sRGB;
-use feather_ui::gen_id;
+use feather_ui::{AbsPoint, AbsVector, gen_id};
 
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
@@ -14,7 +14,6 @@ use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::input::MouseButton;
 use feather_ui::layout::{base, fixed, leaf};
 use feather_ui::persist::FnPersist;
-use feather_ui::ultraviolet::Vec2;
 use feather_ui::{
     AbsRect, App, CrossReferenceDomain, DRect, DataID, FILL_DRECT, Slot, SourceID, WrapEventEx, im,
 };
@@ -24,9 +23,9 @@ use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug)]
 struct GraphState {
-    nodes: Vec<Vec2>,
+    nodes: Vec<AbsPoint>,
     edges: HashSet<(usize, usize)>,
-    offset: Vec2,
+    offset: AbsVector,
     selected: Option<usize>,
 }
 
@@ -57,7 +56,7 @@ impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for Basic
             GraphState {
                 nodes: Vec::new(),
                 edges: HashSet::new(),
-                offset: Vec2::zero(),
+                offset: AbsVector::zero(),
                 selected: None,
             },
             im::HashMap::new(),
@@ -86,7 +85,7 @@ impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for Basic
                     FILL_DRECT.into(),
                     0.0,
                     0.0,
-                    Vec2::new(0.0, 20.0),
+                    [0.0, 20.0],
                     if args.selected == Some(i) {
                         sRGB::new(0.7, 1.0, 0.8, 1.0)
                     } else {
@@ -243,7 +242,7 @@ fn main() {
         GraphState {
             nodes: vec![],
             edges: HashSet::new(),
-            offset: Vec2::new(-5000.0, -5000.0),
+            offset: AbsVector::new(-5000.0, -5000.0),
             selected: None,
         },
         vec![handle_input],

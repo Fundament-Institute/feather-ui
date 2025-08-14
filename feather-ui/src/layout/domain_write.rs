@@ -3,7 +3,7 @@
 
 use super::base::{Empty, RLimits};
 use super::{Concrete, Desc, Layout, Renderable, Staged};
-use crate::{AbsRect, CrossReferenceDomain, SourceID, render, rtree};
+use crate::{CrossReferenceDomain, SourceID, render, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;

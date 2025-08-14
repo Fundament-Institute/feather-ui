@@ -18,9 +18,7 @@ use wide::f32x4;
 use crate::color::sRGB32;
 use crate::render::Renderable;
 use crate::render::compositor::CompositorView;
-use crate::{
-    AbsRect, EDim, ELimits, EPoint, ERect, Error, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree,
-};
+use crate::{EDim, ELimits, EPoint, ERect, Error, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree};
 use derive_where::derive_where;
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};

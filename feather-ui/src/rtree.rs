@@ -8,7 +8,7 @@ use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
 use crate::{
-    AnyPoint, AnyRect, AnyVector, Dispatchable, Pixel, PxDim, RelDim, SourceID, StateManager,
+    AnyPoint, AnyRect, AnyVector, Dispatchable, Pixel, RelDim, SourceID, StateManager,
     WindowStateMachine,
 };
 use eyre::Result;

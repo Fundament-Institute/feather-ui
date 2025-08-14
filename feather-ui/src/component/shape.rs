@@ -31,7 +31,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
     props: Rc<T>,
     border: f32,
     blur: f32,
-    corners: [f32; 4],
+    corners: wide::f32x4,
     fill: sRGB,
     outline: sRGB,
 ) -> Shape<T, { ShapeKind::RoundRect as u8 }> {
@@ -40,7 +40,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
         props,
         border,
         blur,
-        corners,
+        corners: corners.to_array(),
         fill,
         outline,
     }
@@ -92,7 +92,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
     props: Rc<T>,
     border: f32,
     blur: f32,
-    arcs: [f32; 4],
+    arcs: wide::f32x4,
     fill: sRGB,
     outline: sRGB,
 ) -> Shape<T, { ShapeKind::Arc as u8 }> {
@@ -101,7 +101,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
         props,
         border,
         blur,
-        corners: arcs,
+        corners: arcs.to_array(),
         fill,
         outline,
     }
@@ -127,7 +127,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
         props: Rc<T>,
         border: f32,
         blur: f32,
-        corners: [f32; 4],
+        corners: wide::f32x4,
         fill: sRGB,
         outline: sRGB,
     ) -> Self {
@@ -136,7 +136,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
             props,
             border,
             blur,
-            corners,
+            corners: corners.to_array(),
             fill,
             outline,
         }
@@ -194,7 +194,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
         props: Rc<T>,
         border: f32,
         blur: f32,
-        arcs: [f32; 4],
+        arcs: wide::f32x4,
         fill: sRGB,
         outline: sRGB,
     ) -> Self {
@@ -203,7 +203,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
             props,
             border,
             blur,
-            corners: arcs,
+            corners: arcs.to_array(),
             fill,
             outline,
         }

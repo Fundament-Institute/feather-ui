@@ -30,6 +30,7 @@ use component::{Component, StateMachineWrapper};
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
+pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
 use parking_lot::RwLock;
 use persist::FnPersist;
@@ -42,16 +43,14 @@ use std::ffi::c_void;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
 use std::sync::Arc;
 use wgpu::{InstanceDescriptor, InstanceFlags};
-use wide::f32x4;
-use wide::{CmpGe, CmpGt};
+use wide::{CmpGe, CmpGt, f32x4};
 use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
-use winit::event_loop::EventLoop;
+use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::WindowId;
-pub use {cosmic_text, guillotiere::euclid, im, notify, wgpu, wide, winit};
+pub use {cosmic_text, im, notify, wgpu, wide, winit};
 
 type Mat4x4 = euclid::default::Transform3D<f32>;
 
@@ -233,7 +232,7 @@ impl<U> Rect<U> {
         }
     }
 
-    pub const fn broadcast(x: f32) -> Self {
+    pub const fn splat(x: f32) -> Self {
         Self {
             v: f32x4::new([x, x, x, x]), // f32x4::splat isn't a constant function (for some reason)
             _unit: PhantomData,
@@ -414,7 +413,7 @@ impl<U> Add<Point2D<f32, U>> for Rect<U> {
     }
 }
 
-impl<U> AddAssign<Point2D<f32, U>> for AbsRect {
+impl<U> AddAssign<Point2D<f32, U>> for Rect<U> {
     #[inline]
     fn add_assign(&mut self, rhs: Point2D<f32, U>) {
         self.v += splat_point(rhs)
@@ -433,7 +432,7 @@ impl<U> Add<Vector2D<f32, U>> for Rect<U> {
     }
 }
 
-impl<U> AddAssign<Vector2D<f32, U>> for AbsRect {
+impl<U> AddAssign<Vector2D<f32, U>> for Rect<U> {
     #[inline]
     fn add_assign(&mut self, rhs: Vector2D<f32, U>) {
         self.v += splat_point(rhs.to_point())
@@ -452,22 +451,20 @@ impl<U> Sub<Point2D<f32, U>> for Rect<U> {
     }
 }
 
-impl<U> SubAssign<Point2D<f32, U>> for AbsRect {
+impl<U> SubAssign<Point2D<f32, U>> for Rect<U> {
     #[inline]
     fn sub_assign(&mut self, rhs: Point2D<f32, U>) {
         self.v -= splat_point(rhs)
     }
 }
 
-impl Add<RelRect> for AbsRect {
-    type Output = DRect;
+impl<U> Neg for Rect<U> {
+    type Output = Rect<U>;
 
-    #[inline]
-    fn add(self, rhs: RelRect) -> Self::Output {
-        DRect {
-            dp: self,
-            rel: rhs,
-            px: PxRect::zero(),
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            v: -self.v,
+            _unit: PhantomData,
         }
     }
 }
@@ -586,12 +583,23 @@ impl From<AbsRect> for DAbsRect {
     }
 }
 
-#[inline]
-fn resolve_point(px: PxPoint, dp: AbsPoint, dpi: RelDim) -> ResPoint {
-    ResPoint {
-        x: px.x + (dp.x * dpi.width),
-        y: px.y + (dp.y * dpi.height),
-        _unit: PhantomData,
+impl From<PxRect> for DAbsRect {
+    fn from(value: PxRect) -> Self {
+        DAbsRect {
+            dp: AbsRect::zero(),
+            px: value,
+        }
+    }
+}
+
+impl Neg for DAbsRect {
+    type Output = DAbsRect;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
+        }
     }
 }
 
@@ -618,6 +626,26 @@ impl From<AbsPoint> for DAbsPoint {
         DAbsPoint {
             dp: value,
             px: PxPoint::zero(),
+        }
+    }
+}
+
+impl From<PxPoint> for DAbsPoint {
+    fn from(value: PxPoint) -> Self {
+        DAbsPoint {
+            dp: AbsPoint::zero(),
+            px: value,
+        }
+    }
+}
+
+impl Neg for DAbsPoint {
+    type Output = DAbsPoint;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
         }
     }
 }
@@ -691,6 +719,14 @@ impl Mul<EDim> for UPoint {
     }
 }
 
+impl Neg for UPoint {
+    type Output = UPoint;
+
+    fn neg(self) -> Self::Output {
+        UPoint(-self.0)
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct DPoint {
     dp: AbsPoint,
@@ -727,6 +763,26 @@ impl DPoint {
     }
 }
 
+impl From<AbsPoint> for DPoint {
+    fn from(value: AbsPoint) -> Self {
+        Self {
+            dp: value,
+            px: PxPoint::zero(),
+            rel: RelPoint::zero(),
+        }
+    }
+}
+
+impl From<PxPoint> for DPoint {
+    fn from(value: PxPoint) -> Self {
+        Self {
+            dp: AbsPoint::zero(),
+            px: value,
+            rel: RelPoint::zero(),
+        }
+    }
+}
+
 impl From<RelPoint> for DPoint {
     fn from(value: RelPoint) -> Self {
         Self {
@@ -737,12 +793,36 @@ impl From<RelPoint> for DPoint {
     }
 }
 
-impl From<AbsPoint> for DPoint {
-    fn from(value: AbsPoint) -> Self {
-        Self {
-            dp: value,
-            px: PxPoint::zero(),
-            rel: RelPoint::zero(),
+impl Add<DPoint> for DPoint {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: DPoint) -> Self::Output {
+        Self::Output {
+            dp: self.dp + rhs.dp.to_vector(),
+            px: self.px + rhs.px.to_vector(),
+            rel: self.rel + rhs.rel.to_vector(),
+        }
+    }
+}
+
+impl Sub<DPoint> for DPoint {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: DPoint) -> Self::Output {
+        self + (-rhs)
+    }
+}
+
+impl Neg for DPoint {
+    type Output = DPoint;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
+            rel: -self.rel,
         }
     }
 }
@@ -826,6 +906,17 @@ impl Mul<EDim> for URect {
     }
 }
 
+impl Neg for URect {
+    type Output = URect;
+
+    fn neg(self) -> Self::Output {
+        URect {
+            abs: -self.abs,
+            rel: -self.rel,
+        }
+    }
+}
+
 /// Display Rectangle with both per-pixel and display-independent pixels
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct DRect {
@@ -858,32 +949,75 @@ impl DRect {
             rel: self.rel.bottomright(),
         }
     }
-}
 
-pub const ZERO_DRECT: DRect = DRect {
-    px: PxRect::zero(),
-    dp: AbsRect::zero(),
-    rel: RelRect::zero(),
-};
-
-pub const FILL_DRECT: DRect = DRect {
-    px: PxRect::zero(),
-    dp: AbsRect::zero(),
-    rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
-};
-
-pub const AUTO_DRECT: DRect = DRect {
-    px: PxRect::zero(),
-    dp: AbsRect::zero(),
-    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-};
-
-impl From<RelRect> for DRect {
-    fn from(value: RelRect) -> Self {
+    pub const fn zero() -> Self {
         Self {
             px: PxRect::zero(),
             dp: AbsRect::zero(),
-            rel: value,
+            rel: RelRect::zero(),
+        }
+    }
+
+    pub const fn fill() -> Self {
+        DRect {
+            px: PxRect::zero(),
+            dp: AbsRect::zero(),
+            rel: RelRect::unit(),
+        }
+    }
+
+    pub const fn auto() -> Self {
+        DRect {
+            px: PxRect::zero(),
+            dp: AbsRect::zero(),
+            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+        }
+    }
+}
+
+pub const ZERO_DRECT: DRect = DRect::zero();
+pub const FILL_DRECT: DRect = DRect::fill();
+pub const AUTO_DRECT: DRect = DRect::auto();
+
+impl Add<DRect> for DRect {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: DRect) -> Self::Output {
+        Self::Output {
+            dp: AbsRect {
+                v: self.dp.v + rhs.dp.v,
+                _unit: PhantomData,
+            },
+            px: PxRect {
+                v: self.px.v + rhs.px.v,
+                _unit: PhantomData,
+            },
+            rel: RelRect {
+                v: self.rel.v + rhs.rel.v,
+                _unit: PhantomData,
+            },
+        }
+    }
+}
+
+impl Sub<DRect> for DRect {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: DRect) -> Self::Output {
+        self + (-rhs)
+    }
+}
+
+impl Neg for DRect {
+    type Output = DRect;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
+            rel: -self.rel,
         }
     }
 }
@@ -895,6 +1029,37 @@ impl From<AbsRect> for DRect {
             dp: value,
             rel: RelRect::zero(),
         }
+    }
+}
+
+impl From<PxRect> for DRect {
+    fn from(value: PxRect) -> Self {
+        Self {
+            px: value,
+            dp: AbsRect::zero(),
+            rel: RelRect::zero(),
+        }
+    }
+}
+
+impl From<RelRect> for DRect {
+    fn from(value: RelRect) -> Self {
+        Self {
+            px: PxRect::zero(),
+            dp: AbsRect::zero(),
+            rel: value,
+        }
+    }
+}
+
+impl<T, U: Into<DRect>> Add<U> for Rect<T>
+where
+    Self: Into<DRect>,
+{
+    type Output = DRect;
+
+    fn add(self, rhs: U) -> Self::Output {
+        self.into() + rhs.into()
     }
 }
 
@@ -912,6 +1077,7 @@ pub type RelLimits = Limits<Relative>;
 pub type ResLimits = Limits<Resolved>;
 pub type ELimits = Limits<Evaluated>;
 
+//pub const Unbounded: std::ops::Range<f32> = std::ops::Range
 // It would be cheaper to avoid using actual infinities here but we currently need them to make the math work
 pub const DEFAULT_LIMITS: f32x4 = f32x4::new([
     f32::NEG_INFINITY,
@@ -931,12 +1097,26 @@ pub const DEFAULT_RLIMITS: RelLimits = RelLimits {
 };
 
 impl<U> Limits<U> {
-    pub const fn new(min: Size2D<f32, U>, max: Size2D<f32, U>) -> Self {
+    #[inline]
+    const fn from_bound(bound: std::ops::Bound<&f32>, inf: f32) -> f32 {
+        match bound {
+            std::ops::Bound::Included(v) | std::ops::Bound::Excluded(v) => *v,
+            std::ops::Bound::Unbounded => inf,
+        }
+    }
+    pub fn new(x: impl std::ops::RangeBounds<f32>, y: impl std::ops::RangeBounds<f32>) -> Self {
+        use std::f32::{INFINITY, NEG_INFINITY};
         Self {
-            v: f32x4::new([min.width, min.height, max.width, max.height]),
+            v: f32x4::new([
+                Self::from_bound(x.start_bound(), NEG_INFINITY),
+                Self::from_bound(y.start_bound(), NEG_INFINITY),
+                Self::from_bound(x.end_bound(), INFINITY),
+                Self::from_bound(y.end_bound(), INFINITY),
+            ]),
             _unit: PhantomData,
         }
     }
+
     #[inline]
     pub fn min(&self) -> Size2D<f32, U> {
         let minmax = self.v.as_array_ref();
@@ -946,6 +1126,21 @@ impl<U> Limits<U> {
     pub fn max(&self) -> Size2D<f32, U> {
         let minmax = self.v.as_array_ref();
         Size2D::new(minmax[2], minmax[3])
+    }
+
+    /// Discard the units
+    #[inline]
+    pub fn to_untyped(self) -> Limits<euclid::UnknownUnit> {
+        self.cast_unit()
+    }
+
+    /// Cast the unit
+    #[inline]
+    pub fn cast_unit<V>(self) -> Limits<V> {
+        Limits::<V> {
+            v: self.v,
+            _unit: PhantomData,
+        }
     }
 }
 
@@ -998,10 +1193,11 @@ pub const DEFAULT_DLIMITS: DLimits = DLimits {
 
 impl DLimits {
     pub fn resolve(&self, dpi: RelDim) -> ELimits {
-        ELimits {
-            v: self.px.v + self.dp.v * splat_size(dpi),
-            _unit: PhantomData,
-        }
+        self.px.cast_unit()
+            + ELimits {
+                v: self.dp.v * splat_size(dpi),
+                _unit: PhantomData,
+            }
     }
 }
 

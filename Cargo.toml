@@ -4,7 +4,7 @@
 [workspace]
 members = [
   "feather-ui",
-  "feather-ui/examples/basic-alc",
+  # "feather-ui/examples/basic-alc",
   "feather-ui/examples/calculator-rs",
   # "feather-ui/examples/calculator-alc", # This breaks cargo for some reason
   "feather-macro",

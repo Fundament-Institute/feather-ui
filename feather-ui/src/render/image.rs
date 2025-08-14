@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::compositor::CompositorView;
+use crate::Evaluated;
 use crate::resource::Location;
-use crate::{AbsRect, Evaluated};
 
 pub struct Instance {
     pub image: Box<dyn Location>,
