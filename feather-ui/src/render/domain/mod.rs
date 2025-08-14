@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::Renderable;
-use crate::{AbsRect, CrossReferenceDomain, SourceID};
+use crate::{AnyRect, CrossReferenceDomain, SourceID};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -17,7 +17,7 @@ pub struct Write {
 impl Renderable for Write {
     fn render(
         &self,
-        area: AbsRect,
+        area: AnyRect,
         driver: &crate::graphics::Driver,
         compositor: &mut crate::render::CompositorView<'_>,
     ) -> Result<(), crate::Error> {

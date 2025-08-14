@@ -5,7 +5,7 @@ use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, check_unsized_abs,
     map_unsized_area,
 };
-use crate::{AbsRect, ZERO_POINT, rtree};
+use crate::{AbsRect, EDim, ERect, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Anchor + base::Limits + base::ZIndex {}
@@ -25,8 +25,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        outer_area: ERect,
+        outer_limits: crate::ELimits,
         children: &Self::Children,
         id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -55,9 +55,9 @@ impl Desc for dyn Prop {
             // When an axis is unsized, we don't apply any limits to it, so we don't have to worry about
             // cases where the full evaluated area would invalidate the limit.
             let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
-            let inner_area = AbsRect::from(inner_dim);
+            let inner_area = ERect::from(inner_dim);
             // The area we pass to children must be independent of our own area, so it starts at 0,0
-            let mut bottomright = ZERO_POINT;
+            let mut bottomright = EDim::zero();
 
             for child in children.iter() {
                 let child_props = child.as_ref().unwrap().get_props();
@@ -67,7 +67,7 @@ impl Desc for dyn Prop {
                     .as_ref()
                     .unwrap()
                     .stage(inner_area, child_limit, window);
-                bottomright = bottomright.max_by_component(stage.get_area().bottomright());
+                bottomright = bottomright.max(stage.get_area().bottomright().to_vector().to_size());
             }
 
             let area = map_unsized_area(myarea, bottomright);
@@ -91,7 +91,13 @@ impl Desc for dyn Prop {
             return Box::new(Concrete::new(
                 None,
                 evaluated_area,
-                rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
+                rtree::Node::new(
+                    evaluated_area.to_untyped(),
+                    Some(props.zindex()),
+                    nodes,
+                    id,
+                    window,
+                ),
                 staging,
             ));
         }
@@ -100,7 +106,7 @@ impl Desc for dyn Prop {
         // unsized cases. Thus, we calculate the final inner_area for the children from this evaluated area.
         let evaluated_dim = evaluated_area.dim();
 
-        let inner_area = AbsRect::from(evaluated_dim);
+        let inner_area = ERect::from(evaluated_dim);
 
         for child in children.iter() {
             let child_props = child.as_ref().unwrap().get_props();
@@ -137,7 +143,13 @@ impl Desc for dyn Prop {
         Box::new(Concrete::new(
             renderable,
             evaluated_area,
-            rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
+            rtree::Node::new(
+                evaluated_area.to_untyped(),
+                Some(props.zindex()),
+                nodes,
+                id,
+                window,
+            ),
             staging,
         ))
     }

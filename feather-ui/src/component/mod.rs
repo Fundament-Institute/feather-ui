@@ -21,7 +21,7 @@ pub mod window;
 use crate::component::window::Window;
 use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
-    AbsRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, Slot, SourceID, StateMachineChild,
+    AnyRect, DEFAULT_LIMITS, DispatchPair, Dispatchable, ERect, Slot, SourceID, StateMachineChild,
     StateManager, graphics, rtree,
 };
 use dyn_clone::DynClone;
@@ -72,9 +72,9 @@ pub trait StateMachineWrapper: Any {
         &mut self,
         input: DispatchPair,
         index: u64,
-        dpi: crate::Vec2,
-        area: AbsRect,
-        extent: AbsRect,
+        dpi: crate::RelDim,
+        area: AnyRect,
+        extent: AnyRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<SmallVec<[DispatchPair; 1]>>;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
@@ -96,9 +96,9 @@ where
     fn process(
         self,
         input: Self::Input,
-        area: AbsRect,
-        extent: AbsRect,
-        dpi: crate::Vec2,
+        area: AnyRect,
+        extent: AnyRect,
+        dpi: crate::RelDim,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)> {
         Err((self, SmallVec::new()))
@@ -119,9 +119,9 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
         &mut self,
         input: DispatchPair,
         _index: u64,
-        dpi: crate::Vec2,
-        area: AbsRect,
-        extent: AbsRect,
+        dpi: crate::RelDim,
+        area: AnyRect,
+        extent: AnyRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> Result<SmallVec<[DispatchPair; 1]>> {
         if input.0 & self.input_mask == 0 {
@@ -167,7 +167,7 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
         &mut self,
         input: DispatchPair,
         index: u64,
-        dpi: crate::Vec2,
+        dpi: crate::RelDim,
         area: AbsRect,
     ) -> Result<(Vec<DispatchPair>, bool)> {
         todo!()
@@ -237,7 +237,7 @@ where
 
 pub struct RootState {
     pub(crate) id: Arc<SourceID>,
-    layout_tree: Option<Box<dyn crate::layout::Layout<crate::AbsDim>>>,
+    layout_tree: Option<Box<dyn crate::layout::Layout<crate::PxDim>>>,
     pub(crate) staging: Option<Box<dyn Staged>>,
     rtree: std::rc::Weak<rtree::Node>,
 }
@@ -320,7 +320,7 @@ impl Root {
                 let layout: &dyn Layout<dyn root::Prop> = &layout.as_ref();
                 let staging = layout.stage(
                     Default::default(),
-                    DEFAULT_LIMITS,
+                    Default::default(),
                     state.state.as_mut().unwrap(),
                 );
                 root.rtree = staging.get_rtree();

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+use crate::component::ChildOf;
 use crate::component::button::Button;
 use crate::component::region::Region;
 use crate::component::shape::{Shape, ShapeKind};
@@ -8,15 +9,177 @@ use crate::component::text::Text;
 use crate::component::window::Window;
 use crate::layout::fixed;
 use crate::propbag::PropBag;
-use crate::{DataID, FnPersist, Slot, SourceID, StateMachineChild, URect};
+use crate::{
+    AbsRect, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist, RelPoint, RelRect,
+    Slot, SourceID, StateMachineChild, URect, ZERO_RECT,
+};
 use mlua::UserData;
 use mlua::prelude::*;
+use std::f32;
 use std::sync::Arc;
-use ultraviolet::Vec4;
 use wide::f32x4;
 
 pub type AppState = LuaValue;
 type LuaSourceID = SourceID;
+
+fn get_key<V: FromLua>(t: &LuaTable, key: &str) -> LuaResult<Option<V>> {
+    if t.contains_key(key)? {
+        Ok(Some(t.get(key)?))
+    } else {
+        Ok(None)
+    }
+}
+
+fn get_default<V: FromLua + Default>(t: &LuaTable, key: &str) -> LuaResult<V> {
+    Ok(get_key(t, key)?.unwrap_or_default())
+}
+
+fn is_dvalue(t: &LuaTable) -> LuaResult<bool> {
+    if let Some(mt) = t.metatable() {
+        mt.contains_key("__isvalue")
+    } else {
+        Ok(false)
+    }
+}
+
+impl FromLua for DValue {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let t = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        if !is_dvalue(t)? {
+            return Err(LuaError::UserDataTypeMismatch);
+        }
+
+        Ok(DValue {
+            dp: get_default(t, "dp")?,
+            px: get_default(t, "px")?,
+            rel: get_default(t, "rel")?,
+        })
+    }
+}
+
+impl FromLua for AbsPoint {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        if let Some(v) = value.as_number() {
+            return Ok(AbsPoint(Vec2::broadcast(v as f32)));
+        }
+
+        let t = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        if is_dvalue(t)? {
+            if t.contains_key("dp")? && !t.contains_key("px")? && !t.contains_key("rel")? {
+                Ok(AbsPoint(Vec2::broadcast(t.get("dp")?)))
+            } else {
+                Err(LuaError::UserDataTypeMismatch)
+            }
+        } else {
+            Ok(AbsPoint(Vec2::new(t.get("x")?, t.get("y")?)))
+        }
+    }
+}
+
+impl FromLua for RelPoint {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        if let Some(v) = value.as_number() {
+            return Ok(RelPoint(Vec2::broadcast(v as f32)));
+        }
+
+        let t = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        if is_dvalue(t)? {
+            if !t.contains_key("dp")? && !t.contains_key("px")? && t.contains_key("rel")? {
+                Ok(RelPoint(Vec2::broadcast(t.get("rel")?)))
+            } else {
+                Err(LuaError::UserDataTypeMismatch)
+            }
+        } else {
+            Ok(RelPoint(Vec2::new(t.get("x")?, t.get("y")?)))
+        }
+    }
+}
+
+impl FromLua for AbsRect {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        Ok(AbsRect(f32x4::new(
+            if v.contains_key("x")? || v.contains_key("y")? {
+                let x = getf32(v, "x")?;
+                let y = getf32(v, "y")?;
+                [x, y, x, y]
+            } else {
+                [
+                    getf32(v, "left")?,
+                    getf32(v, "top")?,
+                    getf32(v, "right")?,
+                    getf32(v, "bottom")?,
+                ]
+            },
+        )))
+    }
+}
+
+impl FromLua for RelRect {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        Ok(RelRect(f32x4::new(
+            if v.contains_key("x")? || v.contains_key("y")? {
+                let x = getf32(v, "x")?;
+                let y = getf32(v, "y")?;
+                [x, y, x, y]
+            } else {
+                [
+                    getf32(v, "left")?,
+                    getf32(v, "top")?,
+                    getf32(v, "right")?,
+                    getf32(v, "bottom")?,
+                ]
+            },
+        )))
+    }
+}
+
+fn get_value<T: FromLua + Default>(t: &LuaTable, key: &str) -> LuaResult<T> {
+    if t.contains_key(key)? {
+        t.get(key)
+    } else {
+        Ok(Default::default())
+    }
+}
+
+impl FromLua for DAbsRect {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let px = get_value::<AbsRect>(v, "px")?;
+        let dp = get_value::<AbsRect>(v, "dp")?;
+        Ok(DAbsRect { dp, px })
+    }
+}
+
+impl FromLua for DRect {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let px = get_value::<AbsRect>(v, "px")?;
+        let dp = get_value::<AbsRect>(v, "dp")?;
+        let rel = get_value::<RelRect>(v, "rel")?;
+        Ok(DRect { dp, px, rel })
+    }
+}
+
+impl FromLua for DAbsPoint {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let px = get_value::<AbsPoint>(v, "px")?.0;
+        let dp = get_value::<AbsPoint>(v, "dp")?.0;
+        Ok(DAbsPoint { dp, px })
+    }
+}
+
+impl FromLua for DPoint {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let px = get_value::<AbsPoint>(v, "px")?.0;
+        let dp = get_value::<AbsPoint>(v, "dp")?.0;
+        let rel = get_value::<RelPoint>(v, "rel")?;
+        Ok(DPoint { dp, px, rel })
+    }
+}
 
 /*
 #[allow(dead_code)]
@@ -34,7 +197,7 @@ impl LuaBag {
 /*
 macro_rules! gen_lua_bag {
     ($prop:path, $name:ident, $t:ty) => {
-        impl $prop for mlua::Table {
+        impl $prop for LuaTable {
             fn $name(&self) -> &$t {
                 &self
                     .get::<$t>(stringify!($name))
@@ -46,7 +209,7 @@ macro_rules! gen_lua_bag {
 
 macro_rules! gen_lua_bag_clone {
     ($prop:path, $name:ident, $t:ty) => {
-        impl $prop for mlua::Table {
+        impl $prop for LuaTable {
             fn $name(&self) -> $t {
                 self.get::<$t>(stringify!($name))
                     .expect(concat!("PropBag didn't have ", stringify!($name)))
@@ -70,7 +233,7 @@ gen_lua_bag!(crate::layout::base::Margin, margin, crate::URect);
 gen_lua_bag!(crate::layout::base::Limits, limits, crate::URect);
 gen_lua_bag!(crate::layout::base::Anchor, anchor, crate::DPoint);
 
-impl crate::layout::root::Prop for mlua::Table {
+impl crate::layout::root::Prop for LuaTable {
     fn dim(&self) -> &crate::AbsDim {
         let v = self
             .raw_get::<mlua::Value>("dim")
@@ -85,11 +248,11 @@ impl crate::layout::root::Prop for mlua::Table {
     }
 }
 
-impl crate::layout::base::Empty for mlua::Table {}
-impl crate::layout::leaf::Prop for mlua::Table {}
-impl crate::layout::simple::Prop for mlua::Table {}
+impl crate::layout::base::Empty for LuaTable {}
+impl crate::layout::leaf::Prop for LuaTable {}
+impl crate::layout::simple::Prop for LuaTable {}
 
-impl crate::layout::flex::Prop for mlua::Table {
+impl crate::layout::flex::Prop for LuaTable {
     fn direction(&self) -> crate::layout::flex::FlexDirection {
         self.get("direction").unwrap()
     }
@@ -107,7 +270,7 @@ impl crate::layout::flex::Prop for mlua::Table {
     }
 }
 
-impl crate::layout::flex::Child for mlua::Table {
+impl crate::layout::flex::Child for LuaTable {
     fn grow(&self) -> f32 {
         self.get("grow").unwrap()
     }
@@ -121,7 +284,7 @@ impl crate::layout::flex::Child for mlua::Table {
     }
 }
 
-impl crate::layout::base::Obstacles for mlua::Table {
+impl crate::layout::base::Obstacles for LuaTable {
     fn obstacles(&self) -> &[AbsRect] {
         &self.obstacles.get_or_init(|| {
             self.get::<Vec<AbsRect>>("obstacles")
@@ -296,7 +459,7 @@ fn create_button(
 ) -> mlua::Result<ComponentBag> {
     let id = Arc::new(args.0);
 
-    let rect = Shape::<crate::DRect, { ShapeKind::RoundRect as u8 }>::new(
+    let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
         SourceID {
             parent: id.clone().into(),
             id: DataID::Named("__internal_rect__"),
@@ -310,7 +473,7 @@ fn create_button(
         Default::default(),
     );
 
-    let text = Text::<crate::DRect> {
+    let text = Text::<DRect> {
         id: SourceID {
             parent: id.clone().into(),
             id: DataID::Named("__internal_text__"),
@@ -422,7 +585,7 @@ impl FnPersist<AppState, im::HashMap<Arc<SourceID>, Option<Window>>> for LuaApp 
 }
 
 // These all map lua functions to rust code that creates the necessary rust objects and returns them inside lua userdata.
-pub fn init_environment(lua: &Lua, tab: &mut mlua::Table) -> mlua::Result<()> {
+pub fn init_environment(lua: &Lua, tab: &mut LuaTable) -> mlua::Result<()> {
     tab.set("create_id", lua.create_function(create_id)?)?;
     tab.set(
         "get_appdata_id",
@@ -443,4 +606,98 @@ pub fn init_environment(lua: &Lua, tab: &mut mlua::Table) -> mlua::Result<()> {
     )?;
 
     Ok(())
+}
+
+fn gather_props(props: &LuaTable) -> mlua::Result<PropBag> {
+    let mut bag = PropBag::new();
+
+    if props.contains_key("domain")? {
+        let area: std::sync::Arc<crate::CrossReferenceDomain> = props.get("domain")?;
+    }
+    if props.contains_key("direction")? {
+        let area: crate::RowDirection = props.get("direction")?;
+    }
+    if props.contains_key("wrap")? {
+        let area: bool = props.get("wrap")?;
+    }
+    if props.contains_key("justify")? {
+        let area: crate::layout::flex::FlexJustify = props.get("justify")?;
+    }
+    if props.contains_key("align")? {
+        let area: crate::layout::flex::FlexJustify = props.get("align")?;
+    }
+    if props.contains_key("zindex")? {
+        let area: i32 = props.get("zindex")?;
+    }
+    if props.contains_key("obstacles")? {
+        let area: Vec<DAbsRect> = props.get("obstacles")?;
+    }
+    if props.contains_key("order")? {
+        let area: i64 = props.get("order")?;
+    }
+    if props.contains_key("grow")? {
+        let area: f32 = props.get("grow")?;
+    }
+    if props.contains_key("shrink")? {
+        let area: f32 = props.get("shrink")?;
+    }
+    if props.contains_key("basis")? {
+        let area: DValue = props.get("area")?;
+    }
+    if props.contains_key("padding")? {
+        let area: DAbsRect = props.get("padding")?;
+    }
+    if props.contains_key("margin")? {
+        let area: DRect = props.get("margin")?;
+    }
+    if props.contains_key("maxsize")? {
+        let area: DPoint = props.get("maxsize")?;
+    }
+    if props.contains_key("minsize")? {
+        let area: DPoint = props.get("minsize")?;
+    }
+    if props.contains_key("anchor")? {
+        let area: DPoint = props.get("anchor")?;
+    }
+    if props.contains_key("dim")? {
+        let area: AbsPoint = props.get("dim")?;
+    }
+
+    Ok(bag)
+}
+
+fn region(_: &Lua, args: (LuaSourceID, LuaTable)) -> mlua::Result<ComponentBag> {
+    let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
+
+    for i in 0..args.1.len()? {
+        let component: ComponentBag = args.1.get(i)?;
+        children.push_back(Some(Box::new(component)));
+    }
+
+    let bag = if args.1.contains_key("props")? {
+        gather_props(&args.1.get("props")?)?
+    } else {
+        PropBag::new()
+    };
+
+    Ok(Box::new(Region::<PropBag>::new(
+        args.0.into(),
+        bag.into(),
+        children,
+    )))
+}
+
+pub fn init_dsl(
+    lua: &Lua,
+    tab: &mut LuaTable,
+    handlers: Vec<(String, Function)>,
+) -> mlua::Result<()> {
+    let handler_table = lua.create_table()?;
+
+    for (name, f) in handlers {
+        handler_table.set(name, f)?;
+    }
+
+    tab.set("handlers", handler_table)?;
+    tab.set("region", lua.create_function(region)?)?;
 }

@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use ultraviolet::Vec2;
-
 use super::base::Empty;
 use super::{Concrete, Desc, Layout, Renderable, Staged, base, map_unsized_area};
-use crate::{AbsRect, DRect, SourceID, ZERO_POINT, rtree};
+use crate::{DRect, EDim, ERect, SourceID, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -31,8 +29,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        outer_area: ERect,
+        outer_limits: crate::ELimits,
         _: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -40,7 +38,7 @@ impl Desc for dyn Prop {
     ) -> Box<dyn Staged + 'a> {
         let limits = outer_limits + props.limits().resolve(window.dpi);
         let evaluated_area = super::limit_area(
-            map_unsized_area(props.area().resolve(window.dpi), ZERO_POINT)
+            map_unsized_area(props.area().resolve(window.dpi), EDim::zero())
                 * super::nuetralize_unsized(outer_area),
             limits,
         );
@@ -51,7 +49,13 @@ impl Desc for dyn Prop {
         Box::new(Concrete {
             area: evaluated_area,
             renderable,
-            rtree: rtree::Node::new(evaluated_area, None, Default::default(), id, window),
+            rtree: rtree::Node::new(
+                evaluated_area.to_untyped(),
+                None,
+                Default::default(),
+                id,
+                window,
+            ),
             children: Default::default(),
             layer: None,
         })
@@ -65,7 +69,7 @@ impl Desc for dyn Prop {
 pub struct Sized<T> {
     pub id: std::sync::Weak<SourceID>,
     pub props: Rc<T>,
-    pub size: Vec2,
+    pub size: crate::EDim,
     pub renderable: Option<Rc<dyn Renderable>>,
 }
 
@@ -75,14 +79,14 @@ impl<T: Padded> Layout<T> for Sized<T> {
     }
     fn stage<'a>(
         &self,
-        outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        outer_area: crate::ERect,
+        outer_limits: crate::ELimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn super::Staged + 'a> {
         let limits = outer_limits + self.props.limits().resolve(window.dpi);
-        let padding = self.props.padding().resolve(window.dpi);
+        let padding = self.props.padding().to_perimeter(window.dpi);
         let area = self.props.area().resolve(window.dpi);
-        let aspect_ratio = self.size.x / self.size.y; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
+        let aspect_ratio = self.size.width / self.size.height; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
 
         // The way we handle unsized here is different from how we normally handle it. If both axes are unsized, we
         // simply set the area to the internal size. If only one axis is unsized, we stretch it to maintain an aspect
@@ -91,17 +95,17 @@ impl<T: Padded> Layout<T> for Sized<T> {
         let outer_area = super::nuetralize_unsized(outer_area);
         let mapped_area = match (unsized_x, unsized_y, aspect_ratio.is_nan()) {
             (true, false, false) => {
-                let mut presize = map_unsized_area(area, ZERO_POINT) * outer_area;
-                let adjust = presize.dim().0.y * aspect_ratio;
-                let v = presize.0.as_array_mut();
+                let mut presize = map_unsized_area(area, EDim::zero()) * outer_area;
+                let adjust = presize.dim().height * aspect_ratio;
+                let v = presize.v.as_array_mut();
                 v[2] += adjust;
                 presize
             }
             (false, true, false) => {
-                let mut presize = map_unsized_area(area, ZERO_POINT) * outer_area;
+                let mut presize = map_unsized_area(area, EDim::zero()) * outer_area;
                 // Be careful, the aspect ratio here is being divided instead of multiplied
-                let adjust = presize.dim().0.x / aspect_ratio;
-                let v = presize.0.as_array_mut();
+                let adjust = presize.dim().width / aspect_ratio;
+                let v = presize.v.as_array_mut();
                 v[3] += adjust;
                 presize
             }
@@ -120,7 +124,7 @@ impl<T: Padded> Layout<T> for Sized<T> {
             area: evaluated_area,
             renderable: self.renderable.clone(),
             rtree: rtree::Node::new(
-                evaluated_area,
+                evaluated_area.to_untyped(),
                 None,
                 Default::default(),
                 self.id.clone(),

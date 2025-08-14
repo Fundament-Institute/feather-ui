@@ -7,15 +7,18 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, VectorFold};
-use crate::{AbsRect, Dispatchable, SourceID, StateManager, WindowStateMachine};
+use crate::{
+    AnyPoint, AnyRect, AnyVector, Dispatchable, Pixel, PxDim, RelDim, SourceID, StateManager,
+    WindowStateMachine,
+};
 use eyre::Result;
+use guillotiere::euclid::Point3D;
 use std::rc::Rc;
-use ultraviolet::Vec2;
 use winit::dpi::PhysicalPosition;
 
 pub struct Node {
-    pub area: AbsRect, // This is the calculated area of the node from the layout relative to the topleft corner of the parent.
-    pub extent: AbsRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
+    pub area: AnyRect, // This is the calculated area of the node from the layout relative to the topleft corner of the parent.
+    pub extent: AnyRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
     pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
     pub bottom: i32,
     pub mask: AtomicU64,
@@ -30,7 +33,7 @@ pub struct Node {
 
 impl Node {
     pub fn new(
-        area: AbsRect,
+        area: AnyRect,
         z: Option<i32>,
         children: im::Vector<Option<Rc<Node>>>,
         id: std::sync::Weak<SourceID>,
@@ -38,9 +41,9 @@ impl Node {
     ) -> Rc<Self> {
         let this = Rc::new_cyclic(|this| {
             let mut fold = VectorFold::new(
-                |(rect, top, bottom): &(AbsRect, i32, i32),
+                |(rect, top, bottom): &(AnyRect, i32, i32),
                  n: &Option<Rc<Node>>|
-                 -> (AbsRect, i32, i32) {
+                 -> (AnyRect, i32, i32) {
                     let n = n.as_ref().unwrap();
                     (
                         rect.extend(n.area),
@@ -89,8 +92,8 @@ impl Node {
     pub(crate) fn postprocess(
         self: &Rc<Self>,
         event: &RawEvent,
-        dpi: Vec2,
-        offset: Vec2,
+        dpi: RelDim,
+        offset: AnyVector,
         window_id: Arc<SourceID>,
         manager: &mut StateManager,
     ) -> Result<(), ()> {
@@ -130,7 +133,7 @@ impl Node {
                         &evt,
                         evt.kind(),
                         dpi,
-                        Vec2::zero(),
+                        AnyVector::zero(),
                         window_id.clone(),
                         &driver,
                         manager,
@@ -160,13 +163,13 @@ impl Node {
                 device_id,
                 state: MouseState::Up,
                 all_buttons: 0,
-                pos: PhysicalPosition { x, y },
+                pos: crate::PxPoint { x, y, .. },
                 ..
             }
             | RawEvent::Touch {
                 device_id,
                 state: TouchState::End,
-                pos: ultraviolet::Vec3 { x, y, z: _ },
+                pos: Point3D::<f32, Pixel> { x, y, .. },
                 ..
             } => {
                 // On any mouseup event, uncapture the cursor if no buttons are down
@@ -197,8 +200,8 @@ impl Node {
         self: &Rc<Self>,
         event: &RawEvent,
         kind: RawEventKind,
-        dpi: Vec2,
-        offset: Vec2,
+        dpi: RelDim,
+        offset: AnyVector,
         window_id: Arc<SourceID>,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
@@ -242,10 +245,10 @@ impl Node {
         Rc::downgrade(&node)
     }
 
-    pub(crate) fn offset(mut node: Rc<Node>) -> Vec2 {
-        let mut offset = Vec2::zero();
+    pub(crate) fn offset(mut node: Rc<Node>) -> AnyVector {
+        let mut offset = AnyVector::zero();
         while let Some(parent) = node.parent.get().and_then(|x| x.upgrade()) {
-            offset += parent.area.topleft();
+            offset = (parent.area.topleft() + offset).to_vector();
             node = parent;
         }
         offset
@@ -255,9 +258,9 @@ impl Node {
         self: &Rc<Self>,
         event: &RawEvent,
         kind: RawEventKind,
-        position: Vec2,
-        offset: Vec2,
-        dpi: Vec2,
+        position: AnyPoint,
+        offset: AnyVector,
+        dpi: RelDim,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
         window_id: Arc<SourceID>,
@@ -265,7 +268,7 @@ impl Node {
         if (self.mask.load(Ordering::Acquire) & kind as u64) != 0
             && self.area.contains(position - offset)
         {
-            let child_offset = offset + self.area.topleft();
+            let child_offset = self.area.topleft() + offset;
 
             let mut mask = 0;
             // Children should be sorted from top to bottom
@@ -277,7 +280,7 @@ impl Node {
                         event,
                         kind,
                         position,
-                        child_offset,
+                        child_offset.to_vector(),
                         dpi,
                         driver,
                         manager,
@@ -307,13 +310,13 @@ impl Node {
                     RawEvent::Mouse {
                         device_id,
                         state: MouseState::Down,
-                        pos: PhysicalPosition { x, y },
+                        pos: crate::PxPoint { x, y, .. },
                         ..
                     }
                     | RawEvent::Touch {
                         device_id,
                         state: TouchState::Start,
-                        pos: ultraviolet::Vec3 { x, y, z: _ },
+                        pos: Point3D::<f32, Pixel> { x, y, .. },
                         ..
                     } => {
                         let state: &mut WindowStateMachine =
@@ -356,7 +359,7 @@ impl Node {
                                 &evt,
                                 evt.kind(),
                                 dpi,
-                                Vec2::zero(),
+                                AnyVector::zero(),
                                 window_id.clone(),
                                 driver,
                                 manager,
@@ -404,8 +407,8 @@ impl Node {
 /*
 // 2.5D node which contains a 2D r-tree, embedded inside the parent 3D space.
 struct Node25 {
-    pub area: AbsRect,
-    pub extent: AbsRect,
+    pub area: AnyRect,
+    pub extent: AnyRect,
     pub z: f32, // there is only one z coordinate because the contained area must be flat.
     pub transform: Rotor3,
     pub id: std::sync::Weak<SourceID>,
