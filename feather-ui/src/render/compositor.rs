@@ -3,20 +3,18 @@
 
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
-use crate::{AbsDim, AbsRect, SourceID};
+use crate::{Pixel, PxDim, PxPoint, PxRect, PxVector, RelDim, SourceID};
 use derive_where::derive_where;
 use num_traits::Zero;
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::num::NonZero;
 use std::sync::Arc;
-use ultraviolet::Vec2;
 use wgpu::wgt::SamplerDescriptor;
 use wgpu::{
     BindGroupEntry, BindGroupLayoutEntry, Buffer, BufferDescriptor, BufferUsages, TextureView,
 };
 
-use crate::ZERO_RECT;
 use parking_lot::RwLock;
 
 use super::atlas::Atlas;
@@ -53,7 +51,7 @@ impl Shared {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: NonZero::new(size_of::<ultraviolet::Mat4>() as u64),
+                        min_binding_size: NonZero::new(size_of::<crate::Mat4x4>() as u64),
                     },
                     count: None,
                 },
@@ -189,15 +187,15 @@ impl Shared {
         &self,
         _device: &wgpu::Device,
         id: Arc<SourceID>,
-        mut area: AbsRect,
-        dest: Option<AbsRect>,
+        mut area: PxRect,
+        dest: Option<PxRect>,
         color: sRGB32,
         rotation: f32,
         force: bool,
     ) -> Option<Layer> {
         // Snap the layer area to the nearest pixel. This is necessary because the layer is treated
         // as a compositing target, which is always assumed to be on a pixel grid.
-        let array = area.0.as_array_mut();
+        let array = area.v.as_array_mut();
         array[0] = array[0].floor();
         array[1] = array[1].floor();
         array[2] = array[2].ceil();
@@ -241,9 +239,9 @@ pub struct LayerTarget {
 #[derive(Debug)]
 pub struct Layer {
     // Renderable area representing what children draw onto. This corresponds to this layer's compositor viewport, if it has one.
-    pub area: AbsRect,
+    pub area: PxRect,
     // destination area that the layer is composited onto. Usually this is the same as area, but can be different when scaling down
-    dest: AbsRect,
+    dest: PxRect,
     color: sRGB32,
     rotation: f32,
     // Layers aren't always texture-backed so this may not exist
@@ -260,7 +258,7 @@ impl PartialEq for Layer {
 }
 
 type DeferFn = dyn FnOnce(&Driver, &mut Data) + Send + Sync;
-type CustomDrawFn = dyn FnMut(&Driver, &mut wgpu::RenderPass<'_>, Vec2) + Send + Sync;
+type CustomDrawFn = dyn FnMut(&Driver, &mut wgpu::RenderPass<'_>, PxVector) + Send + Sync;
 
 /// Fundamentally, the compositor works on a massive set of pre-allocated vertices that it assembles into quads in the vertex
 /// shader, which then moves them into position and assigns them UV coordinates. Then the pixel shader checks if it must do
@@ -279,7 +277,7 @@ pub struct Compositor {
     pipeline: wgpu::RenderPipeline,
     mvp: Buffer,
     clip: Buffer,
-    clipdata: Vec<AbsRect>, // Clipping Rectangles
+    clipdata: Vec<PxRect>, // Clipping Rectangles
     pub(crate) segments: SmallVec<[HashMap<u8, Segment>; 1]>,
     view: std::sync::Weak<TextureView>,
     layer_view: std::sync::Weak<TextureView>,
@@ -297,9 +295,9 @@ pub struct Segment {
     data: Vec<Data>,
     regions: Vec<std::ops::Range<u32>>,
     #[derive_where(skip)]
-    defer: HashMap<u32, (Box<DeferFn>, AbsRect, Vec2)>,
+    defer: HashMap<u32, (Box<DeferFn>, PxRect, PxVector)>,
     #[derive_where(skip)]
-    custom: Vec<(u32, Box<CustomDrawFn>, Vec2)>,
+    custom: Vec<(u32, Box<CustomDrawFn>, PxVector)>,
 }
 
 impl Compositor {
@@ -395,14 +393,14 @@ impl Compositor {
 
         let mvp = device.create_buffer(&BufferDescriptor {
             label: Some("MVP"),
-            size: std::mem::size_of::<ultraviolet::Mat4>() as u64,
+            size: std::mem::size_of::<crate::Mat4x4>() as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
         let clip = device.create_buffer(&BufferDescriptor {
             label: Some("Compositor Clip Data"),
-            size: 4 * size_of::<AbsRect>() as u64,
+            size: 4 * size_of::<PxRect>() as u64,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -439,7 +437,7 @@ impl Compositor {
             pipeline,
             mvp,
             clip,
-            clipdata: vec![ZERO_RECT],
+            clipdata: vec![PxRect::zero()],
             segments: SmallVec::from_buf([HashMap::from_iter([(0, segment)])]),
             view: Arc::downgrade(atlasview),
             layer_view: Arc::downgrade(layerview),
@@ -508,7 +506,7 @@ impl Compositor {
         atlas: &Atlas,
         layers: &Atlas,
     ) {
-        let size = self.clipdata.len() * size_of::<AbsRect>();
+        let size = self.clipdata.len() * size_of::<PxRect>();
         if (self.clip.size() as usize) < size {
             self.clip.destroy();
             self.clip = device.create_buffer(&BufferDescriptor {
@@ -522,8 +520,8 @@ impl Compositor {
     }
 
     #[inline]
-    fn scissor_check(dim: &Vec2, clip: AbsRect) -> Result<AbsRect, AbsRect> {
-        if AbsRect::new(0.0, 0.0, dim.x, dim.y) == clip {
+    fn scissor_check(dim: &PxDim, clip: PxRect) -> Result<PxRect, PxRect> {
+        if PxRect::new(0.0, 0.0, dim.width, dim.height) == clip {
             Err(clip)
         } else {
             Ok(clip)
@@ -532,9 +530,9 @@ impl Compositor {
 
     #[inline]
     fn clip_data(
-        clipdata: &mut Vec<AbsRect>,
-        cliprect: Result<AbsRect, AbsRect>,
-        offset: Vec2,
+        clipdata: &mut Vec<PxRect>,
+        cliprect: Result<PxRect, PxRect>,
+        offset: PxVector,
         mut data: Data,
     ) -> Option<Data> {
         match cliprect {
@@ -544,7 +542,7 @@ impl Compositor {
                         (data.pos.0[0], data.pos.0[1], data.dim.0[0], data.dim.0[1]);
 
                     // If the whole rect is outside the cliprect, don't render it at all.
-                    if !clip.collides(&AbsRect::new(x, y, x + w, y + h)) {
+                    if !clip.collides(&PxRect::new(x, y, x + w, y + h)) {
                         // TODO: When we start reserving slots, this will need to instead insert a special zero size rect.
                         return None;
                     }
@@ -553,27 +551,27 @@ impl Compositor {
                         (data.uv.0[0], data.uv.0[1], data.uvdim.0[0], data.uvdim.0[1]);
 
                     // If rotation is zero, we don't need to do per-pixel clipping, we can just modify the rect itself.
-                    let bounds = clip.0.as_array_ref();
+                    let bounds = clip.v.as_array_ref();
                     let (min_x, min_y, max_x, max_y) = (bounds[0], bounds[1], bounds[2], bounds[3]);
 
                     // Get the ratio from our target rect to the source UV sampler rect
-                    let uv_ratio = Vec2::new(uw / w, vh / h);
+                    let uv_ratio = RelDim::new(uw / w, vh / h);
 
                     // Clip left edge
                     if x < min_x {
                         let right_shift = min_x - x;
 
                         x += right_shift;
-                        u += right_shift * uv_ratio.x;
+                        u += right_shift * uv_ratio.width;
                         w -= right_shift;
-                        uw -= right_shift * uv_ratio.x;
+                        uw -= right_shift * uv_ratio.width;
                     }
 
                     // Clip right edge
                     if x + w > max_x {
                         let right_shift = max_x - (x + w);
                         w += right_shift;
-                        uw += right_shift * uv_ratio.x;
+                        uw += right_shift * uv_ratio.width;
                     }
 
                     // Clip top edge
@@ -581,16 +579,16 @@ impl Compositor {
                         let bottom_shift = min_y - y;
 
                         y += bottom_shift;
-                        v += bottom_shift * uv_ratio.y;
+                        v += bottom_shift * uv_ratio.height;
                         h -= bottom_shift;
-                        vh -= bottom_shift * uv_ratio.y;
+                        vh -= bottom_shift * uv_ratio.height;
                     }
 
                     // Clip bottom edge
                     if y + h > max_y {
                         let bottom_shift = max_y - (y + h);
                         h += bottom_shift;
-                        vh += bottom_shift * uv_ratio.y;
+                        vh += bottom_shift * uv_ratio.height;
                     }
 
                     Some(Data {
@@ -628,7 +626,7 @@ impl Compositor {
                 // check to see if we need to bother rendering this at all.
                 if data.rotation.is_zero() {
                     let (x, y, w, h) = (data.pos.0[0], data.pos.0[1], data.dim.0[0], data.dim.0[1]);
-                    if !clip.collides(&AbsRect::new(x, y, x + w, y + h)) {
+                    if !clip.collides(&PxRect::new(x, y, x + w, y + h)) {
                         // TODO: When we start reserving slots, this will need to instead insert a special zero size rect.
                         return None;
                     }
@@ -640,7 +638,7 @@ impl Compositor {
         }
     }
 
-    pub fn prepare(&mut self, driver: &Driver, _: &mut wgpu::CommandEncoder, surface_dim: Vec2) {
+    pub fn prepare(&mut self, driver: &Driver, _: &mut wgpu::CommandEncoder, surface_dim: PxDim) {
         // Check to see if we need to rebind either atlas view
         if self.view.strong_count() == 0 || self.layer_view.strong_count() == 0 {
             self.rebind(
@@ -699,15 +697,17 @@ impl Compositor {
         driver.queue.write_buffer(
             &self.mvp,
             0,
-            crate::graphics::mat4_proj(
-                0.0,
-                surface_dim.y,
-                surface_dim.x,
-                -(surface_dim.y),
-                0.2,
-                10000.0,
-            )
-            .as_byte_slice(),
+            bytemuck::cast_slice(
+                &crate::graphics::mat4_proj(
+                    0.0,
+                    surface_dim.height,
+                    surface_dim.width,
+                    -(surface_dim.height),
+                    0.2,
+                    10000.0,
+                )
+                .to_array(),
+            ),
         );
 
         // Very important that we do this AFTER resolving all defers, since those can add cliprects
@@ -729,13 +729,13 @@ impl Compositor {
     #[inline]
     fn append_internal(
         &mut self,
-        clipstack: &[AbsRect],
-        surface_dim: Vec2,
-        layer_offset: Vec2,
-        pos: ultraviolet::Vec2,
-        dim: ultraviolet::Vec2,
-        uv: ultraviolet::Vec2,
-        uvdim: ultraviolet::Vec2,
+        clipstack: &[PxRect],
+        surface_dim: PxDim,
+        layer_offset: PxVector,
+        pos: PxPoint,
+        dim: PxDim,
+        uv: PxPoint,
+        uvdim: PxDim,
         color: u32,
         rotation: f32,
         tex: u8,
@@ -745,10 +745,10 @@ impl Compositor {
         layer: bool,
     ) -> u32 {
         let data = Data {
-            pos: pos.as_array().into(),
-            dim: dim.as_array().into(),
-            uv: uv.as_array().into(),
-            uvdim: uvdim.as_array().into(),
+            pos: pos.to_array().into(),
+            dim: dim.to_array().into(),
+            uv: uv.to_array().into(),
+            uvdim: uvdim.to_array().into(),
             color,
             rotation,
             flags: DataFlags::new()
@@ -761,7 +761,7 @@ impl Compositor {
 
         if let Some(d) = Self::clip_data(
             &mut self.clipdata,
-            clipstack.last().ok_or(AbsDim(surface_dim).into()).copied(),
+            clipstack.last().ok_or(surface_dim.into()).copied(),
             layer_offset,
             data,
         ) {
@@ -816,7 +816,7 @@ impl Compositor {
         }
 
         self.clipdata.clear();
-        self.clipdata.push(ZERO_RECT);
+        self.clipdata.push(PxRect::zero());
     }
 }
 
@@ -829,9 +829,9 @@ pub struct CompositorView<'a> {
     pub window: &'a mut Compositor, // index 0
     pub layer0: &'a mut Compositor, // index 1
     pub layer1: &'a mut Compositor, // index 2
-    pub clipstack: &'a mut Vec<AbsRect>,
-    pub offset: Vec2,
-    pub surface_dim: Vec2, // Dimension of the top-level window surface.
+    pub clipstack: &'a mut Vec<PxRect>,
+    pub offset: PxVector,
+    pub surface_dim: PxDim, // Dimension of the top-level window surface.
     pub pass: u8,
     pub slice: u8, // This is the atlas slice index that this is being rendered to
 }
@@ -840,7 +840,7 @@ impl<'a> CompositorView<'a> {
     #[inline]
     pub fn with_clip<T>(
         &mut self,
-        clip: AbsRect,
+        clip: PxRect,
         f: impl FnOnce(&mut Self) -> Result<T, crate::Error>,
     ) -> Result<T, crate::Error> {
         if let Some(prev) = self.clipstack.last() {
@@ -856,11 +856,8 @@ impl<'a> CompositorView<'a> {
     }
 
     #[inline]
-    pub fn current_clip(&self) -> AbsRect {
-        *self
-            .clipstack
-            .last()
-            .unwrap_or(&AbsDim(self.surface_dim).into())
+    pub fn current_clip(&self) -> PxRect {
+        *self.clipstack.last().unwrap_or(&self.surface_dim.into())
     }
 
     #[inline]
@@ -885,10 +882,10 @@ impl<'a> CompositorView<'a> {
     #[inline]
     pub fn append_data(
         &mut self,
-        pos: ultraviolet::Vec2,
-        dim: ultraviolet::Vec2,
-        uv: ultraviolet::Vec2,
-        uvdim: ultraviolet::Vec2,
+        pos: PxPoint,
+        dim: PxDim,
+        uv: PxPoint,
+        uvdim: PxDim,
         color: u32,
         rotation: f32,
         tex: u8,
@@ -923,8 +920,8 @@ impl<'a> CompositorView<'a> {
     pub(crate) fn append_layer(
         &mut self,
         layer: &Layer,
-        parent_pos: Vec2,
-        uv: guillotiere::Rectangle,
+        parent_pos: PxPoint,
+        uv: guillotiere::euclid::Box2D<i32, Pixel>,
     ) -> u32 {
         // I really wish rust had partial borrows
         let compositor = match self.index {
@@ -937,8 +934,8 @@ impl<'a> CompositorView<'a> {
             self.clipstack,
             self.surface_dim,
             self.offset,
-            layer.dest.topleft() + parent_pos,
-            layer.dest.dim().0,
+            layer.dest.topleft() + parent_pos.to_vector(),
+            layer.dest.dim(),
             uv.min.to_f32().to_array().into(),
             uv.size().to_f32().to_array().into(),
             layer.color.rgba,
@@ -981,7 +978,7 @@ impl<'a> CompositorView<'a> {
 
     pub fn append_custom(
         &mut self,
-        f: impl FnMut(&Driver, &mut wgpu::RenderPass<'_>, Vec2) + Send + Sync + 'static,
+        f: impl FnMut(&Driver, &mut wgpu::RenderPass<'_>, PxVector) + Send + Sync + 'static,
     ) {
         let index = self.segment().regions.last().unwrap().end;
         if index == u32::MAX {

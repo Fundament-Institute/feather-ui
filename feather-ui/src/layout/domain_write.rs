@@ -3,7 +3,7 @@
 
 use super::base::{Empty, RLimits};
 use super::{Concrete, Desc, Layout, Renderable, Staged};
-use crate::{AbsRect, CrossReferenceDomain, SourceID, render, rtree};
+use crate::{CrossReferenceDomain, SourceID, render, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -32,8 +32,8 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        mut outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        mut outer_area: crate::PxRect,
+        outer_limits: crate::PxLimits,
         _: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -49,7 +49,13 @@ impl Desc for dyn Prop {
                 domain: props.domain().clone(),
                 base: renderable,
             })),
-            rtree: rtree::Node::new(outer_area, None, Default::default(), id, window),
+            rtree: rtree::Node::new(
+                outer_area.to_untyped(),
+                None,
+                Default::default(),
+                id,
+                window,
+            ),
             children: Default::default(),
             layer: None,
         })

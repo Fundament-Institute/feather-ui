@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use ultraviolet::Vec2;
-
 use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, map_unsized_area,
-    nuetralize_unsized, swap_axis,
+    nuetralize_unsized,
 };
-use crate::{
-    AbsRect, DPoint, DValue, MINUS_BOTTOMRIGHT, RowDirection, SourceID, UNSIZED_AXIS, rtree,
-};
+use crate::{DPoint, DValue, PxDim, PxRect, RowDirection, SourceID, UNSIZED_AXIS, rtree};
 use std::rc::Rc;
 
 // TODO: use sparse vectors here? Does that even make sense if rows require a default size of some kind?
@@ -39,45 +35,47 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        outer_area: crate::PxRect,
+        outer_limits: crate::PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
+        use super::Swappable;
+
         let mut limits = outer_limits + props.limits().resolve(window.dpi);
-        let padding = props.padding().resolve(window.dpi);
+        let padding = props.padding().as_perimeter(window.dpi);
         let myarea = props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
         let allpadding = padding.topleft() + padding.bottomright();
-        let minmax = limits.0.as_array_mut();
+        let minmax = limits.v.as_array_mut();
         if unsized_x {
-            minmax[2] -= allpadding.x;
-            minmax[0] -= allpadding.x;
+            minmax[2] -= allpadding.width;
+            minmax[0] -= allpadding.width;
         }
         if unsized_y {
-            minmax[3] -= allpadding.y;
-            minmax[1] -= allpadding.y;
+            minmax[3] -= allpadding.height;
+            minmax[1] -= allpadding.height;
         }
 
         let outer_safe = nuetralize_unsized(outer_area);
-        let inner_dim = crate::AbsDim(
-            super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits).0
-                - padding.topleft()
-                - padding.bottomright(),
-        );
+        let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits)
+            - padding.topleft()
+            - padding.bottomright();
 
         let yaxis = match props.direction() {
             RowDirection::LeftToRight | RowDirection::RightToLeft => false,
             RowDirection::TopToBottom | RowDirection::BottomToTop => true,
         };
 
-        let (outer_column, outer_row) = swap_axis(yaxis, outer_safe.dim().0);
-        let (dpi_column, dpi_row) = swap_axis(yaxis, window.dpi);
+        let (outer_column, outer_row) = outer_safe.dim().swap_axis(yaxis);
+        let (dpi_column, dpi_row) = window.dpi.swap_axis(yaxis);
 
-        let spacing = props.spacing().resolve(Vec2::new(dpi_row, dpi_column))
-            * crate::AbsDim(Vec2::new(outer_row, outer_column));
+        let spacing = props
+            .spacing()
+            .resolve(crate::RelDim::new(dpi_row, dpi_column))
+            * PxDim::new(outer_row, outer_column);
         let nrows = props.rows().len();
         let ncolumns = props.columns().len();
 
@@ -85,7 +83,7 @@ impl Desc for dyn Prop {
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         let evaluated_area =
-            crate::util::alloca_array::<f32, AbsRect>((nrows + ncolumns) * 2, |x| {
+            crate::util::alloca_array::<f32, PxRect>((nrows + ncolumns) * 2, |x| {
                 let (resolved, sizes) = x.split_at_mut(nrows + ncolumns);
                 {
                     let (rows, columns) = resolved.split_at_mut(nrows);
@@ -111,8 +109,8 @@ impl Desc for dyn Prop {
                         let (row, column) = child_props.index();
 
                         if rows[row] == UNSIZED_AXIS || columns[column] == UNSIZED_AXIS {
-                            let (w, h) = swap_axis(yaxis, Vec2::new(columns[column], rows[row]));
-                            let child_area = AbsRect::new(0.0, 0.0, w, h);
+                            let (w, h) = super::swap_pair(yaxis, (columns[column], rows[row]));
+                            let child_area = PxRect::new(0.0, 0.0, w, h);
 
                             let stage =
                                 child
@@ -120,7 +118,7 @@ impl Desc for dyn Prop {
                                     .unwrap()
                                     .stage(child_area, child_limit, window);
                             let area = stage.get_area();
-                            let (c, r) = swap_axis(yaxis, area.dim().0);
+                            let (c, r) = area.dim().swap_axis(yaxis);
                             maxrows[row] = maxrows[row].max(r);
                             maxcolumns[column] = maxcolumns[column].max(c);
                         }
@@ -134,16 +132,16 @@ impl Desc for dyn Prop {
                     }
                 }
                 let (rows, columns) = resolved.split_at_mut(nrows);
-                let (x_used, y_used) = swap_axis(
+                let (x_used, y_used) = super::swap_pair(
                     yaxis,
-                    Vec2::new(
+                    (
                         columns.iter().fold(0.0, |x, y| x + y)
                             + (spacing.y * ncolumns.saturating_sub(1) as f32),
                         rows.iter().fold(0.0, |x, y| x + y)
                             + (spacing.x * nrows.saturating_sub(1) as f32),
                     ),
                 );
-                let area = map_unsized_area(myarea, Vec2::new(x_used, y_used));
+                let area = map_unsized_area(myarea, PxDim::new(x_used, y_used));
 
                 // Calculate the offset to each row or column, without overwriting the size we stored in resolved
                 let (row_offsets, column_offsets) = sizes.split_at_mut(nrows);
@@ -166,9 +164,9 @@ impl Desc for dyn Prop {
                     let (row, column) = child_props.index();
 
                     let (x, y) =
-                        swap_axis(yaxis, Vec2::new(column_offsets[column], row_offsets[row]));
-                    let (w, h) = swap_axis(yaxis, Vec2::new(columns[column], rows[row]));
-                    let child_area = AbsRect::new(x, y, x + w, y + h);
+                        super::swap_pair(yaxis, (column_offsets[column], row_offsets[row]));
+                    let (w, h) = super::swap_pair(yaxis, (columns[column], rows[row]));
+                    let child_area = PxRect::new(x, y, x + w, y + h);
 
                     let stage = child
                         .as_ref()
@@ -181,10 +179,7 @@ impl Desc for dyn Prop {
                 }
 
                 // No need to cap this because unsized axis have now been resolved
-                let evaluated_area = AbsRect(
-                    super::limit_area(area * outer_safe, limits).0
-                        + (padding.0 * MINUS_BOTTOMRIGHT),
-                );
+                let evaluated_area = super::limit_area(area * outer_safe, limits) + padding;
 
                 let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
                 evaluated_area - anchor
@@ -193,7 +188,7 @@ impl Desc for dyn Prop {
         Box::new(Concrete {
             area: evaluated_area,
             renderable,
-            rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
+            rtree: rtree::Node::new(evaluated_area.to_untyped(), None, nodes, id, window),
             children: staging,
             layer: None,
         })

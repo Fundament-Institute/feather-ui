@@ -5,7 +5,7 @@ use super::StateMachine;
 use crate::component::Layout;
 use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::leaf;
-use crate::{Dispatchable, Slot, SourceID, layout};
+use crate::{AbsPoint, AbsVector, Dispatchable, PxPoint, Slot, SourceID, UnResolve, layout};
 use core::f32;
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -14,16 +14,15 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use ultraviolet::Vec2;
 use winit::event::DeviceId;
 use winit::keyboard::NamedKey;
 
 #[derive(Debug, Dispatch, EnumVariantType, Clone, PartialEq)]
 #[evt(derive(Clone), module = "mouse_area_event")]
 pub enum MouseAreaEvent {
-    OnClick(MouseButton, Vec2),
-    OnDblClick(MouseButton, Vec2),
-    OnDrag(MouseButton, Vec2),
+    OnClick(MouseButton, AbsPoint),
+    OnDblClick(MouseButton, AbsPoint),
+    OnDrag(MouseButton, AbsVector),
     Default,
     Hover,
     Active,
@@ -31,7 +30,7 @@ pub enum MouseAreaEvent {
 
 #[derive(Default, Clone, PartialEq)]
 struct MouseAreaState {
-    lastdown: HashMap<(DeviceId, u64), (Vec2, bool)>,
+    lastdown: HashMap<(DeviceId, u64), (PxPoint, bool)>,
     hover: bool,
     deadzone: f32,
 }
@@ -55,9 +54,9 @@ impl super::EventRouter for MouseAreaState {
     fn process(
         mut self,
         input: Self::Input,
-        area: crate::AbsRect,
-        _: crate::AbsRect,
-        dpi: crate::Vec2,
+        area: crate::PxRect,
+        _: crate::PxRect,
+        dpi: crate::RelDim,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<
         (Self, smallvec::SmallVec<[Self::Output; 1]>),
@@ -74,7 +73,7 @@ impl super::EventRouter for MouseAreaState {
                         self,
                         [MouseAreaEvent::OnClick(
                             crate::input::MouseButton::Left,
-                            Vec2::zero(),
+                            AbsPoint::zero(),
                         )]
                         .into(),
                     ));
@@ -92,7 +91,6 @@ impl super::EventRouter for MouseAreaState {
                 ..
             } => {
                 let hover = Self::hover_event(all_buttons, self.hover);
-                let pos = crate::graphics::pixel_to_vec(pos);
                 for i in 0..5 {
                     if let Some((last_pos, drag)) = self.lastdown.get_mut(&(device_id, (1 << i))) {
                         let diff = pos - *last_pos;
@@ -112,7 +110,10 @@ impl super::EventRouter for MouseAreaState {
                             *last_pos = pos;
                             return Ok((
                                 self,
-                                SmallVec::from_iter([hover, MouseAreaEvent::OnDrag(b, diff / dpi)]),
+                                SmallVec::from_iter([
+                                    hover,
+                                    MouseAreaEvent::OnDrag(b, diff.unresolve(dpi)),
+                                ]),
                             ));
                         }
                     }
@@ -127,7 +128,6 @@ impl super::EventRouter for MouseAreaState {
                 button,
                 ..
             } => {
-                let pos = crate::graphics::pixel_to_vec(pos);
                 let hover = Self::hover_event(button as u16, self.hover);
                 match state {
                     MouseState::Down => {
@@ -147,9 +147,9 @@ impl super::EventRouter for MouseAreaState {
                                 SmallVec::from_iter([
                                     if drag {
                                         let diff = pos - last_pos;
-                                        MouseAreaEvent::OnDrag(button, diff / dpi)
+                                        MouseAreaEvent::OnDrag(button, diff.unresolve(dpi))
                                     } else {
-                                        MouseAreaEvent::OnClick(button, pos / dpi)
+                                        MouseAreaEvent::OnClick(button, pos.unresolve(dpi))
                                     },
                                     hover,
                                 ]),
@@ -165,17 +165,17 @@ impl super::EventRouter for MouseAreaState {
                                 self,
                                 if drag {
                                     SmallVec::from_iter([
-                                        MouseAreaEvent::OnClick(button, pos / dpi),
-                                        MouseAreaEvent::OnDblClick(button, pos / dpi),
+                                        MouseAreaEvent::OnClick(button, pos.unresolve(dpi)),
+                                        MouseAreaEvent::OnDblClick(button, pos.unresolve(dpi)),
                                         hover,
                                     ])
                                 } else {
                                     SmallVec::from_iter([
                                         if drag {
                                             let diff = pos - last_pos;
-                                            MouseAreaEvent::OnDrag(button, diff / dpi)
+                                            MouseAreaEvent::OnDrag(button, diff.unresolve(dpi))
                                         } else {
-                                            MouseAreaEvent::OnClick(button, pos / dpi)
+                                            MouseAreaEvent::OnClick(button, pos.unresolve(dpi))
                                         },
                                         hover,
                                     ])
@@ -195,13 +195,16 @@ impl super::EventRouter for MouseAreaState {
                 crate::input::TouchState::Start => {
                     let hover = Self::hover_event(MouseButton::Left as u16, self.hover);
                     if area.contains(pos.xy()) {
-                        self.lastdown.insert((device_id, index), (pos.xy(), false));
+                        self.lastdown
+                            .insert((device_id, index as u64), (pos.xy(), false));
                         return Ok((self, [hover].into()));
                     }
                 }
                 crate::input::TouchState::Move => {
                     let hover = Self::hover_event(MouseButton::Left as u16, self.hover);
-                    if let Some((last_pos, drag)) = self.lastdown.get_mut(&(device_id, index)) {
+                    if let Some((last_pos, drag)) =
+                        self.lastdown.get_mut(&(device_id, index as u64))
+                    {
                         let diff = pos.xy() - *last_pos;
                         if !*drag && diff.dot(diff) > self.deadzone {
                             *drag = true;
@@ -211,7 +214,7 @@ impl super::EventRouter for MouseAreaState {
                                 self,
                                 SmallVec::from_iter([
                                     hover,
-                                    MouseAreaEvent::OnDrag(MouseButton::Left, diff / dpi),
+                                    MouseAreaEvent::OnDrag(MouseButton::Left, diff.unresolve(dpi)),
                                 ]),
                             ));
                         }
@@ -220,7 +223,7 @@ impl super::EventRouter for MouseAreaState {
                 }
                 crate::input::TouchState::End => {
                     let hover = Self::hover_event(0, self.hover);
-                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index))
+                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index as u64))
                         && area.contains(pos.xy())
                     {
                         let diff = pos.xy() - last_pos;
@@ -228,9 +231,12 @@ impl super::EventRouter for MouseAreaState {
                             self,
                             SmallVec::from_iter([
                                 if drag {
-                                    MouseAreaEvent::OnDrag(MouseButton::Left, diff / dpi)
+                                    MouseAreaEvent::OnDrag(MouseButton::Left, diff.unresolve(dpi))
                                 } else {
-                                    MouseAreaEvent::OnClick(MouseButton::Left, pos.xy() / dpi)
+                                    MouseAreaEvent::OnClick(
+                                        MouseButton::Left,
+                                        pos.xy().unresolve(dpi),
+                                    )
                                 },
                                 hover,
                             ]),

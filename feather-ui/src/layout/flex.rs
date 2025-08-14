@@ -5,8 +5,12 @@ use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, cap_unsized, check_unsized_abs,
     map_unsized_area, merge_margin, nuetralize_unsized,
 };
+use crate::layout::Swappable;
 use crate::persist::{FnPersist2, VectorFold};
-use crate::{AbsLimits, AbsRect, DAbsRect, DValue, RowDirection, UNSIZED_AXIS, Vec2, rtree};
+use crate::{
+    DAbsRect, DValue, PxDim, PxLimits, PxPerimeter, PxPoint, PxRect, RelDim, RowDirection,
+    UNSIZED_AXIS, rtree,
+};
 use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
@@ -50,13 +54,13 @@ fn next_obstacle(
     xaxis: bool,
     total_main: f32,
     min: &mut usize,
-    dpi: Vec2,
+    dpi: RelDim,
 ) -> (f32, f32) {
     // Given our current X/Y position, what is the next obstacle we would run into?
     let mut i = *min;
     while i < obstacles.len() {
         let obstacle = obstacles[i].resolve(dpi);
-        let (mut start, aux_start) = super::swap_axis(xaxis, obstacle.topleft());
+        let (mut start, aux_start) = obstacle.topleft().swap_axis(xaxis);
 
         if total_main > 0.0 {
             start = total_main - start;
@@ -67,7 +71,7 @@ fn next_obstacle(
             break;
         }
 
-        let (mut end, aux_end) = super::swap_axis(xaxis, obstacle.bottomright());
+        let (mut end, aux_end) = obstacle.bottomright().swap_axis(xaxis);
 
         if total_main > 0.0 {
             end = total_main - end;
@@ -134,8 +138,8 @@ struct ChildCache {
     grow: f32,
     shrink: f32,
     aux: f32,
-    margin: AbsRect,
-    limits: AbsLimits,
+    margin: PxPerimeter,
+    limits: PxLimits,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -149,7 +153,7 @@ fn wrap_line(
     mut linecount: i32,
     justify: FlexJustify,
     backwards: bool,
-    dpi: Vec2,
+    dpi: RelDim,
 ) -> (SmallVec<[Linebreak; 10]>, i32, f32) {
     let mut breaks: SmallVec<[Linebreak; 10]> = SmallVec::new();
 
@@ -185,7 +189,7 @@ fn wrap_line(
 
         // This is a bit unintuitive, but this is adding the margin for the previous element, not this one.
         if !prev_margin.is_nan() {
-            main += prev_margin.max(b.margin.topleft().x);
+            main += prev_margin.max(b.margin.topleft().width);
         }
 
         // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward. We ignore margins here, because
@@ -258,9 +262,9 @@ fn wrap_line(
         }
 
         main += b.basis;
-        prev_margin = b.margin.bottomright().x;
-        max_aux_margin = max_aux_margin.max(b.margin.bottomright().y);
-        max_aux_upper_margin = max_aux_upper_margin.max(b.margin.topleft().y);
+        prev_margin = b.margin.bottomright().width;
+        max_aux_margin = max_aux_margin.max(b.margin.bottomright().height);
+        max_aux_upper_margin = max_aux_upper_margin.max(b.margin.topleft().height);
         max_aux = max_aux.max(b.aux);
         i += 1;
     }
@@ -286,13 +290,15 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: AbsRect,
-        outer_limits: AbsLimits,
+        outer_area: crate::PxRect,
+        outer_limits: crate::PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
+        use super::Swappable;
+
         let myarea = props.area().resolve(window.dpi);
         //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
 
@@ -306,8 +312,8 @@ impl Desc for dyn Prop {
         };
 
         let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
-        let (dpi_main, _) = super::swap_axis(xaxis, window.dpi);
-        let (outer_main, _) = super::swap_axis(xaxis, outer_safe.dim().0);
+        let (dpi_main, _) = window.dpi.swap_axis(xaxis);
+        let (outer_main, _) = outer_safe.dim().swap_axis(xaxis);
 
         // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
         for child in children.iter() {
@@ -321,12 +327,12 @@ impl Desc for dyn Prop {
                 "Basis can be unsized, but never infinite!"
             );
 
-            let inner_area = AbsRect::corners(
-                Vec2::zero(),
+            let inner_area = PxRect::corners(
+                PxPoint::zero(),
                 if xaxis {
-                    Vec2::new(basis, UNSIZED_AXIS)
+                    PxPoint::new(basis, UNSIZED_AXIS)
                 } else {
-                    Vec2::new(UNSIZED_AXIS, basis)
+                    PxPoint::new(UNSIZED_AXIS, basis)
                 },
             );
 
@@ -335,14 +341,17 @@ impl Desc for dyn Prop {
                 .unwrap()
                 .stage(inner_area, child_limit, window);
 
-            let (main, aux) = super::swap_axis(xaxis, stage.get_area().dim().0);
+            let (main, aux) = stage.get_area().dim().swap_axis(xaxis);
 
             let mut cache = ChildCache {
                 basis,
                 grow: imposed.grow(),
                 shrink: imposed.shrink(),
                 aux,
-                margin: imposed.margin().resolve(window.dpi) * outer_safe,
+                margin: imposed
+                    .margin()
+                    .resolve(window.dpi)
+                    .to_perimeter(outer_safe),
                 limits: child_limit,
             };
             if cache.basis == UNSIZED_AXIS {
@@ -351,11 +360,9 @@ impl Desc for dyn Prop {
 
             // Swap the margin axis if necessary
             if !xaxis {
-                std::mem::swap(&mut cache.margin.topleft().x, &mut cache.margin.topleft().y);
-                std::mem::swap(
-                    &mut cache.margin.bottomright().x,
-                    &mut cache.margin.bottomright().y,
-                );
+                let ltrb = cache.margin.v.as_array_mut();
+                ltrb.swap(0, 1);
+                ltrb.swap(2, 3);
             }
 
             childareas.push_back(Some(cache));
@@ -371,9 +378,9 @@ impl Desc for dyn Prop {
          -> (f32, f32, f32) {
             let cache = n.as_ref().unwrap();
             (
-                cache.basis + prev.0 + merge_margin(prev.2, cache.margin.topleft().x),
+                cache.basis + prev.0 + merge_margin(prev.2, cache.margin.topleft().width),
                 cache.aux.max(prev.1),
-                cache.margin.bottomright().x,
+                cache.margin.bottomright().width,
             )
         });
 
@@ -381,14 +388,8 @@ impl Desc for dyn Prop {
             fold.call(fold.init(), &(0.0, 0.0, f32::NAN), &childareas);
 
         let evaluated_area = {
-            let (used_x, used_y) = super::swap_axis(
-                xaxis,
-                Vec2 {
-                    x: used_main,
-                    y: used_aux,
-                },
-            );
-            let area = map_unsized_area(myarea, Vec2::new(used_x, used_y));
+            let (used_x, used_y) = super::swap_pair(xaxis, (used_main, used_aux));
+            let area = map_unsized_area(myarea, PxDim::new(used_x, used_y));
 
             // No need to cap this because unsized axis have now been resolved
             super::limit_area(area * outer_safe, limits)
@@ -404,13 +405,19 @@ impl Desc for dyn Prop {
             return Box::new(Concrete {
                 area: evaluated_area,
                 renderable: None,
-                rtree: rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
+                rtree: rtree::Node::new(
+                    evaluated_area.to_untyped(),
+                    Some(props.zindex()),
+                    nodes,
+                    id,
+                    window,
+                ),
                 children: staging,
                 layer: None,
             });
         }
 
-        let (total_main, total_aux) = super::swap_axis(xaxis, inner_dim.0);
+        let (total_main, total_aux) = inner_dim.swap_axis(xaxis);
         // If we need to do wrapping, we do this first, before calculating anything else.
         let (breaks, linecount, used_aux) = if props.wrap() {
             // Anything other than `start` for main-axis justification causes problems if there are any obstacles we need to
@@ -545,30 +552,31 @@ impl Desc for dyn Prop {
 
                 // Apply our margin first
                 if !prev_margin.is_nan() {
-                    main += prev_margin.max(c.margin.topleft().x);
+                    main += prev_margin.max(c.margin.topleft().width);
                 }
-                prev_margin = c.margin.bottomright().x;
+                prev_margin = c.margin.bottomright().width;
 
                 // If we're growing backwards, we flip along the main axis (but not the aux axis)
                 let mut area = if props.direction() == RowDirection::RightToLeft
                     || props.direction() == RowDirection::BottomToTop
                 {
-                    AbsRect::new(
+                    PxRect::new(
                         total_main - main,
                         aux,
                         total_main - (main + c.basis),
                         aux + max_aux,
                     )
                 } else {
-                    AbsRect::new(main, aux, main + c.basis, aux + max_aux)
+                    PxRect::new(main, aux, main + c.basis, aux + max_aux)
                 };
 
                 area = cap_unsized(area);
-                area.set_topleft(Vec2::min_by_component(area.topleft(), area.bottomright()));
+                area.set_topleft(area.topleft().min(area.bottomright()));
                 // If our axis is swapped, swap the rectangle axis
                 if !xaxis {
-                    std::mem::swap(&mut area.topleft().x, &mut area.topleft().y);
-                    std::mem::swap(&mut area.bottomright().x, &mut area.bottomright().y);
+                    let ltrb = area.v.as_array_mut();
+                    ltrb.swap(0, 1);
+                    ltrb.swap(2, 3);
                 }
 
                 let stage = children[i]
@@ -600,7 +608,13 @@ impl Desc for dyn Prop {
         Box::new(Concrete {
             area: evaluated_area,
             renderable,
-            rtree: rtree::Node::new(evaluated_area, Some(props.zindex()), nodes, id, window),
+            rtree: rtree::Node::new(
+                evaluated_area.to_untyped(),
+                Some(props.zindex()),
+                nodes,
+                id,
+                window,
+            ),
             children: staging,
             layer: None,
         })

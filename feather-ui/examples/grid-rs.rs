@@ -13,10 +13,9 @@ use feather_ui::component::window::Window;
 use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, grid, leaf};
 use feather_ui::persist::FnPersist;
-use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID,
-    UNSIZED_AXIS, ZERO_POINT, gen_id,
+    AbsPoint, AbsRect, App, DAbsRect, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID,
+    UNSIZED_AXIS, gen_id,
 };
 use std::sync::Arc;
 
@@ -117,12 +116,9 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 let text = Text::<FixedData> {
                     id: gen_id!(),
                     props: FixedData {
-                        area: feather_ui::URect {
-                            abs: AbsRect::new(10.0, 15.0, 10.0, 15.0),
-                            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-                        }
-                        .into(),
-                        anchor: feather_ui::RelPoint(Vec2 { x: 0.0, y: 0.0 }).into(),
+                        area: AbsRect::new(10.0, 15.0, 10.0, 15.0)
+                            + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+                        anchor: feather_ui::RelPoint::zero().into(),
                         ..Default::default()
                     }
                     .into(),
@@ -137,7 +133,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
-                    Vec4::broadcast(10.0),
+                    wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
                 );
@@ -145,12 +141,9 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 Button::<FixedData>::new(
                     gen_id!(),
                     FixedData {
-                        area: feather_ui::URect {
-                            abs: AbsRect::new(0.0, 20.0, 0.0, 0.0),
-                            rel: RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-                        }
-                        .into(),
-                        anchor: feather_ui::RelPoint(Vec2 { x: 0.5, y: 0.0 }).into(),
+                        area: AbsRect::new(0.0, 20.0, 0.0, 0.0)
+                            + RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+                        anchor: feather_ui::RelPoint::new(0.5, 0.0).into(),
                         zindex: 0,
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
@@ -177,7 +170,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                         .into(),
                         0.0,
                         0.0,
-                        Vec4::broadcast(4.0),
+                        wide::f32x4::splat(4.0),
                         sRGB::new(
                             (0.1 * i as f32) % 1.0,
                             (0.65 * i as f32) % 1.0,
@@ -205,21 +198,16 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 GridBox::<GridData>::new(
                     gen_id!(),
                     GridData {
-                        area: feather_ui::URect {
-                            abs: AbsRect::new(0.0, 200.0, 0.0, 0.0),
-                            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
-                        }
-                        .into(),
-                        rlimits: feather_ui::RelLimits::new(
-                            ZERO_POINT,
-                            Vec2::new(1.0, f32::INFINITY),
-                        ),
+                        area: AbsRect::new(0.0, 200.0, 0.0, 0.0)
+                            + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
+
+                        rlimits: feather_ui::RelLimits::new(0.0..1.0, 0.0..),
                         direction: feather_ui::RowDirection::BottomToTop,
                         rows: [40.0, 20.0, 40.0, 20.0, 40.0, 20.0, 10.0]
                             .map(DValue::from)
                             .to_vec(),
                         columns: [80.0, 40.0, 80.0, 40.0, 80.0].map(DValue::from).to_vec(),
-                        spacing: DPoint::from(Vec2::new(4.0, 4.0)),
+                        spacing: AbsPoint::new(4.0, 4.0).into(),
                         padding: AbsRect::new(8.0, 8.0, 8.0, 8.0).into(),
                     }
                     .into(),

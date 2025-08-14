@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use ultraviolet::Vec2;
-
 use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, check_unsized_abs, map_unsized_area,
-    nuetralize_unsized, swap_axis,
+    nuetralize_unsized,
 };
-use crate::{AbsRect, RowDirection, SourceID, ZERO_POINT, rtree};
+use crate::{PxDim, PxPoint, PxRect, RowDirection, SourceID, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Direction {}
@@ -26,13 +24,14 @@ impl Desc for dyn Prop {
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        outer_area: PxRect,
+        outer_limits: crate::PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
+        use super::Swappable;
         // TODO: make insertion efficient by creating a RRB tree of list layout subnodes, in a similar manner to the r-tree nodes.
 
         let limits = outer_limits + props.limits().resolve(window.dpi);
@@ -49,26 +48,29 @@ impl Desc for dyn Prop {
         let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
         let outer_safe = nuetralize_unsized(outer_area);
         // The inner_dim must preserve whether an axis is unsized, but the actual limits must be respected regardless.
-        let (main_limit, _) = super::swap_axis(xaxis, inner_dim.0.min_by_component(limits.max()));
+        let (main_limit, _) = inner_dim.min(limits.max()).swap_axis(xaxis);
 
         // This should eventually be a persistent fold
         let mut aux_margins: im::Vector<f32> = im::Vector::new();
-        let mut areas: im::Vector<Option<(AbsRect, f32)>> = im::Vector::new();
+        let mut areas: im::Vector<Option<(PxRect, f32)>> = im::Vector::new();
 
         let area = {
-            let mut cur = ZERO_POINT;
+            let mut cur = PxPoint::zero();
             let mut max_main = 0.0;
             let mut max_aux: f32 = 0.0;
             let mut prev_margin = f32::NAN;
             let mut aux_margin: f32 = 0.0;
             let mut aux_margin_bottom = f32::NAN;
             let mut prev_aux_margin = f32::NAN;
-            let inner_area = AbsRect::from(inner_dim);
+            let inner_area = PxRect::from(inner_dim);
 
             for child in children.iter() {
                 let child_props = child.as_ref().unwrap().get_props();
                 let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
-                let child_margin = child_props.margin().resolve(window.dpi) * outer_safe;
+                let child_margin = child_props
+                    .margin()
+                    .resolve(window.dpi)
+                    .to_perimeter(outer_safe);
 
                 let stage = child
                     .as_ref()
@@ -76,9 +78,8 @@ impl Desc for dyn Prop {
                     .stage(inner_area, child_limit, window);
                 let area = stage.get_area();
 
-                let (margin_main, child_margin_aux) =
-                    super::swap_axis(xaxis, child_margin.topleft());
-                let (main, aux) = super::swap_axis(xaxis, area.dim().0);
+                let (margin_main, child_margin_aux) = child_margin.topleft().swap_axis(xaxis);
+                let (main, aux) = area.dim().swap_axis(xaxis);
                 let mut margin = super::merge_margin(prev_margin, margin_main);
                 // Have to add the margin here before we zero it
                 areas.push_back(Some((area, margin)));
@@ -100,8 +101,7 @@ impl Desc for dyn Prop {
                 aux_margin = aux_margin.max(child_margin_aux);
                 max_aux = max_aux.max(aux);
 
-                let (margin, child_margin_aux) =
-                    super::swap_axis(xaxis, child_margin.bottomright());
+                let (margin, child_margin_aux) = child_margin.bottomright().swap_axis(xaxis);
                 prev_margin = margin;
                 aux_margin_bottom = aux_margin_bottom.max(child_margin_aux);
             }
@@ -111,8 +111,8 @@ impl Desc for dyn Prop {
             let aux_merge = super::merge_margin(prev_aux_margin, aux_margin);
             aux_margins.push_back(aux_merge);
             cur.y += max_aux + aux_margin;
-            let (bounds_x, bounds_y) = super::swap_axis(xaxis, Vec2::new(max_main, cur.y));
-            map_unsized_area(myarea, Vec2::new(bounds_x, bounds_y))
+            let (bounds_x, bounds_y) = super::swap_pair(xaxis, (max_main, cur.y));
+            map_unsized_area(myarea, PxDim::new(bounds_x, bounds_y))
         };
 
         // No need to cap this because unsized axis have now been resolved
@@ -128,7 +128,7 @@ impl Desc for dyn Prop {
             return Box::new(Concrete {
                 area: evaluated_area,
                 renderable: None,
-                rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
+                rtree: rtree::Node::new(evaluated_area.to_untyped(), None, nodes, id, window),
                 children: staging,
                 layer: None,
             });
@@ -136,9 +136,9 @@ impl Desc for dyn Prop {
 
         let evaluated_dim = evaluated_area.dim();
         let mut cur = match dir {
-            RowDirection::LeftToRight | RowDirection::TopToBottom => ZERO_POINT,
-            RowDirection::RightToLeft => Vec2::new(evaluated_dim.0.x, 0.0),
-            RowDirection::BottomToTop => Vec2::new(0.0, evaluated_dim.0.y),
+            RowDirection::LeftToRight | RowDirection::TopToBottom => PxPoint::zero(),
+            RowDirection::RightToLeft => PxPoint::new(evaluated_dim.width, 0.0),
+            RowDirection::BottomToTop => PxPoint::new(0.0, evaluated_dim.height),
         };
         let mut maxaux: f32 = 0.0;
         aux_margins.pop_front();
@@ -147,32 +147,32 @@ impl Desc for dyn Prop {
         for (i, child) in children.iter().enumerate() {
             let child = child.as_ref().unwrap();
             let (area, margin) = areas[i].unwrap();
-            let dim = area.dim().0;
-            let (_, aux) = swap_axis(xaxis, dim);
+            let dim = area.dim();
+            let (_, aux) = dim.swap_axis(xaxis);
 
             match dir {
                 RowDirection::RightToLeft => {
-                    if cur.x - dim.x - margin < 0.0 {
+                    if cur.x - dim.width - margin < 0.0 {
                         cur.y += maxaux + aux_margin;
                         aux_margin = aux_margins.pop_front().unwrap_or_default();
                         maxaux = 0.0;
-                        cur.x = evaluated_dim.0.x - dim.x;
+                        cur.x = evaluated_dim.width - dim.width;
                     } else {
-                        cur.x -= dim.x + margin
+                        cur.x -= dim.width + margin
                     }
                 }
                 RowDirection::BottomToTop => {
-                    if cur.y - dim.y - margin < 0.0 {
+                    if cur.y - dim.height - margin < 0.0 {
                         cur.x += maxaux + aux_margin;
                         aux_margin = aux_margins.pop_front().unwrap_or_default();
                         maxaux = 0.0;
-                        cur.y = evaluated_dim.0.y - dim.y;
+                        cur.y = evaluated_dim.height - dim.height;
                     } else {
-                        cur.y -= dim.y + margin
+                        cur.y -= dim.height + margin
                     }
                 }
                 RowDirection::LeftToRight => {
-                    if cur.x + dim.x + margin > evaluated_dim.0.x {
+                    if cur.x + dim.width + margin > evaluated_dim.width {
                         cur.y += maxaux + aux_margin;
                         aux_margin = aux_margins.pop_front().unwrap_or_default();
                         maxaux = 0.0;
@@ -182,7 +182,7 @@ impl Desc for dyn Prop {
                     }
                 }
                 RowDirection::TopToBottom => {
-                    if cur.y + dim.y + margin > evaluated_dim.0.y {
+                    if cur.y + dim.height + margin > evaluated_dim.height {
                         cur.x += maxaux + aux_margin;
                         aux_margin = aux_margins.pop_front().unwrap_or_default();
                         maxaux = 0.0;
@@ -196,8 +196,8 @@ impl Desc for dyn Prop {
             let child_area = area + cur;
 
             match dir {
-                RowDirection::LeftToRight => cur.x += dim.x,
-                RowDirection::TopToBottom => cur.y += dim.y,
+                RowDirection::LeftToRight => cur.x += dim.width,
+                RowDirection::TopToBottom => cur.y += dim.height,
                 _ => (),
             };
             maxaux = maxaux.max(aux);
@@ -214,7 +214,7 @@ impl Desc for dyn Prop {
         Box::new(Concrete {
             area: evaluated_area,
             renderable,
-            rtree: rtree::Node::new(evaluated_area, None, nodes, id, window),
+            rtree: rtree::Node::new(evaluated_area.to_untyped(), None, nodes, id, window),
             children: staging,
             layer: None,
         })
