@@ -270,11 +270,20 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 children,
             );
 
+            #[cfg(feature = "svg")]
+            let icon = Some(
+                feather_ui::resource::load_icon(&std::path::PathBuf::from("./FRI_logo.svg"))
+                    .unwrap(),
+            );
+            #[cfg(not(feature = "svg"))]
+            let icon = None;
+
             let window = Window::new(
                 gen_id!(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
-                    .with_resizable(true),
+                    .with_resizable(true)
+                    .with_window_icon(icon),
                 Box::new(region),
             );
 

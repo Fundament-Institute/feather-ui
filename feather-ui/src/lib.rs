@@ -123,9 +123,15 @@ macro_rules! children {
     ($prop:path, $($param:expr),+ $(,)?) => { $crate::im::Vector::from_iter([$(Some(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>)),+]) };
 }
 
+#[macro_export]
+macro_rules! handlers {
+    () => { [] };
+    ($app:path, $($param:ident),+ $(,)?) => { Vec::from_iter([$((stringify!($param).to_string(), Box::new($param) as $crate::AppEvent<$app>)),+]) };
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-/// Represents display-independent pixels
-pub struct DIP {}
+/// Represents display-independent pixels, or logical units
+pub struct Logical {}
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 /// Represents relative values
 pub struct Relative {}
@@ -136,17 +142,17 @@ pub struct Pixel {}
 /// Represents a combination of DIP and Pixels that have been resolved for the current DPI
 pub struct Resolved {}
 
-pub type AbsPoint = Point2D<f32, DIP>;
+pub type AbsPoint = Point2D<f32, Logical>;
 pub type PxPoint = Point2D<f32, Pixel>;
 pub type RelPoint = Point2D<f32, Relative>;
 pub type ResPoint = Point2D<f32, Resolved>;
 
-pub type AbsVector = Vector2D<f32, DIP>;
+pub type AbsVector = Vector2D<f32, Logical>;
 pub type PxVector = Vector2D<f32, Pixel>;
 pub type RelVector = Vector2D<f32, Relative>;
 pub type ResVector = Vector2D<f32, Resolved>;
 
-pub type AbsDim = Size2D<f32, DIP>;
+pub type AbsDim = Size2D<f32, Logical>;
 pub type PxDim = Size2D<f32, Pixel>;
 pub type RelDim = Size2D<f32, Relative>;
 pub type ResDim = Size2D<f32, Resolved>;
@@ -177,9 +183,9 @@ impl Convert<Size2D<u32, Pixel>> for winit::dpi::PhysicalSize<u32> {
     }
 }
 
-impl Convert<Size2D<u32, DIP>> for winit::dpi::LogicalSize<u32> {
-    fn to(self) -> Size2D<u32, DIP> {
-        Size2D::<u32, DIP>::new(self.width, self.height)
+impl Convert<Size2D<u32, Logical>> for winit::dpi::LogicalSize<u32> {
+    fn to(self) -> Size2D<u32, Logical> {
+        Size2D::<u32, Logical>::new(self.width, self.height)
     }
 }
 
@@ -203,7 +209,7 @@ pub struct Rect<U> {
     pub _unit: PhantomData<U>,
 }
 
-pub type AbsRect = Rect<DIP>;
+pub type AbsRect = Rect<Logical>;
 pub type PxRect = Rect<Pixel>;
 pub type RelRect = Rect<Relative>;
 pub type ResRect = Rect<Resolved>;
@@ -1060,7 +1066,7 @@ pub struct Limits<U> {
 }
 
 pub type PxLimits = Limits<Pixel>;
-pub type AbsLimits = Limits<DIP>;
+pub type AbsLimits = Limits<Logical>;
 pub type RelLimits = Limits<Relative>;
 pub type ResLimits = Limits<Resolved>;
 
@@ -1112,6 +1118,20 @@ impl<U> Limits<U> {
     pub fn max(&self) -> Size2D<f32, U> {
         let minmax = self.v.as_array_ref();
         Size2D::new(minmax[2], minmax[3])
+    }
+
+    #[inline]
+    pub fn set_min(&mut self, bound: Size2D<f32, U>) {
+        let minmax = self.v.as_array_mut();
+        minmax[0] = bound.width;
+        minmax[1] = bound.height;
+    }
+
+    #[inline]
+    pub fn set_max(&mut self, bound: Size2D<f32, U>) {
+        let minmax = self.v.as_array_mut();
+        minmax[2] = bound.width;
+        minmax[3] = bound.height;
     }
 
     /// Discard the units
@@ -1298,6 +1318,7 @@ impl From<f32> for DValue {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom)]
+#[try_from(repr)]
 #[repr(u8)]
 pub enum RowDirection {
     #[default]
