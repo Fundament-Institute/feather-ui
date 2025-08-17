@@ -369,13 +369,14 @@ impl Driver {
         let (region, native) = {
             let loader;
             let reader = self.prefetch.read();
-            if let Some(res) = reader.get(location) {
+            let refload = if let Some(res) = reader.get(location) {
                 res
             } else {
                 loader = location.fetch()?;
                 &loader
-            }
-            .load(self, size, dpi, resize)?
+            };
+            let (raw, dim) = refload.preload(size, dpi)?;
+            refload.load(self, (raw, dim), resize)?
         };
 
         let key = ResourceInstance {

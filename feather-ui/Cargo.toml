@@ -21,7 +21,7 @@ path = "src/lib.rs"
 doctest = false
 
 [features]
-default = ["default-formats", "svg"]
+default = ["lua", "default-formats", "svg"]
 lua = ["dep:mlua"]
 svg = ["dep:resvg"]
 default-formats = [
@@ -96,6 +96,7 @@ bitfield-struct = "0.11.0"
 mlua = { version = "0.10", features = [
   "luajit52",
   "vendored",
+  "error-send",
 ], optional = true }
 image = { version = "0.25.6", optional = true, default-features = false }
 resvg = { version = "0.45.1", optional = true, default-features = false, features = [

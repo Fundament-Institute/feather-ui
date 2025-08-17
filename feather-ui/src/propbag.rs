@@ -59,6 +59,23 @@ macro_rules! gen_prop_bag_base {
     };
 }
 
+macro_rules! gen_prop_bag_setter_clone {
+    ($name:ident, $setter:ident, $t:ty) => {
+        impl PropBag {
+            #[allow(dead_code)]
+            pub fn $setter(&mut self, v: $t) -> Option<$t> {
+                self.props
+                    .insert(PropBagElement::$name, Box::new(v))
+                    .map(|x| {
+                        *x.downcast().expect(concat!(
+                            stringify!($name),
+                            " in PropBag was the wrong type!"
+                        ))
+                    })
+            }
+        }
+    };
+}
 macro_rules! gen_prop_bag_value_clone {
     ($prop:path, $name:ident, $setter:ident, $t:ty, $default:expr) => {
         impl $prop for PropBag {
@@ -74,19 +91,7 @@ macro_rules! gen_prop_bag_value_clone {
                 }
             }
         }
-        impl PropBag {
-            #[allow(dead_code)]
-            pub fn $setter(&mut self, v: $t) -> Option<$t> {
-                self.props
-                    .insert(PropBagElement::$name, Box::new(v))
-                    .map(|x| {
-                        *x.downcast().expect(concat!(
-                            stringify!($name),
-                            " in PropBag was the wrong type!"
-                        ))
-                    })
-            }
-        }
+        gen_prop_bag_setter_clone!($name, $setter, $t);
     };
 }
 
@@ -194,6 +199,10 @@ impl crate::layout::flex::Prop for PropBag {
     }
 }
 
+gen_prop_bag_setter_clone!(wrap, set_wrap, bool);
+gen_prop_bag_setter_clone!(justify, set_justify, crate::layout::flex::FlexJustify);
+gen_prop_bag_setter_clone!(align, set_align, crate::layout::flex::FlexJustify);
+
 impl crate::layout::flex::Child for PropBag {
     fn grow(&self) -> f32 {
         self.get_value(PropBagElement::grow)
@@ -207,3 +216,7 @@ impl crate::layout::flex::Child for PropBag {
         self.get_value(PropBagElement::basis)
     }
 }
+
+gen_prop_bag_setter_clone!(grow, set_grow, f32);
+gen_prop_bag_setter_clone!(shrink, set_shrink, f32);
+gen_prop_bag_setter_clone!(basis, set_basis, crate::DValue);
