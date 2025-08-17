@@ -16,6 +16,7 @@ use smallvec::SmallVec;
 use std::rc::Rc;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
+#[try_from(repr)]
 #[repr(u8)]
 pub enum FlexJustify {
     #[default]
