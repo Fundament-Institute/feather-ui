@@ -883,15 +883,18 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compon
 }
 
 fn create_button(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    println!("inside create_button");
     let (children, bag) = prop_children(&body)?;
 
     let onclick = get_required(&body, "onclick")?;
-    Ok(Box::new(Button::<PropBag>::new(
+    let res : LuaResult<ComponentBag> = Ok(Box::new(Button::<PropBag>::new(
         id.0,
         bag.into(),
         onclick,
         children,
-    )))
+    )));
+    println!("leaving create_button");
+    res
 }
 
 fn get_array_or<T: num_traits::FromPrimitive + FromLua + Clone + Copy, const N: usize>(

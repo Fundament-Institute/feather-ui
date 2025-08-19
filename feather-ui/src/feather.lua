@@ -664,6 +664,7 @@ end
 local px = gen_unified("px")
 local dp = gen_unified("dp")
 local rel = gen_unified("rel")
+local printTrace = true
 
 local ID = {}
 do
@@ -692,7 +693,7 @@ do
 
 	function ID.child(body, ...)
 		local nextid = ID.next()
-		return nextid, ID.enter(nextid, body, ...)
+		return ID.enter(nextid, body, ...)
 	end
 
 	function ID.iter(name, iterator, state)
@@ -724,7 +725,10 @@ do
 		end
 	end
 
-	function ID.wrap_child(body)
+	function ID.wrap_child(body, name)
+		if name and printTrace then
+			print("inside ID-wrapped function " .. name)
+		end
 		return function(...) return ID.child(body, ...) end
 	end
 end
@@ -736,9 +740,18 @@ local function component(args)
 	return function(body) end
 end
 
-local function wrap_create(f)
+local function exit_wrapped_fun(name, ...)
+		if name and printTrace then
+			print("leaving ID-sensitive function " .. name)
+		end
+		return ...
+end
+local function wrap_create(f, name)
 	return function(body)
-		return f(ID.child(function() return body end))
+		if name and printTrace then
+			print("inside ID-sensitive function " .. name)
+		end
+		return exit_wrapped_fun(name, f(ID.next(), body))
 	end
 end
 
@@ -756,12 +769,12 @@ return {
 	component = component,
 	required = setmetatable({}, {}),
 	optional = function(default) setmetatable({ default = default }, {}) end,
-	window = wrap_create(create_window),
-	region = wrap_create(create_region),
-	button = wrap_create(create_button),
-	text = wrap_create(create_text),
+	window = wrap_create(create_window, "create_window"),
+	region = wrap_create(create_region, "create_region"),
+	button = wrap_create(create_button, "create_button"),
+	text = wrap_create(create_text, "create_text"),
 	shape = {
-		rect = wrap_create(create_round_rect),
+		rect = wrap_create(create_round_rect, "create_round_rect"),
 	},
 	ID = ID,
 }
