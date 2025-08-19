@@ -10,14 +10,13 @@ function sandbox_impl(use_weaktables)
 		proxy_key = {}
 	end
 
-
 	local error_kill_flag = {}
 
 	local proxy_get
 
 	local root_module
 
-	local module_proxy_of_mt = { __mode = 'v' }
+	local module_proxy_of_mt = { __mode = "v" }
 
 	if use_weaktables then
 		root_module = { proxy_of = setmetatable({}, module_proxy_of_mt) }
@@ -28,9 +27,7 @@ function sandbox_impl(use_weaktables)
 
 	local proxy_get_origin
 	if use_weaktables then
-		function proxy_get_origin(obj)
-			return proxy_origins[obj]
-		end
+		function proxy_get_origin(obj) return proxy_origins[obj] end
 	else
 		function proxy_get_origin(obj)
 			local info = rawget(obj, proxy_key)
@@ -40,9 +37,7 @@ function sandbox_impl(use_weaktables)
 
 	local proxy_get_target
 	if use_weaktables then
-		function proxy_get_target(obj)
-			return proxy_refs[obj]
-		end
+		function proxy_get_target(obj) return proxy_refs[obj] end
 	else
 		function proxy_get_target(obj)
 			local info = rawget(obj, proxy_key)
@@ -52,9 +47,7 @@ function sandbox_impl(use_weaktables)
 
 	local proxy_get_owner
 	if use_weaktables then
-		function proxy_get_owner(obj)
-			return proxy_owners[obj]
-		end
+		function proxy_get_owner(obj) return proxy_owners[obj] end
 	else
 		function proxy_get_owner(obj)
 			local info = rawget(obj, proxy_key)
@@ -64,7 +57,7 @@ function sandbox_impl(use_weaktables)
 
 	local function translate(obj, module_src, module_dst) -- translate values across a module boundary to maintain sandboxing
 		local t = type(obj)
-		if t == 'string' or t == 'number' or t == 'boolean' or t == 'nil' or t == 'userdata' then
+		if t == "string" or t == "number" or t == "boolean" or t == "nil" or t == "userdata" then
 			return obj -- immutable primitives and string may be passed directly
 		elseif t == "table" then
 			local origin = proxy_get_origin(obj)
@@ -92,7 +85,7 @@ function sandbox_impl(use_weaktables)
 		end
 	end
 	local function translate_args(module_src, module_dst, ...) -- convenience function for translating a list of args all at once
-		local count = select('#', ...)
+		local count = select("#", ...)
 		if count == 0 then return end
 		return translate_args_inner(module_src, module_dst, count, ...)
 	end
@@ -107,7 +100,7 @@ function sandbox_impl(use_weaktables)
 	end
 
 	local function sandboxed_getmetatable(obj)
-		if type(obj) == 'string' then --strings have a shared metatable, so this forbids the global mutable state
+		if type(obj) == "string" then --strings have a shared metatable, so this forbids the global mutable state
 			return "string"
 		else
 			return getmetatable(obj)
@@ -129,75 +122,42 @@ function sandbox_impl(use_weaktables)
 		__add = function(self, other)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
-			return
-					translate(
-						proxy_get_target(self) + translate(other, owner, origin),
-						origin, owner
-					)
+			return translate(proxy_get_target(self) + translate(other, owner, origin), origin, owner)
 		end,
 		__sub = function(self, other)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
-			return
-					translate(
-						proxy_get_target(self) - translate(other, owner, origin),
-						origin, owner
-					)
+			return translate(proxy_get_target(self) - translate(other, owner, origin), origin, owner)
 		end,
 		__mul = function(self, other)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
-			return
-					translate(
-						proxy_get_target(self) * translate(other, owner, origin),
-						origin, owner
-					)
+			return translate(proxy_get_target(self) * translate(other, owner, origin), origin, owner)
 		end,
 		__div = function(self, other)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
-			return
-					translate(
-						proxy_get_target(self) / translate(other, owner, origin),
-						origin, owner
-					)
+			return translate(proxy_get_target(self) / translate(other, owner, origin), origin, owner)
 		end,
 		__mod = function(self, other)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
-			return
-					translate(
-						proxy_get_target(self) % translate(other, owner, origin),
-						origin, owner
-					)
+			return translate(proxy_get_target(self) % translate(other, owner, origin), origin, owner)
 		end,
 		__pow = function(self, other)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
-			return
-					translate(
-						proxy_get_target(self) ^ translate(other, owner, origin),
-						origin, owner
-					)
+			return translate(proxy_get_target(self) ^ translate(other, owner, origin), origin, owner)
 		end,
 		__unm = function(self)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
-			return
-					translate(
-						-proxy_get_target(self),
-						origin, owner
-					)
+			return translate(-proxy_get_target(self), origin, owner)
 		end,
 		__call = function(self, ...)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
-			return
-					translate_args(origin, owner,
-						proxy_get_target(self)(
-							translate_args(owner, origin, ...)
-						)
-					)
+			return translate_args(origin, owner, proxy_get_target(self)(translate_args(owner, origin, ...)))
 		end,
 		__pairs = function(self)
 			local origin = proxy_get_origin(self)
@@ -211,8 +171,10 @@ function sandbox_impl(use_weaktables)
 		end,
 
 		__tostring = function(self) return tostring(proxy_get_target(self)) end,
-		__eq = function(self, other) return rawequal(proxy_get_origin(self), proxy_get_origin(other)) and
-			proxy_get_target(self) == proxy_get_target(other) end
+		__eq = function(self, other)
+			return rawequal(proxy_get_origin(self), proxy_get_origin(other))
+				and proxy_get_target(self) == proxy_get_target(other)
+		end,
 		--[[__uncall = function(self)
     return uncall(proxy_origins[self])
   end,]]
@@ -224,9 +186,7 @@ function sandbox_impl(use_weaktables)
 			local owner = proxy_get_owner(self)
 			return translate(getmetatable(proxy_get_target(self)).__index[translate(k, owner, origin)], origin, owner)
 		end,
-		__newindex = function(self, k, v)
-			error "tried to set a field on a protected object"
-		end,
+		__newindex = function(self, k, v) error("tried to set a field on a protected object") end,
 		__add = proxy_mt.__add,
 		__sub = proxy_mt.__sub,
 		__mul = proxy_mt.__mul,
@@ -243,15 +203,11 @@ function sandbox_impl(use_weaktables)
 	}
 	local proxy_opaque_mt = { -- metatable for proxies that block access from external modules
 		__metatable = "proxy",
-		__index = function(self, k)
-			error "tried to get a field on a protected object"
-		end,
-		__newindex = function(self, k, v)
-			error "tried to set a field on a protected object"
-		end,
+		__index = function(self, k) error("tried to get a field on a protected object") end,
+		__newindex = function(self, k, v) error("tried to set a field on a protected object") end,
 		-- __call = function(self, ...) error "tried to call a protected object" end,
 		-- __tostring = proxy_mt.__tostring,
-		__eq = proxy_mt.__eq
+		__eq = proxy_mt.__eq,
 		-- __uncall = proxy_mt.__uncall,
 	}
 
@@ -271,8 +227,9 @@ function sandbox_impl(use_weaktables)
 	end
 
 	do
-		local _, tab, _ = pairs(setmetatable({ custom = false },
-			{ __pairs = function(_) return next, { custom = true }, nil end }))
+		local _, tab, _ = pairs(setmetatable({ custom = false }, {
+			__pairs = function(_) return next, { custom = true }, nil end,
+		}))
 		if tab.custom then
 			if not use_weaktables then
 				-- local function __pairs(self)
@@ -287,9 +244,7 @@ function sandbox_impl(use_weaktables)
 			if use_weaktables then
 				sandboxed_pairs = pairs
 			else
-				function sandboxed_pairs(obj)
-					return sandboxed_next, obj, nil
-				end
+				function sandboxed_pairs(obj) return sandboxed_next, obj, nil end
 			end
 		end
 	end
@@ -300,19 +255,15 @@ function sandbox_impl(use_weaktables)
 			local proxy
 			local ot = type(object)
 			if ot == "function" then
-				proxy = function(...) return translate_args(module_src, module_dst,
-						object(translate_args(module_dst, module_src, ...)))
-					end
+				proxy = function(...)
+					return translate_args(module_src, module_dst, object(translate_args(module_dst, module_src, ...)))
+				end
 			else
 				local omt = getmetatable(object)
 				local mt = proxy_mt
 				if omt then
-					if omt.__proxy_private == true then
-						mt = proxy_private_mt
-					end
-					if omt.__proxy_opaque == true then
-						mt = proxy_opaque_mt
-					end
+					if omt.__proxy_private == true then mt = proxy_private_mt end
+					if omt.__proxy_opaque == true then mt = proxy_opaque_mt end
 				end
 				proxy = setmetatable({}, mt)
 			end
@@ -327,28 +278,21 @@ function sandbox_impl(use_weaktables)
 			local omt = getmetatable(object)
 			local mt = proxy_mt
 			if omt then
-				if omt.__proxy_private == true then
-					mt = proxy_private_mt
-				end
-				if omt.__proxy_opaque == true then
-					mt = proxy_opaque_mt
-				end
+				if omt.__proxy_private == true then mt = proxy_private_mt end
+				if omt.__proxy_opaque == true then mt = proxy_opaque_mt end
 			end
-			local proxy = setmetatable({ [proxy_key] = { origin = module_src, owner = module_dst, target = object } }, mt)
+			local proxy =
+				setmetatable({ [proxy_key] = { origin = module_src, owner = module_dst, target = object } }, mt)
 			return proxy
 		end
 	end
 
 	local function pcall_handler(ok, err, ...) -- Automatically propagate kill codes through error handling to prevent using any protected mode to avoid a kill signal.
-		if not ok and rawequal(err, error_kill_flag) then
-			error(err)
-		end
+		if not ok and rawequal(err, error_kill_flag) then error(err) end
 		return ok, err, ...
 	end
 
-	local sandboxed_pcall = function(func, ...)
-		return pcall_handler(pcall(func, ...))
-	end
+	local sandboxed_pcall = function(func, ...) return pcall_handler(pcall(func, ...)) end
 
 	local sandboxed_xpcall = function(func, msgh, ...)
 		local function wrapped_handler(err)
@@ -401,7 +345,11 @@ function sandbox_impl(use_weaktables)
 				---@diagnostic disable-next-line:deprecated
 				isyieldable = coroutine.isyieldable,
 				resume = function(co, ...)
-					return translate_args(root_module, module, coroutine.resume(co, translate_args(module, root_module, ...)))
+					return translate_args(
+						root_module,
+						module,
+						coroutine.resume(co, translate_args(module, root_module, ...))
+					)
 				end,
 				running = coroutine.running,
 				status = coroutine.status,
@@ -411,12 +359,19 @@ function sandbox_impl(use_weaktables)
 					end
 					local co = coroutine.create(wrapped_f)
 					return function(...)
-						return translate_args(root_module, module,
-							coroutine.resume(translate_args(module, root_module, ...) --[[@as thread]]))
+						return translate_args(
+							root_module,
+							module,
+							coroutine.resume(translate_args(module, root_module, ...) --[[@as thread]])
+						)
 					end
 				end,
 				yield = function(...)
-					return translate_args(root_module, module, coroutine.yield(translate_args(module, root_module, ...)))
+					return translate_args(
+						root_module,
+						module,
+						coroutine.yield(translate_args(module, root_module, ...))
+					)
 				end,
 			},
 
@@ -425,7 +380,7 @@ function sandbox_impl(use_weaktables)
 
 			string = cloneTab(string), -- string library is safe
 			---@diagnostic disable-next-line:undefined-global
-			utf8 = cloneTab(utf8),   -- if utf8 lib is available, it is fine
+			utf8 = cloneTab(utf8), -- if utf8 lib is available, it is fine
 			table = cloneTab(table),
 			bit = cloneTab(bit),
 			math = cloneTab(math),
@@ -447,8 +402,10 @@ function sandbox_impl(use_weaktables)
 	local function module_create(code, source, injected_deps)
 		local module = { proxy_of = setmetatable({}, module_proxy_of_mt) }
 		local env = env_create(module)
-		for k, v in pairs(injected_deps) do env[k] = v end
-		local fn, err = env.load(code, source or '=(module_create)')
+		for k, v in pairs(injected_deps) do
+			env[k] = v
+		end
+		local fn, err = env.load(code, source or "=(module_create)")
 		return translate_args(module, root_module, fn, err)
 	end
 

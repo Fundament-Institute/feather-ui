@@ -39,6 +39,10 @@ impl mlua::AsChunk<'static> for NamedChunk<'static> {
     }
 }
 
+fn point_to_rect<T>(pt: Point2D<f32, T>) -> Rect<T> {
+    Rect::new(pt.x, pt.y, pt.x, pt.y)
+}
+
 #[derive(Clone)]
 struct LuaSourceID(Arc<SourceID>);
 
@@ -48,10 +52,13 @@ impl<T: TryFrom<u8>> FromLua for LuaEnum<T>
 where
     <T as TryFrom<u8>>::Error: std::error::Error + 'static + Sync + Send,
 {
-    fn from_lua(value: LuaValue, _: &mlua::Lua) -> mlua::Result<Self> {
-        T::try_from(value.as_i32().ok_or(LuaError::UserDataTypeMismatch)? as u8)
-            .map_err(|e| LuaError::ExternalError(std::sync::Arc::new(e)))
-            .map(|x| LuaEnum(x))
+    fn from_lua(value: LuaValue, _: &mlua::Lua) -> LuaResult<Self> {
+        T::try_from(value.as_i32().ok_or(LuaError::RuntimeError(format!(
+            "Can't convert {} to enum",
+            value.type_name()
+        )))? as u8)
+        .map_err(|e| LuaError::ExternalError(std::sync::Arc::new(e)))
+        .map(|x| LuaEnum(x))
     }
 }
 
@@ -77,27 +84,94 @@ fn get_or<V: FromLua>(t: &LuaTable, key: &str, v: V) -> LuaResult<V> {
     Ok(get_key(t, key)?.unwrap_or(v))
 }
 
+fn get_required<V: FromLua>(t: &LuaTable, key: &str) -> LuaResult<V> {
+    if !t.contains_key(key)? {
+        Err(LuaError::RuntimeError(format!(
+            "Missing required property: {key}"
+        )))
+    } else {
+        t.get(key)
+    }
+}
+
 fn is_dvalue(t: &LuaTable) -> LuaResult<bool> {
     if let Some(mt) = t.metatable() {
-        mt.contains_key("__isvalue")
+        Ok(mt.get::<String>("name")? == "value_mt")
     } else {
         Ok(false)
     }
 }
 
+#[allow(dead_code)]
+fn dump_value(k: LuaValue, v: LuaValue, i: usize) -> LuaResult<()> {
+    if let Some(t) = v.as_table() {
+        println!("{:i$}{k:?} -", "");
+        if let Some(mt) = t.metatable() {
+            println!("{:i$}  mt - {}", "", mt.get::<String>("name")?);
+            mt.for_each(|k, v| dump_value(k, v, i + 4))?;
+        }
+
+        t.for_each(|k, v| dump_value(k, v, i + 2))?;
+    } else {
+        println!("{:i$}{k:?} : {v:?}", "");
+    }
+    Ok(())
+}
+
 fn get_kind(t: &LuaTable) -> LuaResult<String> {
     if let Some(mt) = t.metatable() {
-        mt.get("kind")
+        if !mt.contains_key("kind")? {
+            Err(LuaError::RuntimeError("Unknown metatable".into()))
+        } else {
+            mt.get("kind")
+        }
     } else {
-        Err(LuaError::UserDataTypeMismatch)
+        Err(LuaError::RuntimeError(
+            "Expected type to have metatable, but no metatable was found.".into(),
+        ))
+    }
+}
+
+fn get_name(t: &LuaTable) -> LuaResult<String> {
+    if let Some(mt) = t.metatable() {
+        if !mt.contains_key("name")? {
+            Err(LuaError::RuntimeError("nameless metatable".into()))
+        } else {
+            mt.get("name")
+        }
+    } else {
+        Err(LuaError::RuntimeError(
+            "Expected type to have metatable, but no metatable was found.".into(),
+        ))
+    }
+}
+
+fn expect_name(t: &LuaTable, expect: &str) -> LuaResult<()> {
+    let name = match get_name(t) {
+        Ok(s) => s,
+        Err(_) => "[unknown table type]".into(),
+    };
+
+    if name != expect {
+        Err(LuaError::RuntimeError(format!(
+            "Expected {expect} type, but found {name}",
+        )))
+    } else {
+        Ok(())
     }
 }
 
 impl FromLua for DValue {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let t = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let t = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected DValue, found {}",
+            value.type_name(),
+        )))?;
         if !is_dvalue(t)? {
-            return Err(LuaError::UserDataTypeMismatch);
+            return Err(LuaError::RuntimeError(format!(
+                "Expected DValue, found {}",
+                get_name(t)?,
+            )))?;
         }
 
         Ok(DValue {
@@ -141,30 +215,61 @@ impl<U: LuaKind> FromLua for LuaPoint<U> {
         if let Some(v) = value.as_number() {
             return Ok(LuaPoint(Point2D::<f32, U>::splat(v as f32)));
         }
+        if let Some(v) = value.as_integer() {
+            return Ok(LuaPoint(Point2D::<f32, U>::splat(v as f32)));
+        }
 
-        let t = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let t = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected a number or an object, but found {}",
+            value.type_name()
+        )))?;
         if is_dvalue(t)? {
             const TYPES: [&str; 3] = ["dp", "px", "rel"];
 
             for ty in TYPES {
                 if t.contains_key(ty)? != (U::KIND == ty) {
-                    return Err(LuaError::UserDataTypeMismatch);
+                    return Err(LuaError::RuntimeError(format!(
+                        "Tried to build a {}point but found a value of kind {ty}",
+                        U::KIND
+                    )));
                 }
             }
             Ok(LuaPoint(Point2D::<f32, U>::splat(t.get(U::KIND)?)))
-        } else if get_kind(t)? == U::KIND {
-            Ok(LuaPoint(Point2D::<f32, U>::new(t.get("x")?, t.get("y")?)))
+        } else if let Some(mt) = t.metatable() {
+            expect_name(&mt, "point_mt")?;
+
+            if get_kind(t)? == U::KIND {
+                Ok(LuaPoint(Point2D::<f32, U>::new(t.get("x")?, t.get("y")?)))
+            } else {
+                Err(LuaError::RuntimeError(format!(
+                    "Tried to build a {}point but found kind {}",
+                    U::KIND,
+                    get_kind(t)?
+                )))
+            }
         } else {
-            Err(LuaError::UserDataTypeMismatch)
+            Err(LuaError::RuntimeError(format!(
+                "Found unknown table kind {} while looking for a {}point",
+                get_kind(t)?,
+                U::KIND,
+            )))
         }
     }
 }
 
 impl<U: LuaKind> FromLua for Rect<U> {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let v = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected a rect object, but found {}",
+            value.type_name()
+        )))?;
+
         if get_kind(v)? != U::KIND {
-            return Err(LuaError::UserDataTypeMismatch);
+            return Err(LuaError::RuntimeError(format!(
+                "Trying to build a {}rect but found kind {}",
+                U::KIND,
+                get_kind(v)?
+            )));
         }
 
         Ok(Rect::<U> {
@@ -186,40 +291,152 @@ impl<U: LuaKind> FromLua for Rect<U> {
 }
 
 impl FromLua for DAbsRect {
-    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
-        let px = get_or_default(v, "px")?;
-        let dp = get_or_default(v, "dp")?;
-        Ok(DAbsRect { dp, px })
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected a rect, but found {}",
+            value.type_name()
+        )))?;
+        let name = get_name(v)?;
+        if name == "value_mt" {
+            if v.contains_key("rel")? {
+                return Err(LuaError::RuntimeError(
+                    "DAbsRect cannot have a relative component!".to_string(),
+                ));
+            }
+            let v = DValue::from_lua(value, lua)?;
+            let px = Rect::splat(v.px);
+            let dp = Rect::splat(v.dp);
+            Ok(DAbsRect { dp, px })
+        } else if name == "pxrect_mt" {
+            Ok(Rect::<Pixel>::from_lua(value, lua)?.into())
+        } else if name == "absrect_mt" {
+            Ok(Rect::<Logical>::from_lua(value, lua)?.into())
+        } else if name == "pxpoint_mt" {
+            Ok(point_to_rect(LuaPoint::<Pixel>::from_lua(value, lua)?.0).into())
+        } else if name == "abspoint_mt" {
+            Ok(point_to_rect(LuaPoint::<Logical>::from_lua(value, lua)?.0).into())
+        } else if name == "area_mt" {
+            let px = get_or_default(v, "px")?;
+            let dp = get_or_default(v, "dp")?;
+            if v.contains_key("rel")? {
+                return Err(LuaError::RuntimeError(
+                    "DAbsRect cannot have a relative component!".to_string(),
+                ));
+            }
+            Ok(DAbsRect { dp, px })
+        } else {
+            Err(LuaError::RuntimeError(format!(
+                "Expected an AbsRect or PxRect, but found {name}",
+            )))
+        }
     }
 }
 
 impl FromLua for DRect {
-    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
-        let px = get_or_default(v, "px")?;
-        let dp = get_or_default(v, "dp")?;
-        let rel = get_or_default(v, "rel")?;
-        Ok(DRect { dp, px, rel })
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected a rect, but found {}",
+            value.type_name()
+        )))?;
+        let name = get_name(v)?;
+        if name == "value_mt" {
+            let v = DValue::from_lua(value, lua)?;
+            let px = Rect::splat(v.px);
+            let dp = Rect::splat(v.dp);
+            let rel = Rect::splat(v.rel);
+            Ok(DRect { dp, px, rel })
+        } else if name == "pxrect_mt" {
+            Ok(Rect::<Pixel>::from_lua(value, lua)?.into())
+        } else if name == "absrect_mt" {
+            Ok(Rect::<Logical>::from_lua(value, lua)?.into())
+        } else if name == "relrect_mt" {
+            Ok(Rect::<Relative>::from_lua(value, lua)?.into())
+        } else if name == "pxpoint_mt" {
+            Ok(point_to_rect(LuaPoint::<Pixel>::from_lua(value, lua)?.0).into())
+        } else if name == "abspoint_mt" {
+            Ok(point_to_rect(LuaPoint::<Logical>::from_lua(value, lua)?.0).into())
+        } else if name == "relpoint_mt" {
+            Ok(point_to_rect(LuaPoint::<Relative>::from_lua(value, lua)?.0).into())
+        } else if name == "area_mt" {
+            let px = get_or_default(v, "px")?;
+            let dp = get_or_default(v, "dp")?;
+            let rel = get_or_default(v, "rel")?;
+            Ok(DRect { dp, px, rel })
+        } else {
+            Err(LuaError::RuntimeError(format!(
+                "Expected a rect, but found {name}",
+            )))
+        }
     }
 }
 
 impl FromLua for DAbsPoint {
-    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
-        let px = get_or_default::<LuaPoint<Pixel>>(v, "px")?.0;
-        let dp = get_or_default::<LuaPoint<Logical>>(v, "dp")?.0;
-        Ok(DAbsPoint { dp, px })
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected a point, but found {}",
+            value.type_name()
+        )))?;
+        let name = get_name(v)?;
+        if name == "value_mt" {
+            if v.contains_key("rel")? {
+                return Err(LuaError::RuntimeError(
+                    "DAbsPoint cannot have a relative component!".to_string(),
+                ));
+            }
+            let v = DValue::from_lua(value, lua)?;
+            let px = Point2D::splat(v.px);
+            let dp = Point2D::splat(v.dp);
+            Ok(DAbsPoint { dp, px })
+        } else if name == "pxpoint_mt" {
+            Ok(LuaPoint::<Pixel>::from_lua(value, lua)?.0.into())
+        } else if name == "abspoint_mt" {
+            Ok(LuaPoint::<Logical>::from_lua(value, lua)?.0.into())
+        } else if name == "coord_mt" {
+            let px = get_or_default::<LuaPoint<Pixel>>(v, "px")?.0;
+            let dp = get_or_default::<LuaPoint<Logical>>(v, "dp")?.0;
+            if v.contains_key("rel")? {
+                return Err(LuaError::RuntimeError(
+                    "DAbsPoint cannot have a relative component!".to_string(),
+                ));
+            }
+            Ok(DAbsPoint { dp, px })
+        } else {
+            Err(LuaError::RuntimeError(format!(
+                "Expected either an abs or a px point, but found {name}",
+            )))
+        }
     }
 }
 
 impl FromLua for DPoint {
-    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
-        let px = get_or_default::<LuaPoint<Pixel>>(v, "px")?.0;
-        let dp = get_or_default::<LuaPoint<Logical>>(v, "dp")?.0;
-        let rel = get_or_default::<LuaPoint<Relative>>(v, "rel")?.0;
-        Ok(DPoint { dp, px, rel })
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        let v = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected a point, but found {}",
+            value.type_name()
+        )))?;
+        let name = get_name(v)?;
+        if name == "value_mt" {
+            let v = DValue::from_lua(value, lua)?;
+            let px = Point2D::splat(v.px);
+            let dp = Point2D::splat(v.dp);
+            let rel = Point2D::splat(v.rel);
+            Ok(DPoint { dp, px, rel })
+        } else if name == "pxpoint_mt" {
+            Ok(LuaPoint::<Pixel>::from_lua(value, lua)?.0.into())
+        } else if name == "abspoint_mt" {
+            Ok(LuaPoint::<Logical>::from_lua(value, lua)?.0.into())
+        } else if name == "relpoint_mt" {
+            Ok(LuaPoint::<Relative>::from_lua(value, lua)?.0.into())
+        } else if name == "coord_mt" {
+            let px = get_or_default::<LuaPoint<Pixel>>(v, "px")?.0;
+            let dp = get_or_default::<LuaPoint<Logical>>(v, "dp")?.0;
+            let rel = get_or_default::<LuaPoint<Relative>>(v, "rel")?.0;
+            Ok(DPoint { dp, px, rel })
+        } else {
+            Err(LuaError::RuntimeError(format!(
+                "Expected a point, but found {name}",
+            )))
+        }
     }
 }
 
@@ -227,7 +444,11 @@ struct LimitPoint(DPoint);
 
 impl FromLua for LimitPoint {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let v = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let v = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected a point, but found {}",
+            value.type_name()
+        )))?;
+
         let px = get_or::<LuaPoint<Pixel>>(v, "px", LuaPoint::nan())?.0;
         let dp = get_or::<LuaPoint<Logical>>(v, "dp", LuaPoint::nan())?.0;
         let rel = get_or::<LuaPoint<Relative>>(v, "rel", LuaPoint::nan())?.0;
@@ -243,10 +464,16 @@ impl FromLua for sRGB {
             if v.len()? == 4 {
                 Ok(sRGB::new(v.get(1)?, v.get(2)?, v.get(3)?, v.get(4)?))
             } else {
-                Err(LuaError::UserDataTypeMismatch)
+                Err(LuaError::RuntimeError(format!(
+                    "A color must be an array of exactly 4 numbers, declared like {{ R, G, B, A }}, but only found {}",
+                    v.len()?
+                )))
             }
         } else {
-            Err(LuaError::UserDataTypeMismatch)
+            Err(LuaError::RuntimeError(format!(
+                "Expected a color but found {}",
+                value.type_name()
+            )))
         }
     }
 }
@@ -261,7 +488,10 @@ impl Default for LuaFontFamily {
 
 impl FromLua for LuaFontFamily {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let name = value.as_str().ok_or(LuaError::UserDataTypeMismatch)?;
+        let name = value.as_str().ok_or(LuaError::RuntimeError(format!(
+            "Expected a string, but found {}",
+            value.type_name()
+        )))?;
 
         Ok(LuaFontFamily(if name.eq_ignore_ascii_case("serif") {
             cosmic_text::FamilyOwned::Serif
@@ -361,7 +591,7 @@ impl mlua::FromLua for ComponentBag {
             ::mlua::Value::UserData(ud) => Ok(ud.borrow::<ComponentBag>()?.clone()),
             _ => Err(::mlua::Error::FromLuaConversionError {
                 from: value.type_name(),
-                to: stringify!($type_name).to_string(),
+                to: stringify!(ComponentBag).to_string(),
                 message: None,
             }),
         }
@@ -373,7 +603,8 @@ impl mlua::FromLua for ComponentBag {
 /// pure-rust [App] struct defined in lib.rs
 pub struct LuaPersist<AppData> {
     pub window: LuaFunction, // takes a Store and an appstate and returns a Window
-    pub init: LuaFunction,
+    pub id_enter: LuaFunction,
+    pub init: Result<LuaFunction, AppData>,
     phantom: PhantomData<AppData>,
 }
 
@@ -383,7 +614,11 @@ impl<AppData: Clone + FromLua + IntoLua>
     type Store = AppData;
 
     fn init(&self) -> Self::Store {
-        let r = self.init.call::<AppData>(());
+        let r = match &self.init {
+            Ok(init) => init.call::<AppData>(()),
+            Err(data) => Ok(data.clone()),
+        };
+
         match r {
             Err(LuaError::RuntimeError(s)) => panic!("{}", s),
             Err(e) => panic!("{e:?}"),
@@ -392,14 +627,23 @@ impl<AppData: Clone + FromLua + IntoLua>
     }
     fn call(
         &mut self,
-        store: Self::Store,
+        _: Self::Store,
         args: &AppData,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let mut h = im::HashMap::new();
+
         let (store, w) = self
-            .window
-            .call::<(AppData, crate::component::window::Window)>((store, args.clone()))
+            .id_enter
+            .call::<(AppData, crate::component::window::Window)>((
+                LuaSourceID(Arc::new(crate::APP_SOURCE_ID)),
+                self.window.clone(),
+                args.clone(),
+            ))
             .unwrap();
+        /*let (store, w) = self
+        .window
+        .call::<(AppData, crate::component::window::Window)>((args.clone()))
+        .unwrap();*/
         h.insert(w.id().clone(), Some(w));
         (store, h)
     }
@@ -412,7 +656,11 @@ enum LuaDualPoint {
 
 impl FromLua for LuaDualPoint {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let t = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let t = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected a 2D point, but found {}",
+            value.type_name()
+        )))?;
+
         if is_dvalue(t)? {
             if t.contains_key("dp")? && !t.contains_key("px")? {
                 Ok(LuaDualPoint::Dp(Point2D::<f32, Logical>::splat(
@@ -421,7 +669,7 @@ impl FromLua for LuaDualPoint {
             } else if t.contains_key("px")? && !t.contains_key("dp")? {
                 Ok(LuaDualPoint::Px(Point2D::<f32, Pixel>::splat(t.get("px")?)))
             } else {
-                return Err(LuaError::UserDataTypeMismatch);
+                return Err(LuaError::RuntimeError("This property only accepts a point that is either abs or px, not relative or a combination.".to_string()));
             }
         } else if t.contains_key("dp")? && !t.contains_key("px")? {
             Ok(LuaDualPoint::Dp(t.get::<LuaPoint<Logical>>("dp")?.0))
@@ -438,7 +686,7 @@ impl FromLua for LuaDualPoint {
                 t.get("y")?,
             )))
         } else {
-            Err(LuaError::UserDataTypeMismatch)
+            return Err(LuaError::RuntimeError("This property only accepts a point that is either abs or px, not relative or a combination.".to_string()));
         }
     }
 }
@@ -448,7 +696,7 @@ fn load_prop<T: mlua::FromLua>(
     bag: &mut PropBag,
     props: &LuaTable,
     name: &str,
-) -> mlua::Result<()> {
+) -> LuaResult<()> {
     if props.contains_key(name)? {
         f(bag, props.get(name)?);
     }
@@ -492,7 +740,10 @@ fn replace_limit_dpoint(mut p: DPoint, bound: f32) -> DPoint {
 
 impl FromLua for PropBag {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let props = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        let props = value.as_table().ok_or(LuaError::RuntimeError(format!(
+            "Expected PropBag, got {}",
+            value.type_name(),
+        )))?;
         let mut bag = PropBag::new();
 
         load_prop(PropBag::set_wrap, &mut bag, props, "wrap")?;
@@ -559,7 +810,7 @@ impl FromLua for PropBag {
 
 fn prop_children(
     t: &LuaTable,
-) -> mlua::Result<(im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>, PropBag)> {
+) -> LuaResult<(im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>, PropBag)> {
     let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
 
     for i in 1..=t.len()? {
@@ -567,11 +818,11 @@ fn prop_children(
         children.push_back(Some(Box::new(component)));
     }
 
-    let bag: PropBag = get_or_default(t, "props")?;
+    let bag: PropBag = get_required(t, "props")?;
     Ok((children, bag))
 }
 
-fn create_region(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Result<ComponentBag> {
+fn create_region(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
     let (children, bag) = prop_children(&body)?;
 
     Ok(Box::new(Region::<PropBag>::new(id.0, bag.into(), children)))
@@ -582,14 +833,14 @@ const REASONABLE_LINE_HEIGHT: f32 = 1.2;
 // CSS defaults to 16 pixels, which is 12.8 points. We round up to 14 points as the next highest even number.
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
-fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Result<ComponentBag> {
+fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
     let (_, bag) = prop_children(&body)?;
 
+    let text = get_required(&body, "text")?;
     let font_size = get_or(&body, "fontsize", DEFAULT_FONT_SIZE)?;
     let line_height = get_or(&body, "lineheight", font_size * REASONABLE_LINE_HEIGHT)?;
-    let text = body.get("text")?;
     let font: LuaFontFamily = get_or_default(&body, "font")?;
-    let color = body.get("color")?;
+    let color = get_required(&body, "color")?;
     let weight: u16 = get_or(&body, "weight", cosmic_text::Weight::NORMAL.0)?;
     let style: u8 = get_or_default(&body, "style")?;
     let wrap: u8 = get_or_default(&body, "wrap")?;
@@ -598,7 +849,11 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Result<Com
         0 => cosmic_text::Style::Normal,
         1 => cosmic_text::Style::Italic,
         2 => cosmic_text::Style::Oblique,
-        _ => return Err(LuaError::UserDataTypeMismatch),
+        _ => {
+            return Err(LuaError::RuntimeError(format!(
+                "{style} is not a valid style enum value!"
+            )));
+        }
     };
 
     let wrap = match wrap {
@@ -606,7 +861,11 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Result<Com
         1 => cosmic_text::Wrap::Glyph,
         2 => cosmic_text::Wrap::Word,
         3 => cosmic_text::Wrap::WordOrGlyph,
-        _ => return Err(LuaError::UserDataTypeMismatch),
+        _ => {
+            return Err(LuaError::RuntimeError(format!(
+                "{wrap} is not a valid wrap enum value!"
+            )));
+        }
     };
 
     Ok(Box::new(Text::<PropBag>::new(
@@ -623,10 +882,10 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Result<Com
     )))
 }
 
-fn create_button(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Result<ComponentBag> {
+fn create_button(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
     let (children, bag) = prop_children(&body)?;
 
-    let onclick = body.get("onclick")?;
+    let onclick = get_required(&body, "onclick")?;
     Ok(Box::new(Button::<PropBag>::new(
         id.0,
         bag.into(),
@@ -640,11 +899,19 @@ fn get_array_or<T: num_traits::FromPrimitive + FromLua + Clone + Copy, const N: 
     t: &LuaTable,
     key: &str,
     d: [T; N],
-) -> mlua::Result<[T; N]> {
+) -> LuaResult<[T; N]> {
     Ok(if t.contains_key(key)? {
         let v = t.get::<LuaValue>(key)?;
         if let Some(n) = v.as_number() {
-            let num = T::from_f64(n).ok_or(LuaError::UserDataTypeMismatch)?;
+            let num = T::from_f64(n).ok_or(LuaError::RuntimeError(format!(
+                "Failed to convert {n}, is it out of range?"
+            )))?;
+            let test: [T; N] = [num; N];
+            test
+        } else if let Some(n) = v.as_integer() {
+            let num = T::from_i64(n).ok_or(LuaError::RuntimeError(format!(
+                "Failed to convert {n}, is it out of range?"
+            )))?;
             let test: [T; N] = [num; N];
             test
         } else {
@@ -655,7 +922,7 @@ fn get_array_or<T: num_traits::FromPrimitive + FromLua + Clone + Copy, const N: 
     })
 }
 
-fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Result<ComponentBag> {
+fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
     let (_, bag) = prop_children(&body)?;
 
     let border = get_or_default(&body, "border")?;
@@ -677,31 +944,25 @@ fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Re
     ))
 }
 
-fn create_id(lua: &Lua, (parent, v): (Option<LuaSourceID>, LuaValue)) -> mlua::Result<LuaSourceID> {
-    let stringcheck = v.as_string().map(|x| x.to_string_lossy());
+fn create_id(_: &Lua, (parent, v): (Option<LuaSourceID>, LuaValue)) -> LuaResult<LuaSourceID> {
+    println!("inside create_id");
     if let Some(n) = v.as_integer() {
-        Ok(LuaSourceID(if let Some(parent) = parent {
-            parent.0.child(DataID::Int(n))
-        } else {
-            Arc::new(SourceID::new(DataID::Int(n)))
-        }))
-    } else if let Ok(id) = LuaSourceID::from_lua(v, lua) {
         if let Some(parent) = parent {
-            id.0.parent
-                .set(parent.0)
-                .map_err(|_| LuaError::UserDataTypeMismatch)?;
-            Ok(id)
+            Ok(LuaSourceID(parent.0.child(DataID::Int(n))))
         } else {
             Err(LuaError::UserDataTypeMismatch)
         }
-    } else if let Some(name) = stringcheck {
-        Ok(LuaSourceID(if let Some(parent) = parent {
-            parent.0.child(DataID::Owned(name))
+    } else if let Some(name) = v.as_string().map(|x| x.to_string_lossy()) {
+        if let Some(parent) = parent {
+            Ok(LuaSourceID(parent.0.child(DataID::Owned(name))))
         } else {
-            Arc::new(SourceID::new(DataID::Owned(name)))
-        }))
+            Err(LuaError::UserDataTypeMismatch)
+        }
     } else {
-        Err(LuaError::UserDataTypeMismatch)
+        Err(LuaError::RuntimeError(format!(
+            "Expected a number or string to construct an ID, but found {}",
+            v.type_name()
+        )))
     }
 }
 
@@ -724,9 +985,20 @@ fn replace_dualpoint(p: LuaDualPoint, bound: f32) -> dpi::Size {
     }
 }
 
-fn create_window(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> mlua::Result<Window> {
-    let title: LuaString = body.get("title")?;
-    let child: ComponentBag = body.get(1)?;
+fn get_required_child<T: FromLua>(t: &LuaTable, idx: usize) -> LuaResult<T> {
+    if !t.contains_key(idx)? {
+        Err(LuaError::RuntimeError(format!(
+            "Expected at least {idx} children, but found {}",
+            t.raw_len()
+        )))
+    } else {
+        t.get(idx)
+    }
+}
+
+fn create_window(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Window> {
+    let title: LuaString = get_required(&body, "title")?;
+    let child: ComponentBag = get_required_child(&body, 1)?;
 
     let mut attributes = winit::window::Window::default_attributes()
         .with_title(title.to_string_lossy())
@@ -771,23 +1043,35 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
         handlers: Vec<(String, crate::AppEvent<AppData>)>,
         layout: &[u8],
     ) -> eyre::Result<(Self, crate::EventLoop<T>)> {
-        let interface = lua.create_table()?;
+        let preload = lua.create_table()?;
         let handler_table = lua.create_table()?;
 
         for (i, (name, _)) in handlers.iter().enumerate() {
             handler_table.set(name.as_str(), Slot(APP_SOURCE_ID.into(), i as u64))?;
         }
 
+        preload.set("create_id", lua.create_function(create_id)?)?;
+        preload.set("create_window", lua.create_function(create_window)?)?;
+        preload.set("create_region", lua.create_function(create_region)?)?;
+        preload.set("create_button", lua.create_function(create_button)?)?;
+        preload.set("create_text", lua.create_function(create_text)?)?;
+        preload.set("create_round_rect", lua.create_function(create_round_rect)?)?;
+
+        let preload_mt = lua.create_table()?;
+        preload_mt.set("__index", lua.globals())?;
+        preload.set_metatable(Some(preload_mt));
+
+        let feather: LuaTable = lua
+            .load(NamedChunk(FEATHER, "feather"))
+            .set_environment(preload)
+            .eval()?;
+
+        let id_enter = feather.get::<LuaTable>("ID")?.get::<LuaFunction>("enter")?;
+        let interface = lua.create_table()?;
         interface.set("handlers", handler_table)?;
-        interface.set("create_id", lua.create_function(create_id)?)?;
-        interface.set("create_window", lua.create_function(create_window)?)?;
-        interface.set("create_region", lua.create_function(create_region)?)?;
-        interface.set("create_button", lua.create_function(create_button)?)?;
-        interface.set("create_text", lua.create_function(create_text)?)?;
-        interface.set("create_round_rect", lua.create_function(create_round_rect)?)?;
+        interface.set("f", feather)?;
 
         lua.load(NamedChunk(SANDBOX, "sandbox")).exec()?;
-        lua.load(NamedChunk(FEATHER, "feather")).exec()?;
 
         lua.load(
             r#"
@@ -811,15 +1095,20 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
         .exec()?;
 
         let load_in_sandbox: LuaFunction = lua.load("load_in_sandbox").eval()?;
-        let (window, init): (LuaFunction, LuaFunction) =
+        let (window, init): (LuaFunction, Option<LuaFunction>) =
             load_in_sandbox.call((lua.create_string(layout)?, interface))?;
 
         let (app, event) = crate::App::new(
-            app_state,
+            app_state.clone(),
             handlers.into_iter().map(|(_, f)| f).collect(),
             LuaPersist {
                 window,
-                init,
+                id_enter,
+                init: if let Some(init) = init {
+                    Ok(init)
+                } else {
+                    Err(app_state)
+                },
                 phantom: PhantomData,
             },
             |_| (),
