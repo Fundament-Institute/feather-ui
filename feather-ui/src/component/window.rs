@@ -148,6 +148,7 @@ impl WindowState {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
+                    depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(backcolor),
                         store: wgpu::StoreOp::Store,
@@ -336,11 +337,11 @@ impl Window {
         attributes: WindowAttributes,
         child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
     ) -> Self {
-        super::set_children(Self {
+        Self {
             id,
             attributes,
             child,
-        })
+        }
     }
 
     fn resize(size: PhysicalSize<u32>, state: &mut WindowState) {

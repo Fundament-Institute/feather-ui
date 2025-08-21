@@ -9,10 +9,10 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
 use feather_ui::layout::{fixed, leaf};
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsPoint, AbsRect, App, DAbsRect, DPoint, DRect, PxRect, RelRect, SourceID, UNSIZED_AXIS,
-    gen_id, im, winit,
+    AbsPoint, AbsRect, App, DAbsRect, DPoint, DRect, PxRect, RelRect, ScopeID, SourceID,
+    UNSIZED_AXIS, gen_id, im, winit,
 };
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -40,20 +40,26 @@ impl leaf::Padded for FixedData {}
 
 struct BasicApp {}
 
-impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersistStore for BasicApp {
     type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
+}
 
+impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
+    for BasicApp
+{
     fn init(&self) -> Self::Store {
         (CounterState { count: -1 }, im::HashMap::new())
     }
+
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &CounterState,
+        args: CounterState,
+        mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0 != args {
             let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                gen_id!(),
+                scope.next(),
                 Rc::new(PxRect::new(1.0, 1.0, 2.0, 2.0).into()),
                 0.0,
                 0.0,
@@ -67,14 +73,13 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             > = im::Vector::new();
             children.push_back(Some(Box::new(pixel)));
 
-            let genimage = |id: Arc<SourceID>,
-                            pos: AbsPoint,
-                            w: Option<f32>,
-                            h: Option<f32>,
-                            res: &dyn feather_ui::resource::Location,
-                            size: Option<AbsPoint>| {
+            let mut genimage = |pos: AbsPoint,
+                                w: Option<f32>,
+                                h: Option<f32>,
+                                res: &dyn feather_ui::resource::Location,
+                                size: Option<AbsPoint>| {
                 Image::<DRect>::new(
-                    id,
+                    scope.next(),
                     Rc::new(
                         AbsRect::new(
                             pos.x,
@@ -99,7 +104,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 let testimage = PathBuf::from("./premul_test.png");
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(0.0, 0.0),
                     Some(100.0),
                     Some(100.0),
@@ -108,7 +112,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(100.0, 0.0),
                     None,
                     Some(100.0),
@@ -117,7 +120,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(0.0, 100.0),
                     None,
                     None,
@@ -126,7 +128,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(100.0, 100.0),
                     None,
                     None,
@@ -140,7 +141,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 let testsvg = PathBuf::from("./FRI_logo.svg");
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(200.0, 0.0),
                     Some(100.0),
                     Some(100.0),
@@ -149,7 +149,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(300.0, 0.0),
                     None,
                     Some(100.0),
@@ -158,7 +157,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(200.0, 100.0),
                     None,
                     None,
@@ -167,7 +165,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(300.0, 100.0),
                     None,
                     None,
@@ -181,7 +178,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 let testimage = PathBuf::from("./test_color.png");
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(0.0, 200.0),
                     Some(100.0),
                     Some(100.0),
@@ -190,7 +186,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(100.0, 200.0),
                     Some(100.0),
                     None,
@@ -199,7 +194,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(0.0, 300.0),
                     None,
                     None,
@@ -208,7 +202,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(100.0, 300.0),
                     None,
                     None,
@@ -222,7 +215,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 let testimage = PathBuf::from("./dice.jxl");
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(200.0, 200.0),
                     Some(100.0),
                     Some(100.0),
@@ -231,7 +223,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(300.0, 200.0),
                     Some(100.0),
                     None,
@@ -240,7 +231,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(200.0, 300.0),
                     None,
                     None,
@@ -249,7 +239,6 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 ))));
 
                 children.push_back(Some(Box::new(genimage(
-                    gen_id!(),
                     AbsPoint::new(300.0, 300.0),
                     None,
                     None,
@@ -259,7 +248,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             }
 
             let region = Region::new(
-                gen_id!(),
+                gen_id!(scope),
                 FixedData {
                     area: AbsRect::new(10.0, 10.0, -10.0, -10.0) + RelRect::new(0.0, 0.0, 1.0, 1.0),
 
@@ -279,7 +268,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             let icon = None;
 
             let window = Window::new(
-                gen_id!(),
+                gen_id!(scope),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true)

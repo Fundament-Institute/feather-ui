@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
+use crate::component::ChildOf;
 use crate::component::text::Text;
-use crate::component::{ChildOf, set_child_parent};
 use crate::layout::{Desc, Layout, base, flex, leaf};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, UNSIZED_AXIS, gen_id, layout};
@@ -68,12 +68,10 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
     }
 
     pub fn append(&mut self, child: Box<ChildOf<dyn flex::Prop>>) {
-        set_child_parent(&child.id(), self.id.clone()).unwrap();
         self.children.push_back(Some(child));
     }
 
     pub fn prepend(&mut self, child: Box<ChildOf<dyn flex::Prop>>) {
-        set_child_parent(&child.id(), self.id.clone()).unwrap();
         self.children.push_front(Some(child));
     }
 
@@ -120,10 +118,10 @@ impl<T: flex::Prop + 'static> super::Component for Paragraph<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let mut map = VectorMap::new(
+        let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(manager, driver, window))
-            },
+            })
         );
 
         let (_, children) = map.call(Default::default(), &self.children);
