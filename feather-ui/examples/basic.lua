@@ -24,6 +24,7 @@ local function app(appstate)
 					},
 					corners = 10,
 					fill = { 0.2, 0.7, 0.4, 1.0 },
+					outline = 0xFFFFFFFF,
 				},
 				f.text {
 					props = {
@@ -49,7 +50,7 @@ local function app(appstate)
 					},
 					corners = 10, -- shorthand for [10,10,10,10]
 					fill = { 0.7, 0.2, 0.4, 1.0 }, -- colors can be arrays of floats
-					outline = 0x00000000, -- Or specified as an RGBA hex code
+					outline = 0xFFFFFFFF, -- Or specified as an RGBA hex code
 				},
 				f.text {
 					props = {

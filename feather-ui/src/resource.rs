@@ -8,9 +8,8 @@ use jxl_oxide::{EnumColourEncoding, JxlImage};
 #[cfg(feature = "svg")]
 use resvg::{tiny_skia, usvg};
 
-use crate::Pixel;
 use crate::render::atlas;
-use crate::{Error, PxDim};
+use crate::{Error, Pixel, PxDim};
 use guillotiere::euclid::Size2D;
 use std::hash::Hash;
 

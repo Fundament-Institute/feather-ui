@@ -36,7 +36,6 @@ use parking_lot::RwLock;
 use persist::FnPersist2;
 use smallvec::SmallVec;
 use std::any::Any;
-use std::cell::OnceCell;
 use std::cmp::PartialEq;
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
@@ -1384,7 +1383,7 @@ pub enum DataID {
     Named(&'static str),
     Owned(String),
     Int(i64),
-    Other(Box<dyn DynHashEq>),
+    Other(Box<dyn DynHashEq + Sync + Send>),
     #[default]
     None, // Marks an invalid default ID, crashes if you ever try to actually use it.
 }
@@ -1442,23 +1441,11 @@ impl PartialEq for DataID {
 
 #[derive(Clone, Default, Debug)]
 pub struct SourceID {
-    parent: OnceCell<std::sync::Arc<SourceID>>,
+    parent: Option<std::sync::Arc<SourceID>>,
     id: DataID,
 }
 
-// SAFETY: We cannot explain to the compiler that we only ever set "parent" while SourceID
-// only exists in one thread, so we manually implement these unsafe traits.
-unsafe impl Send for SourceID {}
-unsafe impl Sync for SourceID {}
-
 impl SourceID {
-    pub const fn new(id: DataID) -> Self {
-        Self {
-            parent: OnceCell::new(),
-            id,
-        }
-    }
-
     /// Creates a new SourceID out of the given DataID, with ourselves as its parent
     pub fn child(self: &Arc<Self>, id: DataID) -> Arc<Self> {
         Self {
@@ -1480,13 +1467,13 @@ impl SourceID {
     pub(crate) fn parents(self: &Arc<Self>) -> std::collections::HashSet<&Arc<Self>> {
         let mut set = std::collections::HashSet::new();
 
-        let mut cur = self.parent.get();
+        let mut cur = self.parent.as_ref();
         while let Some(id) = cur {
             if set.contains(id) {
                 panic!("Loop detected in IDs! {:?} already existed!", id.id);
             }
             set.insert(id);
-            cur = id.parent.get();
+            cur = id.parent.as_ref();
         }
         set
     }
@@ -1494,20 +1481,20 @@ impl SourceID {
 impl std::cmp::Eq for SourceID {}
 impl PartialEq for SourceID {
     fn eq(&self, other: &Self) -> bool {
-        if let Some(parent) = self.parent.get() {
-            if let Some(pother) = other.parent.get() {
+        if let Some(parent) = self.parent.as_ref() {
+            if let Some(pother) = other.parent.as_ref() {
                 parent == pother && self.id == other.id
             } else {
                 false
             }
         } else {
-            other.parent.get().is_none() && self.id == other.id
+            other.parent.is_none() && self.id == other.id
         }
     }
 }
 impl Hash for SourceID {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Some(parent) = self.parent.get() {
+        if let Some(parent) = self.parent.as_ref() {
             parent.id.hash(state);
         }
         self.id.hash(state);
@@ -1515,11 +1502,11 @@ impl Hash for SourceID {
 }
 impl Display for SourceID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(parent) = self.parent.get() {
+        if let Some(parent) = self.parent.as_ref() {
             parent.fmt(f)?;
         }
 
-        match (&self.id, self.parent.get().is_some()) {
+        match (&self.id, self.parent.is_some()) {
             (DataID::Named(_), true) | (DataID::Owned(_), true) => f.write_str(" -> "),
             (DataID::Other(_), true) => f.write_str(" "),
             _ => Ok(()),
@@ -1828,7 +1815,7 @@ impl StateManager {
     }
 
     fn propagate_change(&mut self, mut id: &Arc<SourceID>) {
-        while let Some(parent) = id.parent.get() {
+        while let Some(parent) = id.parent.as_ref() {
             if let Some(state) = self.states.get_mut(parent) {
                 if state.changed() {
                     // If this state is marked change, then this change must have already propagated upwards and we have no more work to do.
@@ -1893,7 +1880,7 @@ impl StateManager {
 
 #[allow(clippy::declare_interior_mutable_const)]
 pub const APP_SOURCE_ID: SourceID = SourceID {
-    parent: OnceCell::new(),
+    parent: None,
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
@@ -2054,7 +2041,7 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
             ScopeID::root(),
         );
         debug_assert!(
-            APP_SOURCE_ID.parent.get().is_none(),
+            APP_SOURCE_ID.parent.is_none(),
             "Something set the APP_SOURCE parent! This should never happen!"
         );
 

@@ -92,7 +92,8 @@ pub fn arcs<T: leaf::Padded + 'static>(
     props: Rc<T>,
     border: f32,
     blur: f32,
-    arcs: wide::f32x4,
+    inner_radius: f32,
+    arcs: [f32; 2],
     fill: sRGB,
     outline: sRGB,
 ) -> Shape<T, { ShapeKind::Arc as u8 }> {
@@ -101,7 +102,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
         props,
         border,
         blur,
-        corners: arcs.to_array(),
+        corners: [arcs[0], arcs[1], inner_radius, 0.0],
         fill,
         outline,
     }
@@ -194,7 +195,8 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
         props: Rc<T>,
         border: f32,
         blur: f32,
-        arcs: wide::f32x4,
+        inner_radius: f32,
+        arcs: [f32; 2],
         fill: sRGB,
         outline: sRGB,
     ) -> Self {
@@ -203,7 +205,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
             props,
             border,
             blur,
-            corners: arcs.to_array(),
+            corners: [arcs[0], arcs[1], inner_radius, 0.0],
             fill,
             outline,
         }
