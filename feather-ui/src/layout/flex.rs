@@ -6,7 +6,7 @@ use super::{
     map_unsized_area, merge_margin, nuetralize_unsized,
 };
 use crate::layout::Swappable;
-use crate::persist::{FnPersist2, VectorFold};
+use crate::persist::{FnPersist2, Persist2, VectorFold};
 use crate::{
     DAbsRect, DValue, PxDim, PxLimits, PxPerimeter, PxPoint, PxRect, RelDim, RowDirection,
     UNSIZED_AXIS, rtree,
@@ -374,8 +374,8 @@ impl Desc for dyn Prop {
         // Note that margins only ever apply between elements, not edges, so we completely ignore the
         // off-axis margin, as this calculation assumes there is only 1 line of items, and the off-axis
         // margin doesn't apply until there are linebreaks.
-        let mut fold = VectorFold::new(&|prev: &(f32, f32, f32),
-                                         n: &Option<ChildCache>|
+        let mut fold = VectorFold::new(Persist2::new(&|prev: (f32, f32, f32),
+                                                       n: &Option<ChildCache>|
          -> (f32, f32, f32) {
             let cache = n.as_ref().unwrap();
             (
@@ -383,10 +383,10 @@ impl Desc for dyn Prop {
                 cache.aux.max(prev.1),
                 cache.margin.bottomright().width,
             )
-        });
+        }));
 
         let (_, (used_main, used_aux, _)) =
-            fold.call(fold.init(), &(0.0, 0.0, f32::NAN), &childareas);
+            fold.call(fold.init(), (0.0, 0.0, f32::NAN), &childareas);
 
         let evaluated_area = {
             let (used_x, used_y) = super::swap_pair(xaxis, (used_main, used_aux));

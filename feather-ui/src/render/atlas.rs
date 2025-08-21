@@ -499,6 +499,7 @@ impl Atlas {
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                             view: dest,
                             resolve_target: None,
+                            depth_slice: None,
                             ops: wgpu::Operations {
                                 load: wgpu::LoadOp::Load,
                                 store: wgpu::StoreOp::Store,
@@ -566,6 +567,7 @@ impl Atlas {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.targets[i as usize],
                     resolve_target: None,
+                    depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,

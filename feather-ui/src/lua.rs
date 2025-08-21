@@ -9,10 +9,11 @@ use crate::component::shape::{Shape, ShapeKind};
 use crate::component::text::Text;
 use crate::component::window::Window;
 use crate::layout::{fixed, flex};
+use crate::persist::FnPersistStore;
 use crate::propbag::PropBag;
 use crate::{
-    APP_SOURCE_ID, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist, Logical, Pixel,
-    Rect, Relative, Slot, SourceID, StateMachineChild, UNSIZED_AXIS,
+    APP_SOURCE_ID, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist2, Logical, Pixel,
+    Rect, Relative, ScopeID, Slot, SourceID, StateMachineChild, UNSIZED_AXIS,
 };
 use guillotiere::euclid::Point2D;
 use mlua::UserData;
@@ -29,12 +30,12 @@ const FEATHER: &[u8] = include_bytes!("./feather.lua");
 
 struct NamedChunk<'a>(&'a [u8], &'a str);
 
-impl mlua::AsChunk<'static> for NamedChunk<'static> {
+impl mlua::AsChunk for NamedChunk<'static> {
     fn name(&self) -> Option<String> {
         Some(self.1.into())
     }
 
-    fn source(self) -> std::io::Result<std::borrow::Cow<'static, [u8]>> {
+    fn source<'a>(&self) -> std::io::Result<std::borrow::Cow<'a, [u8]>> {
         Ok(std::borrow::Cow::Borrowed(self.0))
     }
 }
@@ -43,8 +44,14 @@ fn point_to_rect<T>(pt: Point2D<f32, T>) -> Rect<T> {
     Rect::new(pt.x, pt.y, pt.x, pt.y)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct LuaSourceID(Arc<SourceID>);
+
+impl std::fmt::Display for LuaSourceID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 struct LuaEnum<T>(T);
 
@@ -488,10 +495,14 @@ impl Default for LuaFontFamily {
 
 impl FromLua for LuaFontFamily {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        let name = value.as_str().ok_or(LuaError::RuntimeError(format!(
-            "Expected a string, but found {}",
-            value.type_name()
-        )))?;
+        let name =
+            value
+                .as_string()
+                .and_then(|s| s.to_str().ok())
+                .ok_or(LuaError::RuntimeError(format!(
+                    "Expected a string, but found {}",
+                    value.type_name()
+                )))?;
 
         Ok(LuaFontFamily(if name.eq_ignore_ascii_case("serif") {
             cosmic_text::FamilyOwned::Serif
@@ -608,11 +619,14 @@ pub struct LuaPersist<AppData> {
     phantom: PhantomData<AppData>,
 }
 
-impl<AppData: Clone + FromLua + IntoLua>
-    FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>> for LuaPersist<AppData>
-{
+impl<AppData: Clone> FnPersistStore for LuaPersist<AppData> {
     type Store = AppData;
+}
 
+impl<AppData: Clone + FromLua + IntoLua>
+    FnPersist2<AppData, ScopeID<'static>, im::HashMap<Arc<SourceID>, Option<Window>>>
+    for LuaPersist<AppData>
+{
     fn init(&self) -> Self::Store {
         let r = match &self.init {
             Ok(init) => init.call::<AppData>(()),
@@ -628,16 +642,17 @@ impl<AppData: Clone + FromLua + IntoLua>
     fn call(
         &mut self,
         _: Self::Store,
-        args: &AppData,
+        appdata: AppData,
+        mut id: ScopeID<'static>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let mut h = im::HashMap::new();
 
         let (store, w) = self
             .id_enter
             .call::<(AppData, crate::component::window::Window)>((
-                LuaSourceID(Arc::new(crate::APP_SOURCE_ID)),
+                LuaSourceID(id.id().clone()),
                 self.window.clone(),
-                args.clone(),
+                appdata.clone(),
             ))
             .unwrap();
         /*let (store, w) = self
@@ -883,17 +898,15 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compon
 }
 
 fn create_button(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
-    println!("inside create_button");
     let (children, bag) = prop_children(&body)?;
 
     let onclick = get_required(&body, "onclick")?;
-    let res : LuaResult<ComponentBag> = Ok(Box::new(Button::<PropBag>::new(
+    let res: LuaResult<ComponentBag> = Ok(Box::new(Button::<PropBag>::new(
         id.0,
         bag.into(),
         onclick,
         children,
     )));
-    println!("leaving create_button");
     res
 }
 
@@ -948,7 +961,8 @@ fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResul
 }
 
 fn create_id(_: &Lua, (parent, v): (Option<LuaSourceID>, LuaValue)) -> LuaResult<LuaSourceID> {
-    println!("inside create_id");
+    println!("{parent:?}");
+
     if let Some(n) = v.as_integer() {
         if let Some(parent) = parent {
             Ok(LuaSourceID(parent.0.child(DataID::Int(n))))
@@ -1062,7 +1076,7 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
 
         let preload_mt = lua.create_table()?;
         preload_mt.set("__index", lua.globals())?;
-        preload.set_metatable(Some(preload_mt));
+        preload.set_metatable(Some(preload_mt))?;
 
         let feather: LuaTable = lua
             .load(NamedChunk(FEATHER, "feather"))

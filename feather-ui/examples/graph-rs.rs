@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use feather_ui::color::sRGB;
-use feather_ui::{AbsPoint, AbsVector, gen_id};
+use feather_ui::{AbsPoint, AbsVector, ScopeID, gen_id};
 
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
@@ -13,7 +13,7 @@ use feather_ui::component::window::Window;
 use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::input::MouseButton;
 use feather_ui::layout::{base, fixed, leaf};
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
     AbsRect, App, CrossReferenceDomain, DRect, DataID, FILL_DRECT, Slot, SourceID, WrapEventEx, im,
 };
@@ -48,9 +48,11 @@ impl leaf::Prop for MinimalArea {}
 
 const NODE_RADIUS: f32 = 25.0;
 
-impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersistStore for BasicApp {
     type Store = (GraphState, im::HashMap<Arc<SourceID>, Option<Window>>);
+}
 
+impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
         (
             GraphState {
@@ -65,9 +67,10 @@ impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for Basic
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &GraphState,
+        args: GraphState,
+        mut id: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0 != args {
             let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
             let domain: Arc<CrossReferenceDomain> = Default::default();
 
