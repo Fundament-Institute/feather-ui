@@ -690,14 +690,18 @@ do
 		return exitscope(pushIdNode, pushIdCount, body(...)) -- errors within body may skip scope exit handling
 	end
 
+	---@generic T1, T2
+	---@param body fun(...: T2) : T1
+	---@param ... T2
+	---@return T1
 	function ID.child(body, ...)
 		local nextid = ID.next()
 		return ID.enter(nextid, body, ...)
 	end
 
 	function ID.iter(name, iterator, state)
-		if type(name) ~= "string" then
-			name, iterator, state = nil, iterator, state
+		if name ~= nil and type(name) ~= "string" then
+			name, iterator, state = nil, name, iterator
 		end
 
 		local pushIdNode, pushIdCount, parentNode
@@ -720,32 +724,89 @@ do
 				end
 				parentNode = IdNode
 			end
-			return handleLast(iterator(state, ...))
-		end
+			return handleLast(iterator(state, id, ...))
+		end,
+			state
 	end
 
 	function ID.wrap_child(body, name)
-		if name and printTrace then print("inside ID-wrapped function " .. name) end
 		return function(...) return ID.child(body, ...) end
 	end
 end
 
----comment
----@param args table
----@
-local function component(args)
-	return function(body) end
+-- "required" marker table
+local required = setmetatable({}, {})
+
+--- Validates a set of attributes against a definition and returns the args replaced
+--- by default values if validation passes, or raises an error if a failure happens.
+---@generic T
+---@param args T
+---@param def table
+---@return T
+local function validate_def(args, def)
+	for k, v in pairs(args) do
+		if def[k] == nil then error("Unexpected attribute found in " .. tostring(k)) end
+	end
+
+	local attrs = {}
+	for k, v in pairs(def) do
+		if args[k] == nil then
+			if v == required then error("Missing required argument " .. tostring(k)) end
+			attrs[k] = v
+		else
+			attrs[k] = args[k]
+		end
+	end
+
+	return attrs
+end
+
+---@alias attr_func fun(attrs: table):table
+
+--- Creates a custom component with a given set of arguments. `def` represents
+--- the parameters accepted by the component function, and provides a default
+--- value for the parameter if it isn't required. The returned function validates
+--- arguments passed to the function, enters a new ID context, then executes the
+--- body and returns the result.
+---@generic T
+---@param def table
+---@return fun(gen: fun(body: T) : table) : fun(attrs: T) : table
+local function component(def)
+	return function(gen)
+		return function(attrs) return ID.child(gen, validate_def(attrs, def)) end
+	end
 end
 
 local function exit_wrapped_fun(name, ...)
 	if name and printTrace then print("leaving ID-sensitive function " .. name) end
 	return ...
 end
+
 local function wrap_create(f, name)
 	return function(body)
 		if name and printTrace then print("inside ID-sensitive function " .. name) end
 		return exit_wrapped_fun(name, f(ID.next(), body))
 	end
+end
+
+---@generic K, V
+---@param name string?
+---@param target { [K]: V }?
+---@param f fun(k:K, v:V) : table
+---@return ...
+local function each(name, target, f)
+	if type(name) ~= "string" then
+		name, target = nil, name
+	end
+	---@cast target -nil
+
+	local r = {}
+	for k, v in ID.iter(name, pairs(target)) do
+		local c = f(k, v)
+		if c == nil then error("function passed to each returned nil on " .. k) end
+		table.insert(r, c)
+	end
+	return table.unpack(r)
 end
 
 return {
@@ -760,7 +821,7 @@ return {
 	UNSIZED = rel(0, 0, 0 / 0, 0 / 0),
 	WRAP = { NONE = 0, WORD = 1, CHARACTER = 2, ANY = 3 },
 	component = component,
-	required = setmetatable({}, {}),
+	required = required,
 	optional = function(default) setmetatable({ default = default }, {}) end,
 	window = wrap_create(create_window, "create_window"),
 	region = wrap_create(create_region, "create_region"),
@@ -768,6 +829,10 @@ return {
 	text = wrap_create(create_text, "create_text"),
 	shape = {
 		rect = wrap_create(create_round_rect, "create_round_rect"),
+		circle = wrap_create(create_circle, "create_circle"),
+		arc = wrap_create(create_arc, "create_arc"),
+		triangle = wrap_create(create_triangle, "create_triangle"),
 	},
 	ID = ID,
+	each = each,
 }

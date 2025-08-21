@@ -8,12 +8,12 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ChildOf, mouse_area};
+use feather_ui::component::{mouse_area, ChildOf};
 use feather_ui::layout::fixed;
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsRect, App, DRect, FILL_DRECT, RelRect, ScopeID, Slot, SourceID, WrapEventEx, gen_id, im,
-    wide,
+    gen_id, im, wide, AbsRect, App, DRect, RelRect, ScopeID, Slot, SourceID, WrapEventEx,
+    FILL_DRECT,
 };
 use std::any::{Any, TypeId};
 use std::f32;

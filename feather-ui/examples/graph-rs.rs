@@ -68,7 +68,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
         &mut self,
         mut store: Self::Store,
         args: GraphState,
-        mut id: ScopeID<'_>,
+        mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != args {
             let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
@@ -76,15 +76,15 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
 
             let mut node_ids: Vec<Arc<SourceID>> = Vec::new();
 
-            for i in 0..args.nodes.len() {
+            for (i, id) in scope.iter(0..args.nodes.len()) {
                 let node = args.nodes[i];
                 const BASE: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
 
-                let point = DomainPoint::new(gen_id!(), domain.clone());
+                let point = DomainPoint::new(id, domain.clone());
                 node_ids.push(point.id.clone());
 
                 let circle = Shape::<DRect, { ShapeKind::Circle as u8 }>::new(
-                    gen_id!(),
+                    gen_id!(point.id),
                     FILL_DRECT.into(),
                     0.0,
                     0.0,
@@ -98,7 +98,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
                 );
 
                 let bag = Region::<MinimalArea>::new(
-                    gen_id!(gen_id!(), i),
+                    gen_id!(point.id),
                     MinimalArea {
                         area: AbsRect::new(
                             node.x - NODE_RADIUS,
@@ -115,13 +115,9 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
                 children.push_back(Some(Box::new(bag)));
             }
 
-            let edge_id = gen_id!();
-
-            for (a, b) in &args.edges {
+            for ((a, b), id) in scope.iter(&args.edges) {
                 let line = DomainLine::<()> {
-                    id: edge_id
-                        .child(DataID::Int(*a as i64))
-                        .child(DataID::Int(*b as i64)),
+                    id,
                     fill: sRGB::white(),
                     domain: domain.clone(),
                     start: node_ids[*a].clone(),
@@ -133,7 +129,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
             }
 
             let subregion = Region::new(
-                gen_id!(),
+                gen_id!(scope),
                 MinimalArea {
                     area: AbsRect::new(
                         args.offset.x,
@@ -148,7 +144,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
             );
 
             let mousearea: MouseArea<MinimalArea> = MouseArea::new(
-                gen_id!(),
+                gen_id!(scope),
                 MinimalArea { area: FILL_DRECT },
                 Some(4.0),
                 [
@@ -162,13 +158,13 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
             );
 
             let region = Region::new(
-                gen_id!(),
+                gen_id!(scope),
                 MinimalArea { area: FILL_DRECT }.into(),
                 feather_ui::children![fixed::Prop, subregion, mousearea],
             );
 
             let window = Window::new(
-                gen_id!(),
+                gen_id!(scope),
                 feather_ui::winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),

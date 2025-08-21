@@ -2,12 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::{sRGB, sRGB32};
-use crate::component::ChildOf;
 use crate::component::button::Button;
 use crate::component::region::Region;
-use crate::component::shape::{Shape, ShapeKind};
 use crate::component::text::Text;
 use crate::component::window::Window;
+use crate::component::{ChildOf, shape};
 use crate::layout::{fixed, flex};
 use crate::persist::FnPersistStore;
 use crate::propbag::PropBag;
@@ -316,7 +315,7 @@ impl FromLua for DAbsRect {
             Ok(DAbsRect { dp, px })
         } else if name == "pxrect_mt" {
             Ok(Rect::<Pixel>::from_lua(value, lua)?.into())
-        } else if name == "absrect_mt" {
+        } else if name == "dprect_mt" {
             Ok(Rect::<Logical>::from_lua(value, lua)?.into())
         } else if name == "pxpoint_mt" {
             Ok(point_to_rect(LuaPoint::<Pixel>::from_lua(value, lua)?.0).into())
@@ -354,7 +353,7 @@ impl FromLua for DRect {
             Ok(DRect { dp, px, rel })
         } else if name == "pxrect_mt" {
             Ok(Rect::<Pixel>::from_lua(value, lua)?.into())
-        } else if name == "absrect_mt" {
+        } else if name == "dprect_mt" {
             Ok(Rect::<Logical>::from_lua(value, lua)?.into())
         } else if name == "relrect_mt" {
             Ok(Rect::<Relative>::from_lua(value, lua)?.into())
@@ -450,16 +449,42 @@ impl FromLua for DPoint {
 struct LimitPoint(DPoint);
 
 impl FromLua for LimitPoint {
-    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         let v = value.as_table().ok_or(LuaError::RuntimeError(format!(
             "Expected a point, but found {}",
             value.type_name()
         )))?;
 
-        let px = get_or::<LuaPoint<Pixel>>(v, "px", LuaPoint::nan())?.0;
-        let dp = get_or::<LuaPoint<Logical>>(v, "dp", LuaPoint::nan())?.0;
-        let rel = get_or::<LuaPoint<Relative>>(v, "rel", LuaPoint::nan())?.0;
-        Ok(LimitPoint(DPoint { dp, px, rel }))
+        // We can't use the default .into() method here because all unassigned values must be NaN
+        let name = get_name(v)?;
+        if name == "pxpoint_mt" {
+            Ok(LimitPoint(DPoint {
+                rel: LuaPoint::nan().0,
+                dp: LuaPoint::nan().0,
+                px: LuaPoint::<Pixel>::from_lua(value, lua)?.0,
+            }))
+        } else if name == "abspoint_mt" {
+            Ok(LimitPoint(DPoint {
+                rel: LuaPoint::nan().0,
+                dp: LuaPoint::<Logical>::from_lua(value, lua)?.0,
+                px: LuaPoint::nan().0,
+            }))
+        } else if name == "relpoint_mt" {
+            Ok(LimitPoint(DPoint {
+                rel: LuaPoint::<Relative>::from_lua(value, lua)?.0,
+                dp: LuaPoint::nan().0,
+                px: LuaPoint::nan().0,
+            }))
+        } else if name == "coord_mt" {
+            let px = get_or::<LuaPoint<Pixel>>(v, "px", LuaPoint::nan())?.0;
+            let dp = get_or::<LuaPoint<Logical>>(v, "dp", LuaPoint::nan())?.0;
+            let rel = get_or::<LuaPoint<Relative>>(v, "rel", LuaPoint::nan())?.0;
+            Ok(LimitPoint(DPoint { dp, px, rel }))
+        } else {
+            Err(LuaError::RuntimeError(format!(
+                "Expected a point, but found {name}",
+            )))
+        }
     }
 }
 
@@ -943,26 +968,86 @@ fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResul
 
     let border = get_or_default(&body, "border")?;
     let blur = get_or_default(&body, "blur")?;
-    let fill = get_or_default(&body, "style")?;
-    let outline = get_or_default(&body, "wrap")?;
+    let fill = get_or_default(&body, "fill")?;
+    let outline = get_or_default(&body, "outline")?;
     let corners = get_array_or(lua, &body, "corners", [0.0; 4])?;
 
-    Ok(Box::new(
-        Shape::<PropBag, { ShapeKind::RoundRect as u8 }>::new(
-            id.0,
-            bag.into(),
-            border,
-            blur,
-            wide::f32x4::new(corners),
-            fill,
-            outline,
-        ),
-    ))
+    Ok(Box::new(shape::round_rect(
+        id.0,
+        bag.into(),
+        border,
+        blur,
+        wide::f32x4::new(corners),
+        fill,
+        outline,
+    )))
+}
+
+fn create_arc(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let (_, bag) = prop_children(&body)?;
+
+    let border = get_or_default(&body, "border")?;
+    let blur = get_or_default(&body, "blur")?;
+    let fill = get_or_default(&body, "fill")?;
+    let outline = get_or_default(&body, "outline")?;
+    let angles = get_array_or(lua, &body, "angles", [0.0; 2])?;
+    let inner_radius = get_or_default(&body, "inner_radius")?;
+
+    Ok(Box::new(shape::arcs(
+        id.0,
+        bag.into(),
+        border,
+        blur,
+        inner_radius,
+        angles,
+        fill,
+        outline,
+    )))
+}
+
+fn create_triangle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let (_, bag) = prop_children(&body)?;
+
+    let border = get_or_default(&body, "border")?;
+    let blur = get_or_default(&body, "blur")?;
+    let fill = get_or_default(&body, "fill")?;
+    let outline = get_or_default(&body, "outline")?;
+    let corners = get_array_or(lua, &body, "corners", [0.0; 3])?;
+    let offset = get_or_default(&body, "offset")?;
+
+    Ok(Box::new(shape::triangle(
+        id.0,
+        bag.into(),
+        border,
+        blur,
+        corners,
+        offset,
+        fill,
+        outline,
+    )))
+}
+
+fn create_circle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let (_, bag) = prop_children(&body)?;
+
+    let border = get_or_default(&body, "border")?;
+    let blur = get_or_default(&body, "blur")?;
+    let fill = get_or_default(&body, "fill")?;
+    let outline = get_or_default(&body, "outline")?;
+    let radii = get_array_or(lua, &body, "radii", [0.0; 2])?;
+
+    Ok(Box::new(shape::circle(
+        id.0,
+        bag.into(),
+        border,
+        blur,
+        radii,
+        fill,
+        outline,
+    )))
 }
 
 fn create_id(_: &Lua, (parent, v): (Option<LuaSourceID>, LuaValue)) -> LuaResult<LuaSourceID> {
-    println!("{parent:?}");
-
     if let Some(n) = v.as_integer() {
         if let Some(parent) = parent {
             Ok(LuaSourceID(parent.0.child(DataID::Int(n))))
@@ -1073,6 +1158,9 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
         preload.set("create_button", lua.create_function(create_button)?)?;
         preload.set("create_text", lua.create_function(create_text)?)?;
         preload.set("create_round_rect", lua.create_function(create_round_rect)?)?;
+        preload.set("create_arc", lua.create_function(create_arc)?)?;
+        preload.set("create_triangle", lua.create_function(create_triangle)?)?;
+        preload.set("create_circle", lua.create_function(create_circle)?)?;
 
         let preload_mt = lua.create_table()?;
         preload_mt.set("__index", lua.globals())?;
