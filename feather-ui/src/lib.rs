@@ -33,7 +33,7 @@ use eyre::OptionExt;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
 use parking_lot::RwLock;
-use persist::FnPersist;
+use persist::FnPersist2;
 use smallvec::SmallVec;
 use std::any::Any;
 use std::cell::OnceCell;
@@ -57,15 +57,22 @@ type Mat4x4 = euclid::default::Transform3D<f32>;
 #[cfg(feature = "lua")]
 pub use mlua;
 
+/// While the ID scope provides a .next() method to generate a new, unique ID, this
+/// macro allows you to generate a unique ID with the file name and line embedded in
+/// it. This helps when debugging, because it'll tell you exactly what line of code
+/// generated the element causing the problem.
+///
+/// # Examples:
+///
+/// ```
+/// use feather_ui::{gen_id, ScopeID};
+///
+/// fn app(id: &mut ScopeID) {
+///   let unique_id = gen_id!(id); // unique_id now contains the source location where gen_id! was invoked.
+/// }
+/// ```
 #[macro_export]
 macro_rules! gen_id {
-    () => {
-        std::sync::Arc::new($crate::SourceID::new($crate::DataID::Named(concat!(
-            file!(),
-            ":",
-            line!()
-        ))))
-    };
     ($idx:expr) => {
         $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
     };
@@ -1467,6 +1474,7 @@ impl SourceID {
         self.child(DataID::Int(Arc::strong_count(self) as i64))
     }
 
+    #[allow(dead_code)] // TODO: not sure if we'll need this later
     #[cfg(debug_assertions)]
     #[allow(clippy::mutable_key_type)]
     pub(crate) fn parents(self: &Arc<Self>) -> std::collections::HashSet<&Arc<Self>> {
@@ -1474,6 +1482,9 @@ impl SourceID {
 
         let mut cur = self.parent.get();
         while let Some(id) = cur {
+            if set.contains(id) {
+                panic!("Loop detected in IDs! {:?} already existed!", id.id);
+            }
             set.insert(id);
             cur = id.parent.get();
         }
@@ -1524,6 +1535,115 @@ impl Display for SourceID {
                 write!(f, "{{{}}}", h.finish())
             }
             DataID::None => Ok(()),
+        }
+    }
+}
+
+pub struct ScopeIterID<'a, T> {
+    base: ScopeID<'a>,
+    it: T,
+}
+
+impl<'a, T: Iterator> ScopeIterID<'a, T> {
+    fn new(parent: &'a mut ScopeID<'_>, it: T) -> Self {
+        Self {
+            base: parent.scope(),
+            it,
+        }
+    }
+}
+
+impl<T> Iterator for ScopeIterID<'_, T>
+where
+    T: Iterator,
+{
+    type Item = (T::Item, Arc<SourceID>);
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let x = self.it.next()?;
+        let id = self.base.next();
+        Some((x, id))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.it.size_hint()
+    }
+
+    #[inline]
+    fn nth(&mut self, mut n: usize) -> Option<Self::Item> {
+        while let Some(x) = Iterator::next(self) {
+            if n == 0 {
+                return Some(x);
+            }
+            n -= 1;
+        }
+        None
+    }
+
+    #[inline]
+    fn fold<Acc, F>(mut self, init: Acc, mut f: F) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
+    {
+        let mut accum = init;
+        while let Some(x) = Iterator::next(&mut self) {
+            accum = f(accum, x);
+        }
+        accum
+    }
+}
+
+/// Represents a scope with a particular ID assigned to it. Used to generate new IDs for anything created
+/// inside this scope, with this scope's ID as parents, or to generate a new ScopeID with this scope as its
+/// parent.
+pub struct ScopeID<'a> {
+    // This is only used to force a mutable borrow of the parent, which ensures you cannot fork ID scopes
+    _parent: PhantomData<&'a mut ()>,
+    base: Arc<SourceID>,
+    count: i64,
+}
+
+impl<'a> ScopeID<'a> {
+    /// Gets the underlying ID for this scope
+    pub fn id(&mut self) -> &Arc<SourceID> {
+        &self.base
+    }
+
+    /// Creates a new unique SourceID using an internal counter with this scope as it's parent.
+    pub fn next(&mut self) -> Arc<SourceID> {
+        let node = self.base.child(crate::DataID::Int(self.count));
+        self.count += 1;
+        node
+    }
+
+    /// Creates a new scoped ID with this scope as it's parent that can then be passed into a function.
+    pub fn scope(&mut self) -> ScopeID<'_> {
+        ScopeID {
+            base: self.next(),
+            _parent: PhantomData,
+            count: 0,
+        }
+    }
+
+    /// Creates a new unique SourceID using the provided DataID, which bypasses the internal counter.
+    /// This should generally not be invoked directly by users - instead it is used by the `gen_id!()` macro.
+    pub fn child(&mut self, id: DataID) -> Arc<SourceID> {
+        self.base.child(id)
+    }
+
+    /// Wraps another iterator and returns a pair of both a unique ID and the result of the iterator.
+    pub fn iter<U: IntoIterator>(&mut self, other: U) -> ScopeIterID<'_, U::IntoIter> {
+        ScopeIterID::new(self, other.into_iter())
+    }
+
+    // Used internally to generate the root scope encapsulating the hardcoded APP_SOURCE_ID
+    fn root() -> ScopeID<'a> {
+        ScopeID {
+            _parent: PhantomData,
+            base: Arc::new(APP_SOURCE_ID),
+            count: 0,
         }
     }
 }
@@ -1777,7 +1897,9 @@ pub const APP_SOURCE_ID: SourceID = SourceID {
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
-pub struct App<AppData, O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>> {
+type OutlineReturn = im::HashMap<Arc<SourceID>, Option<Window>>;
+
+pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
     state: StateManager,
@@ -1786,6 +1908,7 @@ pub struct App<AppData, O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<
     _parents: BTreeMap<DataID, DataID>,
     root: component::Root, // Root component node containing all windows
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
+    _phantom: PhantomData<AppData>,
 }
 
 struct AppDataMachine<AppData> {
@@ -1840,10 +1963,8 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-impl<
-    AppData: PartialEq + 'static,
-    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
-> App<AppData, O>
+impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
+    App<AppData, O>
 {
     pub fn new<T: 'static>(
         app_state: AppData,
@@ -1918,6 +2039,7 @@ impl<
                 _parents: Default::default(),
                 root: component::Root::new(),
                 driver_init: Some(Box::new(driver_init)),
+                _phantom: PhantomData,
             },
             event_loop,
         ))
@@ -1926,7 +2048,11 @@ impl<
     #[allow(clippy::borrow_interior_mutable_const)]
     fn update_outline(&mut self, event_loop: &ActiveEventLoop, store: O::Store) {
         let app_state: &AppDataMachine<AppData> = self.state.get(&APP_SOURCE_ID).unwrap();
-        let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
+        let (store, windows) = self.outline.call(
+            store,
+            app_state.state.as_ref().unwrap().clone(),
+            ScopeID::root(),
+        );
         debug_assert!(
             APP_SOURCE_ID.parent.get().is_none(),
             "Something set the APP_SOURCE parent! This should never happen!"
@@ -1953,9 +2079,9 @@ impl<
 }
 
 impl<
-    AppData: PartialEq + 'static,
+    AppData: Clone + PartialEq + 'static,
     T: 'static,
-    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
+    O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>,
 > winit::application::ApplicationHandler<T> for App<AppData, O>
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -2092,6 +2218,7 @@ impl<
                                                 wgpu::RenderPassColorAttachment {
                                                     view: &atlas.targets[slice as usize],
                                                     resolve_target: None,
+                                                    depth_slice: None,
                                                     ops: wgpu::Operations {
                                                         load: if true {
                                                             wgpu::LoadOp::Clear(
@@ -2187,42 +2314,45 @@ impl<
 struct TestApp {}
 
 #[cfg(test)]
-impl FnPersist<u8, im::HashMap<Arc<SourceID>, Option<Window>>> for TestApp {
-    type Store = (u8, im::HashMap<Arc<SourceID>, Option<Window>>);
+impl crate::persist::FnPersistStore for TestApp {
+    type Store = (u8, OutlineReturn);
+}
 
+#[cfg(test)]
+impl FnPersist2<u8, ScopeID<'static>, OutlineReturn> for TestApp {
     fn init(&self) -> Self::Store {
+        (0, im::HashMap::new())
+    }
+
+    fn call(
+        &mut self,
+        store: Self::Store,
+        _: u8,
+        mut id: ScopeID<'static>,
+    ) -> (Self::Store, OutlineReturn) {
         use crate::color::sRGB;
         use crate::component::shape::Shape;
-        use bytemuck::Zeroable;
+
         let rect = Shape::<DRect, { component::shape::ShapeKind::RoundRect as u8 }>::new(
-            gen_id!(),
+            gen_id!(id),
             crate::FILL_DRECT.into(),
             0.0,
             0.0,
-            f32x4::zeroed(),
+            f32x4::splat(0.0),
             sRGB::new(1.0, 0.0, 0.0, 1.0),
             sRGB::transparent(),
         );
         let window = Window::new(
-            gen_id!(),
+            gen_id!(id),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),
             Box::new(rect),
         );
 
-        let mut hash = im::HashMap::new();
-        hash.insert(window.id().clone(), Some(window));
+        let mut windows = im::HashMap::new();
+        windows.insert(window.id().clone(), Some(window));
 
-        (0, hash)
-    }
-
-    fn call(
-        &mut self,
-        store: Self::Store,
-        _: &u8,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        let windows = store.1.clone();
         (store, windows)
     }
 }

@@ -13,10 +13,10 @@ use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, flex, leaf, list};
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsRect, App, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID, UNSIZED_AXIS, gen_id,
-    im,
+    AbsRect, App, DRect, DValue, DataID, FILL_DRECT, RelRect, ScopeID, Slot, SourceID,
+    UNSIZED_AXIS, gen_id, im,
 };
 use std::sync::Arc;
 
@@ -115,21 +115,27 @@ impl flex::Prop for MinimalFlex {
 
 struct BasicApp {}
 
-impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersistStore for BasicApp {
     type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
+}
 
+impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
+    for BasicApp
+{
     fn init(&self) -> Self::Store {
         (CounterState { count: -1 }, im::HashMap::new())
     }
+
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &CounterState,
+        args: CounterState,
+        mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0 != args {
             let button = {
                 let text = Text::<FixedData> {
-                    id: gen_id!(),
+                    id: gen_id!(scope),
                     props: FixedData {
                         area: AbsRect::new(10.0, 15.0, 10.0, 15.0)
                             + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
@@ -145,7 +151,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 };
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                    gen_id!(),
+                    gen_id!(scope),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
@@ -155,7 +161,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 );
 
                 Button::<FixedData>::new(
-                    gen_id!(),
+                    gen_id!(scope),
                     FixedData {
                         area: AbsRect::new(0.0, 20.0, 0.0, 0.0)
                             + RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
@@ -172,14 +178,12 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 let mut children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>> =
                     im::Vector::new();
 
-                let rect_id = gen_id!();
-
-                for i in 0..args.count {
+                for (i, id) in scope.iter(0..args.count) {
                     children.push_back(Some(Box::new(Shape::<
                         ListChild,
                         { ShapeKind::RoundRect as u8 },
                     >::new(
-                        rect_id.child(DataID::Int(i as i64)),
+                        id,
                         ListChild {
                             area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
                             margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
@@ -199,7 +203,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 }
 
                 ListBox::<ListData>::new(
-                    gen_id!(),
+                    gen_id!(scope),
                     ListData {
                         area: AbsRect::new(0.0, 200.0, 0.0, 0.0)
                             + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
@@ -216,13 +220,12 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 let mut children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>> =
                     im::Vector::new();
 
-                let box_id = gen_id!();
-                for i in 0..args.count {
+                for (i, id) in scope.iter(0..args.count) {
                     children.push_back(Some(Box::new(Shape::<
                         FlexChild,
                         { ShapeKind::RoundRect as u8 },
                     >::new(
-                        box_id.child(DataID::Int(i as i64)),
+                        id,
                         FlexChild {
                             area: AbsRect::new(0.0, 0.0, 0.0, 40.0)
                                 + RelRect::new(0.0, 0.0, 1.0, 0.0),
@@ -247,7 +250,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 }
 
                 FlexBox::<MinimalFlex>::new(
-                    gen_id!(),
+                    gen_id!(scope),
                     MinimalFlex {
                         area: (AbsRect::new(40.0, 40.0, 0.0, 200.0)
                             + RelRect::new(0.0, 0.0, 1.0, 0.0))
@@ -259,7 +262,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             };
 
             let region = Region::new(
-                gen_id!(),
+                gen_id!(scope),
                 FixedData {
                     area: FILL_DRECT,
                     zindex: 0,
@@ -269,7 +272,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 feather_ui::children![fixed::Prop, button, flexlist, rectlist],
             );
             let window = Window::new(
-                gen_id!(),
+                gen_id!(scope),
                 feather_ui::winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),

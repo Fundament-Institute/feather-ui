@@ -664,7 +664,7 @@ end
 local px = gen_unified("px")
 local dp = gen_unified("dp")
 local rel = gen_unified("rel")
-local printTrace = true
+local printTrace = false
 
 local ID = {}
 do
@@ -685,7 +685,6 @@ do
 		return ...
 	end
 	function ID.enter(id, body, ...)
-		print("inside enter")
 		local pushIdNode, pushIdCount = IdNode, IdCount
 		IdNode, IdCount = id, -1
 		return exitscope(pushIdNode, pushIdCount, body(...)) -- errors within body may skip scope exit handling
@@ -726,9 +725,7 @@ do
 	end
 
 	function ID.wrap_child(body, name)
-		if name and printTrace then
-			print("inside ID-wrapped function " .. name)
-		end
+		if name and printTrace then print("inside ID-wrapped function " .. name) end
 		return function(...) return ID.child(body, ...) end
 	end
 end
@@ -741,16 +738,12 @@ local function component(args)
 end
 
 local function exit_wrapped_fun(name, ...)
-		if name and printTrace then
-			print("leaving ID-sensitive function " .. name)
-		end
-		return ...
+	if name and printTrace then print("leaving ID-sensitive function " .. name) end
+	return ...
 end
 local function wrap_create(f, name)
 	return function(body)
-		if name and printTrace then
-			print("inside ID-sensitive function " .. name)
-		end
+		if name and printTrace then print("inside ID-sensitive function " .. name) end
 		return exit_wrapped_fun(name, f(ID.next(), body))
 	end
 end

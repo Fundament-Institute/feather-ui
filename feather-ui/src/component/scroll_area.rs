@@ -241,14 +241,14 @@ impl<T: fixed::Prop + 'static> ScrollArea<T> {
         children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
         slots: [Option<Slot>; ScrollAreaEvent::SIZE],
     ) -> Self {
-        super::set_children(Self {
+        Self {
             id,
             props: props.into(),
             children,
             slots,
             stepsize,
             extension,
-        })
+        }
     }
 }
 
@@ -311,10 +311,10 @@ where
             .unwrap();
 
         // To create a scroll area, we create an intermediate layout node to hold the children, which is always unsized, which we then move around to scroll.
-        let mut map = VectorMap::new(
+        let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(manager, driver, window))
-            },
+            })
         );
 
         let (_, children) = map.call(Default::default(), &self.children);

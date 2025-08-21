@@ -4,14 +4,14 @@
 use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::text::{EditBuffer, EditView};
-use feather_ui::{DAbsRect, gen_id};
+use feather_ui::{DAbsRect, ScopeID, gen_id};
 
 use feather_ui::component::region::Region;
 use feather_ui::component::textbox;
 use feather_ui::component::textbox::TextBox;
 use feather_ui::component::window::Window;
 use feather_ui::layout::base;
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};
 use std::sync::Arc;
 
@@ -54,9 +54,11 @@ impl leaf::Prop for MinimalText {}
 impl fixed::Child for MinimalText {}
 impl textbox::Prop for MinimalText {}
 
-impl FnPersist<TextState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersistStore for BasicApp {
     type Store = (TextState, im::HashMap<Arc<SourceID>, Option<Window>>);
+}
 
+impl FnPersist2<TextState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
         (
             TextState {
@@ -68,11 +70,12 @@ impl FnPersist<TextState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicA
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &TextState,
+        args: TextState,
+        mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0 != args {
             let textbox = TextBox::new(
-                gen_id!(),
+                gen_id!(scope),
                 MinimalText {
                     area: FILL_DRECT,
                     padding: AbsRect::splat(12.0).into(),
@@ -88,7 +91,7 @@ impl FnPersist<TextState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicA
             );
 
             let region = Region::new(
-                gen_id!(),
+                gen_id!(scope),
                 MinimalArea {
                     area: AbsRect::new(90.0, 0.0, -90.0, -180.0) + RelRect::new(0.0, 0.0, 1.0, 1.0),
                 }
@@ -96,7 +99,7 @@ impl FnPersist<TextState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicA
                 feather_ui::children![fixed::Prop, textbox],
             );
             let window = Window::new(
-                gen_id!(),
+                gen_id!(scope),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_inner_size(winit::dpi::PhysicalSize::new(600, 400))

@@ -11,10 +11,10 @@ use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::layout::{fixed, leaf};
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, PxRect, RelRect, Slot, SourceID, UNSIZED_AXIS, gen_id,
-    im, winit,
+    AbsRect, App, DAbsRect, DPoint, DRect, PxRect, RelRect, ScopeID, Slot, SourceID, UNSIZED_AXIS,
+    gen_id, im, winit,
 };
 use std::rc::Rc;
 use std::sync::Arc;
@@ -41,35 +41,40 @@ impl leaf::Padded for FixedData {}
 
 struct BasicApp {}
 
-impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersistStore for BasicApp {
     type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
+}
 
+impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
+    for BasicApp
+{
     fn init(&self) -> Self::Store {
         (CounterState { count: -1 }, im::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &CounterState,
+        app: CounterState,
+        mut id: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0 != app {
             let button = {
                 let text = Text::<FixedData> {
-                    id: gen_id!(),
+                    id: gen_id!(id),
                     props: Rc::new(FixedData {
                         area: AbsRect::new(8.0, 0.0, 8.0, 0.0)
                             + RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS),
                         anchor: feather_ui::RelPoint::new(0.0, 0.5).into(),
                         ..Default::default()
                     }),
-                    text: format!("Clicks: {}", args.count),
+                    text: format!("Clicks: {}", app.count),
                     font_size: 40.0,
                     line_height: 56.0,
                     ..Default::default()
                 };
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                    gen_id!(),
+                    gen_id!(id),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
@@ -79,7 +84,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 );
 
                 Button::<FixedData>::new(
-                    gen_id!(),
+                    gen_id!(id),
                     FixedData {
                         area: AbsRect::new(45.0, 45.0, 0.0, 0.0)
                             + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
@@ -93,7 +98,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
             let fakebutton = {
                 let text = Text::<FixedData> {
-                    id: gen_id!(),
+                    id: gen_id!(id),
                     props: Rc::new(FixedData {
                         area: RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS).into(),
                         limits: feather_ui::AbsLimits::new(.., 10.0..200.0).into(),
@@ -102,7 +107,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                         padding: AbsRect::new(8.0, 8.0, 8.0, 8.0).into(),
                         ..Default::default()
                     }),
-                    text: (0..args.count).map(|_| "█").collect::<String>(),
+                    text: (0..app.count).map(|_| "█").collect::<String>(),
                     font_size: 40.0,
                     line_height: 56.0,
                     wrap: feather_ui::cosmic_text::Wrap::WordOrGlyph,
@@ -110,7 +115,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 };
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                    gen_id!(),
+                    gen_id!(id),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
@@ -120,7 +125,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 );
 
                 Button::<FixedData>::new(
-                    gen_id!(),
+                    gen_id!(id),
                     FixedData {
                         area: AbsRect::new(45.0, 245.0, 0.0, 0.0)
                             + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
@@ -133,7 +138,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             };
 
             let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                gen_id!(),
+                gen_id!(id),
                 Rc::new(PxRect::new(1.0, 1.0, 2.0, 2.0).into()),
                 0.0,
                 0.0,
@@ -143,7 +148,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             );
 
             let region = Region::new(
-                gen_id!(),
+                gen_id!(id),
                 FixedData {
                     area: AbsRect::new(90.0, 90.0, 0.0, 200.0)
                         + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
@@ -154,7 +159,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 feather_ui::children![fixed::Prop, button, fakebutton, pixel],
             );
             let window = Window::new(
-                gen_id!(),
+                gen_id!(id),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
@@ -163,7 +168,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
 
             store.1 = im::HashMap::new();
             store.1.insert(window.id.clone(), Some(window));
-            store.0 = args.clone();
+            store.0 = app.clone();
         }
         let windows = store.1.clone();
         (store, windows)

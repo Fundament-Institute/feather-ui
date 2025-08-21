@@ -12,10 +12,10 @@ use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, grid, leaf};
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsPoint, AbsRect, App, DAbsRect, DRect, DValue, DataID, FILL_DRECT, RelRect, Slot, SourceID,
-    UNSIZED_AXIS, gen_id,
+    AbsPoint, AbsRect, App, DAbsRect, DRect, DValue, DataID, FILL_DRECT, RelRect, ScopeID, Slot,
+    SourceID, UNSIZED_AXIS, gen_id,
 };
 use std::sync::Arc;
 
@@ -100,36 +100,43 @@ impl grid::Child for GridChild {
 
 struct BasicApp {}
 
-impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersistStore for BasicApp {
     type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
+}
 
+impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
+    for BasicApp
+{
     fn init(&self) -> Self::Store {
         (CounterState { count: 99999999 }, im::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &CounterState,
+        args: CounterState,
+        mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0 != args {
             let button = {
-                let text = Text::<FixedData> {
-                    id: gen_id!(),
-                    props: FixedData {
-                        area: AbsRect::new(10.0, 15.0, 10.0, 15.0)
-                            + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-                        anchor: feather_ui::RelPoint::zero().into(),
+                let text = {
+                    Text::<FixedData> {
+                        id: scope.next(),
+                        props: FixedData {
+                            area: AbsRect::new(10.0, 15.0, 10.0, 15.0)
+                                + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+                            anchor: feather_ui::RelPoint::zero().into(),
+                            ..Default::default()
+                        }
+                        .into(),
+                        text: format!("Boxes: {}", args.count),
+                        font_size: 40.0,
+                        line_height: 56.0,
                         ..Default::default()
                     }
-                    .into(),
-                    text: format!("Boxes: {}", args.count),
-                    font_size: 40.0,
-                    line_height: 56.0,
-                    ..Default::default()
                 };
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                    gen_id!(),
+                    scope.next(),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
@@ -139,7 +146,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 );
 
                 Button::<FixedData>::new(
-                    gen_id!(),
+                    scope.next(),
                     FixedData {
                         area: AbsRect::new(0.0, 20.0, 0.0, 0.0)
                             + RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
@@ -155,48 +162,35 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             let rectgrid = {
                 let mut children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>> =
                     im::Vector::new();
-                let grid_id = gen_id!();
-                for i in 0..args.count {
-                    children.push_back(Some(Box::new(Shape::<
-                        GridChild,
-                        { ShapeKind::RoundRect as u8 },
-                    >::new(
-                        grid_id.child(DataID::Int(i as i64)),
-                        GridChild {
-                            area: FILL_DRECT,
-                            x: i % NUM_COLUMNS,
-                            y: i / NUM_COLUMNS,
-                        }
-                        .into(),
-                        0.0,
-                        0.0,
-                        wide::f32x4::splat(4.0),
-                        sRGB::new(
-                            (0.1 * i as f32) % 1.0,
-                            (0.65 * i as f32) % 1.0,
-                            (0.2 * i as f32) % 1.0,
-                            1.0,
-                        ),
-                        sRGB::transparent(),
-                    ))));
-
-                    /*children.push_back(Some(Box::new(Text::<GridChild> {
-                        id: gen_id!(),
-                        props: GridChild {
-                            area: FILL_DRECT,
-                            x: i % NUM_COLUMNS,
-                            y: i / NUM_COLUMNS,
-                        }
-                        .into(),
-                        text: format!("Cell: {}", i),
-                        font_size: 20.0,
-                        line_height: 22.0,
-                        ..Default::default()
-                    })));*/
+                {
+                    for (i, id) in scope.iter(0..args.count) {
+                        children.push_back(Some(Box::new(Shape::<
+                            GridChild,
+                            { ShapeKind::RoundRect as u8 },
+                        >::new(
+                            id,
+                            GridChild {
+                                area: FILL_DRECT,
+                                x: i % NUM_COLUMNS,
+                                y: i / NUM_COLUMNS,
+                            }
+                            .into(),
+                            0.0,
+                            0.0,
+                            wide::f32x4::splat(4.0),
+                            sRGB::new(
+                                (0.1 * i as f32) % 1.0,
+                                (0.65 * i as f32) % 1.0,
+                                (0.2 * i as f32) % 1.0,
+                                1.0,
+                            ),
+                            sRGB::transparent(),
+                        ))));
+                    }
                 }
 
                 GridBox::<GridData>::new(
-                    gen_id!(),
+                    scope.next(),
                     GridData {
                         area: AbsRect::new(0.0, 200.0, 0.0, 0.0)
                             + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
@@ -216,7 +210,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
             };
 
             let region = Region::new(
-                gen_id!(),
+                scope.next(),
                 FixedData {
                     area: FILL_DRECT,
                     zindex: 0,
@@ -226,7 +220,7 @@ impl FnPersist<CounterState, im::HashMap<Arc<SourceID>, Option<Window>>> for Bas
                 feather_ui::children![fixed::Prop, button, rectgrid],
             );
             let window = Window::new(
-                gen_id!(),
+                scope.next(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),

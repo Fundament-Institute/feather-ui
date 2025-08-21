@@ -24,11 +24,11 @@ impl<T: flex::Prop + 'static> FlexBox<T> {
         props: Rc<T>,
         children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,
     ) -> Self {
-        super::set_children(Self {
+        Self {
             id,
             props,
             children,
-        })
+        }
     }
 }
 
@@ -41,10 +41,10 @@ impl<T: flex::Prop + 'static> super::Component for FlexBox<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let mut map = VectorMap::new(
+        let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(manager, driver,window))
-            },
+            })
         );
 
         let (_, children) = map.call(Default::default(), &self.children);

@@ -23,7 +23,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 im = "15.1"
-wgpu = "25"
+wgpu = "26"
 winit = "0.30"
 eyre = "0.6"
 feather-ui = { path = "feather-ui" }

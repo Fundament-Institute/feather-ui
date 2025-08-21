@@ -5,7 +5,6 @@
 local abs, rel, px, NONE = f.abs, f.rel, f.px, f.NONE
 
 local function app(appstate)
-	print("inside basic.lua")
 	local w = f.window {
 		title = "basic-lua",
 		resizable = true,
@@ -76,7 +75,6 @@ local function app(appstate)
 		},
 	}
 
-	print("exiting basic.lua")
 	return appstate, w
 end
 
