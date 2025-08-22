@@ -102,7 +102,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
         props,
         border,
         blur,
-        corners: [arcs[0], arcs[1], inner_radius, 0.0],
+        corners: [arcs[0] + arcs[1] * 0.5, arcs[1] * 0.5, inner_radius, 0.0],
         fill,
         outline,
     }
@@ -205,7 +205,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
             props,
             border,
             blur,
-            corners: [arcs[0], arcs[1], inner_radius, 0.0],
+            corners: [arcs[0] + arcs[1] * 0.5, arcs[1] * 0.5, inner_radius, 0.0],
             fill,
             outline,
         }
