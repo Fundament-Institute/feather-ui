@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::{AbsRect, DAbsRect, DPoint, DRect, ZERO_DRECT};
+use crate::{DAbsRect, DPoint, DRect, ZERO_DRECT};
 use std::rc::Rc;
 
 #[macro_export]
@@ -37,8 +37,8 @@ impl crate::layout::Desc for dyn Empty {
 
     fn stage<'a>(
         _: &Self::Props,
-        mut outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        mut outer_area: crate::PxRect,
+        outer_limits: crate::PxLimits,
         _: &Self::Children,
         id: std::sync::Weak<crate::SourceID>,
         renderable: Option<Rc<dyn crate::render::Renderable>>,
@@ -50,7 +50,13 @@ impl crate::layout::Desc for dyn Empty {
         Box::new(crate::layout::Concrete::new(
             renderable,
             outer_area,
-            crate::rtree::Node::new(outer_area, None, Default::default(), id, window),
+            crate::rtree::Node::new(
+                outer_area.to_untyped(),
+                None,
+                Default::default(),
+                id,
+                window,
+            ),
             Default::default(),
         ))
     }

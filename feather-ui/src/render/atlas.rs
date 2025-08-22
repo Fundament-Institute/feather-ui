@@ -5,11 +5,13 @@ use std::collections::HashMap;
 use std::num::NonZero;
 use std::sync::Arc;
 
-use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator, Size};
+use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator};
 use wgpu::util::DeviceExt;
 use wgpu::{BindGroupLayoutEntry, Extent3d, TextureDescriptor, TextureFormat, TextureUsages};
 
-use crate::Error;
+use crate::{Error, Pixel};
+
+pub type Size = guillotiere::euclid::Size2D<i32, Pixel>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -104,15 +106,17 @@ impl Atlas {
         queue.write_buffer(
             &self.mvp,
             0,
-            crate::graphics::mat4_ortho(
-                0.0,
-                self.texture.height() as f32,
-                self.texture.width() as f32,
-                -(self.texture.height() as f32),
-                1.0,
-                10000.0,
-            )
-            .as_byte_slice(),
+            bytemuck::cast_slice(
+                &crate::graphics::mat4_ortho(
+                    0.0,
+                    self.texture.height() as f32,
+                    self.texture.width() as f32,
+                    -(self.texture.height() as f32),
+                    1.0,
+                    10000.0,
+                )
+                .to_array(),
+            ),
         );
 
         queue.write_buffer(
@@ -147,15 +151,17 @@ impl Atlas {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(name),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            contents: crate::graphics::mat4_ortho(
-                0.0,
-                texture.height() as f32,
-                texture.width() as f32,
-                -(texture.height() as f32),
-                1.0,
-                10000.0,
-            )
-            .as_byte_slice(),
+            contents: bytemuck::cast_slice(
+                &crate::graphics::mat4_ortho(
+                    0.0,
+                    texture.height() as f32,
+                    texture.width() as f32,
+                    -(texture.height() as f32),
+                    1.0,
+                    10000.0,
+                )
+                .to_array(),
+            ),
         })
     }
 
@@ -199,7 +205,7 @@ impl Atlas {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: NonZero::new(size_of::<ultraviolet::Mat4>() as u64),
+                        min_binding_size: NonZero::new(size_of::<crate::Mat4x4>() as u64),
                     },
                     count: None,
                 },
@@ -311,7 +317,7 @@ impl Atlas {
 
     fn create_allocator(extent: u32) -> AtlasAllocator {
         AtlasAllocator::with_options(
-            Size::new(extent as i32, extent as i32),
+            guillotiere::Size::new(extent as i32, extent as i32),
             &AllocatorOptions {
                 large_size_threshold: 512,
                 small_size_threshold: 16,
@@ -347,7 +353,7 @@ impl Atlas {
 
     fn create_region(&self, idx: usize, r: guillotiere::Allocation, dim: Size) -> Region {
         assert!(idx < u8::MAX.into());
-        let mut uv = r.rectangle;
+        let mut uv = r.rectangle.cast_unit();
         uv.set_size(dim);
         Region {
             id: r.id,
@@ -407,7 +413,7 @@ impl Atlas {
         assert_ne!(dim.height, 0);
 
         for (idx, a) in self.allocators.iter_mut().enumerate() {
-            if let Some(r) = a.allocate(dim) {
+            if let Some(r) = a.allocate(dim.to_untyped()) {
                 let region = self.create_region(idx, r, dim);
                 if let Some(queue) = mipmap {
                     self.queue_mip(&region, device, queue);
@@ -430,7 +436,10 @@ impl Atlas {
         if (self.extent * 2) <= device.limits().max_texture_dimension_2d {
             self.extent *= 2;
             if let Some(allocator) = self.allocators.first_mut() {
-                allocator.grow(Size::new(self.extent as i32, self.extent as i32));
+                allocator.grow(guillotiere::Size::new(
+                    self.extent as i32,
+                    self.extent as i32,
+                ));
             } else {
                 return Error::InternalFailure;
             }
@@ -587,7 +596,7 @@ impl Atlas {
 /// A single allocated region on a particular texture atlas. We store the pixel coordinates, not the normalized UV coordinates.
 pub struct Region {
     pub id: AllocId,
-    pub uv: guillotiere::Rectangle,
+    pub uv: guillotiere::euclid::Box2D<i32, Pixel>,
     pub index: u8,
 }
 

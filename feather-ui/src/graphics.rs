@@ -8,14 +8,13 @@ use crate::render::compositor::Compositor;
 use crate::render::shape::Shape;
 use crate::render::{atlas, compositor};
 use crate::resource::{Loader, Location, MAX_VARIANCE};
-use crate::{Error, render};
+use crate::{Error, Mat4x4, render};
 use guillotiere::AllocId;
 use parking_lot::RwLock;
 use smallvec::SmallVec;
 use std::any::TypeId;
 use std::sync::Arc;
 use swash::scale::ScaleContext;
-use ultraviolet::{Mat4, Vec2, Vec4};
 use wgpu::{PipelineLayout, ShaderModule};
 use winit::window::CursorIcon;
 
@@ -24,11 +23,6 @@ use winit::window::CursorIcon;
 #[inline]
 pub fn point_to_pixel(pt: f32, scale_factor: f32) -> f32 {
     pt * (72.0 / 96.0) * scale_factor // * text_scale_factor
-}
-
-#[inline]
-pub fn pixel_to_vec(p: winit::dpi::PhysicalPosition<f32>) -> Vec2 {
-    Vec2::new(p.x, p.y)
 }
 
 pub type PipelineID = TypeId;
@@ -114,9 +108,8 @@ impl Eq for ResourceInstance<'_> {}
 pub struct Driver {
     pub(crate) glyphs: RwLock<GlyphCache>,
     pub(crate) prefetch: RwLock<HashMap<Box<dyn Location>, Box<dyn Loader>>>,
-    pub(crate) resources: RwLock<
-        HashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, guillotiere::Size)>,
-    >,
+    pub(crate) resources:
+        RwLock<HashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, atlas::Size)>>,
     pub(crate) locations:
         RwLock<HashMap<Box<dyn Location>, SmallVec<[ResourceInstance<'static>; 1]>>>,
     pub(crate) atlas: RwLock<Atlas>,
@@ -317,11 +310,11 @@ impl Driver {
     pub fn load_and_resize(
         &self,
         location: &dyn Location,
-        size: guillotiere::Size,
+        size: atlas::Size,
         dpi: f32,
         resize: bool,
-    ) -> Result<guillotiere::Size, Error> {
-        let mut uvsize = guillotiere::Size::zero();
+    ) -> Result<atlas::Size, Error> {
+        let mut uvsize = atlas::Size::zero();
         match self.load(location, size, dpi, resize, |r| {
             uvsize = r.uv.size();
             Ok(())
@@ -344,7 +337,7 @@ impl Driver {
     pub fn load(
         &self,
         location: &dyn Location,
-        mut size: guillotiere::Size,
+        mut size: atlas::Size,
         dpi: f32,
         resize: bool,
         mut f: impl FnMut(&atlas::Region) -> Result<(), Error>,
@@ -427,34 +420,32 @@ impl Driver {
 
 static_assertions::assert_impl_all!(Driver: Send, Sync);
 
+static_assertions::const_assert!(size_of::<Mat4x4>() == size_of::<[f32; 16]>());
+
 // This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1], and sets
 // output_w = input_z for perspective. Requires input_w = 1
-pub fn mat4_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
-    Mat4 {
-        cols: [
-            Vec4::new(2.0 / w, 0.0, 0.0, 0.0),
-            Vec4::new(0.0, 2.0 / h, 0.0, 0.0),
-            Vec4::new(0.0, 0.0, 1.0 / (f - n), 1.0),
-            Vec4::new(-(2.0 * x + w) / w, -(2.0 * y + h) / h, -n / (f - n), 0.0),
-        ],
-    }
+pub fn mat4_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4x4 {
+    Mat4x4::from_arrays([
+        [2.0 / w, 0.0, 0.0, 0.0],
+        [0.0, 2.0 / h, 0.0, 0.0],
+        [0.0, 0.0, 1.0 / (f - n), 1.0],
+        [-(2.0 * x + w) / w, -(2.0 * y + h) / h, -n / (f - n), 0.0],
+    ])
 }
 
 // Orthographic projection matrix
-pub fn mat4_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4 {
-    Mat4 {
-        cols: [
-            Vec4::new(2.0 / w, 0.0, 0.0, 0.0),
-            Vec4::new(0.0, 2.0 / h, 0.0, 0.0),
-            Vec4::new(0.0, 0.0, -2.0 / (f - n), 0.0),
-            Vec4::new(
-                -(2.0 * x + w) / w,
-                -(2.0 * y + h) / h,
-                (f + n) / (f - n),
-                1.0,
-            ),
+pub fn mat4_ortho(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4x4 {
+    Mat4x4::from_arrays([
+        [2.0 / w, 0.0, 0.0, 0.0],
+        [0.0, 2.0 / h, 0.0, 0.0],
+        [0.0, 0.0, -2.0 / (f - n), 0.0],
+        [
+            -(2.0 * x + w) / w,
+            -(2.0 * y + h) / h,
+            (f + n) / (f - n),
+            1.0,
         ],
-    }
+    ])
 }
 
 macro_rules! gen_from_array {
