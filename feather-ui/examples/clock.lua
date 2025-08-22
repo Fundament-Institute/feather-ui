@@ -17,7 +17,7 @@ local clockring = f.component {
 				area = abs(args.pos.x, args.pos.y, args.pos.x + args.radius * 2.0, args.pos.y + args.radius * 2.0),
 				anchor = abs(0.5, 0.5),
 			},
-			color = args.color,
+			fill = args.color,
 			innerRadius = args.radius - args.width,
 			angles = { 0, args.progress * math.pi * 2.0 },
 		}
@@ -60,7 +60,7 @@ local function app(appstate)
 				{ appstate.time_sec / 60.0, 1.0 },
 			},
 			radius = 200,
-			pos = f.abs(250, 250),
+			pos = f.abs(100, 100),
 			color = clockcolor,
 		},
 	}

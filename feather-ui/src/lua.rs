@@ -3,11 +3,21 @@
 
 use crate::color::{sRGB, sRGB32};
 use crate::component::button::Button;
+use crate::component::domain_line::DomainLine;
+use crate::component::domain_point::DomainPoint;
+use crate::component::flexbox::FlexBox;
+use crate::component::gridbox::GridBox;
+use crate::component::image::Image;
+use crate::component::line::Line;
+use crate::component::listbox::ListBox;
+use crate::component::mouse_area::MouseArea;
 use crate::component::region::Region;
+use crate::component::scroll_area::ScrollArea;
 use crate::component::text::Text;
+use crate::component::textbox::TextBox;
 use crate::component::window::Window;
 use crate::component::{ChildOf, shape};
-use crate::layout::{fixed, flex};
+use crate::layout::{fixed, flex, grid, list};
 use crate::persist::FnPersistStore;
 use crate::propbag::PropBag;
 use crate::{
@@ -17,6 +27,7 @@ use crate::{
 use guillotiere::euclid::Point2D;
 use mlua::UserData;
 use mlua::prelude::*;
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use wide::f32x4;
@@ -98,6 +109,73 @@ fn get_required<V: FromLua>(t: &LuaTable, key: &str) -> LuaResult<V> {
     } else {
         t.get(key)
     }
+}
+
+fn get_array_or<T: num_traits::FromPrimitive + FromLua + Clone + Copy, const N: usize>(
+    lua: &Lua,
+    t: &LuaTable,
+    key: &str,
+    d: [T; N],
+) -> LuaResult<[T; N]> {
+    Ok(if t.contains_key(key)? {
+        let v = t.get::<LuaValue>(key)?;
+        if let Some(n) = v.as_number() {
+            let num = T::from_f64(n).ok_or(LuaError::RuntimeError(format!(
+                "Failed to convert {n}, is it out of range?"
+            )))?;
+            let test: [T; N] = [num; N];
+            test
+        } else if let Some(n) = v.as_integer() {
+            let num = T::from_i64(n).ok_or(LuaError::RuntimeError(format!(
+                "Failed to convert {n}, is it out of range?"
+            )))?;
+            let test: [T; N] = [num; N];
+            test
+        } else {
+            <[T; N] as FromLua>::from_lua(v, lua)?
+        }
+    } else {
+        d
+    })
+}
+
+fn get_arg_default<V: FromLua + Default>(
+    args: &mut HashSet<&'static str>,
+    t: &LuaTable,
+    key: &'static str,
+) -> LuaResult<V> {
+    args.insert(key);
+    get_or_default(t, key)
+}
+
+fn get_arg_or<V: FromLua>(
+    args: &mut HashSet<&'static str>,
+    t: &LuaTable,
+    key: &'static str,
+    v: V,
+) -> LuaResult<V> {
+    args.insert(key);
+    get_or(t, key, v)
+}
+
+fn get_arg_required<V: FromLua>(
+    args: &mut HashSet<&'static str>,
+    t: &LuaTable,
+    key: &'static str,
+) -> LuaResult<V> {
+    args.insert(key);
+    get_required(t, key)
+}
+
+fn get_array_arg<T: num_traits::FromPrimitive + FromLua + Clone + Copy, const N: usize>(
+    args: &mut HashSet<&'static str>,
+    lua: &Lua,
+    t: &LuaTable,
+    key: &'static str,
+    d: [T; N],
+) -> LuaResult<[T; N]> {
+    args.insert(key);
+    get_array_or(lua, t, key, d)
 }
 
 fn is_dvalue(t: &LuaTable) -> LuaResult<bool> {
@@ -680,10 +758,6 @@ impl<AppData: Clone + FromLua + IntoLua>
                 appdata.clone(),
             ))
             .unwrap();
-        /*let (store, w) = self
-        .window
-        .call::<(AppData, crate::component::window::Window)>((args.clone()))
-        .unwrap();*/
         h.insert(w.id().clone(), Some(w));
         (store, h)
     }
@@ -848,10 +922,26 @@ impl FromLua for PropBag {
     }
 }
 
-fn prop_children(
+fn prop_no_children(t: &LuaTable) -> LuaResult<PropBag> {
+    let count = t.len()?;
+    if count > 0 {
+        return Err(LuaError::RuntimeError(format!(
+            "Found {count} child components for a component that doesn't accept children!"
+        )));
+    }
+
+    let bag: PropBag = get_required(t, "props")?;
+    Ok(bag)
+}
+
+fn prop_children<D: crate::layout::Desc + ?Sized>(
     t: &LuaTable,
-) -> LuaResult<(im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>, PropBag)> {
-    let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
+) -> LuaResult<(im::Vector<Option<Box<ChildOf<D>>>>, PropBag)>
+where
+    std::boxed::Box<dyn crate::component::Component<Props = PropBag>>:
+        crate::component::ComponentWrap<<D as crate::layout::Desc>::Child>,
+{
+    let mut children: im::Vector<Option<Box<ChildOf<D>>>> = im::Vector::new();
 
     for i in 1..=t.len()? {
         let component: ComponentBag = t.get(i)?;
@@ -862,51 +952,340 @@ fn prop_children(
     Ok((children, bag))
 }
 
+fn check_args(name: &str, t: LuaTable, v: HashSet<&'static str>) -> LuaResult<()> {
+    for pair in t.pairs() {
+        let (k, _): (LuaValue, LuaValue) = pair?;
+        if !k.as_integer().is_some()
+            && !k.as_number().is_some()
+            && let Some(s) = k.as_string()
+        {
+            let str = s.to_string_lossy();
+            if !v.contains(str.as_str()) {
+                return Err(LuaError::FromLuaConversionError {
+                    from: "[attributes table]",
+                    to: name.to_string(),
+                    message: Some(format!("Unexpected key {str} in attributes table")),
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn create_button(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let (children, bag) = prop_children::<dyn fixed::Prop>(&body)?;
+
+    let mut args = HashSet::from_iter(["props"]);
+    let onclick = get_arg_required(&mut args, &body, "onclick")?;
+    check_args("button", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(Button::<PropBag>::new(
+        id.0,
+        bag.into(),
+        onclick,
+        children,
+    )));
+    res
+}
+
+fn create_domain_line(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let mut args = HashSet::from_iter(["props"]);
+    let domain: LuaDomain = get_arg_required(&mut args, &body, "domain")?;
+    let start: LuaSourceID = get_arg_required(&mut args, &body, "start")?;
+    let end: LuaSourceID = get_arg_required(&mut args, &body, "end")?;
+    let fill = get_arg_default(&mut args, &body, "fill")?;
+    check_args("domain-line", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(DomainLine::<PropBag> {
+        id: id.0,
+        domain: domain.0,
+        start: start.0,
+        end: end.0,
+        props: bag.into(),
+        fill,
+    }));
+    res
+}
+
+fn create_domain_point(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let args = HashSet::from_iter(["props"]);
+    check_args("domain-point", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(DomainPoint::<PropBag>::new(id.0, bag.into())));
+    res
+}
+
+fn create_flexbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let (children, bag) = prop_children::<dyn flex::Prop>(&body)?;
+    let args = HashSet::from_iter(["props"]);
+    check_args("flexbox", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(FlexBox::<PropBag>::new(
+        id.0,
+        bag.into(),
+        children,
+    )));
+    res
+}
+
+fn create_gridbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let (children, bag) = prop_children::<dyn grid::Prop>(&body)?;
+    let args = HashSet::from_iter(["props"]);
+    check_args("gridbox", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(GridBox::<PropBag>::new(
+        id.0,
+        bag.into(),
+        children,
+    )));
+    res
+}
+
+fn create_image(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let mut args = HashSet::from_iter(["props"]);
+    let resource: String = get_arg_required(&mut args, &body, "resource")?;
+    let size: DAbsPoint = get_arg_default(&mut args, &body, "domain")?;
+    let dynamic: bool = get_arg_default(&mut args, &body, "dynamic")?;
+    check_args("image", body, args)?;
+
+    let location = std::path::PathBuf::from(resource);
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(Image::<PropBag>::new(
+        id.0,
+        bag.into(),
+        &location,
+        size,
+        dynamic,
+    )));
+    res
+}
+
+fn create_line(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let mut args = HashSet::from_iter(["props"]);
+    let start: LuaPoint<Pixel> = get_arg_required(&mut args, &body, "start")?;
+    let end: LuaPoint<Pixel> = get_arg_required(&mut args, &body, "end")?;
+    let fill = get_arg_default(&mut args, &body, "fill")?;
+    check_args("line", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(Line::<PropBag> {
+        id: id.0,
+        start: start.0,
+        end: end.0,
+        props: bag.into(),
+        fill,
+    }));
+    res
+}
+
+fn create_listbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let (children, bag) = prop_children::<dyn list::Prop>(&body)?;
+    let args = HashSet::from_iter(["props"]);
+    check_args("listbox", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(ListBox::<PropBag>::new(
+        id.0,
+        bag.into(),
+        children,
+    )));
+    res
+}
+
+fn create_mousearea(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let mut args = HashSet::from_iter(["props"]);
+    let deadzone = get_arg_or(&mut args, &body, "deadzone", f32::INFINITY)?;
+    let onclick = get_arg_default(&mut args, &body, "onclick")?;
+    let ondblclick = get_arg_default(&mut args, &body, "ondblclick")?;
+    let ondrag = get_arg_default(&mut args, &body, "ondrag")?;
+    check_args("mousearea", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(MouseArea::<PropBag>::new(
+        id.0,
+        bag.into(),
+        Some(deadzone),
+        [onclick, ondblclick, ondrag, None, None, None],
+    )));
+    res
+}
+
 fn create_region(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
-    let (children, bag) = prop_children(&body)?;
+    let (children, bag) = prop_children::<dyn fixed::Prop>(&body)?;
+    check_args("region", body, HashSet::from_iter(["props"]))?;
 
     Ok(Box::new(Region::<PropBag>::new(id.0, bag.into(), children)))
 }
 
+fn create_scrollarea(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let (children, bag) = prop_children::<dyn fixed::Prop>(&body)?;
+    let mut args = HashSet::from_iter(["props"]);
+    let stepx = get_arg_default(&mut args, &body, "stepx")?;
+    let stepy = get_arg_default(&mut args, &body, "stepy")?;
+    let extension = get_arg_default(&mut args, &body, "extension")?;
+    let onscroll = get_arg_default(&mut args, &body, "onscroll")?;
+    check_args("scrollarea", body, args)?;
+
+    let res: LuaResult<ComponentBag> = Ok(Box::new(ScrollArea::<PropBag>::new(
+        id.0,
+        bag.into(),
+        (stepx, stepy),
+        extension,
+        children,
+        [onscroll],
+    )));
+    res
+}
+
+fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let mut args: HashSet<&'static str> = HashSet::from_iter(["props"]);
+    let border = get_arg_default(&mut args, &body, "border")?;
+    let blur = get_arg_default(&mut args, &body, "blur")?;
+    let fill = get_arg_default(&mut args, &body, "fill")?;
+    let outline = get_arg_default(&mut args, &body, "outline")?;
+    let corners = get_array_arg(&mut args, lua, &body, "corners", [0.0; 4])?;
+    check_args("round_rect", body, args)?;
+
+    Ok(Box::new(shape::round_rect(
+        id.0,
+        bag.into(),
+        border,
+        blur,
+        wide::f32x4::new(corners),
+        fill,
+        outline,
+    )))
+}
+
+fn create_arc(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let mut args: HashSet<&'static str> = HashSet::from_iter(["props"]);
+    let border = get_arg_default(&mut args, &body, "border")?;
+    let blur = get_arg_default(&mut args, &body, "blur")?;
+    let fill = get_arg_default(&mut args, &body, "fill")?;
+    let outline = get_arg_default(&mut args, &body, "outline")?;
+    let angles = get_array_arg(&mut args, lua, &body, "angles", [0.0; 2])?;
+    let inner_radius = get_arg_default(&mut args, &body, "innerRadius")?;
+    check_args("arc", body, args)?;
+
+    Ok(Box::new(shape::arcs(
+        id.0,
+        bag.into(),
+        border,
+        blur,
+        inner_radius,
+        angles,
+        fill,
+        outline,
+    )))
+}
+
+fn create_triangle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let mut args: HashSet<&'static str> = HashSet::from_iter(["props"]);
+    let border = get_arg_default(&mut args, &body, "border")?;
+    let blur = get_arg_default(&mut args, &body, "blur")?;
+    let fill = get_arg_default(&mut args, &body, "fill")?;
+    let outline = get_arg_default(&mut args, &body, "outline")?;
+    let corners = get_array_arg(&mut args, lua, &body, "corners", [0.0; 3])?;
+    let offset = get_arg_default(&mut args, &body, "offset")?;
+    check_args("triangle", body, args)?;
+
+    Ok(Box::new(shape::triangle(
+        id.0,
+        bag.into(),
+        border,
+        blur,
+        corners,
+        offset,
+        fill,
+        outline,
+    )))
+}
+
+fn create_circle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
+
+    let mut args: HashSet<&'static str> = HashSet::from_iter(["props"]);
+    let border = get_arg_default(&mut args, &body, "border")?;
+    let blur = get_arg_default(&mut args, &body, "blur")?;
+    let fill = get_arg_default(&mut args, &body, "fill")?;
+    let outline = get_arg_default(&mut args, &body, "outline")?;
+    let radii = get_array_arg(&mut args, lua, &body, "radii", [0.0; 2])?;
+    check_args("circle", body, args)?;
+
+    Ok(Box::new(shape::circle(
+        id.0,
+        bag.into(),
+        border,
+        blur,
+        radii,
+        fill,
+        outline,
+    )))
+}
+
 // In CSS, 1.2 is usually used as the "reasonable" default line-height for a given font.
-const REASONABLE_LINE_HEIGHT: f32 = 1.2;
+const DEFAULT_LINE_HEIGHT: f32 = 1.2;
 // CSS defaults to 16 pixels, which is 12.8 points. We round up to 14 points as the next highest even number.
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
+fn to_style(style: u8) -> LuaResult<cosmic_text::Style> {
+    match style {
+        0 => Ok(cosmic_text::Style::Normal),
+        1 => Ok(cosmic_text::Style::Italic),
+        2 => Ok(cosmic_text::Style::Oblique),
+        _ => Err(LuaError::RuntimeError(format!(
+            "{style} is not a valid style enum value!"
+        ))),
+    }
+}
+
+fn to_wrap(wrap: u8) -> LuaResult<cosmic_text::Wrap> {
+    match wrap {
+        0 => Ok(cosmic_text::Wrap::None),
+        1 => Ok(cosmic_text::Wrap::Glyph),
+        2 => Ok(cosmic_text::Wrap::Word),
+        3 => Ok(cosmic_text::Wrap::WordOrGlyph),
+        _ => Err(LuaError::RuntimeError(format!(
+            "{wrap} is not a valid wrap enum value!"
+        ))),
+    }
+}
+
 fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
-    let (_, bag) = prop_children(&body)?;
+    let bag = prop_no_children(&body)?;
 
-    let text = get_required(&body, "text")?;
-    let font_size = get_or(&body, "fontsize", DEFAULT_FONT_SIZE)?;
-    let line_height = get_or(&body, "lineheight", font_size * REASONABLE_LINE_HEIGHT)?;
-    let font: LuaFontFamily = get_or_default(&body, "font")?;
-    let color = get_required(&body, "color")?;
-    let weight: u16 = get_or(&body, "weight", cosmic_text::Weight::NORMAL.0)?;
-    let style: u8 = get_or_default(&body, "style")?;
-    let wrap: u8 = get_or_default(&body, "wrap")?;
+    let mut args = HashSet::from_iter(["props"]);
+    let text = get_arg_required(&mut args, &body, "text")?;
+    let font_size = get_arg_or(&mut args, &body, "fontsize", DEFAULT_FONT_SIZE)?;
+    let line_height = get_arg_or(
+        &mut args,
+        &body,
+        "lineheight",
+        font_size * DEFAULT_LINE_HEIGHT,
+    )?;
+    let font: LuaFontFamily = get_arg_default(&mut args, &body, "font")?;
+    let color = get_arg_required(&mut args, &body, "color")?;
+    let weight: u16 = get_arg_or(&mut args, &body, "weight", cosmic_text::Weight::NORMAL.0)?;
+    let style: u8 = get_arg_default(&mut args, &body, "style")?;
+    let wrap: u8 = get_arg_default(&mut args, &body, "wrap")?;
+    check_args("text", body, args)?;
 
-    let style = match style {
-        0 => cosmic_text::Style::Normal,
-        1 => cosmic_text::Style::Italic,
-        2 => cosmic_text::Style::Oblique,
-        _ => {
-            return Err(LuaError::RuntimeError(format!(
-                "{style} is not a valid style enum value!"
-            )));
-        }
-    };
-
-    let wrap = match wrap {
-        0 => cosmic_text::Wrap::None,
-        1 => cosmic_text::Wrap::Glyph,
-        2 => cosmic_text::Wrap::Word,
-        3 => cosmic_text::Wrap::WordOrGlyph,
-        _ => {
-            return Err(LuaError::RuntimeError(format!(
-                "{wrap} is not a valid wrap enum value!"
-            )));
-        }
-    };
+    let style = to_style(style)?;
+    let wrap = to_wrap(wrap)?;
 
     Ok(Box::new(Text::<PropBag>::new(
         id.0,
@@ -922,128 +1301,37 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compon
     )))
 }
 
-fn create_button(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
-    let (children, bag) = prop_children(&body)?;
+fn create_textbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
+    let bag = prop_no_children(&body)?;
 
-    let onclick = get_required(&body, "onclick")?;
-    let res: LuaResult<ComponentBag> = Ok(Box::new(Button::<PropBag>::new(
+    let mut args = HashSet::from_iter(["props"]);
+    let font_size = get_arg_or(&mut args, &body, "fontsize", DEFAULT_FONT_SIZE)?;
+    let line_height = get_arg_or(
+        &mut args,
+        &body,
+        "lineheight",
+        font_size * DEFAULT_LINE_HEIGHT,
+    )?;
+    let font: LuaFontFamily = get_arg_default(&mut args, &body, "font")?;
+    let color = get_arg_required(&mut args, &body, "color")?;
+    let weight: u16 = get_arg_or(&mut args, &body, "weight", cosmic_text::Weight::NORMAL.0)?;
+    let style: u8 = get_arg_default(&mut args, &body, "style")?;
+    let wrap: u8 = get_arg_default(&mut args, &body, "wrap")?;
+    check_args("textbox", body, args)?;
+
+    let style = to_style(style)?;
+    let wrap = to_wrap(wrap)?;
+
+    Ok(Box::new(TextBox::<PropBag>::new(
         id.0,
         bag.into(),
-        onclick,
-        children,
-    )));
-    res
-}
-
-fn get_array_or<T: num_traits::FromPrimitive + FromLua + Clone + Copy, const N: usize>(
-    lua: &Lua,
-    t: &LuaTable,
-    key: &str,
-    d: [T; N],
-) -> LuaResult<[T; N]> {
-    Ok(if t.contains_key(key)? {
-        let v = t.get::<LuaValue>(key)?;
-        if let Some(n) = v.as_number() {
-            let num = T::from_f64(n).ok_or(LuaError::RuntimeError(format!(
-                "Failed to convert {n}, is it out of range?"
-            )))?;
-            let test: [T; N] = [num; N];
-            test
-        } else if let Some(n) = v.as_integer() {
-            let num = T::from_i64(n).ok_or(LuaError::RuntimeError(format!(
-                "Failed to convert {n}, is it out of range?"
-            )))?;
-            let test: [T; N] = [num; N];
-            test
-        } else {
-            <[T; N] as FromLua>::from_lua(v, lua)?
-        }
-    } else {
-        d
-    })
-}
-
-fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
-    let (_, bag) = prop_children(&body)?;
-
-    let border = get_or_default(&body, "border")?;
-    let blur = get_or_default(&body, "blur")?;
-    let fill = get_or_default(&body, "fill")?;
-    let outline = get_or_default(&body, "outline")?;
-    let corners = get_array_or(lua, &body, "corners", [0.0; 4])?;
-
-    Ok(Box::new(shape::round_rect(
-        id.0,
-        bag.into(),
-        border,
-        blur,
-        wide::f32x4::new(corners),
-        fill,
-        outline,
-    )))
-}
-
-fn create_arc(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
-    let (_, bag) = prop_children(&body)?;
-
-    let border = get_or_default(&body, "border")?;
-    let blur = get_or_default(&body, "blur")?;
-    let fill = get_or_default(&body, "fill")?;
-    let outline = get_or_default(&body, "outline")?;
-    let angles = get_array_or(lua, &body, "angles", [0.0; 2])?;
-    let inner_radius = get_or_default(&body, "inner_radius")?;
-
-    Ok(Box::new(shape::arcs(
-        id.0,
-        bag.into(),
-        border,
-        blur,
-        inner_radius,
-        angles,
-        fill,
-        outline,
-    )))
-}
-
-fn create_triangle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
-    let (_, bag) = prop_children(&body)?;
-
-    let border = get_or_default(&body, "border")?;
-    let blur = get_or_default(&body, "blur")?;
-    let fill = get_or_default(&body, "fill")?;
-    let outline = get_or_default(&body, "outline")?;
-    let corners = get_array_or(lua, &body, "corners", [0.0; 3])?;
-    let offset = get_or_default(&body, "offset")?;
-
-    Ok(Box::new(shape::triangle(
-        id.0,
-        bag.into(),
-        border,
-        blur,
-        corners,
-        offset,
-        fill,
-        outline,
-    )))
-}
-
-fn create_circle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
-    let (_, bag) = prop_children(&body)?;
-
-    let border = get_or_default(&body, "border")?;
-    let blur = get_or_default(&body, "blur")?;
-    let fill = get_or_default(&body, "fill")?;
-    let outline = get_or_default(&body, "outline")?;
-    let radii = get_array_or(lua, &body, "radii", [0.0; 2])?;
-
-    Ok(Box::new(shape::circle(
-        id.0,
-        bag.into(),
-        border,
-        blur,
-        radii,
-        fill,
-        outline,
+        font_size,
+        line_height,
+        font.0,
+        color,
+        cosmic_text::Weight(weight),
+        style,
+        wrap,
     )))
 }
 
@@ -1153,14 +1441,31 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
         }
 
         preload.set("create_id", lua.create_function(create_id)?)?;
-        preload.set("create_window", lua.create_function(create_window)?)?;
-        preload.set("create_region", lua.create_function(create_region)?)?;
         preload.set("create_button", lua.create_function(create_button)?)?;
-        preload.set("create_text", lua.create_function(create_text)?)?;
+        preload.set(
+            "create_domain_line",
+            lua.create_function(create_domain_line)?,
+        )?;
+        preload.set(
+            "create_domain_point",
+            lua.create_function(create_domain_point)?,
+        )?;
+        preload.set("create_flexbox", lua.create_function(create_flexbox)?)?;
+        preload.set("create_gridbox", lua.create_function(create_gridbox)?)?;
+        preload.set("create_image", lua.create_function(create_image)?)?;
+        preload.set("create_line", lua.create_function(create_line)?)?;
+        preload.set("create_listbox", lua.create_function(create_listbox)?)?;
+        preload.set("create_mousearea", lua.create_function(create_mousearea)?)?;
+        //preload.set("create_paragraph", lua.create_function(create_paragraph)?)?;
+        preload.set("create_region", lua.create_function(create_region)?)?;
+        preload.set("create_scrollarea", lua.create_function(create_scrollarea)?)?;
         preload.set("create_round_rect", lua.create_function(create_round_rect)?)?;
         preload.set("create_arc", lua.create_function(create_arc)?)?;
         preload.set("create_triangle", lua.create_function(create_triangle)?)?;
         preload.set("create_circle", lua.create_function(create_circle)?)?;
+        preload.set("create_text", lua.create_function(create_text)?)?;
+        preload.set("create_textbox", lua.create_function(create_textbox)?)?;
+        preload.set("create_window", lua.create_function(create_window)?)?;
 
         let preload_mt = lua.create_table()?;
         preload_mt.set("__index", lua.globals())?;
