@@ -127,8 +127,8 @@ where
         let mut font_system = driver.font_system.write();
 
         let metrics = cosmic_text::Metrics::new(
-            point_to_pixel(self.font_size, dpi.x),
-            point_to_pixel(self.line_height, dpi.y),
+            point_to_pixel(self.font_size, dpi.width),
+            point_to_pixel(self.line_height, dpi.height),
         );
 
         let textstate: &StateMachine<TextState, 0> = manager.get(&self.id).unwrap();
@@ -154,7 +154,7 @@ where
 
         let render = Rc::new(crate::render::text::Instance {
             text_buffer: textstate.0.clone(),
-            padding: self.props.padding().resolve(dpi).into(),
+            padding: self.props.padding().as_perimeter(dpi).into(),
         });
 
         Box::new(layout::text::Node::<T> {

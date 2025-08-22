@@ -7,7 +7,7 @@ use crate::editor::Editor;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
 use crate::text::{Change, EditBuffer};
-use crate::{Dispatchable, Error, SourceID, WindowStateMachine, layout};
+use crate::{Dispatchable, Error, PxRect, SourceID, WindowStateMachine, layout};
 use cosmic_text::{Action, Buffer, Cursor};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -77,9 +77,9 @@ impl super::EventRouter for TextBoxState {
     fn process(
         mut self,
         input: Self::Input,
-        area: crate::AbsRect,
-        _: crate::AbsRect,
-        dpi: crate::Vec2,
+        area: PxRect,
+        _: PxRect,
+        dpi: crate::RelDim,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)>
     {
@@ -362,7 +362,8 @@ impl super::EventRouter for TextBoxState {
             } => {
                 if let Some(d) = driver.upgrade() {
                     *d.cursor.write() = winit::window::CursorIcon::Text;
-                    let p = area.topleft() + self.props.padding().resolve(dpi).topleft();
+                    let p =
+                        area.topleft() + self.props.padding().resolve(dpi).topleft().to_vector();
 
                     if (all_buttons & MouseButton::Left as u16) != 0 {
                         self.editor.action(
@@ -385,7 +386,9 @@ impl super::EventRouter for TextBoxState {
                 pos, state, button, ..
             } => {
                 if let Some(d) = driver.upgrade() {
-                    let p = area.topleft() + self.props.padding().resolve(dpi).topleft();
+                    let p =
+                        area.topleft() + self.props.padding().resolve(dpi).topleft().to_vector();
+
                     let action = match (state, button) {
                         (MouseState::Down, MouseButton::Left) => Action::Click {
                             x: (pos.x - p.x).round() as i32,
@@ -406,21 +409,24 @@ impl super::EventRouter for TextBoxState {
                 );
                 return Ok((self, SmallVec::new()));
             }
-            RawEvent::MouseScroll { delta, pixels, .. } => {
+            RawEvent::MouseScroll { delta, .. } => {
                 if let Some(d) = driver.upgrade() {
-                    if pixels {
-                        let mut scroll = buffer.scroll();
-                        //TODO: align to layout lines
-                        scroll.vertical += delta.y;
-                        buffer.set_scroll(scroll);
-                    } else {
-                        self.editor.action(
-                            &mut d.font_system.write(),
-                            buffer,
-                            Action::Scroll {
-                                lines: -(delta.y.round() as i32),
-                            },
-                        );
+                    match delta {
+                        Ok(dist) => {
+                            let mut scroll = buffer.scroll();
+                            //TODO: align to layout lines
+                            scroll.vertical += dist.y;
+                            buffer.set_scroll(scroll);
+                        }
+                        Err(dist) => {
+                            self.editor.action(
+                                &mut d.font_system.write(),
+                                buffer,
+                                Action::Scroll {
+                                    lines: -(dist.y.round() as i32),
+                                },
+                            );
+                        }
                     }
                 }
             }
@@ -606,7 +612,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
 
         let instance = crate::render::textbox::Instance {
             text_buffer: self.props.textedit().obj.buffer.clone(),
-            padding: self.props.padding().resolve(dpi),
+            padding: self.props.padding().as_perimeter(dpi),
             selection: textstate
                 .editor
                 .selection_bounds(&self.props.textedit().obj.buffer.borrow()),

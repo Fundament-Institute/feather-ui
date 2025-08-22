@@ -30,6 +30,8 @@ use component::{Component, StateMachineWrapper};
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
+pub use guillotiere::euclid;
+use guillotiere::euclid::{Point2D, Size2D, Vector2D};
 use parking_lot::RwLock;
 use persist::FnPersist;
 use smallvec::SmallVec;
@@ -40,17 +42,17 @@ use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::marker::PhantomData;
+use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
 use std::sync::Arc;
-use ultraviolet::f32x4;
-use ultraviolet::vec::Vec2;
 use wgpu::{InstanceDescriptor, InstanceFlags};
-use wide::{CmpGe, CmpGt};
+use wide::{CmpGe, CmpGt, f32x4};
 use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
-use winit::event_loop::EventLoop;
+use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::WindowId;
-pub use {cosmic_text, im, notify, ultraviolet, wgpu, winit};
+pub use {cosmic_text, im, notify, wgpu, wide, winit};
+
+type Mat4x4 = euclid::default::Transform3D<f32>;
 
 #[cfg(feature = "lua")]
 pub use mlua;
@@ -112,9 +114,8 @@ impl From<std::io::Error> for Error {
 }
 
 pub const UNSIZED_AXIS: f32 = f32::MAX;
-pub const ZERO_POINT: Vec2 = Vec2 { x: 0.0, y: 0.0 };
 const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
-pub const BASE_DPI: Vec2 = Vec2::new(96.0, 96.0);
+pub const BASE_DPI: RelDim = RelDim::new(96.0, 96.0);
 
 #[macro_export]
 macro_rules! children {
@@ -122,54 +123,124 @@ macro_rules! children {
     ($prop:path, $($param:expr),+ $(,)?) => { $crate::im::Vector::from_iter([$(Some(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>)),+]) };
 }
 
-#[derive(Copy, Clone, Debug, Default)]
-pub struct AbsDim(Vec2);
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+/// Represents display-independent pixels
+pub struct DIP {}
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+/// Represents relative values
+pub struct Relative {}
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+/// Represents an actual pixel
+pub struct Pixel {}
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+/// Represents a combination of DIP and Pixels that have been resolved for the current DPI
+pub struct Resolved {}
 
-impl From<AbsDim> for Vec2 {
-    fn from(val: AbsDim) -> Self {
-        val.0
+pub type AbsPoint = Point2D<f32, DIP>;
+pub type PxPoint = Point2D<f32, Pixel>;
+pub type RelPoint = Point2D<f32, Relative>;
+pub type ResPoint = Point2D<f32, Resolved>;
+
+pub type AbsVector = Vector2D<f32, DIP>;
+pub type PxVector = Vector2D<f32, Pixel>;
+pub type RelVector = Vector2D<f32, Relative>;
+pub type ResVector = Vector2D<f32, Resolved>;
+
+pub type AbsDim = Size2D<f32, DIP>;
+pub type PxDim = Size2D<f32, Pixel>;
+pub type RelDim = Size2D<f32, Relative>;
+pub type ResDim = Size2D<f32, Resolved>;
+
+pub trait UnResolve<U> {
+    fn unresolve(self, dpi: RelDim) -> U;
+}
+
+impl UnResolve<AbsVector> for PxVector {
+    fn unresolve(self, dpi: RelDim) -> AbsVector {
+        AbsVector::new(self.x / dpi.width, self.y / dpi.height)
     }
 }
 
-impl From<AbsDim> for guillotiere::Size {
-    fn from(value: AbsDim) -> Self {
-        guillotiere::Size::new(value.0.x.ceil() as i32, value.0.y.ceil() as i32)
+impl UnResolve<AbsPoint> for PxPoint {
+    fn unresolve(self, dpi: RelDim) -> AbsPoint {
+        AbsPoint::new(self.x / dpi.width, self.y / dpi.height)
     }
 }
 
+pub trait Convert<U> {
+    fn to(self) -> U;
+}
+
+impl Convert<Size2D<u32, Pixel>> for winit::dpi::PhysicalSize<u32> {
+    fn to(self) -> Size2D<u32, Pixel> {
+        Size2D::<u32, Pixel>::new(self.width, self.height)
+    }
+}
+
+impl Convert<Size2D<u32, DIP>> for winit::dpi::LogicalSize<u32> {
+    fn to(self) -> Size2D<u32, DIP> {
+        Size2D::<u32, DIP>::new(self.width, self.height)
+    }
+}
+
+impl Convert<Point2D<f32, Pixel>> for winit::dpi::PhysicalPosition<f32> {
+    fn to(self) -> Point2D<f32, Pixel> {
+        Point2D::<f32, Pixel>::new(self.x, self.y)
+    }
+}
+
+impl Convert<Point2D<f64, Pixel>> for winit::dpi::PhysicalPosition<f64> {
+    fn to(self) -> Point2D<f64, Pixel> {
+        Point2D::<f64, Pixel>::new(self.x, self.y)
+    }
+}
+
+// We use our own SSE optimized Rect type instead of the euclid ones
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// Absolutely positioned rectangle
-pub struct AbsRect(f32x4);
+pub struct Rect<U> {
+    pub v: f32x4,
+    #[doc(hidden)]
+    pub _unit: PhantomData<U>,
+}
 
-pub const ZERO_RECT: AbsRect = AbsRect(f32x4::ZERO);
+pub type AbsRect = Rect<DIP>;
+pub type PxRect = Rect<Pixel>;
+pub type RelRect = Rect<Relative>;
+pub type ResRect = Rect<Resolved>;
 
-unsafe impl NoUninit for AbsRect {}
+unsafe impl<U: Copy + 'static> NoUninit for Rect<U> {}
 
-impl AbsRect {
+pub const ZERO_RECT: AbsRect = AbsRect::zero();
+
+impl<U> Rect<U> {
     #[inline]
     pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
-        Self(f32x4::new([left, top, right, bottom]))
+        Self {
+            v: f32x4::new([left, top, right, bottom]),
+            _unit: PhantomData,
+        }
     }
 
-    pub const fn broadcast(x: f32) -> Self {
-        Self(f32x4::new([x, x, x, x])) // f32x4::splat isn't a constant function (for some reason)
-    }
-
-    #[inline]
-    pub const fn corners(topleft: Vec2, bottomright: Vec2) -> Self {
-        Self(f32x4::new([
-            topleft.x,
-            topleft.y,
-            bottomright.x,
-            bottomright.y,
-        ]))
+    pub const fn splat(x: f32) -> Self {
+        Self {
+            v: f32x4::new([x, x, x, x]), // f32x4::splat isn't a constant function (for some reason)
+            _unit: PhantomData,
+        }
     }
 
     #[inline]
-    pub fn contains(&self, p: Vec2) -> bool {
+    pub const fn corners(topleft: Point2D<f32, U>, bottomright: Point2D<f32, U>) -> Self {
+        Self {
+            v: f32x4::new([topleft.x, topleft.y, bottomright.x, bottomright.y]),
+            _unit: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn contains(&self, p: Point2D<f32, U>) -> bool {
         //let test: u32x4 = bytemuck::cast(f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.0));
 
-        f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.0).move_mask() == 0b0011
+        f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.v).move_mask() == 0b0011
 
         /*p.x >= self.0[0]
         && p.y >= self.0[1]
@@ -178,10 +249,10 @@ impl AbsRect {
     }
 
     #[inline]
-    pub fn collides(&self, rhs: &AbsRect) -> bool {
-        let r = rhs.0.as_array_ref();
+    pub fn collides(&self, rhs: &Self) -> bool {
+        let r = rhs.v.as_array_ref();
         f32x4::new([r[2], r[3], -r[0], -r[1]])
-            .cmp_gt(self.0 * MINUS_BOTTOMRIGHT)
+            .cmp_gt(self.v * MINUS_BOTTOMRIGHT)
             .all()
 
         /*rhs.0[2] > self.0[0]
@@ -191,13 +262,16 @@ impl AbsRect {
     }
 
     #[inline]
-    pub fn intersect(&self, rhs: AbsRect) -> AbsRect {
+    pub fn intersect(&self, rhs: Self) -> Self {
         let rect =
-            (self.0 * MINUS_BOTTOMRIGHT).fast_max(rhs.0 * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT;
+            (self.v * MINUS_BOTTOMRIGHT).fast_max(rhs.v * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT;
 
         // This rect is potentially degenerate, where topleft > bottomright, so we have to guard against this.
         let a = rect.to_array();
-        AbsRect(rect.fast_max(f32x4::new([a[0], a[1], a[0], a[1]])))
+        Self {
+            v: rect.fast_max(f32x4::new([a[0], a[1], a[0], a[1]])),
+            _unit: PhantomData,
+        }
 
         /*let r = rhs.0.as_array_ref();
         let l = self.0.as_array_ref();
@@ -210,127 +284,253 @@ impl AbsRect {
     }
 
     #[inline]
-    pub fn extend(&self, rhs: AbsRect) -> AbsRect {
+    pub fn extend(&self, rhs: Self) -> Self {
         /*AbsRect {
             topleft: self.topleft().min_by_component(rhs.topleft()),
             bottomright: self.bottomright().max_by_component(rhs.bottomright()),
         }*/
-        AbsRect(
-            (self.0 * MINUS_BOTTOMRIGHT).fast_min(rhs.0 * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT,
-        )
-    }
-
-    #[inline]
-    pub fn topleft(&self) -> Vec2 {
-        let ltrb = self.0.as_array_ref();
-        Vec2 {
-            x: ltrb[0],
-            y: ltrb[1],
+        Self {
+            v: (self.v * MINUS_BOTTOMRIGHT).fast_min(rhs.v * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT,
+            _unit: PhantomData,
         }
     }
 
     #[inline]
-    pub fn set_topleft(&mut self, v: Vec2) {
-        let ltrb = self.0.as_array_mut();
+    pub fn topleft(&self) -> Point2D<f32, U> {
+        let ltrb = self.v.as_array_ref();
+        Point2D::new(ltrb[0], ltrb[1])
+    }
+
+    #[inline]
+    pub fn set_topleft(&mut self, v: Point2D<f32, U>) {
+        let ltrb = self.v.as_array_mut();
         ltrb[0] = v.x;
         ltrb[1] = v.y;
     }
 
     #[inline]
-    pub fn bottomright(&self) -> Vec2 {
-        let ltrb = self.0.as_array_ref();
-        Vec2 {
-            x: ltrb[2],
-            y: ltrb[3],
-        }
+    pub fn bottomright(&self) -> Point2D<f32, U> {
+        let ltrb = self.v.as_array_ref();
+        Point2D::new(ltrb[2], ltrb[3])
     }
 
     #[inline]
-    pub fn set_bottomright(&mut self, v: Vec2) {
-        let ltrb = self.0.as_array_mut();
+    pub fn set_bottomright(&mut self, v: Point2D<f32, U>) {
+        let ltrb = self.v.as_array_mut();
         ltrb[2] = v.x;
         ltrb[3] = v.y;
     }
 
     #[inline]
-    pub fn dim(&self) -> AbsDim {
-        let ltrb = self.0.as_array_ref();
-        AbsDim(Vec2 {
-            x: ltrb[2] - ltrb[0],
-            y: ltrb[3] - ltrb[1],
-        })
+    pub fn dim(&self) -> Size2D<f32, U> {
+        let ltrb = self.v.as_array_ref();
+        Size2D::new(ltrb[2] - ltrb[0], ltrb[3] - ltrb[1])
     }
-}
-
-impl Display for AbsRect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ltrb = self.0.as_array_ref();
-        write!(
-            f,
-            "AbsRect[({},{});({},{})]",
-            ltrb[0], ltrb[1], ltrb[2], ltrb[3]
-        )
-    }
-}
-impl From<[f32; 4]> for AbsRect {
-    #[inline]
-    fn from(value: [f32; 4]) -> Self {
-        Self(f32x4::new(value))
-    }
-}
-
-#[inline]
-const fn splat_vec2(v: Vec2) -> f32x4 {
-    f32x4::new([v.x, v.y, v.x, v.y])
-}
-
-impl Add<Vec2> for AbsRect {
-    type Output = Self;
 
     #[inline]
-    fn add(self, rhs: Vec2) -> Self::Output {
-        Self(self.0 + splat_vec2(rhs))
+    pub const fn zero() -> Self {
+        Self {
+            v: f32x4::ZERO,
+            _unit: PhantomData,
+        }
     }
-}
-
-impl Add<RelRect> for AbsRect {
-    type Output = URect;
 
     #[inline]
-    fn add(self, rhs: RelRect) -> Self::Output {
-        URect {
-            abs: self,
-            rel: rhs,
+    pub const fn unit() -> Self {
+        Self {
+            v: f32x4::new([0.0, 0.0, 1.0, 1.0]),
+            _unit: PhantomData,
+        }
+    }
+
+    /// Discard the units
+    #[inline]
+    pub fn to_untyped(self) -> PxRect {
+        self.cast_unit()
+    }
+
+    /// Cast the unit
+    #[inline]
+    pub fn cast_unit<V>(self) -> Rect<V> {
+        Rect::<V> {
+            v: self.v,
+            _unit: PhantomData,
         }
     }
 }
 
-impl AddAssign<Vec2> for AbsRect {
-    #[inline]
-    fn add_assign(&mut self, rhs: Vec2) {
-        self.0 += splat_vec2(rhs)
+impl<U> Display for Rect<U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ltrb = self.v.as_array_ref();
+        write!(
+            f,
+            "Rect[({},{});({},{})]",
+            ltrb[0], ltrb[1], ltrb[2], ltrb[3]
+        )
     }
 }
 
-impl Sub<Vec2> for AbsRect {
+impl<U> From<[f32; 4]> for Rect<U> {
+    #[inline]
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            v: f32x4::new(value),
+            _unit: PhantomData,
+        }
+    }
+}
+
+#[inline]
+const fn splat_point<U>(v: Point2D<f32, U>) -> f32x4 {
+    f32x4::new([v.x, v.y, v.x, v.y])
+}
+
+#[inline]
+const fn splat_size<U>(v: Size2D<f32, U>) -> f32x4 {
+    f32x4::new([v.width, v.height, v.width, v.height])
+}
+
+impl<U> Add<Point2D<f32, U>> for Rect<U> {
     type Output = Self;
 
     #[inline]
-    fn sub(self, rhs: Vec2) -> Self::Output {
-        Self(self.0 - splat_vec2(rhs))
+    fn add(self, rhs: Point2D<f32, U>) -> Self::Output {
+        Self {
+            v: self.v + splat_point(rhs),
+            _unit: PhantomData,
+        }
     }
 }
 
-impl SubAssign<Vec2> for AbsRect {
+impl<U> AddAssign<Point2D<f32, U>> for Rect<U> {
     #[inline]
-    fn sub_assign(&mut self, rhs: Vec2) {
-        self.0 -= splat_vec2(rhs)
+    fn add_assign(&mut self, rhs: Point2D<f32, U>) {
+        self.v += splat_point(rhs)
     }
 }
 
-impl From<AbsDim> for AbsRect {
-    fn from(value: AbsDim) -> Self {
-        Self(f32x4::new([0.0, 0.0, value.0.x, value.0.y]))
+impl<U> Add<Vector2D<f32, U>> for Rect<U> {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Vector2D<f32, U>) -> Self::Output {
+        Self {
+            v: self.v + splat_point(rhs.to_point()),
+            _unit: PhantomData,
+        }
+    }
+}
+
+impl<U> AddAssign<Vector2D<f32, U>> for Rect<U> {
+    #[inline]
+    fn add_assign(&mut self, rhs: Vector2D<f32, U>) {
+        self.v += splat_point(rhs.to_point())
+    }
+}
+
+impl<U> Sub<Point2D<f32, U>> for Rect<U> {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: Point2D<f32, U>) -> Self::Output {
+        Self {
+            v: self.v - splat_point(rhs),
+            _unit: PhantomData,
+        }
+    }
+}
+
+impl<U> SubAssign<Point2D<f32, U>> for Rect<U> {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Point2D<f32, U>) {
+        self.v -= splat_point(rhs)
+    }
+}
+
+impl<U> Neg for Rect<U> {
+    type Output = Rect<U>;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            v: -self.v,
+            _unit: PhantomData,
+        }
+    }
+}
+
+impl<U> From<Size2D<f32, U>> for Rect<U> {
+    fn from(value: Size2D<f32, U>) -> Self {
+        Self {
+            v: f32x4::new([0.0, 0.0, value.width, value.height]),
+            _unit: PhantomData,
+        }
+    }
+}
+
+/// A perimeter has the same top/left/right/bottom elements as a rectangle, but when
+/// used in calculations, the bottom and right elements are subtracted, not added.
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct Perimeter<U> {
+    pub v: f32x4,
+    #[doc(hidden)]
+    pub _unit: PhantomData<U>,
+}
+
+impl<U> Perimeter<U> {
+    #[inline]
+    pub fn topleft(&self) -> Size2D<f32, U> {
+        let ltrb = self.v.as_array_ref();
+        Size2D::<f32, U> {
+            width: ltrb[0],
+            height: ltrb[1],
+            _unit: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn bottomright(&self) -> Size2D<f32, U> {
+        let ltrb = self.v.as_array_ref();
+        Size2D::<f32, U> {
+            width: ltrb[2],
+            height: ltrb[3],
+            _unit: PhantomData,
+        }
+    }
+
+    /// Discard the units
+    #[inline]
+    pub fn to_untyped(self) -> Perimeter<euclid::UnknownUnit> {
+        self.cast_unit()
+    }
+
+    /// Cast the unit
+    #[inline]
+    pub fn cast_unit<V>(self) -> Perimeter<V> {
+        Perimeter::<V> {
+            v: self.v,
+            _unit: PhantomData,
+        }
+    }
+}
+
+pub type PxPerimeter = Perimeter<Pixel>;
+
+impl<U> Add<Perimeter<U>> for Rect<U> {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Perimeter<U>) -> Self::Output {
+        Self {
+            v: self.v + (rhs.v * MINUS_BOTTOMRIGHT),
+            _unit: PhantomData,
+        }
+    }
+}
+
+impl<U> AddAssign<Perimeter<U>> for AbsRect {
+    #[inline]
+    fn add_assign(&mut self, rhs: Perimeter<U>) {
+        self.v += rhs.v * MINUS_BOTTOMRIGHT
     }
 }
 
@@ -338,17 +538,27 @@ impl From<AbsDim> for AbsRect {
 /// A rectangle with both pixel and display independent units, but no relative component.
 pub struct DAbsRect {
     dp: AbsRect,
-    px: AbsRect,
+    px: PxRect,
 }
 
 pub const ZERO_DABSRECT: DAbsRect = DAbsRect {
-    dp: ZERO_RECT,
-    px: ZERO_RECT,
+    dp: AbsRect::zero(),
+    px: PxRect::zero(),
 };
 
 impl DAbsRect {
-    fn resolve(&self, dpi: Vec2) -> AbsRect {
-        AbsRect(self.px.0 + (self.dp.0 * splat_vec2(dpi)))
+    fn resolve(&self, dpi: RelDim) -> PxRect {
+        PxRect {
+            v: self.px.v + (self.dp.v * splat_size(dpi)),
+            _unit: PhantomData,
+        }
+    }
+
+    fn as_perimeter(&self, dpi: RelDim) -> PxPerimeter {
+        PxPerimeter {
+            v: self.resolve(dpi).v,
+            _unit: PhantomData,
+        }
     }
 }
 
@@ -356,7 +566,27 @@ impl From<AbsRect> for DAbsRect {
     fn from(value: AbsRect) -> Self {
         DAbsRect {
             dp: value,
-            px: ZERO_RECT,
+            px: PxRect::zero(),
+        }
+    }
+}
+
+impl From<PxRect> for DAbsRect {
+    fn from(value: PxRect) -> Self {
+        DAbsRect {
+            dp: AbsRect::zero(),
+            px: value,
+        }
+    }
+}
+
+impl Neg for DAbsRect {
+    type Output = DAbsRect;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
         }
     }
 }
@@ -364,94 +594,53 @@ impl From<AbsRect> for DAbsRect {
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// A point with both pixel and display independent units, but no relative component.
 pub struct DAbsPoint {
-    dp: Vec2,
-    px: Vec2,
+    dp: AbsPoint,
+    px: PxPoint,
 }
-
-pub const ZERO_DABSPOINT: DAbsPoint = DAbsPoint {
-    dp: ZERO_POINT,
-    px: ZERO_POINT,
-};
 
 impl DAbsPoint {
-    fn resolve(&self, dpi: Vec2) -> Vec2 {
-        self.px + (self.dp * dpi)
+    fn resolve(&self, dpi: RelDim) -> ResPoint {
+        ResPoint {
+            x: self.px.x + (self.dp.x * dpi.width),
+            y: self.px.y + (self.dp.y * dpi.height),
+            _unit: PhantomData,
+        }
+        //self.px + resolve_point(self.dp, dpi)
     }
 }
 
-impl From<Vec2> for DAbsPoint {
-    fn from(value: Vec2) -> Self {
+impl From<AbsPoint> for DAbsPoint {
+    fn from(value: AbsPoint) -> Self {
         DAbsPoint {
             dp: value,
-            px: ZERO_POINT,
+            px: PxPoint::zero(),
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// Relative point
-pub struct RelPoint(pub Vec2);
-
-impl RelPoint {
-    #[inline]
-    pub const fn new(x: f32, y: f32) -> Self {
-        Self(Vec2::new(x, y))
-    }
-}
-
-impl From<Vec2> for RelPoint {
-    #[inline]
-    fn from(value: Vec2) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// Relative rectangle
-pub struct RelRect(f32x4);
-
-pub const ZERO_RELRECT: RelRect = RelRect(f32x4::ZERO);
-
-impl RelRect {
-    #[inline]
-    pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
-        Self(f32x4::new([left, top, right, bottom]))
-    }
-
-    pub const fn broadcast(x: f32) -> Self {
-        Self(f32x4::new([x, x, x, x])) // f32x4::splat isn't a constant function (for some reason)
-    }
-
-    #[inline]
-    pub fn topleft(&self) -> Vec2 {
-        let ltrb = self.0.as_array_ref();
-        Vec2 {
-            x: ltrb[0],
-            y: ltrb[1],
-        }
-    }
-    #[inline]
-    pub fn bottomright(&self) -> Vec2 {
-        let ltrb = self.0.as_array_ref();
-        Vec2 {
-            x: ltrb[2],
-            y: ltrb[3],
+impl From<PxPoint> for DAbsPoint {
+    fn from(value: PxPoint) -> Self {
+        DAbsPoint {
+            dp: AbsPoint::zero(),
+            px: value,
         }
     }
 }
 
-impl Add<AbsRect> for RelRect {
-    type Output = URect;
+impl Neg for DAbsPoint {
+    type Output = DAbsPoint;
 
-    #[inline]
-    fn add(self, rhs: AbsRect) -> Self::Output {
-        rhs + self
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
+        }
     }
 }
 
 #[inline]
-pub fn build_aabb(a: Vec2, b: Vec2) -> AbsRect {
-    AbsRect::corners(a.min_by_component(b), a.max_by_component(b))
+pub fn build_aabb<U>(a: Point2D<f32, U>, b: Point2D<f32, U>) -> Rect<U> {
+    Rect::<U>::corners(a.min(b), a.max(b))
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
@@ -462,24 +651,26 @@ pub const ZERO_UPOINT: UPoint = UPoint(f32x4::ZERO);
 
 impl UPoint {
     #[inline]
-    pub const fn new(abs: Vec2, rel: RelPoint) -> Self {
-        Self(f32x4::new([abs.x, abs.y, rel.0.x, rel.0.y]))
+    pub const fn new(abs: ResPoint, rel: RelPoint) -> Self {
+        Self(f32x4::new([abs.x, abs.y, rel.x, rel.y]))
     }
     #[inline]
-    pub fn abs(&self) -> Vec2 {
+    pub fn abs(&self) -> ResPoint {
         let ltrb = self.0.as_array_ref();
-        Vec2 {
+        ResPoint {
             x: ltrb[0],
             y: ltrb[1],
+            _unit: PhantomData,
         }
     }
     #[inline]
     pub fn rel(&self) -> RelPoint {
         let ltrb = self.0.as_array_ref();
-        RelPoint(Vec2 {
+        RelPoint {
             x: ltrb[2],
             y: ltrb[3],
-        })
+            _unit: PhantomData,
+        }
     }
 }
 
@@ -501,66 +692,81 @@ impl Sub for UPoint {
     }
 }
 
-impl Mul<AbsDim> for UPoint {
-    type Output = Vec2;
+impl Mul<PxDim> for UPoint {
+    type Output = PxPoint;
 
     #[inline]
-    fn mul(self, rhs: AbsDim) -> Self::Output {
-        self.abs() + (self.rel().0 * rhs.0)
+    fn mul(self, rhs: PxDim) -> Self::Output {
+        let rel = self.rel();
+        self.abs()
+            .add_size(&Size2D::<f32, Resolved>::new(
+                rel.x * rhs.width,
+                rel.y * rhs.height,
+            ))
+            .cast_unit()
     }
 }
 
-impl Mul<AbsRect> for UPoint {
-    type Output = Vec2;
+impl Neg for UPoint {
+    type Output = UPoint;
 
-    #[inline]
-    fn mul(self, rhs: AbsRect) -> Self::Output {
-        self * rhs.dim()
-    }
-}
-
-impl From<RelPoint> for UPoint {
-    fn from(value: RelPoint) -> Self {
-        Self(f32x4::new([0.0, 0.0, value.0.x, value.0.y]))
-    }
-}
-
-impl From<Vec2> for UPoint {
-    fn from(value: Vec2) -> Self {
-        Self(f32x4::new([value.x, value.y, 0.0, 0.0]))
+    fn neg(self) -> Self::Output {
+        UPoint(-self.0)
     }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct DPoint {
-    dp: Vec2,
-    px: Vec2,
+    dp: AbsPoint,
+    px: PxPoint,
     rel: RelPoint,
 }
 
 pub const ZERO_DPOINT: DPoint = DPoint {
-    px: ZERO_POINT,
-    dp: ZERO_POINT,
-    rel: RelPoint(ZERO_POINT),
+    px: PxPoint {
+        x: 0.0,
+        y: 0.0,
+        _unit: PhantomData,
+    },
+    dp: AbsPoint {
+        x: 0.0,
+        y: 0.0,
+        _unit: PhantomData,
+    },
+    rel: RelPoint {
+        x: 0.0,
+        y: 0.0,
+        _unit: PhantomData,
+    },
 };
 
 impl DPoint {
-    const fn resolve(&self, dpi: Vec2) -> UPoint {
+    const fn resolve(&self, dpi: RelDim) -> UPoint {
         UPoint(f32x4::new([
-            self.px.x + (self.dp.x * dpi.x),
-            self.px.y + (self.dp.y * dpi.y),
-            self.rel.0.x,
-            self.rel.0.y,
+            self.px.x + (self.dp.x * dpi.width),
+            self.px.y + (self.dp.y * dpi.height),
+            self.rel.x,
+            self.rel.y,
         ]))
     }
 }
 
-impl From<UPoint> for DPoint {
-    fn from(value: UPoint) -> Self {
+impl From<AbsPoint> for DPoint {
+    fn from(value: AbsPoint) -> Self {
         Self {
-            dp: value.abs(),
-            px: ZERO_POINT,
-            rel: value.rel(),
+            dp: value,
+            px: PxPoint::zero(),
+            rel: RelPoint::zero(),
+        }
+    }
+}
+
+impl From<PxPoint> for DPoint {
+    fn from(value: PxPoint) -> Self {
+        Self {
+            dp: AbsPoint::zero(),
+            px: value,
+            rel: RelPoint::zero(),
         }
     }
 }
@@ -568,19 +774,43 @@ impl From<UPoint> for DPoint {
 impl From<RelPoint> for DPoint {
     fn from(value: RelPoint) -> Self {
         Self {
-            dp: ZERO_POINT,
-            px: ZERO_POINT,
+            dp: AbsPoint::zero(),
+            px: PxPoint::zero(),
             rel: value,
         }
     }
 }
 
-impl From<Vec2> for DPoint {
-    fn from(value: Vec2) -> Self {
-        Self {
-            dp: value,
-            px: ZERO_POINT,
-            rel: RelPoint(ZERO_POINT),
+impl Add<DPoint> for DPoint {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: DPoint) -> Self::Output {
+        Self::Output {
+            dp: self.dp + rhs.dp.to_vector(),
+            px: self.px + rhs.px.to_vector(),
+            rel: self.rel + rhs.rel.to_vector(),
+        }
+    }
+}
+
+impl Sub<DPoint> for DPoint {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: DPoint) -> Self::Output {
+        self + (-rhs)
+    }
+}
+
+impl Neg for DPoint {
+    type Output = DPoint;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
+            rel: -self.rel,
         }
     }
 }
@@ -588,76 +818,89 @@ impl From<Vec2> for DPoint {
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Unified coordinate rectangle
 pub struct URect {
-    pub abs: AbsRect,
+    pub abs: ResRect,
     pub rel: RelRect,
 }
 
 impl URect {
+    #[inline]
     pub fn topleft(&self) -> UPoint {
-        let abs = self.abs.0.as_array_ref();
-        let rel = self.rel.0.as_array_ref();
+        let abs = self.abs.v.as_array_ref();
+        let rel = self.rel.v.as_array_ref();
         UPoint(f32x4::new([abs[0], abs[1], rel[0], rel[1]]))
     }
-    pub fn bottomright(&self) -> UPoint {
-        let abs = self.abs.0.as_array_ref();
-        let rel = self.rel.0.as_array_ref();
-        UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
-    }
-}
-
-pub const ZERO_URECT: URect = URect {
-    abs: ZERO_RECT,
-    rel: ZERO_RELRECT,
-};
-
-pub const FILL_URECT: URect = URect {
-    abs: ZERO_RECT,
-    rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
-};
-
-pub const AUTO_URECT: URect = URect {
-    abs: ZERO_RECT,
-    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-};
-
-impl Mul<AbsRect> for URect {
-    type Output = AbsRect;
 
     #[inline]
-    fn mul(self, rhs: AbsRect) -> Self::Output {
-        let ltrb = rhs.0.as_array_ref();
+    pub fn bottomright(&self) -> UPoint {
+        let abs = self.abs.v.as_array_ref();
+        let rel = self.rel.v.as_array_ref();
+        UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
+    }
+
+    #[inline]
+    pub fn resolve(&self, rect: PxRect) -> PxRect {
+        let ltrb = rect.v.as_array_ref();
         let topleft = f32x4::new([ltrb[0], ltrb[1], ltrb[0], ltrb[1]]);
         let bottomright = f32x4::new([ltrb[2], ltrb[3], ltrb[2], ltrb[3]]);
 
-        AbsRect(topleft + self.abs.0 + self.rel.0 * (bottomright - topleft))
+        PxRect {
+            v: topleft + self.abs.v + self.rel.v * (bottomright - topleft),
+            _unit: PhantomData,
+        }
     }
-}
-
-impl Mul<AbsDim> for URect {
-    type Output = AbsRect;
 
     #[inline]
-    fn mul(self, rhs: AbsDim) -> Self::Output {
-        AbsRect(self.abs.0 + self.rel.0 * splat_vec2(rhs.0))
-    }
-}
-
-impl From<AbsRect> for URect {
-    #[inline]
-    fn from(value: AbsRect) -> Self {
-        Self {
-            abs: value,
-            rel: ZERO_RELRECT,
+    pub fn to_perimeter(&self, rect: PxRect) -> PxPerimeter {
+        PxPerimeter {
+            v: self.resolve(rect).v,
+            _unit: PhantomData,
         }
     }
 }
 
-impl From<RelRect> for URect {
+pub const ZERO_URECT: URect = URect {
+    abs: ResRect::zero(),
+    rel: RelRect::zero(),
+};
+
+pub const FILL_URECT: URect = URect {
+    abs: ResRect::zero(),
+    rel: RelRect::unit(),
+};
+
+pub const AUTO_URECT: URect = URect {
+    abs: ResRect::zero(),
+    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+};
+
+impl Mul<PxRect> for URect {
+    type Output = PxRect;
+
     #[inline]
-    fn from(value: RelRect) -> Self {
-        Self {
-            abs: ZERO_RECT,
-            rel: value,
+    fn mul(self, rhs: PxRect) -> Self::Output {
+        self.resolve(rhs)
+    }
+}
+
+impl Mul<PxDim> for URect {
+    type Output = PxRect;
+
+    #[inline]
+    fn mul(self, rhs: PxDim) -> Self::Output {
+        Self::Output {
+            v: self.abs.v + self.rel.v * splat_size(rhs),
+            _unit: PhantomData,
+        }
+    }
+}
+
+impl Neg for URect {
+    type Output = URect;
+
+    fn neg(self) -> Self::Output {
+        URect {
+            abs: -self.abs,
+            rel: -self.rel,
         }
     }
 }
@@ -665,15 +908,18 @@ impl From<RelRect> for URect {
 /// Display Rectangle with both per-pixel and display-independent pixels
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct DRect {
-    pub px: AbsRect,
+    pub px: PxRect,
     pub dp: AbsRect,
     pub rel: RelRect,
 }
 
 impl DRect {
-    fn resolve(&self, dpi: Vec2) -> URect {
+    fn resolve(&self, dpi: RelDim) -> URect {
         URect {
-            abs: AbsRect(self.px.0 + (self.dp.0 * splat_vec2(dpi))),
+            abs: ResRect {
+                v: self.px.v + (self.dp.v * splat_size(dpi)),
+                _unit: PhantomData,
+            },
             rel: self.rel,
         }
     }
@@ -681,43 +927,105 @@ impl DRect {
         DPoint {
             dp: self.dp.topleft(),
             px: self.px.topleft(),
-            rel: RelPoint(self.rel.topleft()),
+            rel: self.rel.topleft(),
         }
     }
     pub fn bottomright(&self) -> DPoint {
         DPoint {
             dp: self.dp.bottomright(),
             px: self.px.bottomright(),
-            rel: RelPoint(self.rel.bottomright()),
+            rel: self.rel.bottomright(),
+        }
+    }
+
+    pub const fn zero() -> Self {
+        Self {
+            px: PxRect::zero(),
+            dp: AbsRect::zero(),
+            rel: RelRect::zero(),
+        }
+    }
+
+    pub const fn fill() -> Self {
+        DRect {
+            px: PxRect::zero(),
+            dp: AbsRect::zero(),
+            rel: RelRect::unit(),
+        }
+    }
+
+    pub const fn auto() -> Self {
+        DRect {
+            px: PxRect::zero(),
+            dp: AbsRect::zero(),
+            rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
         }
     }
 }
 
-pub const ZERO_DRECT: DRect = DRect {
-    px: ZERO_RECT,
-    dp: ZERO_RECT,
-    rel: ZERO_RELRECT,
-};
+pub const ZERO_DRECT: DRect = DRect::zero();
+pub const FILL_DRECT: DRect = DRect::fill();
+pub const AUTO_DRECT: DRect = DRect::auto();
 
-pub const FILL_DRECT: DRect = DRect {
-    px: ZERO_RECT,
-    dp: ZERO_RECT,
-    rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
-};
+impl Add<DRect> for DRect {
+    type Output = Self;
 
-pub const AUTO_DRECT: DRect = DRect {
-    px: ZERO_RECT,
-    dp: ZERO_RECT,
-    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-};
+    #[inline]
+    fn add(self, rhs: DRect) -> Self::Output {
+        Self::Output {
+            dp: AbsRect {
+                v: self.dp.v + rhs.dp.v,
+                _unit: PhantomData,
+            },
+            px: PxRect {
+                v: self.px.v + rhs.px.v,
+                _unit: PhantomData,
+            },
+            rel: RelRect {
+                v: self.rel.v + rhs.rel.v,
+                _unit: PhantomData,
+            },
+        }
+    }
+}
 
-impl From<URect> for DRect {
-    /// By default we assume everything is in device independent pixels - if you wanted pixels, you should be using DRect explicitly
-    fn from(value: URect) -> Self {
+impl Sub<DRect> for DRect {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: DRect) -> Self::Output {
+        self + (-rhs)
+    }
+}
+
+impl Neg for DRect {
+    type Output = DRect;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
+            rel: -self.rel,
+        }
+    }
+}
+
+impl From<AbsRect> for DRect {
+    fn from(value: AbsRect) -> Self {
         Self {
-            px: ZERO_RECT,
-            dp: value.abs,
-            rel: value.rel,
+            px: PxRect::zero(),
+            dp: value,
+            rel: RelRect::zero(),
+        }
+    }
+}
+
+impl From<PxRect> for DRect {
+    fn from(value: PxRect) -> Self {
+        Self {
+            px: value,
+            dp: AbsRect::zero(),
+            rel: RelRect::zero(),
         }
     }
 }
@@ -725,95 +1033,157 @@ impl From<URect> for DRect {
 impl From<RelRect> for DRect {
     fn from(value: RelRect) -> Self {
         Self {
-            px: ZERO_RECT,
-            dp: ZERO_RECT,
+            px: PxRect::zero(),
+            dp: AbsRect::zero(),
             rel: value,
         }
     }
 }
 
-impl From<AbsRect> for DRect {
-    /// By default we assume everything is in device independent pixels - if you wanted pixels, you should be using DRect explicitly
-    fn from(value: AbsRect) -> Self {
-        Self {
-            px: ZERO_RECT,
-            dp: value,
-            rel: ZERO_RELRECT,
-        }
+impl<T, U: Into<DRect>> Add<U> for Rect<T>
+where
+    Self: Into<DRect>,
+{
+    type Output = DRect;
+
+    fn add(self, rhs: U) -> Self::Output {
+        self.into() + rhs.into()
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct AbsLimits(f32x4);
+// We use our own SSE optimized Rect type instead of the euclid ones
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Limits<U> {
+    pub v: f32x4,
+    #[doc(hidden)]
+    pub _unit: PhantomData<U>,
+}
 
+pub type PxLimits = Limits<Pixel>;
+pub type AbsLimits = Limits<DIP>;
+pub type RelLimits = Limits<Relative>;
+pub type ResLimits = Limits<Resolved>;
+
+//pub const Unbounded: std::ops::Range<f32> = std::ops::Range
 // It would be cheaper to avoid using actual infinities here but we currently need them to make the math work
-pub const DEFAULT_LIMITS: AbsLimits = AbsLimits(f32x4::new([
+pub const DEFAULT_LIMITS: f32x4 = f32x4::new([
     f32::NEG_INFINITY,
     f32::NEG_INFINITY,
     f32::INFINITY,
     f32::INFINITY,
-]));
+]);
 
-impl AbsLimits {
-    pub const fn new(min: Vec2, max: Vec2) -> Self {
-        Self(f32x4::new([min.x, min.y, max.x, max.y]))
-    }
+pub const DEFAULT_ABSLIMITS: AbsLimits = AbsLimits {
+    v: DEFAULT_LIMITS,
+    _unit: PhantomData,
+};
+
+pub const DEFAULT_RLIMITS: RelLimits = RelLimits {
+    v: DEFAULT_LIMITS,
+    _unit: PhantomData,
+};
+
+impl<U> Limits<U> {
     #[inline]
-    pub fn min(&self) -> Vec2 {
-        let minmax = self.0.as_array_ref();
-        Vec2 {
-            x: minmax[0],
-            y: minmax[1],
+    const fn from_bound(bound: std::ops::Bound<&f32>, inf: f32) -> f32 {
+        match bound {
+            std::ops::Bound::Included(v) | std::ops::Bound::Excluded(v) => *v,
+            std::ops::Bound::Unbounded => inf,
         }
     }
+    pub fn new(x: impl std::ops::RangeBounds<f32>, y: impl std::ops::RangeBounds<f32>) -> Self {
+        Self {
+            v: f32x4::new([
+                Self::from_bound(x.start_bound(), f32::NEG_INFINITY),
+                Self::from_bound(y.start_bound(), f32::NEG_INFINITY),
+                Self::from_bound(x.end_bound(), f32::INFINITY),
+                Self::from_bound(y.end_bound(), f32::INFINITY),
+            ]),
+            _unit: PhantomData,
+        }
+    }
+
     #[inline]
-    pub fn max(&self) -> Vec2 {
-        let minmax = self.0.as_array_ref();
-        Vec2 {
-            x: minmax[2],
-            y: minmax[3],
+    pub fn min(&self) -> Size2D<f32, U> {
+        let minmax = self.v.as_array_ref();
+        Size2D::new(minmax[0], minmax[1])
+    }
+    #[inline]
+    pub fn max(&self) -> Size2D<f32, U> {
+        let minmax = self.v.as_array_ref();
+        Size2D::new(minmax[2], minmax[3])
+    }
+
+    /// Discard the units
+    #[inline]
+    pub fn to_untyped(self) -> Limits<euclid::UnknownUnit> {
+        self.cast_unit()
+    }
+
+    /// Cast the unit
+    #[inline]
+    pub fn cast_unit<V>(self) -> Limits<V> {
+        Limits::<V> {
+            v: self.v,
+            _unit: PhantomData,
         }
     }
 }
 
-impl Default for AbsLimits {
+impl<U> Default for Limits<U> {
     #[inline]
     fn default() -> Self {
-        DEFAULT_LIMITS
+        Self {
+            v: DEFAULT_LIMITS,
+            _unit: PhantomData,
+        }
     }
 }
 
-impl Add<AbsLimits> for AbsLimits {
+impl<U> Add<Limits<U>> for Limits<U> {
     type Output = Self;
 
     #[inline]
-    fn add(self, rhs: AbsLimits) -> Self::Output {
-        let minmax = self.0.as_array_ref();
-        let r = rhs.0.as_array_ref();
+    fn add(self, rhs: Limits<U>) -> Self::Output {
+        let minmax = self.v.as_array_ref();
+        let r = rhs.v.as_array_ref();
 
-        Self(f32x4::new([
-            minmax[0].max(r[0]),
-            minmax[1].max(r[1]),
-            minmax[2].min(r[2]),
-            minmax[3].min(r[3]),
-        ]))
+        Self {
+            v: f32x4::new([
+                minmax[0].max(r[0]),
+                minmax[1].max(r[1]),
+                minmax[2].min(r[2]),
+                minmax[3].min(r[3]),
+            ]),
+            _unit: PhantomData,
+        }
     }
 }
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct DLimits {
     dp: AbsLimits,
-    px: AbsLimits,
+    px: PxLimits,
 }
 
 pub const DEFAULT_DLIMITS: DLimits = DLimits {
-    dp: DEFAULT_LIMITS,
-    px: AbsLimits(f32x4::ZERO),
+    dp: AbsLimits {
+        v: DEFAULT_LIMITS,
+        _unit: PhantomData,
+    },
+    px: PxLimits {
+        v: DEFAULT_LIMITS,
+        _unit: PhantomData,
+    },
 };
 
 impl DLimits {
-    pub fn resolve(&self, dpi: Vec2) -> AbsLimits {
-        AbsLimits(self.px.0 + self.dp.0 * splat_vec2(dpi))
+    pub fn resolve(&self, dpi: RelDim) -> PxLimits {
+        self.px.cast_unit()
+            + PxLimits {
+                v: self.dp.v * splat_size(dpi),
+                _unit: PhantomData,
+            }
     }
 }
 
@@ -821,79 +1191,52 @@ impl From<AbsLimits> for DLimits {
     fn from(value: AbsLimits) -> Self {
         DLimits {
             dp: value,
-            px: AbsLimits(f32x4::ZERO),
+            px: Default::default(),
         }
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct RelLimits(f32x4);
-
-pub const DEFAULT_RLIMITS: RelLimits = RelLimits(f32x4::new([
-    f32::NEG_INFINITY,
-    f32::NEG_INFINITY,
-    f32::INFINITY,
-    f32::INFINITY,
-]));
-
-impl Default for RelLimits {
-    fn default() -> Self {
-        DEFAULT_RLIMITS
+impl From<PxLimits> for DLimits {
+    fn from(value: PxLimits) -> Self {
+        DLimits {
+            dp: Default::default(),
+            px: value,
+        }
     }
 }
 
-impl RelLimits {
-    #[inline]
-    pub const fn new(min: Vec2, max: Vec2) -> Self {
-        Self(f32x4::new([min.x, min.y, max.x, max.y]))
-    }
-    #[inline]
-    pub fn min(&self) -> RelPoint {
-        let minmax = self.0.as_array_ref();
-        RelPoint(Vec2 {
-            x: minmax[0],
-            y: minmax[1],
-        })
-    }
-    #[inline]
-    pub fn max(&self) -> RelPoint {
-        let minmax = self.0.as_array_ref();
-        RelPoint(Vec2 {
-            x: minmax[2],
-            y: minmax[3],
-        })
-    }
-}
-
-impl Mul<AbsDim> for RelLimits {
-    type Output = AbsLimits;
+impl Mul<PxDim> for RelLimits {
+    type Output = PxLimits;
 
     #[inline]
-    fn mul(self, rhs: AbsDim) -> Self::Output {
+    fn mul(self, rhs: PxDim) -> Self::Output {
         let (unsized_x, unsized_y) = crate::layout::check_unsized_dim(rhs);
-        let minmax = self.0.as_array_ref();
-        AbsLimits(f32x4::new([
-            if unsized_x {
-                minmax[0]
-            } else {
-                minmax[0] * rhs.0.x
-            },
-            if unsized_y {
-                minmax[1]
-            } else {
-                minmax[1] * rhs.0.y
-            },
-            if unsized_x {
-                minmax[2]
-            } else {
-                minmax[2] * rhs.0.x
-            },
-            if unsized_y {
-                minmax[3]
-            } else {
-                minmax[3] * rhs.0.y
-            },
-        ]))
+        let minmax = self.v.as_array_ref();
+        Self::Output {
+            v: f32x4::new([
+                if unsized_x {
+                    minmax[0]
+                } else {
+                    minmax[0] * rhs.width
+                },
+                if unsized_y {
+                    minmax[1]
+                } else {
+                    minmax[1] * rhs.height
+                },
+                if unsized_x {
+                    minmax[2]
+                } else {
+                    minmax[2] * rhs.width
+                },
+                if unsized_y {
+                    minmax[3]
+                } else {
+                    minmax[3] * rhs.height
+                },
+            ]),
+            _unit: PhantomData,
+        }
     }
 }
 
@@ -969,15 +1312,15 @@ pub enum RowDirection {
 // retrieved during the render step via a source ID.
 #[derive(Default)]
 pub struct CrossReferenceDomain {
-    mappings: RwLock<im::HashMap<Arc<SourceID>, AbsRect>>,
+    mappings: RwLock<im::HashMap<Arc<SourceID>, PxRect>>,
 }
 
 impl CrossReferenceDomain {
-    pub fn write_area(&self, target: Arc<SourceID>, area: AbsRect) {
+    pub fn write_area(&self, target: Arc<SourceID>, area: PxRect) {
         self.mappings.write().insert(target, area);
     }
 
-    pub fn get_area(&self, target: &Arc<SourceID>) -> Option<AbsRect> {
+    pub fn get_area(&self, target: &Arc<SourceID>) -> Option<PxRect> {
         self.mappings.read().get(target).copied()
     }
 
@@ -1223,30 +1566,28 @@ pub trait StateMachineChild {
     }
     fn id(&self) -> Arc<SourceID>;
 }
-/*
+
+// This was originally supposed to use a pointer, but rust moves things all over the place, so a version that
+// doesn't store the ID would have to be pinned (which likely isn't even possible inside an appstate).
 pub struct StateCell<T> {
     value: T,
+    id: Arc<SourceID>,
 }
 
 impl<T> StateCell<T> {
-    pub fn new(v: T) -> Self {
-        Self { value: v }
+    pub fn new(v: T, id: Arc<SourceID>) -> Self {
+        Self { value: v, id }
     }
 
-    pub fn borrow(&self) -> &Self {
-        self
+    pub fn borrow_mut<'a>(&'a mut self, manager: &mut StateManager) -> &'a mut T {
+        manager.mutate_id(&self.id);
+        &mut self.value
     }
+}
 
-    pub fn borrow_mut<'a>(
-        &'a mut self,
-        id: &'a Arc<SourceID>,
-        manager: &'a mut StateManager,
-    ) -> StateCellRefMut<'a, T> {
-        StateCellRefMut {
-            value: std::ptr::NonNull::new(&mut self.value).unwrap(),
-            id,
-            manager,
-        }
+impl<T> std::borrow::Borrow<T> for StateCell<T> {
+    fn borrow(&self) -> &T {
+        &self.value
     }
 }
 
@@ -1256,40 +1597,6 @@ impl<T> std::ops::Deref for StateCell<T> {
     #[inline]
     fn deref(&self) -> &T {
         &self.value
-    }
-}*/
-
-/// Holds a mutable reference to an internal StateCell value, which sets the resulting id as "changed" once it's dropped.
-/// If this reference object fails to be dropped, the changed flag will never be set!
-pub struct StateCellRefMut<'b, T: 'b> {
-    // NB: we use a pointer instead of `&'b mut T` to avoid `noalias` violations, because a
-    // `RefMut` argument doesn't hold exclusivity for its whole scope, only until it drops.
-    value: std::ptr::NonNull<T>,
-    id: &'b Arc<SourceID>, // We hold on to this with a reference to force the reference to be dropped before you do anything else.
-    manager: &'b mut StateManager,
-}
-
-impl<T> std::ops::Deref for StateCellRefMut<'_, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &T {
-        // SAFETY: the value is accessible as long as we hold our borrow.
-        unsafe { self.value.as_ref() }
-    }
-}
-
-impl<T> std::ops::DerefMut for StateCellRefMut<'_, T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut T {
-        // SAFETY: the value is accessible as long as we hold our borrow.
-        unsafe { self.value.as_mut() }
-    }
-}
-
-impl<T> Drop for StateCellRefMut<'_, T> {
-    fn drop(&mut self) {
-        self.manager.mutate_id(self.id);
     }
 }
 
@@ -1396,9 +1703,9 @@ impl StateManager {
         &mut self,
         event: DispatchPair,
         slot: &Slot,
-        dpi: Vec2,
-        area: AbsRect,
-        extent: AbsRect,
+        dpi: RelDim,
+        area: PxRect,
+        extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<()> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
@@ -1487,9 +1794,9 @@ impl<AppData: 'static + PartialEq> StateMachineWrapper for AppDataMachine<AppDat
         &mut self,
         input: DispatchPair,
         index: u64,
-        _: crate::Vec2,
-        _: AbsRect,
-        _: AbsRect,
+        _: RelDim,
+        _: PxRect,
+        _: PxRect,
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<SmallVec<[DispatchPair; 1]>> {
         let f = self
@@ -1667,7 +1974,7 @@ impl<
                         {
                             if let Some(staging) = root.staging.as_ref() {
                                 let inner = state.state.as_mut().unwrap();
-                                let surface_dim = inner.surface_dim();
+                                let surface_dim = inner.surface_dim().to_f32();
 
                                 loop {
                                     // Construct a default compositor view with no offset.
@@ -1677,7 +1984,7 @@ impl<
                                         layer0: &mut driver.layer_composite[0].write(),
                                         layer1: &mut driver.layer_composite[1].write(),
                                         clipstack: &mut inner.clipstack,
-                                        offset: Vec2::zero(),
+                                        offset: PxVector::zero(),
                                         surface_dim,
                                         pass: 0,
                                         slice: 0,
@@ -1687,7 +1994,7 @@ impl<
                                     inner.layers.clear();
                                     viewer.clipstack.clear();
                                     if let Err(e) = staging.render(
-                                        Vec2::zero(),
+                                        PxPoint::zero(),
                                         &driver,
                                         &mut viewer,
                                         &mut inner.layers,
@@ -1737,10 +2044,11 @@ impl<
                                 driver.layer_composite[i].write().prepare(
                                     &driver,
                                     &mut encoder,
-                                    Vec2 {
-                                        x: surface_dim.width as f32,
-                                        y: surface_dim.height as f32,
-                                    },
+                                    Size2D::<u32, Pixel>::new(
+                                        surface_dim.width,
+                                        surface_dim.height,
+                                    )
+                                    .to_f32(),
                                 );
                             }
 
@@ -1864,13 +2172,13 @@ impl FnPersist<u8, im::HashMap<Arc<SourceID>, Option<Window>>> for TestApp {
     fn init(&self) -> Self::Store {
         use crate::color::sRGB;
         use crate::component::shape::Shape;
-        use ultraviolet::Vec4;
+        use bytemuck::Zeroable;
         let rect = Shape::<DRect, { component::shape::ShapeKind::RoundRect as u8 }>::new(
             gen_id!(),
             crate::FILL_DRECT.into(),
             0.0,
             0.0,
-            Vec4::zero(),
+            f32x4::zeroed(),
             sRGB::new(1.0, 0.0, 0.0, 1.0),
             sRGB::transparent(),
         );
@@ -1915,28 +2223,28 @@ fn test_absrect_contain() {
     for x in 0..=2 {
         for y in 0..=2 {
             if x == 2 || y == 2 {
-                assert!(!target.contains(Vec2::new(x as f32, y as f32)));
+                assert!(!target.contains(AbsPoint::new(x as f32, y as f32)));
             } else {
                 assert!(
-                    target.contains(Vec2::new(x as f32, y as f32)),
+                    target.contains(AbsPoint::new(x as f32, y as f32)),
                     "{x} {y} not inside {target}"
                 );
             }
         }
     }
 
-    assert!(target.contains(Vec2::new(1.999, 1.999)));
+    assert!(target.contains(AbsPoint::new(1.999, 1.999)));
 
     for y in -1..=3 {
-        assert!(!target.contains(Vec2::new(-1.0, y as f32)));
-        assert!(!target.contains(Vec2::new(3.0, y as f32)));
-        assert!(!target.contains(Vec2::new(3000000.0, y as f32)));
+        assert!(!target.contains(AbsPoint::new(-1.0, y as f32)));
+        assert!(!target.contains(AbsPoint::new(3.0, y as f32)));
+        assert!(!target.contains(AbsPoint::new(3000000.0, y as f32)));
     }
 
     for x in -1..=3 {
-        assert!(!target.contains(Vec2::new(x as f32, -1.0)));
-        assert!(!target.contains(Vec2::new(x as f32, 3.0)));
-        assert!(!target.contains(Vec2::new(x as f32, -3000000.0)));
+        assert!(!target.contains(AbsPoint::new(x as f32, -1.0)));
+        assert!(!target.contains(AbsPoint::new(x as f32, 3.0)));
+        assert!(!target.contains(AbsPoint::new(x as f32, -3000000.0)));
     }
 }
 

@@ -7,14 +7,18 @@ use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
-use crate::{AbsDim, SourceID, StateMachineChild, StateManager, graphics, layout, rtree};
+use crate::{
+    PxDim, PxPoint, PxVector, RelDim, RelVector, SourceID, StateMachineChild, StateManager,
+    graphics, layout, rtree,
+};
 use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
+use guillotiere::euclid::default::Rotation3D;
+use guillotiere::euclid::{Point3D, Size2D};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-use ultraviolet::Vec2;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -36,12 +40,12 @@ pub struct WindowState {
     all_buttons: u16,
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
-    pub dpi: Vec2,
+    pub dpi: crate::RelDim,
     pub driver: Arc<graphics::Driver>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Arc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
-    pub clipstack: Vec<crate::AbsRect>, // Current clipping rectangle stack. These only get added to the GPU clip list if something is rotated
+    pub clipstack: Vec<crate::PxRect>, // Current clipping rectangle stack. These only get added to the GPU clip list if something is rotated
     pub layers: Vec<std::sync::Weak<SourceID>>, // All layers that render directly to the final compositor
 }
 
@@ -129,7 +133,7 @@ impl WindowState {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         self.compositor
-            .prepare(&self.driver, &mut encoder, self.surface_dim());
+            .prepare(&self.driver, &mut encoder, self.surface_dim().to_f32());
 
         {
             let mut backcolor = BACKCOLOR;
@@ -154,8 +158,8 @@ impl WindowState {
                 occlusion_query_set: None,
             });
 
-            let viewport_dim = self.surface_dim();
-            pass.set_viewport(0.0, 0.0, viewport_dim.x, viewport_dim.y, 0.0, 1.0);
+            let viewport_dim = self.surface_dim().to_f32();
+            pass.set_viewport(0.0, 0.0, viewport_dim.width, viewport_dim.height, 0.0, 1.0);
 
             self.compositor.draw(&self.driver, &mut pass, 0, 0);
             self.compositor.cleanup();
@@ -165,8 +169,8 @@ impl WindowState {
         frame.present();
     }
 
-    pub fn surface_dim(&self) -> Vec2 {
-        Vec2::new(self.config.width as f32, self.config.height as f32)
+    pub fn surface_dim(&self) -> Size2D<u32, crate::Pixel> {
+        Size2D::<u32, crate::Pixel>::new(self.config.width, self.config.height)
     }
 }
 
@@ -202,14 +206,16 @@ pub struct Window {
 }
 
 impl Component for Window {
-    type Props = AbsDim;
+    type Props = PxDim;
 
     fn layout(
         &self,
         manager: &mut crate::StateManager,
         _: &graphics::Driver,
         _: &Arc<SourceID>,
-    ) -> Box<dyn crate::layout::Layout<AbsDim>> {
+    ) -> Box<dyn crate::layout::Layout<PxDim>> {
+        use crate::Convert;
+
         let inner = manager
             .get::<WindowStateMachine>(&self.id)
             .unwrap()
@@ -218,11 +224,8 @@ impl Component for Window {
             .unwrap();
         let size = inner.window.inner_size();
         let driver = inner.driver.clone();
-        Box::new(layout::Node::<AbsDim, dyn root::Prop> {
-            props: Rc::new(crate::AbsDim(Vec2 {
-                x: size.width as f32,
-                y: size.height as f32,
-            })),
+        Box::new(layout::Node::<PxDim, dyn root::Prop> {
+            props: Rc::new(size.to().to_f32()),
             children: self.child.layout(manager, &driver, &self.id),
             id: Arc::downgrade(&self.id),
             renderable: None,
@@ -295,7 +298,7 @@ impl Window {
                 all_buttons: 0,
                 last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
                 config,
-                dpi: Vec2::broadcast(window.scale_factor() as f32),
+                dpi: RelDim::splat(window.scale_factor() as f32),
                 surface,
                 window,
                 driver: driver.clone(),
@@ -354,13 +357,15 @@ impl Window {
         manager: &mut StateManager,
         driver: std::sync::Weak<graphics::Driver>,
     ) -> Result<(), ()> {
+        use crate::Convert;
+
         let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
         let window = state.state.as_mut().unwrap();
         let dpi = window.dpi;
         let inner = window.window.clone();
         match event {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                window.dpi = Vec2::broadcast(scale_factor as f32);
+                window.dpi = RelDim::splat(scale_factor as f32);
                 window.window.request_redraw();
                 Ok(())
             }
@@ -416,7 +421,7 @@ impl Window {
                         &evt,
                         evt.kind(),
                         dpi,
-                        Vec2::zero(),
+                        PxVector::zero(),
                         id.clone(),
                         &driver,
                         manager,
@@ -461,7 +466,7 @@ impl Window {
                             PhysicalPosition::new(position.x as f32, position.y as f32);
                         RawEvent::MouseMove {
                             device_id,
-                            pos: window.last_mouse,
+                            pos: window.last_mouse.to(),
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
                         }
@@ -490,7 +495,7 @@ impl Window {
                         }
                         RawEvent::MouseOn {
                             device_id,
-                            pos: window.last_mouse,
+                            pos: window.last_mouse.to(),
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
                         }
@@ -511,20 +516,15 @@ impl Window {
                         winit::event::MouseScrollDelta::LineDelta(x, y) => RawEvent::MouseScroll {
                             device_id,
                             state: phase.into(),
-                            pos: window.last_mouse,
-                            delta: Vec2::new(x, y),
-                            pixels: false,
+                            pos: window.last_mouse.to(),
+                            delta: Err(RelVector::new(x, y)),
                         },
                         winit::event::MouseScrollDelta::PixelDelta(physical_position) => {
                             RawEvent::MouseScroll {
                                 device_id,
                                 state: phase.into(),
-                                pos: window.last_mouse,
-                                delta: Vec2::new(
-                                    physical_position.x as f32,
-                                    physical_position.y as f32,
-                                ),
-                                pixels: true,
+                                pos: window.last_mouse.to(),
+                                delta: Ok(physical_position.to().to_f32().to_vector()),
                             }
                         }
                     },
@@ -548,7 +548,7 @@ impl Window {
                             } else {
                                 MouseState::Up
                             },
-                            pos: window.last_mouse,
+                            pos: window.last_mouse.to(),
                             button: b,
                             all_buttons: window.all_buttons,
                             modifiers: window.modifiers,
@@ -566,13 +566,9 @@ impl Window {
                     WindowEvent::Touch(touch) => RawEvent::Touch {
                         device_id: touch.device_id,
                         state: touch.phase.into(),
-                        pos: ultraviolet::Vec3::new(
-                            touch.location.x as f32,
-                            touch.location.y as f32,
-                            0.0,
-                        ),
-                        index: touch.id,
-                        angle: Default::default(),
+                        pos: touch.location.to().to_f32().to_3d(),
+                        index: touch.id as u32,
+                        angle: Rotation3D::<f32>::identity(),
                         pressure: match touch.force {
                             Some(winit::event::Force::Normalized(x)) => x,
                             Some(winit::event::Force::Calibrated {
@@ -614,7 +610,7 @@ impl Window {
                                         &e,
                                         e.kind(),
                                         dpi,
-                                        Vec2::zero(),
+                                        PxVector::zero(),
                                         id.clone(),
                                         &driver,
                                         manager,
@@ -641,7 +637,7 @@ impl Window {
                                 &e,
                                 e.kind(),
                                 dpi,
-                                Vec2::zero(),
+                                PxVector::zero(),
                                 id.clone(),
                                 &driver,
                                 manager,
@@ -654,7 +650,7 @@ impl Window {
                                 &e,
                                 e.kind(),
                                 dpi,
-                                Vec2::zero(),
+                                PxVector::zero(),
                                 id.clone(),
                                 &driver,
                                 manager,
@@ -665,17 +661,17 @@ impl Window {
                     }
                     RawEvent::Mouse {
                         device_id,
-                        pos: PhysicalPosition { x, y },
+                        pos: PxPoint { x, y, .. },
                         ..
                     }
                     | RawEvent::MouseOn {
                         device_id,
-                        pos: PhysicalPosition { x, y },
+                        pos: PxPoint { x, y, .. },
                         ..
                     }
                     | RawEvent::MouseMove {
                         device_id,
-                        pos: PhysicalPosition { x, y },
+                        pos: PxPoint { x, y, .. },
                         ..
                     }
                     | RawEvent::Drop {
@@ -685,12 +681,12 @@ impl Window {
                     }
                     | RawEvent::MouseScroll {
                         device_id,
-                        pos: PhysicalPosition { x, y },
+                        pos: PxPoint { x, y, .. },
                         ..
                     }
                     | RawEvent::Touch {
                         device_id,
-                        pos: ultraviolet::Vec3 { x, y, z: _ },
+                        pos: Point3D::<f32, crate::Pixel> { x, y, .. },
                         ..
                     } => {
                         if let Some(node) = window
@@ -717,8 +713,8 @@ impl Window {
                             rt.process(
                                 &e,
                                 e.kind(),
-                                Vec2::new(x, y),
-                                Vec2::zero(),
+                                PxPoint::new(x, y),
+                                PxVector::zero(),
                                 dpi,
                                 &driver,
                                 manager,
@@ -758,7 +754,7 @@ impl Window {
                                     &evt,
                                     evt.kind(),
                                     dpi,
-                                    Vec2::zero(),
+                                    PxVector::zero(),
                                     id.clone(),
                                     &driver,
                                     manager,
@@ -799,7 +795,7 @@ impl Window {
                                     &evt,
                                     evt.kind(),
                                     dpi,
-                                    Vec2::zero(),
+                                    PxVector::zero(),
                                     id.clone(),
                                     &driver,
                                     manager,

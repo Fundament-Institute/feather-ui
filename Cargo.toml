@@ -4,7 +4,7 @@
 [workspace]
 members = [
   "feather-ui",
-  "feather-ui/examples/basic-alc",
+  # "feather-ui/examples/basic-alc",
   "feather-ui/examples/calculator-rs",
   # "feather-ui/examples/calculator-alc", # This breaks cargo for some reason
   "feather-macro",
@@ -26,9 +26,6 @@ im = "15.1"
 wgpu = "25"
 winit = "0.30"
 eyre = "0.6"
-ultraviolet = "0.10"
-tracing-subscriber = { version = "0.3.18", features = ["time"] }
-tracing = "0.1.40"
 feather-ui = { path = "feather-ui" }
 alicorn = "0.1.2"
 feather-macro = { version = "0.2", path = "feather-macro" }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::layout::{Layout, leaf};
+use crate::render::atlas::Size;
 use crate::{DAbsPoint, SourceID, UNSIZED_AXIS};
 use derive_where::derive_where;
 use std::rc::Rc;
@@ -68,8 +69,8 @@ where
         let uvsize = driver
             .load_and_resize(
                 self.resource.as_ref(),
-                guillotiere::Size::new(zero_float(size.x), zero_float(size.y)),
-                dpi.x,
+                Size::new(zero_float(size.x), zero_float(size.y)),
+                dpi.width,
                 self.dynamic,
             )
             .unwrap();
@@ -77,11 +78,11 @@ where
         Box::new(leaf::Sized::<T> {
             props: self.props.clone(),
             id: Arc::downgrade(&self.id),
-            size: ultraviolet::Vec2::new(uvsize.width as f32, uvsize.height as f32),
+            size: uvsize.cast().cast_unit(),
             renderable: Some(Rc::new(crate::render::image::Instance {
                 image: self.resource.clone(),
-                padding: self.props.padding().resolve(dpi),
-                dpi: dpi.x,
+                padding: self.props.padding().as_perimeter(dpi),
+                dpi: dpi.width,
                 resize: self.dynamic,
             })),
         })
