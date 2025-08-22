@@ -3,19 +3,18 @@
 
 use crate::color::sRGB;
 use crate::layout::{Layout, base};
-use crate::{SourceID, layout};
+use crate::{PxPoint, SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
-use ultraviolet::Vec2;
 
 // This draws a line between two points relative to the parent
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Line<T> {
     pub id: Arc<SourceID>,
-    pub start: Vec2,
-    pub end: Vec2,
+    pub start: PxPoint,
+    pub end: PxPoint,
     pub props: Rc<T>,
     pub fill: sRGB,
 }

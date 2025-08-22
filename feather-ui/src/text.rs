@@ -221,14 +221,14 @@ impl EditBuffer {
         font_size: f32,
         line_height: f32,
         wrap: cosmic_text::Wrap,
-        dpi: ultraviolet::Vec2,
+        dpi: crate::RelDim,
         attrs: cosmic_text::Attrs<'_>,
     ) {
         let mut text_buffer = self.buffer.borrow_mut();
 
         let metrics = cosmic_text::Metrics::new(
-            point_to_pixel(font_size, dpi.x),
-            point_to_pixel(line_height, dpi.y),
+            point_to_pixel(font_size, dpi.width),
+            point_to_pixel(line_height, dpi.height),
         );
 
         if text_buffer.metrics() != metrics {

@@ -7,7 +7,6 @@ use crate::{BASE_DPI, SourceID, WindowStateMachine, layout};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
-use ultraviolet::{Vec2, Vec4};
 
 #[repr(u8)]
 pub enum ShapeKind {
@@ -22,7 +21,7 @@ pub struct Shape<T, const KIND: u8> {
     pub props: Rc<T>,
     border: f32,
     blur: f32,
-    pub corners: Vec4,
+    pub corners: [f32; 4],
     pub fill: sRGB,
     pub outline: sRGB,
 }
@@ -32,7 +31,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
     props: Rc<T>,
     border: f32,
     blur: f32,
-    corners: Vec4,
+    corners: wide::f32x4,
     fill: sRGB,
     outline: sRGB,
 ) -> Shape<T, { ShapeKind::RoundRect as u8 }> {
@@ -41,7 +40,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
         props,
         border,
         blur,
-        corners,
+        corners: corners.to_array(),
         fill,
         outline,
     }
@@ -52,7 +51,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
     props: Rc<T>,
     border: f32,
     blur: f32,
-    corners: ultraviolet::Vec3,
+    corners: [f32; 3],
     offset: f32,
     fill: sRGB,
     outline: sRGB,
@@ -62,7 +61,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
         props,
         border,
         blur,
-        corners: Vec4::new(corners.x, corners.y, corners.z, offset),
+        corners: [corners[0], corners[1], corners[2], offset],
         fill,
         outline,
     }
@@ -73,7 +72,7 @@ pub fn circle<T: leaf::Padded + 'static>(
     props: Rc<T>,
     border: f32,
     blur: f32,
-    radii: Vec2,
+    radii: [f32; 2],
     fill: sRGB,
     outline: sRGB,
 ) -> Shape<T, { ShapeKind::Circle as u8 }> {
@@ -82,7 +81,7 @@ pub fn circle<T: leaf::Padded + 'static>(
         props,
         border,
         blur,
-        corners: Vec4::new(radii.x, radii.y, 0.0, 0.0),
+        corners: [radii[0], radii[1], 0.0, 0.0],
         fill,
         outline,
     }
@@ -93,7 +92,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
     props: Rc<T>,
     border: f32,
     blur: f32,
-    arcs: Vec4,
+    arcs: wide::f32x4,
     fill: sRGB,
     outline: sRGB,
 ) -> Shape<T, { ShapeKind::Arc as u8 }> {
@@ -102,7 +101,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
         props,
         border,
         blur,
-        corners: arcs,
+        corners: arcs.to_array(),
         fill,
         outline,
     }
@@ -128,7 +127,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
         props: Rc<T>,
         border: f32,
         blur: f32,
-        corners: Vec4,
+        corners: wide::f32x4,
         fill: sRGB,
         outline: sRGB,
     ) -> Self {
@@ -137,7 +136,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
             props,
             border,
             blur,
-            corners,
+            corners: corners.to_array(),
             fill,
             outline,
         }
@@ -150,7 +149,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
         props: Rc<T>,
         border: f32,
         blur: f32,
-        corners: ultraviolet::Vec3,
+        corners: [f32; 3],
         offset: f32,
         fill: sRGB,
         outline: sRGB,
@@ -160,7 +159,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
             props,
             border,
             blur,
-            corners: Vec4::new(corners.x, corners.y, corners.z, offset),
+            corners: [corners[0], corners[1], corners[2], offset],
             fill,
             outline,
         }
@@ -173,7 +172,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
         props: Rc<T>,
         border: f32,
         blur: f32,
-        radii: Vec2,
+        radii: [f32; 2],
         fill: sRGB,
         outline: sRGB,
     ) -> Self {
@@ -182,7 +181,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
             props,
             border,
             blur,
-            corners: Vec4::new(radii.x, radii.y, 0.0, 0.0),
+            corners: [radii[0], radii[1], 0.0, 0.0],
             fill,
             outline,
         }
@@ -195,7 +194,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
         props: Rc<T>,
         border: f32,
         blur: f32,
-        arcs: Vec4,
+        arcs: wide::f32x4,
         fill: sRGB,
         outline: sRGB,
     ) -> Self {
@@ -204,7 +203,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
             props,
             border,
             blur,
-            corners: arcs,
+            corners: arcs.to_array(),
             fill,
             outline,
         }
@@ -234,7 +233,10 @@ where
 
         let mut corners = self.corners;
         if KIND == ShapeKind::RoundRect as u8 {
-            corners *= Vec4::new(dpi.x, dpi.y, dpi.x, dpi.y);
+            corners[0] *= dpi.width;
+            corners[1] *= dpi.height;
+            corners[2] *= dpi.width;
+            corners[3] *= dpi.height;
         }
 
         Box::new(layout::Node::<T, dyn leaf::Prop> {
@@ -244,7 +246,7 @@ where
             renderable: Some(Rc::new(crate::render::shape::Instance::<
                 crate::render::shape::Shape<KIND>,
             > {
-                padding: self.props.padding().resolve(dpi),
+                padding: self.props.padding().as_perimeter(dpi),
                 border: self.border,
                 blur: self.blur,
                 fill: self.fill,

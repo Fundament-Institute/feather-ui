@@ -75,7 +75,7 @@ impl FnPersist<TextState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicA
                 gen_id!(),
                 MinimalText {
                     area: FILL_DRECT,
-                    padding: AbsRect::broadcast(12.0).into(),
+                    padding: AbsRect::splat(12.0).into(),
                     textedit: args.text.clone(), // Be careful to take the value from args, not store.0, which is stale.
                 },
                 40.0,
@@ -90,11 +90,7 @@ impl FnPersist<TextState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicA
             let region = Region::new(
                 gen_id!(),
                 MinimalArea {
-                    area: feather_ui::URect {
-                        abs: AbsRect::new(90.0, 0.0, -90.0, -180.0),
-                        rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
-                    }
-                    .into(),
+                    area: AbsRect::new(90.0, 0.0, -90.0, -180.0) + RelRect::new(0.0, 0.0, 1.0, 1.0),
                 }
                 .into(),
                 feather_ui::children![fixed::Prop, textbox],

@@ -12,14 +12,17 @@ pub mod root;
 pub mod text;
 
 use dyn_clone::DynClone;
-use ultraviolet::Vec2;
+use guillotiere::euclid::{Point2D, Vector2D};
 use wide::f32x4;
 
 use crate::color::sRGB32;
 use crate::render::Renderable;
 use crate::render::compositor::CompositorView;
-use crate::{AbsDim, AbsLimits, AbsRect, Error, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree};
+use crate::{
+    Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree,
+};
 use derive_where::derive_where;
+use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
@@ -27,8 +30,8 @@ pub trait Layout<Props: ?Sized>: DynClone {
     fn get_props(&self) -> &Props;
     fn stage<'a>(
         &self,
-        area: AbsRect,
-        limits: AbsLimits,
+        area: PxRect,
+        limits: PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a>;
 }
@@ -46,8 +49,8 @@ where
 
     fn stage<'a>(
         &self,
-        area: AbsRect,
-        limits: AbsLimits,
+        area: PxRect,
+        limits: PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         use std::ops::Deref;
@@ -65,8 +68,8 @@ where
 
     fn stage<'a>(
         &self,
-        area: AbsRect,
-        limits: AbsLimits,
+        area: PxRect,
+        limits: PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         (*self).stage(area, limits, window)
@@ -81,8 +84,8 @@ pub trait Desc {
     /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: AbsRect,
-        limits: AbsLimits,
+        outer_area: PxRect,
+        limits: PxLimits,
         children: &Self::Children,
         id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
@@ -108,8 +111,8 @@ where
     }
     fn stage<'a>(
         &self,
-        area: AbsRect,
-        limits: AbsLimits,
+        area: PxRect,
+        limits: PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         let mut staged = D::stage(
@@ -125,7 +128,7 @@ where
             window.driver.shared.create_layer(
                 &window.driver.device,
                 self.id.upgrade().unwrap(),
-                staged.get_area(),
+                staged.get_area().to_untyped(),
                 None,
                 color,
                 rotation,
@@ -140,13 +143,13 @@ where
 pub trait Staged: DynClone {
     fn render(
         &self,
-        parent_pos: Vec2,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error>;
     fn get_rtree(&self) -> Weak<rtree::Node>;
-    fn get_area(&self) -> AbsRect;
+    fn get_area(&self) -> PxRect;
     fn set_layer(&mut self, _id: std::sync::Weak<SourceID>) {
         panic!("This staged object doesn't support layers!");
     }
@@ -157,7 +160,7 @@ dyn_clone::clone_trait_object!(Staged);
 #[derive(Clone)]
 pub(crate) struct Concrete {
     renderable: Option<Rc<dyn Renderable>>,
-    area: AbsRect,
+    area: PxRect,
     rtree: Rc<rtree::Node>,
     children: im::Vector<Option<Box<dyn Staged>>>,
     layer: Option<std::sync::Weak<SourceID>>,
@@ -166,7 +169,7 @@ pub(crate) struct Concrete {
 impl Concrete {
     pub fn new(
         renderable: Option<Rc<dyn Renderable>>,
-        area: AbsRect,
+        area: PxRect,
         rtree: Rc<rtree::Node>,
         children: im::Vector<Option<Box<dyn Staged>>>,
     ) -> Self {
@@ -186,19 +189,19 @@ impl Concrete {
 
     fn render_self(
         &self,
-        parent_pos: Vec2,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {
         if let Some(r) = &self.renderable {
-            r.render(self.area + parent_pos, driver, compositor)?;
+            r.render((self.area + parent_pos).to_untyped(), driver, compositor)?;
         }
         Ok(())
     }
 
     fn render_children(
         &self,
-        parent_pos: Vec2,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
@@ -206,7 +209,7 @@ impl Concrete {
         for child in (&self.children).into_iter().flatten() {
             // TODO: If we assign z-indexes to children, ones with negative z-indexes should be rendered before the parent
             child.render(
-                parent_pos + self.area.topleft(),
+                parent_pos + self.area.topleft().to_vector(),
                 driver,
                 compositor,
                 dependents,
@@ -219,7 +222,7 @@ impl Concrete {
 impl Staged for Concrete {
     fn render(
         &self,
-        parent_pos: Vec2,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
@@ -244,8 +247,12 @@ impl Staged for Concrete {
                 };
 
                 let mut atlas = driver.layer_atlas[index - 1].write();
-                let region =
-                    atlas.cache_region(&driver.device, &id, layer.area.dim().into(), None)?;
+                let region = atlas.cache_region(
+                    &driver.device,
+                    &id,
+                    layer.area.dim().ceil().to_i32(),
+                    None,
+                )?;
                 region_uv = Some(region.uv);
 
                 // Make sure we aren't cached in the opposite atlas
@@ -258,9 +265,7 @@ impl Staged for Concrete {
                     layer0: compositor.layer0,
                     layer1: compositor.layer1,
                     clipstack: compositor.clipstack,
-                    offset: Vec2::from(region.uv.min.to_f32().to_array())
-                        - layer.area.topleft()
-                        - parent_pos,
+                    offset: region.uv.min.to_f32() - layer.area.topleft() - parent_pos.to_vector(),
                     surface_dim: compositor.surface_dim,
                     pass: compositor.pass + 1,
                     slice: region.index,
@@ -312,7 +317,7 @@ impl Staged for Concrete {
         Rc::downgrade(&self.rtree)
     }
 
-    fn get_area(&self) -> AbsRect {
+    fn get_area(&self) -> PxRect {
         self.area
     }
 
@@ -323,115 +328,121 @@ impl Staged for Concrete {
 
 #[must_use]
 #[inline]
-pub(crate) fn map_unsized_area(mut area: URect, adjust: Vec2) -> URect {
+pub(crate) fn map_unsized_area(mut area: URect, adjust: PxDim) -> URect {
     let (unsized_x, unsized_y) = check_unsized(area);
-    let abs = area.abs.0.as_array_mut();
-    let rel = area.rel.0.as_array_mut();
+    let abs = area.abs.v.as_array_mut();
+    let rel = area.rel.v.as_array_mut();
     // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
     if unsized_x {
         rel[2] = rel[0];
         // Fix the bottomright abs area in unsized scenarios, because it was relative to the topleft instead of being independent.
-        abs[2] += abs[0] + adjust.x;
+        abs[2] += abs[0] + adjust.width;
     }
     if unsized_y {
         rel[3] = rel[1];
-        abs[3] += abs[1] + adjust.y;
+        abs[3] += abs[1] + adjust.height;
     }
     area
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn nuetralize_unsized(v: AbsRect) -> AbsRect {
+pub(crate) fn nuetralize_unsized(v: PxRect) -> PxRect {
     let (unsized_x, unsized_y) = check_unsized_abs(v.bottomright());
-    let ltrb = v.0.to_array();
-    AbsRect(f32x4::new([
-        ltrb[0],
-        ltrb[1],
-        if unsized_x { ltrb[0] } else { ltrb[2] },
-        if unsized_y { ltrb[1] } else { ltrb[3] },
-    ]))
+    let ltrb = v.v.to_array();
+    PxRect {
+        v: f32x4::new([
+            ltrb[0],
+            ltrb[1],
+            if unsized_x { ltrb[0] } else { ltrb[2] },
+            if unsized_y { ltrb[1] } else { ltrb[3] },
+        ]),
+        _unit: PhantomData,
+    }
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn limit_area(mut v: AbsRect, limits: AbsLimits) -> AbsRect {
+pub(crate) fn limit_area(mut v: PxRect, limits: PxLimits) -> PxRect {
     // We do this by checking clamp(topleft + limit) instead of clamp(bottomright - topleft)
     // because this avoids floating point precision issues.
     v.set_bottomright(
         v.bottomright()
-            .max_by_component(v.topleft() + limits.min())
-            .min_by_component(v.topleft() + limits.max()),
+            .max(v.topleft() + limits.min())
+            .min(v.topleft() + limits.max()),
     );
     v
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn limit_dim(v: AbsDim, limits: AbsLimits) -> AbsDim {
+pub(crate) fn limit_dim(v: PxDim, limits: PxLimits) -> PxDim {
     let (unsized_x, unsized_y) = check_unsized_dim(v);
-    AbsDim(Vec2 {
-        x: if unsized_x {
-            v.0.x
+    PxDim::new(
+        if unsized_x {
+            v.width
         } else {
-            v.0.x.max(limits.min().x).min(limits.max().x)
+            v.width.max(limits.min().width).min(limits.max().width)
         },
-        y: if unsized_y {
-            v.0.y
+        if unsized_y {
+            v.height
         } else {
-            v.0.y.max(limits.min().y).min(limits.max().y)
+            v.height.max(limits.min().height).min(limits.max().height)
         },
-    })
+    )
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn eval_dim(area: URect, dim: AbsDim) -> AbsDim {
+pub(crate) fn eval_dim(area: URect, dim: PxDim) -> PxDim {
     let (unsized_x, unsized_y) = check_unsized(area);
-    AbsDim(Vec2 {
-        x: if unsized_x {
-            area.bottomright().rel().0.x
+    PxDim::new(
+        if unsized_x {
+            area.bottomright().rel().x
         } else {
-            let top = area.topleft().abs().x + (area.topleft().rel().0.x * dim.0.x);
-            let bottom = area.bottomright().abs().x + (area.bottomright().rel().0.x * dim.0.x);
+            let top = area.topleft().abs().x + (area.topleft().rel().x * dim.width);
+            let bottom = area.bottomright().abs().x + (area.bottomright().rel().x * dim.width);
             bottom - top
         },
-        y: if unsized_y {
-            area.bottomright().rel().0.y
+        if unsized_y {
+            area.bottomright().rel().y
         } else {
-            let top = area.topleft().abs().y + (area.topleft().rel().0.y * dim.0.y);
-            let bottom = area.bottomright().abs().y + (area.bottomright().rel().0.y * dim.0.y);
+            let top = area.topleft().abs().y + (area.topleft().rel().y * dim.height);
+            let bottom = area.bottomright().abs().y + (area.bottomright().rel().y * dim.height);
             bottom - top
         },
-    })
+    )
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn apply_limit(dim: AbsDim, limits: AbsLimits, rlimits: RelLimits) -> AbsLimits {
+pub(crate) fn apply_limit(dim: PxDim, limits: PxLimits, rlimits: RelLimits) -> PxLimits {
     let (unsized_x, unsized_y) = check_unsized_dim(dim);
-    AbsLimits(f32x4::new([
-        if unsized_x {
-            limits.min().x
-        } else {
-            limits.min().x.max(rlimits.min().0.x * dim.0.x)
-        },
-        if unsized_y {
-            limits.min().y
-        } else {
-            limits.min().y.max(rlimits.min().0.y * dim.0.y)
-        },
-        if unsized_x {
-            limits.max().x
-        } else {
-            limits.max().x.min(rlimits.max().0.x * dim.0.x)
-        },
-        if unsized_y {
-            limits.max().y
-        } else {
-            limits.max().y.min(rlimits.max().0.y * dim.0.y)
-        },
-    ]))
+    PxLimits {
+        v: f32x4::new([
+            if unsized_x {
+                limits.min().width
+            } else {
+                limits.min().width.max(rlimits.min().width * dim.width)
+            },
+            if unsized_y {
+                limits.min().height
+            } else {
+                limits.min().height.max(rlimits.min().height * dim.height)
+            },
+            if unsized_x {
+                limits.max().width
+            } else {
+                limits.max().width.min(rlimits.max().width * dim.width)
+            },
+            if unsized_y {
+                limits.max().height
+            } else {
+                limits.max().height.min(rlimits.max().height * dim.height)
+            },
+        ]),
+        _unit: PhantomData,
+    }
 }
 
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
@@ -439,41 +450,44 @@ pub(crate) fn apply_limit(dim: AbsDim, limits: AbsLimits, rlimits: RelLimits) ->
 #[inline]
 pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
     (
-        area.bottomright().rel().0.x == UNSIZED_AXIS,
-        area.bottomright().rel().0.y == UNSIZED_AXIS,
+        area.bottomright().rel().x == UNSIZED_AXIS,
+        area.bottomright().rel().y == UNSIZED_AXIS,
     )
 }
 
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[must_use]
 #[inline]
-pub(crate) fn check_unsized_abs(bottomright: Vec2) -> (bool, bool) {
+pub(crate) fn check_unsized_abs<U>(bottomright: Point2D<f32, U>) -> (bool, bool) {
     (bottomright.x == UNSIZED_AXIS, bottomright.y == UNSIZED_AXIS)
 }
 
 // Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
 #[must_use]
 #[inline]
-pub(crate) fn check_unsized_dim(dim: crate::AbsDim) -> (bool, bool) {
-    check_unsized_abs(dim.0)
+pub(crate) fn check_unsized_dim(dim: PxDim) -> (bool, bool) {
+    check_unsized_abs(dim.to_vector().to_point())
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn cap_unsized(area: crate::AbsRect) -> crate::AbsRect {
-    let ltrb = area.0.to_array();
-    crate::AbsRect(f32x4::new(ltrb.map(|x| {
-        if x.is_finite() {
-            x
-        } else {
-            crate::UNSIZED_AXIS
-        }
-    })))
+pub(crate) fn cap_unsized(area: PxRect) -> PxRect {
+    let ltrb = area.v.to_array();
+    PxRect {
+        v: f32x4::new(ltrb.map(|x| {
+            if x.is_finite() {
+                x
+            } else {
+                crate::UNSIZED_AXIS
+            }
+        })),
+        _unit: PhantomData,
+    }
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn apply_anchor(area: AbsRect, outer_area: AbsRect, mut anchor: Vec2) -> AbsRect {
+pub(crate) fn apply_anchor(area: PxRect, outer_area: PxRect, mut anchor: PxPoint) -> PxRect {
     let (unsized_outer_x, unsized_outer_y) = check_unsized_abs(outer_area.bottomright());
     if unsized_outer_x {
         anchor.x = 0.0;
@@ -486,8 +500,33 @@ pub(crate) fn apply_anchor(area: AbsRect, outer_area: AbsRect, mut anchor: Vec2)
 
 #[must_use]
 #[inline]
-fn swap_axis(xaxis: bool, v: Vec2) -> (f32, f32) {
-    if xaxis { (v.x, v.y) } else { (v.y, v.x) }
+fn swap_pair<T>(xaxis: bool, v: (T, T)) -> (T, T) {
+    if xaxis { (v.0, v.1) } else { (v.1, v.0) }
+}
+
+trait Swappable<T> {
+    fn swap_axis(self, xaxis: bool) -> (T, T);
+}
+
+impl<T, U> Swappable<T> for Point2D<T, U> {
+    #[inline]
+    fn swap_axis(self, xaxis: bool) -> (T, T) {
+        swap_pair(xaxis, (self.x, self.y))
+    }
+}
+
+impl<T, U> Swappable<T> for guillotiere::euclid::Size2D<T, U> {
+    #[inline]
+    fn swap_axis(self, xaxis: bool) -> (T, T) {
+        swap_pair(xaxis, (self.width, self.height))
+    }
+}
+
+impl<T, U> Swappable<T> for Vector2D<T, U> {
+    #[inline]
+    fn swap_axis(self, xaxis: bool) -> (T, T) {
+        swap_pair(xaxis, (self.x, self.y))
+    }
 }
 
 /// If prev is NAN, always returns zero, which is the correct action for margin edges.

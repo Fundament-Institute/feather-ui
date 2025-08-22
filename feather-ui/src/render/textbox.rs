@@ -14,7 +14,7 @@ use crate::render::{compositor, text};
 
 pub struct Instance {
     pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
-    pub padding: crate::AbsRect,
+    pub padding: crate::PxPerimeter,
     pub cursor: Cursor,
     pub selection: Option<(Cursor, Cursor)>,
     pub selection_bg: sRGB,
@@ -30,7 +30,7 @@ impl Instance {
         y: f32,
         mut w: f32,
         mut h: f32,
-        bounds: crate::AbsRect,
+        bounds: crate::PxRect,
         color: sRGB,
     ) -> compositor::Data {
         // When we are drawing boxes that need to line up with each other, this is a worst-case scenario for
@@ -58,7 +58,7 @@ impl Instance {
 impl crate::render::Renderable for Instance {
     fn render(
         &self,
-        area: crate::AbsRect,
+        area: crate::PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut compositor::CompositorView<'_>,
     ) -> Result<(), Error> {
@@ -66,7 +66,7 @@ impl crate::render::Renderable for Instance {
         // Padding works differently in a textbox than in a static text field, because a textbox
         // cannot having non-clipping regions outside the text area, or you'll get rendering errors
         // when scrolling.
-        let area = crate::AbsRect(area.0 + (self.padding.0 * crate::MINUS_BOTTOMRIGHT));
+        let area = area + self.padding;
         let pos = area.topleft();
 
         let bounds = area.intersect(compositor.current_clip());

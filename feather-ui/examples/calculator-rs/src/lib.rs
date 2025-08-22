@@ -11,9 +11,8 @@ use feather_ui::component::window::Window;
 use feather_ui::component::{mouse_area, ChildOf};
 use feather_ui::layout::fixed;
 use feather_ui::persist::FnPersist;
-use feather_ui::ultraviolet::Vec4;
 use feather_ui::{
-    gen_id, im, AbsRect, App, DRect, RelRect, Slot, SourceID, WrapEventEx, FILL_DRECT, ZERO_RECT,
+    gen_id, im, wide, AbsRect, App, DRect, RelRect, Slot, SourceID, WrapEventEx, FILL_DRECT,
 };
 use std::any::{Any, TypeId};
 use std::f32;
@@ -183,7 +182,7 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
                 FILL_DRECT.into(),
                 0.0,
                 0.0,
-                Vec4::broadcast(10.0),
+                wide::f32x4::splat(10.0),
                 *color,
                 sRGB::transparent(),
             );
@@ -204,16 +203,13 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
             let btn = Button::<FixedData>::new(
                 gen_id!(gen_id!(), i),
                 FixedData {
-                    area: feather_ui::URect {
-                        abs: AbsRect::new(4.0, 4.0, -4.0, -4.0),
-                        rel: RelRect::new(
+                    area: AbsRect::new(4.0, 4.0, -4.0, -4.0)
+                        + RelRect::new(
                             w * x as f32,
                             h * y as f32,
                             w * (x + 1) as f32,
                             h * (y + 1) as f32,
                         ),
-                    }
-                    .into(),
                     anchor: Default::default(),
                     zindex: 0,
                 },
@@ -235,14 +231,10 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
 
         let text_bg = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
             gen_id!(),
-            Rc::new(DRect {
-                px: ZERO_RECT,
-                dp: ZERO_RECT,
-                rel: RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0),
-            }),
+            Rc::new(RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0).into()),
             0.0,
             0.0,
-            Vec4::broadcast(25.0),
+            wide::f32x4::splat(25.0),
             sRGB::new(0.2, 0.2, 0.2, 1.0),
             Default::default(),
         );

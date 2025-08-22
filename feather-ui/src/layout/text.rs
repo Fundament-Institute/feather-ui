@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use derive_where::derive_where;
 
-use crate::{AbsRect, SourceID, render, rtree};
+use crate::{PxRect, SourceID, render, rtree};
 
 use super::{Layout, check_unsized, leaf, limit_area};
 
@@ -24,23 +24,25 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
     }
     fn stage<'a>(
         &self,
-        outer_area: AbsRect,
-        outer_limits: crate::AbsLimits,
+        outer_area: PxRect,
+        outer_limits: crate::PxLimits,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn super::Staged + 'a> {
         let mut limits = self.props.limits().resolve(window.dpi) + outer_limits;
         let myarea = self.props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
-        let padding = self.props.padding().resolve(window.dpi);
-        let allpadding = myarea.bottomright().abs() + padding.topleft() + padding.bottomright();
-        let minmax = limits.0.as_array_mut();
+        let padding = self.props.padding().as_perimeter(window.dpi);
+        let allpadding = myarea.bottomright().abs().to_vector().to_size().cast_unit()
+            + padding.topleft()
+            + padding.bottomright();
+        let minmax = limits.v.as_array_mut();
         if unsized_x {
-            minmax[2] -= allpadding.x;
-            minmax[0] -= allpadding.x;
+            minmax[2] -= allpadding.width;
+            minmax[0] -= allpadding.width;
         }
         if unsized_y {
-            minmax[3] -= allpadding.y;
-            minmax[1] -= allpadding.y;
+            minmax[3] -= allpadding.height;
+            minmax[1] -= allpadding.height;
         }
 
         let mut evaluated_area = limit_area(
@@ -51,14 +53,14 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         let (limitx, limity) = {
             let max = limits.max();
             (
-                max.x.is_finite().then_some(max.x),
-                max.y.is_finite().then_some(max.y),
+                max.width.is_finite().then_some(max.width),
+                max.height.is_finite().then_some(max.height),
             )
         };
 
         let mut text_buffer = self.buffer.borrow_mut();
         let driver = window.driver.clone();
-        let dim = evaluated_area.dim().0 - allpadding;
+        let dim = evaluated_area.dim() - allpadding;
         {
             let mut font_system = driver.font_system.write();
 
@@ -67,12 +69,12 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
                 if unsized_x {
                     limitx
                 } else {
-                    Some(dim.x.max(0.0))
+                    Some(dim.width.max(0.0))
                 },
                 if unsized_y {
                     limity
                 } else {
-                    Some(dim.y.max(0.0))
+                    Some(dim.height.max(0.0))
                 },
             );
         }
@@ -87,14 +89,14 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
             }
 
             // Apply adjusted limits to inner size calculation
-            w = w.max(limits.min().x).min(limits.max().x);
-            h = h.max(limits.min().y).min(limits.max().y);
-            let ltrb = evaluated_area.0.as_array_mut();
+            w = w.max(limits.min().width).min(limits.max().width);
+            h = h.max(limits.min().height).min(limits.max().height);
+            let ltrb = evaluated_area.v.as_array_mut();
             if unsized_x {
-                ltrb[2] = ltrb[0] + w + allpadding.x;
+                ltrb[2] = ltrb[0] + w + allpadding.width;
             }
             if unsized_y {
-                ltrb[3] = ltrb[1] + h + allpadding.y;
+                ltrb[3] = ltrb[1] + h + allpadding.height;
             }
         };
 
@@ -108,7 +110,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
             Some(self.renderable.clone()),
             evaluated_area,
             rtree::Node::new(
-                evaluated_area,
+                evaluated_area.to_untyped(),
                 None,
                 Default::default(),
                 self.id.clone(),

@@ -10,16 +10,15 @@ use crate::shaders;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::num::NonZero;
-use ultraviolet::Vec4;
 use wgpu::BindGroupLayout;
 
 pub struct Instance<PIPELINE> {
-    pub padding: crate::AbsRect,
+    pub padding: crate::PxPerimeter,
     pub border: f32,
     pub blur: f32,
     pub fill: sRGB,
     pub outline: sRGB,
-    pub corners: Vec4,
+    pub corners: [f32; 4],
     pub id: std::sync::Arc<crate::SourceID>,
     pub phantom: PhantomData<PIPELINE>,
 }
@@ -29,18 +28,19 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
 {
     fn render(
         &self,
-        area: crate::AbsRect,
+        area: crate::PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {
-        let dim = area.bottomright() - area.topleft() - self.padding.bottomright();
-        if dim.x <= 0.0 || dim.y <= 0.0 {
+        let dim = area.dim() - self.padding.bottomright();
+        if dim.width <= 0.0 || dim.height <= 0.0 {
             return Ok(());
         }
 
         let (region_uv, region_index) = {
             let mut atlas = driver.atlas.write();
-            let region = atlas.cache_region(&driver.device, &self.id, area.dim().into(), None)?;
+            let region =
+                atlas.cache_region(&driver.device, &self.id, area.dim().ceil().cast(), None)?;
             (region.uv, region.index)
         };
 
@@ -58,7 +58,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                     dim: region_uv.size().to_f32().to_array().into(),
                     border: self.border,
                     blur: self.blur,
-                    corners: self.corners.as_array().into(),
+                    corners: self.corners.into(),
                     fill: self.fill.as_32bit().rgba,
                     outline: self.outline.as_32bit().rgba,
                 },
@@ -67,7 +67,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         });
 
         compositor.append_data(
-            area.topleft() + self.padding.topleft(),
+            area.topleft().add_size(&self.padding.topleft()),
             dim,
             region_uv.min.to_f32().to_array().into(),
             region_uv.size().to_f32().to_array().into(),
@@ -162,7 +162,7 @@ impl<const KIND: u8> Shape<KIND> {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: NonZero::new(size_of::<ultraviolet::Mat4>() as u64),
+                        min_binding_size: NonZero::new(size_of::<crate::Mat4x4>() as u64),
                     },
                     count: None,
                 },
