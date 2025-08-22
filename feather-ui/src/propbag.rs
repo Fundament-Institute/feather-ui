@@ -113,6 +113,11 @@ macro_rules! gen_prop_bag {
       zindex,
       obstacles,
       direction,
+      rows,
+      columns,
+      spacing,
+      span,
+      index,
       wrap,
       justify,
       align,
@@ -174,7 +179,8 @@ gen_prop_bag!(
   crate::layout::base::Limits, limits, set_limits, crate::DLimits, &crate::DEFAULT_DLIMITS,
   crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelLimits, &crate::DEFAULT_RLIMITS,
   crate::layout::base::Anchor, anchor, set_anchor, crate::DPoint, &crate::ZERO_DPOINT,
-  crate::layout::root::Prop, dim, set_dim, crate::PxDim, panic!("No dim set and no default available!")
+  crate::layout::root::Prop, dim, set_dim, crate::PxDim, panic!("No dim set and no default available!"),
+  crate::layout::base::TextEdit, textedit, set_textedit, crate::text::EditView, panic!("No textedit set and no default available!")
 );
 
 impl crate::layout::base::Empty for PropBag {}
@@ -184,6 +190,7 @@ impl crate::layout::fixed::Child for PropBag {}
 impl crate::layout::list::Child for PropBag {}
 impl crate::layout::list::Prop for PropBag {}
 impl crate::layout::leaf::Padded for PropBag {}
+impl crate::component::textbox::Prop for PropBag {}
 
 impl crate::layout::flex::Prop for PropBag {
     fn wrap(&self) -> bool {
@@ -220,3 +227,46 @@ impl crate::layout::flex::Child for PropBag {
 gen_prop_bag_setter_clone!(grow, set_grow, f32);
 gen_prop_bag_setter_clone!(shrink, set_shrink, f32);
 gen_prop_bag_setter_clone!(basis, set_basis, crate::DValue);
+
+gen_prop_bag_setter_clone!(index, set_index, (usize, usize));
+gen_prop_bag_setter_clone!(span, set_span, (usize, usize));
+
+impl crate::layout::grid::Child for PropBag {
+    fn index(&self) -> (usize, usize) {
+        self.get_value(PropBagElement::index)
+    }
+
+    fn span(&self) -> (usize, usize) {
+        self.get_value(PropBagElement::span)
+    }
+}
+
+gen_prop_bag_setter_clone!(spacing, set_spacing, crate::DPoint);
+
+impl crate::layout::grid::Prop for PropBag {
+    fn rows(&self) -> &[crate::DValue] {
+        // We have to be careful here because the actual stored type is a Vec<>, not a slice.
+        self.props
+            .get(&PropBagElement::rows)
+            .expect("PropBag didn't have rows")
+            .downcast_ref::<Vec<crate::DValue>>()
+            .expect("rows in PropBag was the wrong type!")
+    }
+
+    fn columns(&self) -> &[crate::DValue] {
+        // We have to be careful here because the actual stored type is a Vec<>, not a slice.
+        self.props
+            .get(&PropBagElement::columns)
+            .expect("PropBag didn't have columns")
+            .downcast_ref::<Vec<crate::DValue>>()
+            .expect("columns in PropBag was the wrong type!")
+    }
+
+    fn spacing(&self) -> crate::DPoint {
+        self.get_value(PropBagElement::spacing)
+    }
+
+    fn direction(&self) -> crate::RowDirection {
+        self.get_value(PropBagElement::direction)
+    }
+}

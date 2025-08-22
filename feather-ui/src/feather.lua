@@ -758,7 +758,7 @@ local function validate_def(args, def)
 		end
 	end
 
-	return attrs
+	return setmetatable(attrs, { __index = function(t, k) error("Tried to access invalid arg '" .. k .. "'") end })
 end
 
 ---@alias attr_func fun(attrs: table):table
@@ -823,16 +823,28 @@ return {
 	component = component,
 	required = required,
 	optional = function(default) setmetatable({ default = default }, {}) end,
-	window = wrap_create(create_window, "create_window"),
-	region = wrap_create(create_region, "create_region"),
 	button = wrap_create(create_button, "create_button"),
-	text = wrap_create(create_text, "create_text"),
+	domain = {
+		line = wrap_create(create_domain_line, "create_domain_line"),
+		point = wrap_create(create_domain_point, "create_domain_point"),
+	},
+	flexbox = wrap_create(create_flexbox, "create_flexbox"),
+	gridbox = wrap_create(create_gridbox, "create_gridbox"),
+	image = wrap_create(create_image, "create_image"),
+	listbox = wrap_create(create_listbox, "create_listbox"),
+	mousearea = wrap_create(create_mousearea, "create_mousearea"),
+	region = wrap_create(create_region, "create_region"),
+	scrollarea = wrap_create(create_, "create_scrollarea"),
 	shape = {
+		line = wrap_create(create_line, "create_line"),
 		rect = wrap_create(create_round_rect, "create_round_rect"),
 		circle = wrap_create(create_circle, "create_circle"),
 		arc = wrap_create(create_arc, "create_arc"),
 		triangle = wrap_create(create_triangle, "create_triangle"),
 	},
+	text = wrap_create(create_text, "create_text"),
+	textbox = wrap_create(create_textbox, "create_textbox"),
+	window = wrap_create(create_window, "create_window"),
 	ID = ID,
 	each = each,
 }
