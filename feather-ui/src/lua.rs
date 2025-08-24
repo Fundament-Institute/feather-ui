@@ -698,19 +698,7 @@ impl UserData for Slot {}
 gen_from_lua!(Slot);
 
 impl UserData for ComponentBag {}
-impl mlua::FromLua for ComponentBag {
-    #[inline]
-    fn from_lua(value: ::mlua::Value, _: &::mlua::Lua) -> ::mlua::Result<Self> {
-        match value {
-            ::mlua::Value::UserData(ud) => Ok(ud.borrow::<ComponentBag>()?.clone()),
-            _ => Err(::mlua::Error::FromLuaConversionError {
-                from: value.type_name(),
-                to: stringify!(ComponentBag).to_string(),
-                message: None,
-            }),
-        }
-    }
-}
+gen_from_lua!(ComponentBag);
 
 /// This defines the "lua" app that knows how to handle a lua value that contains the
 /// expected rust objects, and hand them off for processing. This is analogous to the
@@ -1423,22 +1411,16 @@ fn create_window(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Wind
     Ok(Window::new(id.0, attributes, Box::new(child)))
 }
 
-//AppData: 'static + PartialEq
-pub struct LuaApp<AppData: Clone + FromLua + IntoLua>(crate::App<AppData, LuaPersist<AppData>>);
+#[derive(Clone, Debug, PartialEq)]
+pub struct LuaContext {
+    feather: LuaTable,
+    id_enter: LuaFunction,
+    load_in_sandbox: LuaFunction,
+}
 
-impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
-    pub fn new<T>(
-        lua: &Lua,
-        app_state: AppData,
-        handlers: Vec<(String, crate::AppEvent<AppData>)>,
-        layout: &[u8],
-    ) -> eyre::Result<(Self, crate::EventLoop<T>)> {
+impl LuaContext {
+    pub fn new(lua: &Lua) -> LuaResult<Self> {
         let preload = lua.create_table()?;
-        let handler_table = lua.create_table()?;
-
-        for (i, (name, _)) in handlers.iter().enumerate() {
-            handler_table.set(name.as_str(), Slot(APP_SOURCE_ID.into(), i as u64))?;
-        }
 
         preload.set("create_id", lua.create_function(create_id)?)?;
         preload.set("create_button", lua.create_function(create_button)?)?;
@@ -1477,9 +1459,6 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
             .eval()?;
 
         let id_enter = feather.get::<LuaTable>("ID")?.get::<LuaFunction>("enter")?;
-        let interface = lua.create_table()?;
-        interface.set("handlers", handler_table)?;
-        interface.set("f", feather)?;
 
         lua.load(NamedChunk(SANDBOX, "sandbox")).exec()?;
 
@@ -1505,15 +1484,55 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
         .exec()?;
 
         let load_in_sandbox: LuaFunction = lua.load("load_in_sandbox").eval()?;
+
+        Ok(Self {
+            feather,
+            id_enter,
+            load_in_sandbox,
+        })
+    }
+
+    pub fn load_layout<R: FromLuaMulti, AppData>(
+        &self,
+        lua: &Lua,
+        handlers: &[(String, crate::AppEvent<AppData>)],
+        layout: &[u8],
+    ) -> LuaResult<R> {
+        let handler_table = lua.create_table()?;
+
+        for (i, (name, _)) in handlers.iter().enumerate() {
+            handler_table.set(name.as_str(), Slot(APP_SOURCE_ID.into(), i as u64))?;
+        }
+
+        let interface = lua.create_table()?;
+        interface.set("handlers", handler_table)?;
+        interface.set("f", self.feather.clone())?;
+
+        self.load_in_sandbox
+            .call((lua.create_string(layout)?, interface))
+    }
+}
+
+//AppData: 'static + PartialEq
+pub struct LuaApp<AppData: Clone + FromLua + IntoLua>(crate::App<AppData, LuaPersist<AppData>>);
+
+impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
+    pub fn new<T>(
+        lua: &Lua,
+        app_state: AppData,
+        handlers: Vec<(String, crate::AppEvent<AppData>)>,
+        layout: &[u8],
+    ) -> eyre::Result<(Self, crate::EventLoop<T>)> {
+        let ctx = LuaContext::new(lua)?;
         let (window, init): (LuaFunction, Option<LuaFunction>) =
-            load_in_sandbox.call((lua.create_string(layout)?, interface))?;
+            ctx.load_layout(lua, &handlers, layout)?;
 
         let (app, event) = crate::App::new(
             app_state.clone(),
             handlers.into_iter().map(|(_, f)| f).collect(),
             LuaPersist {
                 window,
-                id_enter,
+                id_enter: ctx.id_enter,
                 init: if let Some(init) = init {
                     Ok(init)
                 } else {

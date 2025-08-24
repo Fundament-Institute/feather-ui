@@ -34,7 +34,7 @@ local clock = f.component {
 		props = {
 			area = f.FILL,
 		},
-		f.each("times", args.times, function(k, v)
+		f.each("times", function(k, v)
 			local radius = args.radius * 1.0 * v[2]
 
 			return clockring {
@@ -44,7 +44,7 @@ local clock = f.component {
 				progress = v[1],
 				color = args.color,
 			}
-		end),
+		end, pairs(args.times)),
 	}
 end)
 

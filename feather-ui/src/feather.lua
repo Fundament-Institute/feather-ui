@@ -32,6 +32,18 @@ local function uvalue(v, kind)
 	error("Unknown kind " .. tostring(kind))
 end
 
+---@class Size : table
+---@field w number?
+---@field h number?
+local size_mt = { name = "size_mt" }
+
+---@class PxSize : Size
+local pxsize_mt
+---@class AbsSize : Size
+local dpsize_mt
+---@class RelSize : Size
+local relsize_mt
+
 ---@class Point : table
 ---@field x number?
 ---@field y number?
@@ -88,84 +100,6 @@ local coord_mt = { name = "coord_mt" }
 ---@field rel RelRect
 local area_mt = { name = "area_mt" }
 
----@param n number?
----@param v number?
-local function merge_number(n, v)
-	if n == nil then
-		n = v
-	elseif v ~= nil then
-		n = n + v
-	end
-	return n
-end
-
----@param pt Point
----@param v Point
-local function merge_coord_inner(pt, v)
-	pt.x = merge_number(pt.x, v.x)
-	pt.y = merge_number(pt.y, v.y)
-	return pt
-end
-
---- Builds a Coord object out of an arbitrary collection of points of various types
----@param ... Point
----@return table
-local function merge_coord(...)
-	local coord = setmetatable({
-		px = setmetatable({}, pxpoint_mt),
-		dp = setmetatable({}, abspoint_mt),
-		rel = setmetatable({}, relpoint_mt),
-	}, coord_mt)
-
-	for _, v in ipairs { ... } do
-		local mt = getmetatable(v)
-		if getmetatable(mt) ~= point_mt then error("passed non-point object into merge_coord!") end
-
-		if mt.kind == "px" then
-			coord.px = merge_coord_inner(coord.px, v)
-		elseif mt.kind == "dp" then
-			coord.dp = merge_coord_inner(coord.dp, v)
-		elseif mt.kind == "rel" then
-			coord.rel = merge_coord_inner(coord.rel, v)
-		end
-	end
-
-	return coord
-end
-
----@param r Rect
----@param v Rect
-local function merge_area_inner(r, v)
-	r.left = merge_number(r.left, v.left)
-	r.top = merge_number(r.top, v.top)
-	r.right = merge_number(r.right, v.right)
-	r.bottom = merge_number(r.bottom, v.bottom)
-	return r
-end
-
-local function merge_area(...)
-	local area = setmetatable({
-		px = setmetatable({}, pxrect_mt),
-		dp = setmetatable({}, dprect_mt),
-		rel = setmetatable({}, relrect_mt),
-	}, area_mt)
-
-	for _, v in ipairs { ... } do
-		local mt = getmetatable(v)
-		if getmetatable(mt) ~= rect_mt then error("passed non-rect object into merge_area!") end
-
-		if mt.kind == "px" then
-			area.px = merge_area_inner(area.px, v)
-		elseif mt.kind == "dp" then
-			area.dp = merge_area_inner(area.dp, v)
-		elseif mt.kind == "rel" then
-			area.rel = merge_area_inner(area.rel, v)
-		end
-	end
-
-	return area
-end
-
 ---@param self Value
 ---@return string?, number?
 local function value_kind(self)
@@ -193,7 +127,7 @@ local function promote(v)
 	error("Unable to promote " .. tostring(v))
 end
 
-function rawdump(t, spaces)
+local function rawdump(t, spaces)
 	if t == nil then return "nil" end
 	local mt = getmetatable(t)
 	setmetatable(t, nil)
@@ -229,7 +163,7 @@ end
 ---@param t table
 ---@return table
 local function negate_table(t)
-	local keys = { "px", "dp", "rel", "x", "y", "left", "top", "right", "bottom" }
+	local keys = { "px", "dp", "rel", "x", "y", "left", "top", "right", "bottom", "w", "h" }
 	local out = {}
 	for _, key in ipairs(keys) do
 		if t[key] then out[key] = -t[key] end
@@ -243,7 +177,7 @@ end
 ---@param r table
 ---@return table
 local function merge_tables(l, r)
-	local keys = { "px", "dp", "rel", "x", "y", "left", "top", "right", "bottom" }
+	local keys = { "px", "dp", "rel", "x", "y", "left", "top", "right", "bottom", "w", "h" }
 	local t = {}
 
 	for _, key in ipairs(keys) do
@@ -260,10 +194,10 @@ local function merge_tables(l, r)
 end
 
 ---Merges together all sensible combinations of numbers, values, coords, and areas.
----@param l number | Value | PxPoint | AbsPoint | RelPoint | Coord | PxRect | AbsRect | RelRect | Area
----@param r number | Value | PxPoint | AbsPoint | RelPoint | Coord | PxRect | AbsRect | RelRect | Area
+---@param l number | Value | PxPoint | AbsPoint | RelPoint | Coord | PxRect | AbsRect | RelRect | Area | PxSize | AbsSize | RelSize
+---@param r number | Value | PxPoint | AbsPoint | RelPoint | Coord | PxRect | AbsRect | RelRect | Area | PxSize | AbsSize | RelSize
 ---@param swapped boolean?
----@return number | Value | PxPoint | AbsPoint | RelPoint | Coord | PxRect | AbsRect | RelRect | Area
+---@return number | Value | PxPoint | AbsPoint | RelPoint | Coord | PxRect | AbsRect | RelRect | Area | PxSize | AbsSize | RelSize
 local function merge(l, r, swapped)
 	if type(l) == "number" and type(r) == "number" then return l + r end
 
@@ -274,11 +208,6 @@ local function merge(l, r, swapped)
 		---@cast l -number
 		---@cast r -number
 		return setmetatable(merge_tables(l, r), lmt)
-		-- TODO: It's not clear if the below special cases are even necessary???
-		--elseif getmetatable(lmt) == point_mt and getmetatable(rmt) == point_mt and lmt.kind == rmt.kind then
-		--  return setmetatable(merge_tables(l, r), lmt)
-		--elseif getmetatable(lmt) == rect_mt and getmetatable(rmt) == rect_mt and lmt.kind == rmt.kind then
-		--  return setmetatable(merge_tables(l, r), lmt)
 	end
 
 	-- All left-handed number combinations
@@ -292,6 +221,8 @@ local function merge(l, r, swapped)
 			return setmetatable(t, value_mt)
 		elseif getmetatable(rmt) == point_mt then
 			return setmetatable({ x = r.x + l, y = r.y + l }, point_mt)
+		elseif getmetatable(rmt) == size_mt then
+			return setmetatable({ w = r.w + l, h = r.h + l }, size_mt)
 		elseif getmetatable(rmt) == rect_mt then
 			return setmetatable(
 				{ left = r.left + l, top = r.top + l, right = r.right + l, bottom = r.bottom + l },
@@ -309,6 +240,8 @@ local function merge(l, r, swapped)
 		local kind, v = value_kind(l)
 		if getmetatable(rmt) == point_mt and rmt.kind == kind then
 			return merge(setmetatable({ x = v, y = v }, rmt), r)
+		elseif getmetatable(rmt) == size_mt and rmt.kind == kind then
+			return merge(setmetatable({ w = v, h = v }, rmt), r)
 		elseif getmetatable(rmt) == point_mt or rmt == coord_mt then
 			local coord = setmetatable({}, coord_mt)
 			if l.px then coord.px = setmetatable({ x = l.px, y = l.px }, pxpoint_mt) end
@@ -334,6 +267,8 @@ local function merge(l, r, swapped)
 	if getmetatable(lmt) == point_mt then
 		if getmetatable(rmt) == point_mt or rmt == coord_mt then
 			return merge(promote(l), promote(r))
+		elseif getmetatable(rmt) == size_mt and rmt.kind == lmt.kind then
+			return setmetatable({ left = l.x, top = l.y, right = l.x + r.w, bottom = l.y + r.h }, rect_lookup[lmt.kind])
 		elseif getmetatable(rmt) == rect_mt and rmt.kind == lmt.kind then
 			return merge(setmetatable({ left = l.x, top = l.y, right = l.x, bottom = l.y }, rmt), r)
 		elseif getmetatable(rmt) == rect_mt or rmt == area_mt then
@@ -361,6 +296,11 @@ local function merge(l, r, swapped)
 		end
 	end
 
+	-- Size and rect combination
+	if getmetatable(lmt) == size_mt and getmetatable(rmt) == rect_mt then
+		return setmetatable({ left = r.left, top = r.top, right = r.right + l.w, bottom = r.bottom + l.h }, rmt)
+	end
+
 	-- All left-handed rect or area combinations
 	if getmetatable(lmt) == rect_mt or lmt == area_mt then
 		if getmetatable(rmt) == rect_mt or rmt == area_mt then return merge(promote(l), promote(r)) end
@@ -371,15 +311,6 @@ local function merge(l, r, swapped)
 
 	error("Could not merge " .. rawdump(l) .. " with " .. rawdump(r))
 end
-
---[[merge = function(l, r, swapped)
-	local v = merge_inner(l, r, swapped)
-	print("Printing l, r, then v")
-	print(rawdump(l))
-	print(rawdump(r))
-	print(rawdump(v))
-	return v
-end]]
 
 ---@param self Value
 ---@return string
@@ -494,6 +425,61 @@ local point_lookup = {
 	rel = relpoint_mt,
 }
 
+---@param kind string
+---@return table
+local function gensize_mt(kind, name)
+	local mt = setmetatable({
+		name = name,
+		kind = kind,
+		__eq = table_equality,
+		__add = merge,
+		__sub = function(l, r) return merge(l, -r) end,
+		__unm = negate_table,
+	}, size_mt)
+
+	---@param self Point
+	---@return string
+	function mt.__tostring(self) return string.format("[%s %s]", uvalue(self.x, kind), uvalue(self.y, kind)) end
+
+	---@param l Point
+	---@param r number | Point
+	---@return Point
+	function mt.__mul(l, r)
+		if type(r) == "number" then
+			return setmetatable({ x = l.x * r, y = l.y * r }, mt)
+		elseif getmetatable(getmetatable(r)) == size_mt and kind == getmetatable(r).kind then
+			return setmetatable({ x = l.x * r.x, y = l.y * r.y }, mt)
+		else
+			error("Can only multiply a size by a number or another size of the same kind.")
+		end
+	end
+
+	---@param l Point
+	---@param r number | Point
+	---@return Point
+	function mt.__div(l, r)
+		if type(r) == "number" then
+			return setmetatable({ x = l.x / r, y = l.y / r }, mt)
+		elseif getmetatable(getmetatable(r)) == size_mt and kind == getmetatable(r).kind then
+			return setmetatable({ x = l.x / r.x, y = l.y / r.y }, mt)
+		else
+			error("Can only divide a size by a number or another size of the same kind.")
+		end
+	end
+
+	return mt
+end
+
+pxsize_mt = gensize_mt("px", "pxsize_mt")
+dpsize_mt = gensize_mt("dp", "dpsize_mt")
+relsize_mt = gensize_mt("rel", "relsize_mt")
+
+local size_lookup = {
+	px = pxsize_mt,
+	dp = dpsize_mt,
+	rel = relsize_mt,
+}
+
 local function genrect_mt(kind, name)
 	local mt = setmetatable({
 		name = name,
@@ -604,6 +590,7 @@ coord_mt.__unm = negate_table
 ---@field bottom fun(v: number) : PxRect
 ---@field x fun(v: number) : PxPoint
 ---@field y fun(v: number) : PxPoint
+---@field size fun(v: number, v:number) : PxSize
 
 ---@class UnifiedAbs
 ---@field left fun(v: number) : AbsRect
@@ -612,6 +599,7 @@ coord_mt.__unm = negate_table
 ---@field bottom fun(v: number) : AbsRect
 ---@field x fun(v: number) : AbsPoint
 ---@field y fun(v: number) : AbsPoint
+---@field size fun(v: number, v:number) : AbsSize
 
 ---@class UnifiedRel
 ---@field left fun(v: number) : RelRect
@@ -620,6 +608,7 @@ coord_mt.__unm = negate_table
 ---@field bottom fun(v: number) : RelRect
 ---@field x fun(v: number) : RelPoint
 ---@field y fun(v: number) : RelPoint
+---@field size fun(v: number, v:number) : RelSize
 
 ---@param kind "px" | "dp" | "rel"
 local function gen_unified(kind)
@@ -656,6 +645,7 @@ local function gen_unified(kind)
 		top = function(t) return gen(nil, 0, t, 0, 0) end,
 		right = function(r) return gen(nil, 0, 0, r, 0) end,
 		bottom = function(b) return gen(nil, 0, 0, 0, b) end,
+		size = function(w, h) return setmetatable({ w = w, h = h or w }, size_lookup[kind]) end,
 		zero = gen(nil, 0, 0),
 		one = gen(nil, 1, 1),
 	}, { __call = gen, kind = kind })
@@ -699,9 +689,9 @@ do
 		return ID.enter(nextid, body, ...)
 	end
 
-	function ID.iter(name, iterator, state)
-		if name ~= nil and type(name) ~= "string" then
-			name, iterator, state = nil, name, iterator
+	function ID.iter(name, iterator, state, init)
+		if type(name) ~= "string" then
+			name, iterator, state, init = nil, name, iterator, state
 		end
 
 		local pushIdNode, pushIdCount, parentNode
@@ -713,20 +703,17 @@ do
 			end
 			return id, ...
 		end
-		return function(state, id, ...)
-			if rawequal(nil, id) then
-				-- Just starting loop; enter block
-				pushIdNode, pushIdCount = IdNode, IdCount
-				if name then
-					IdNode, IdCount = ID.named(name), -1
-				else
-					IdNode, IdCount = ID.next(), -1
-				end
-				parentNode = IdNode
-			end
-			return handleLast(iterator(state, id, ...))
-		end,
-			state
+
+		-- Just starting loop; enter block
+		-- assumes that no id-relevant stuff happens between this function and the iteration.
+		pushIdNode, pushIdCount = IdNode, IdCount
+		if name then
+			IdNode, IdCount = ID.named(name), -1
+		else
+			IdNode, IdCount = ID.next(), -1
+		end
+		parentNode = IdNode
+		return function(state, id, ...) return handleLast(iterator(state, ...)) end, state, init
 	end
 
 	function ID.wrap_child(body, name)
@@ -789,25 +776,60 @@ local function wrap_create(f, name)
 	end
 end
 
+---@generic T: table, K, V
+---@param t T
+---@return fun(table: table<K, V>, index?: K):K, V
+---@return T
+
 ---@generic K, V
 ---@param name string?
----@param target { [K]: V }?
----@param f fun(k:K, v:V) : table
+---@param f fun(k:K, v:V) : table | fun(i: integer) : table
+---@param iternext fun(a: any, b: any) : ...
+---@param iterstate any
+---@param itermut any
 ---@return ...
-local function each(name, target, f)
+local function each(name, f, iternext, iterstate, itermut)
 	if type(name) ~= "string" then
-		name, target = nil, name
+		name, f, iternext, iterstate, itermut = nil, name, f, iternext, iterstate
 	end
-	---@cast target -nil
+	---@cast f -nil
 
 	local r = {}
-	for k, v in ID.iter(name, pairs(target)) do
-		local c = f(k, v)
-		if c == nil then error("function passed to each returned nil on " .. k) end
-		table.insert(r, c)
+
+	do
+		local _iter, _s, _var = ID.iter(name, iternext, iterstate, itermut)
+		while true do
+			local var = { _iter(_s, _var) }
+			_var = var[1]
+
+			if _var == nil then break end
+
+			local c = f(table.unpack(var))
+			if c == nil then error("function passed to each returned nil on " .. tostring(var[1])) end
+			table.insert(r, c)
+		end
 	end
+
 	return table.unpack(r)
 end
+
+---@param max integer
+---@param curr integer
+---@return integer?
+local function nextint(max, curr)
+	if curr > max then
+		return nil
+	else
+		return curr + 1
+	end
+end
+
+---@param start integer
+---@param stop integer
+---@return fun(max: integer, curr: integer) : integer?
+---@return integer
+---@return integer
+local function range(start, stop) return nextint, stop, start - 1 end
 
 return {
 	---@type UnifiedPx
@@ -847,4 +869,5 @@ return {
 	window = wrap_create(create_window, "create_window"),
 	ID = ID,
 	each = each,
+	range = range,
 }
