@@ -713,7 +713,7 @@ do
 			IdNode, IdCount = ID.next(), -1
 		end
 		parentNode = IdNode
-		return function(state, id, ...) return handleLast(iterator(state, ...)) end, state, init
+		return function(state, id) return handleLast(iterator(state, id)) end, state, init
 	end
 
 	function ID.wrap_child(body, name)
