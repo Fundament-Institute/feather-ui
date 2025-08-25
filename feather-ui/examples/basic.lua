@@ -37,8 +37,8 @@ local function app(appstate)
 					lineheight = 56,
 				},
 			},
-			f.cond(appstate.count ~= 0):Then(
-				f.button {
+			f.cond(appstate.count ~= 0)
+				:Then(f.button {
 					onclick = handlers.onclick,
 					props = {
 						area = abs(45, 245, 0, 0) + f.UNSIZED, -- f.UNSIZED is just rel(0, 0, NONE, NONE)
@@ -65,16 +65,10 @@ local function app(appstate)
 						color = 0xFFFFFFFF,
 						fontsize = 40,
 						lineheight = 56,
-						wrap = f.Wrap.ANY,
+						wrap = f.Wrap.Any,
 					},
 				})
-			:Else(f.shape.rect {
-				props = {
-					area = px(1, 1, 2, 2),
-				},
-				fill = { 1, 1, 1, 1 },
-			})
-			:End(),
+				:End(),
 			f.shape.rect {
 				props = {
 					area = px(1, 1, 2, 2),

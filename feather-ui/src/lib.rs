@@ -1328,10 +1328,10 @@ impl From<f32> for DValue {
 #[repr(u8)]
 pub enum RowDirection {
     #[default]
-    LeftToRight,
-    RightToLeft,
-    TopToBottom,
-    BottomToTop,
+    LeftToRight = 0,
+    RightToLeft = 1,
+    BottomToTop = 2,
+    TopToBottom = 3,
 }
 
 // If a component provides a CrossReferenceDomain, it's children can register themselves with it.
