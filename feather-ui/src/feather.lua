@@ -719,6 +719,16 @@ do
 	function ID.wrap_child(body, name)
 		return function(...) return ID.child(body, ...) end
 	end
+
+	function ID.push(newnode, newidx)
+		local pushIdNode, pushIdCount = IdNode, IdCount
+		IdNode, IdCount = newnode, newidx or -1
+		return pushIdNode, pushIdCount
+	end
+	function ID.pop(oldnode, oldidx)
+		IdNode, IdCount = oldnode, oldidx
+	end
+		
 end
 
 -- "required" marker table
@@ -831,6 +841,51 @@ end
 ---@return integer
 local function range(start, stop) return nextint, stop, start - 1 end
 
+local cond_methods = {}
+function cond_methods:Elseif(flag)
+	if #self.conditions ~= #self.consequences then
+		error "mismatched conditions"
+	end
+	table.insert(self.conditions, flag)
+	self.pushIdNode, self.pushIdCount = ID.push(ID.next())
+	return self
+end
+function cond_methods:Then(consequent)
+	if #self.conditions ~= (#self.consequences + 1) then
+		error "mismatched conditions"
+	end
+	table.insert(self.consequences, consequent)
+	ID.pop(self.pushIdNode, self.pushIdCount)
+	return self
+end
+function cond_methods:Else(alternate)
+	if #self.conditions ~= #self.consequences then
+		error "mismatched conditions"
+	end
+	table.insert(self.conditions, true)
+	table.insert(self.consequences, alternate)
+	ID.pop(self.pushIdNode, self.pushIdCount)
+	return self
+end
+function cond_methods:End()
+	if #self.conditions ~= #self.consequences then
+		error "mismatched conditions"
+	end
+	ID.pop(self.rootnode, self.rootcount)
+	for i = 1, #self.conditions do
+		if self.conditions[i] then
+			return self.consequences[i]
+		end
+	end
+end
+local cond_mt = {__index = cond_methods}
+local function cond(flag)
+	local self = setmetatable({conditions = {flag}, consequences = {}}, cond_mt)
+	self.rootnode, self.rootcount = ID.push(ID.next())
+	self.pushIdNode, self.pushIdCount = ID.push(ID.next())
+	return self
+end
+
 return {
 	---@type UnifiedPx
 	px = px,
@@ -880,4 +935,5 @@ return {
 	ID = ID,
 	each = each,
 	range = range,
+	cond = cond,
 }

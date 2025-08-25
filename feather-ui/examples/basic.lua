@@ -37,36 +37,44 @@ local function app(appstate)
 					lineheight = 56,
 				},
 			},
-			f.button {
-				onclick = handlers.onclick,
+			f.cond(appstate.count ~= 0):Then(
+				f.button {
+					onclick = handlers.onclick,
+					props = {
+						area = abs(45, 245, 0, 0) + f.UNSIZED, -- f.UNSIZED is just rel(0, 0, NONE, NONE)
+						minsize = abs(100, NONE),
+						maxsize = abs(300, NONE),
+					},
+					f.shape.rect {
+						props = {
+							area = f.FILL,
+						},
+						corners = 10, -- shorthand for [10,10,10,10]
+						fill = { 0.7, 0.2, 0.4, 1.0 }, -- colors can be arrays of floats
+						outline = 0xFFFFFFFF, -- Or specified as an RGBA hex code
+					},
+					f.text {
+						props = {
+							area = rel(0.5, 0, NONE, NONE),
+							minsize = abs(NONE, 10), -- nil in a limit, however, becomes either NEG_INFINITY for minsize
+							maxsize = abs(NONE, 200) + rel(1, NONE), -- or MAX_INFINITY for a maxsize
+							anchor = rel.x(0.5),
+							padding = abs(8), -- shorthand for abs(8,8,8,8)
+						},
+						text = string.rep("█", appstate.count),
+						color = 0xFFFFFFFF,
+						fontsize = 40,
+						lineheight = 56,
+						wrap = f.Wrap.ANY,
+					},
+				})
+			:Else(f.shape.rect {
 				props = {
-					area = abs(45, 245, 0, 0) + f.UNSIZED, -- f.UNSIZED is just rel(0, 0, NONE, NONE)
-					minsize = abs(100, NONE),
-					maxsize = abs(300, NONE),
+					area = px(1, 1, 2, 2),
 				},
-				f.shape.rect {
-					props = {
-						area = f.FILL,
-					},
-					corners = 10, -- shorthand for [10,10,10,10]
-					fill = { 0.7, 0.2, 0.4, 1.0 }, -- colors can be arrays of floats
-					outline = 0xFFFFFFFF, -- Or specified as an RGBA hex code
-				},
-				f.text {
-					props = {
-						area = rel(0.5, 0, NONE, NONE),
-						minsize = abs(NONE, 10), -- nil in a limit, however, becomes either NEG_INFINITY for minsize
-						maxsize = abs(NONE, 200) + rel(1, NONE), -- or MAX_INFINITY for a maxsize
-						anchor = rel.x(0.5),
-						padding = abs(8), -- shorthand for abs(8,8,8,8)
-					},
-					text = string.rep("█", appstate.count),
-					color = 0xFFFFFFFF,
-					fontsize = 40,
-					lineheight = 56,
-					wrap = f.Wrap.Any,
-				},
-			},
+				fill = { 1, 1, 1, 1 },
+			})
+			:End(),
 			f.shape.rect {
 				props = {
 					area = px(1, 1, 2, 2),
