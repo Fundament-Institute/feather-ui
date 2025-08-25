@@ -28,7 +28,7 @@ fn main() {
 
     let (mut app, event_loop) = LuaApp::<CounterState>::new::<()>(
         &lua,
-        CounterState { count: 0 },
+        CounterState { count: 20 },
         handlers![CounterState, onclick],
         LAYOUT,
     )

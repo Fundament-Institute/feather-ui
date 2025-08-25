@@ -728,7 +728,6 @@ do
 	function ID.pop(oldnode, oldidx)
 		IdNode, IdCount = oldnode, oldidx
 	end
-		
 end
 
 -- "required" marker table
@@ -791,6 +790,8 @@ end
 ---@return fun(table: table<K, V>, index?: K):K, V
 ---@return T
 
+local multicomponent_mt = { kind = "multicomponent_mt" }
+
 ---@generic K, V
 ---@param name string?
 ---@param f fun(k:K, v:V) : table | fun(i: integer) : table
@@ -804,7 +805,7 @@ local function each(name, f, iternext, iterstate, itermut)
 	end
 	---@cast f -nil
 
-	local r = {}
+	local r = setmetatable({}, multicomponent_mt)
 
 	do
 		local _iter, _s, _var = ID.iter(name, iternext, iterstate, itermut)
@@ -820,7 +821,7 @@ local function each(name, f, iternext, iterstate, itermut)
 		end
 	end
 
-	return table.unpack(r)
+	return r
 end
 
 ---@param max integer
@@ -843,44 +844,40 @@ local function range(start, stop) return nextint, stop, start - 1 end
 
 local cond_methods = {}
 function cond_methods:Elseif(flag)
-	if #self.conditions ~= #self.consequences then
-		error "mismatched conditions"
-	end
+	if #self.conditions ~= #self.consequences then error("mismatched conditions") end
 	table.insert(self.conditions, flag)
 	self.pushIdNode, self.pushIdCount = ID.push(ID.next())
 	return self
 end
 function cond_methods:Then(consequent)
-	if #self.conditions ~= (#self.consequences + 1) then
-		error "mismatched conditions"
-	end
+	if #self.conditions ~= (#self.consequences + 1) then error("mismatched conditions") end
 	table.insert(self.consequences, consequent)
 	ID.pop(self.pushIdNode, self.pushIdCount)
 	return self
 end
 function cond_methods:Else(alternate)
-	if #self.conditions ~= #self.consequences then
-		error "mismatched conditions"
-	end
+	if #self.conditions ~= #self.consequences then error("mismatched conditions") end
 	table.insert(self.conditions, true)
 	table.insert(self.consequences, alternate)
 	ID.pop(self.pushIdNode, self.pushIdCount)
 	return self
 end
 function cond_methods:End()
-	if #self.conditions ~= #self.consequences then
-		error "mismatched conditions"
-	end
+	if #self.conditions ~= #self.consequences then error("mismatched conditions") end
 	ID.pop(self.rootnode, self.rootcount)
 	for i = 1, #self.conditions do
 		if self.conditions[i] then
-			return self.consequences[i]
+			if type(self.conditions[i]) == "function" then
+				return self.consequences[i]()
+			else
+				return self.consequences[i]
+			end
 		end
 	end
 end
-local cond_mt = {__index = cond_methods}
+local cond_mt = { __index = cond_methods }
 local function cond(flag)
-	local self = setmetatable({conditions = {flag}, consequences = {}}, cond_mt)
+	local self = setmetatable({ conditions = { flag }, consequences = {} }, cond_mt)
 	self.rootnode, self.rootcount = ID.push(ID.next())
 	self.pushIdNode, self.pushIdCount = ID.push(ID.next())
 	return self

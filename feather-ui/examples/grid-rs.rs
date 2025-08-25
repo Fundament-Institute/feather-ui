@@ -66,10 +66,6 @@ impl grid::Prop for GridData {
     fn spacing(&self) -> feather_ui::DPoint {
         self.spacing
     }
-
-    fn direction(&self) -> feather_ui::RowDirection {
-        feather_ui::RowDirection::TopToBottom
-    }
 }
 
 #[derive(Default, Empty, Area)]
@@ -89,7 +85,7 @@ impl leaf::Prop for GridChild {}
 impl leaf::Padded for GridChild {}
 
 impl grid::Child for GridChild {
-    fn index(&self) -> (usize, usize) {
+    fn coord(&self) -> (usize, usize) {
         (self.y, self.x)
     }
 
@@ -196,7 +192,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                             + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
 
                         rlimits: feather_ui::RelLimits::new(0.0..1.0, 0.0..),
-                        direction: feather_ui::RowDirection::BottomToTop,
+                        direction: feather_ui::RowDirection::LeftToRight,
                         rows: [40.0, 20.0, 40.0, 20.0, 40.0, 20.0, 10.0]
                             .map(DValue::from)
                             .to_vec(),
