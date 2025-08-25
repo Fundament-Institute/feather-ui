@@ -21,7 +21,7 @@ use std::collections::HashSet;
 use std::f32;
 use std::sync::Arc;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Default)]
 struct GraphState {
     nodes: Vec<AbsPoint>,
     edges: HashSet<(usize, usize)>,
@@ -54,15 +54,7 @@ impl FnPersistStore for BasicApp {
 
 impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
-        (
-            GraphState {
-                nodes: Vec::new(),
-                edges: HashSet::new(),
-                offset: AbsVector::zero(),
-                selected: None,
-            },
-            im::HashMap::new(),
-        )
+        (Default::default(), im::HashMap::new())
     }
     fn call(
         &mut self,
