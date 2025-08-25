@@ -64,7 +64,7 @@ local function app(appstate)
 					color = 0xFFFFFFFF,
 					fontsize = 40,
 					lineheight = 56,
-					wrap = f.WRAP.ANY,
+					wrap = f.Wrap.Any,
 				},
 			},
 			f.shape.rect {

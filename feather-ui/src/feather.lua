@@ -817,7 +817,7 @@ end
 ---@param curr integer
 ---@return integer?
 local function nextint(max, curr)
-	if curr > max then
+	if curr >= max then
 		return nil
 	else
 		return curr + 1
@@ -841,7 +841,17 @@ return {
 	FILL = rel(0, 0, 1, 1),
 	NONE = 0 / 0,
 	UNSIZED = rel(0, 0, 0 / 0, 0 / 0),
-	WRAP = { NONE = 0, WORD = 1, CHARACTER = 2, ANY = 3 },
+	Wrap = { None = 0, Word = 1, Character = 2, Any = 3 },
+	Direction = { LeftToRight = 0, RightToLeft = 1, TopToBottom = 2, BottomToTop = 3 },
+	Justify = {
+		Start = 0,
+		Center = 1,
+		End = 2,
+		SpaceBetween = 3,
+		SpaceAround = 4,
+		SpaceFull = 5,
+	},
+	FontStyle = { Normal = 0, Italic = 1, Oblique = 2 },
 	component = component,
 	required = required,
 	optional = function(default) setmetatable({ default = default }, {}) end,
