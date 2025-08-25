@@ -624,7 +624,7 @@ impl FromLua for LuaFontFamily {
     }
 }
 
-type ComponentBag = Box<dyn crate::component::Component<Props = PropBag>>;
+pub type ComponentBag = Box<dyn crate::component::Component<Props = PropBag>>;
 
 impl<U: ?Sized> crate::component::ComponentWrap<U> for ComponentBag
 where
@@ -883,7 +883,7 @@ impl FromLua for PropBag {
         bag.set_rlimits(rlimits);
 
         if props.contains_key("direction")? {
-            bag.set_direction(props.get::<LuaEnum<crate::RowDirection>>("domain")?.0);
+            bag.set_direction(props.get::<LuaEnum<crate::RowDirection>>("direction")?.0);
         }
 
         if props.contains_key("justify")? {
@@ -904,6 +904,14 @@ impl FromLua for PropBag {
 
         if props.contains_key("dim")? {
             bag.set_dim(props.get::<LuaPoint<Pixel>>("dim")?.0.to_vector().to_size());
+        }
+
+        if props.contains_key("rows")? {
+            bag.set_rows(props.get::<Vec<DValue>>("rows")?.as_slice());
+        }
+
+        if props.contains_key("columns")? {
+            bag.set_columns(props.get::<Vec<DValue>>("columns")?.as_slice());
         }
 
         Ok(bag)
@@ -1328,12 +1336,18 @@ fn create_id(_: &Lua, (parent, v): (Option<LuaSourceID>, LuaValue)) -> LuaResult
         if let Some(parent) = parent {
             Ok(LuaSourceID(parent.0.child(DataID::Int(n))))
         } else {
+            #[cfg(debug_assertions)]
+            panic!("NO PARENT! This means the layout was called incorrectly!");
+            #[cfg(not(debug_assertions))]
             Err(LuaError::UserDataTypeMismatch)
         }
     } else if let Some(name) = v.as_string().map(|x| x.to_string_lossy()) {
         if let Some(parent) = parent {
             Ok(LuaSourceID(parent.0.child(DataID::Owned(name))))
         } else {
+            #[cfg(debug_assertions)]
+            panic!("NO PARENT! This means the layout was called incorrectly!");
+            #[cfg(not(debug_assertions))]
             Err(LuaError::UserDataTypeMismatch)
         }
     } else {
@@ -1411,10 +1425,28 @@ fn create_window(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Wind
     Ok(Window::new(id.0, attributes, Box::new(child)))
 }
 
+#[derive(PartialEq, Clone, Debug)]
+pub struct LuaFragment {
+    layout: LuaFunction,
+    id_enter: LuaFunction,
+}
+
+impl LuaFragment {
+    pub fn call<T: IntoLuaMulti>(&self, args: T, mut id: ScopeID<'_>) -> LuaResult<ComponentBag> {
+        self.id_enter.call::<ComponentBag>((
+            LuaSourceID(id.id().clone()),
+            self.layout.clone(),
+            args,
+        ))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LuaContext {
     feather: LuaTable,
+    modules: LuaTable,
     id_enter: LuaFunction,
+    require: LuaFunction,
     load_in_sandbox: LuaFunction,
 }
 
@@ -1455,12 +1487,33 @@ impl LuaContext {
 
         let feather: LuaTable = lua
             .load(NamedChunk(FEATHER, "feather"))
-            .set_environment(preload)
+            .set_environment(preload.clone())
             .eval()?;
 
         let id_enter = feather.get::<LuaTable>("ID")?.get::<LuaFunction>("enter")?;
 
+        let modules = lua.create_table()?;
+        preload.set("injected_dep", &modules)?;
+
         lua.load(NamedChunk(SANDBOX, "sandbox")).exec()?;
+
+        let require: LuaFunction = lua
+            .load(
+                r#"
+package = {preload = {}, loaded = injected_dep}
+return function(name) -- require stub for inside sandbox
+  if not package.loaded[name] then
+    if not package.preload[name] then
+      error("Couldn't find package.preload for " .. name)
+    end
+    package.loaded[name] = package.preload[name]()
+  end
+  return package.loaded[name]
+end
+        "#,
+            )
+            .set_environment(preload)
+            .eval()?;
 
         lua.load(
             r#"
@@ -1471,8 +1524,8 @@ impl LuaContext {
         
         local create_module = sandbox_impl(true)
         
-        function load_in_sandbox(bytes, additional_interface)
-          local r, err = create_module(bytes, "layout", additional_interface)
+        function load_in_sandbox(bytes, name, additional_interface)
+          local r, err = create_module(bytes, name, additional_interface)
           if r == nil then
             error(err)
           end
@@ -1489,10 +1542,31 @@ impl LuaContext {
             feather,
             id_enter,
             load_in_sandbox,
+            require,
+            modules,
         })
     }
 
-    pub fn load_layout<R: FromLuaMulti, AppData>(
+    pub fn add_module(&self, lua: &Lua, name: &str, module: &[u8]) -> LuaResult<()> {
+        let interface = lua.create_table()?;
+        interface.set("f", self.feather.clone())?;
+        interface.set("require", self.require.clone())?;
+
+        self.modules.set(
+            name,
+            self.load_in_sandbox
+                .call::<LuaValue>((lua.create_string(module)?, name, interface))?,
+        )
+    }
+
+    pub fn get_module(&self, name: &str) -> Option<LuaValue> {
+        self.modules.get(name).ok().and_then(|x| match x {
+            Some(LuaNil) => None,
+            x => x,
+        })
+    }
+
+    fn load_layout<AppData, R: FromLuaMulti>(
         &self,
         lua: &Lua,
         handlers: &[(String, crate::AppEvent<AppData>)],
@@ -1507,9 +1581,22 @@ impl LuaContext {
         let interface = lua.create_table()?;
         interface.set("handlers", handler_table)?;
         interface.set("f", self.feather.clone())?;
+        interface.set("require", self.require.clone())?;
 
         self.load_in_sandbox
-            .call((lua.create_string(layout)?, interface))
+            .call((lua.create_string(layout)?, "layout", interface))
+    }
+
+    pub fn load_fragment<AppData>(
+        &self,
+        lua: &Lua,
+        handlers: &[(String, crate::AppEvent<AppData>)],
+        layout: &[u8],
+    ) -> LuaResult<LuaFragment> {
+        Ok(LuaFragment {
+            layout: self.load_layout(lua, handlers, layout)?,
+            id_enter: self.id_enter.clone(),
+        })
     }
 }
 

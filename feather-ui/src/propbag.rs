@@ -160,10 +160,27 @@ impl crate::layout::base::Obstacles for PropBag {
 }
 
 impl PropBag {
-    #[allow(dead_code)]
     pub fn set_obstacles(&mut self, v: &[crate::DAbsRect]) -> Option<Vec<crate::DAbsRect>> {
         self.props
-            .insert(PropBagElement::zindex, Box::new(v.to_vec()))
+            .insert(PropBagElement::obstacles, Box::new(v.to_vec()))
+            .map(move |x| {
+                *x.downcast()
+                    .expect("obstacles in PropBag was the wrong type!")
+            })
+    }
+
+    pub fn set_rows(&mut self, v: &[crate::DValue]) -> Option<Vec<crate::DValue>> {
+        self.props
+            .insert(PropBagElement::rows, Box::new(v.to_vec()))
+            .map(move |x| {
+                *x.downcast()
+                    .expect("obstacles in PropBag was the wrong type!")
+            })
+    }
+
+    pub fn set_columns(&mut self, v: &[crate::DValue]) -> Option<Vec<crate::DValue>> {
+        self.props
+            .insert(PropBagElement::columns, Box::new(v.to_vec()))
             .map(move |x| {
                 *x.downcast()
                     .expect("obstacles in PropBag was the wrong type!")
