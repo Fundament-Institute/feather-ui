@@ -9,24 +9,32 @@ use crate::{DPoint, DValue, PxDim, PxRect, RowDirection, SourceID, UNSIZED_AXIS,
 use std::rc::Rc;
 
 // TODO: use sparse vectors here? Does that even make sense if rows require a default size of some kind?
-pub trait Prop: base::Area + base::Limits + base::Anchor + base::Padding {
+pub trait Prop: base::Area + base::Limits + base::Anchor + base::Padding + base::Direction {
     fn rows(&self) -> &[DValue];
     fn columns(&self) -> &[DValue];
     fn spacing(&self) -> DPoint; // Spacing is specified as (row, column)
-    fn direction(&self) -> RowDirection; // Note that a "normal" grid is TopToBottom here by default, not LeftToRight
 }
 
 crate::gen_from_to_dyn!(Prop);
 
 pub trait Child: base::RLimits {
-    /// (Row, Column) index of the item
-    fn index(&self) -> (usize, usize);
-    /// (Row, Column) span of the item, lets items span across multiple rows or columns.
+    /// (Column, Row) coordinate of the item
+    fn coord(&self) -> (usize, usize);
+    /// (Column, Row) span of the item, lets items span across multiple rows or columns.
     /// Minimum is (1,1), and the layout won't save you if you tell it to overlap items.
     fn span(&self) -> (usize, usize);
 }
 
 crate::gen_from_to_dyn!(Child);
+
+fn swap_coord((x, y): (usize, usize), (w, h): (usize, usize), dir: RowDirection) -> (usize, usize) {
+    match dir {
+        RowDirection::LeftToRight => (x, y),
+        RowDirection::RightToLeft => (w - 1 - x, y),
+        RowDirection::BottomToTop => (x, h - 1 - y),
+        RowDirection::TopToBottom => (w - 1 - x, h - 1 - y), // TODO: This is confusing, but it's not clear how to handle this without being verbose or confusing.
+    }
+}
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
@@ -42,12 +50,10 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        use super::Swappable;
-
         let mut limits = outer_limits + props.limits().resolve(window.dpi);
-        let padding = props.padding().as_perimeter(window.dpi);
         let myarea = props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
+        let padding = props.padding().as_perimeter(window.dpi);
         let allpadding = padding.topleft() + padding.bottomright();
         let minmax = limits.v.as_array_mut();
         if unsized_x {
@@ -64,18 +70,9 @@ impl Desc for dyn Prop {
             - padding.topleft()
             - padding.bottomright();
 
-        let yaxis = match props.direction() {
-            RowDirection::LeftToRight | RowDirection::RightToLeft => false,
-            RowDirection::TopToBottom | RowDirection::BottomToTop => true,
-        };
+        //let (outer_column, outer_row) = ;
 
-        let (outer_column, outer_row) = outer_safe.dim().swap_axis(yaxis);
-        let (dpi_column, dpi_row) = window.dpi.swap_axis(yaxis);
-
-        let spacing = props
-            .spacing()
-            .resolve(crate::RelDim::new(dpi_row, dpi_column))
-            * PxDim::new(outer_row, outer_column);
+        let spacing = props.spacing().resolve(window.dpi) * outer_safe.dim();
         let nrows = props.rows().len();
         let ncolumns = props.columns().len();
 
@@ -95,10 +92,14 @@ impl Desc for dyn Prop {
 
                     // First we precalculate all row/column sizes that we can (if an outer axis is unsized, relative sizes are set to 0)
                     for (i, row) in props.rows().iter().enumerate() {
-                        rows[i] = row.resolve(dpi_row).resolve(outer_row);
+                        rows[i] = row
+                            .resolve(window.dpi.height)
+                            .resolve(outer_safe.dim().height);
                     }
                     for (i, column) in props.columns().iter().enumerate() {
-                        columns[i] = column.resolve(dpi_column).resolve(outer_column);
+                        columns[i] = column
+                            .resolve(window.dpi.width)
+                            .resolve(outer_safe.dim().width);
                     }
 
                     // Then we go through all child elements so we can precalculate the maximum area of all rows and columns
@@ -106,10 +107,11 @@ impl Desc for dyn Prop {
                         let child_props = child.as_ref().unwrap().get_props();
                         let child_limit =
                             super::apply_limit(inner_dim, limits, *child_props.rlimits());
-                        let (row, column) = child_props.index();
+                        let (column, row) =
+                            swap_coord(child_props.coord(), (ncolumns, nrows), props.direction());
 
                         if rows[row] == UNSIZED_AXIS || columns[column] == UNSIZED_AXIS {
-                            let (w, h) = super::swap_pair(yaxis, (columns[column], rows[row]));
+                            let (w, h) = (columns[column], rows[row]);
                             let child_area = PxRect::new(0.0, 0.0, w, h);
 
                             let stage =
@@ -118,9 +120,8 @@ impl Desc for dyn Prop {
                                     .unwrap()
                                     .stage(child_area, child_limit, window);
                             let area = stage.get_area();
-                            let (c, r) = area.dim().swap_axis(yaxis);
-                            maxrows[row] = maxrows[row].max(r);
-                            maxcolumns[column] = maxcolumns[column].max(c);
+                            maxrows[row] = maxrows[row].max(area.dim().height);
+                            maxcolumns[column] = maxcolumns[column].max(area.dim().width);
                         }
                     }
                 }
@@ -132,14 +133,11 @@ impl Desc for dyn Prop {
                     }
                 }
                 let (rows, columns) = resolved.split_at_mut(nrows);
-                let (x_used, y_used) = super::swap_pair(
-                    yaxis,
-                    (
-                        columns.iter().fold(0.0, |x, y| x + y)
-                            + (spacing.y * ncolumns.saturating_sub(1) as f32),
-                        rows.iter().fold(0.0, |x, y| x + y)
-                            + (spacing.x * nrows.saturating_sub(1) as f32),
-                    ),
+                let (x_used, y_used) = (
+                    columns.iter().fold(0.0, |x, y| x + y)
+                        + (spacing.y * ncolumns.saturating_sub(1) as f32),
+                    rows.iter().fold(0.0, |x, y| x + y)
+                        + (spacing.x * nrows.saturating_sub(1) as f32),
                 );
                 let area = map_unsized_area(myarea, PxDim::new(x_used, y_used));
 
@@ -161,11 +159,11 @@ impl Desc for dyn Prop {
                 for child in children.iter() {
                     let child_props = child.as_ref().unwrap().get_props();
                     let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
-                    let (row, column) = child_props.index();
+                    let (column, row) =
+                        swap_coord(child_props.coord(), (ncolumns, nrows), props.direction());
 
-                    let (x, y) =
-                        super::swap_pair(yaxis, (column_offsets[column], row_offsets[row]));
-                    let (w, h) = super::swap_pair(yaxis, (columns[column], rows[row]));
+                    let (x, y) = (column_offsets[column], row_offsets[row]);
+                    let (w, h) = (columns[column], rows[row]);
                     let child_area = PxRect::new(x, y, x + w, y + h);
 
                     let stage = child

@@ -914,6 +914,20 @@ impl FromLua for PropBag {
             bag.set_columns(props.get::<Vec<DValue>>("columns")?.as_slice());
         }
 
+        if props.contains_key("spacing")? {
+            bag.set_spacing(props.get::<DPoint>("spacing")?);
+        }
+
+        if props.contains_key("coord")? {
+            let coords = props.get::<Vec<usize>>("coord")?;
+            bag.set_coord((coords[0], coords[1]));
+        }
+
+        if props.contains_key("span")? {
+            let coords = props.get::<Vec<usize>>("span")?;
+            bag.set_span((coords[0], coords[1]));
+        }
+
         Ok(bag)
     }
 }
@@ -930,6 +944,34 @@ fn prop_no_children(t: &LuaTable) -> LuaResult<PropBag> {
     Ok(bag)
 }
 
+fn push_child<D: crate::layout::Desc + ?Sized>(
+    t: &LuaTable,
+    i: i64,
+    children: &mut im::Vector<Option<Box<ChildOf<D>>>>,
+) -> LuaResult<()>
+where
+    std::boxed::Box<dyn crate::component::Component<Props = PropBag>>:
+        crate::component::ComponentWrap<<D as crate::layout::Desc>::Child>,
+{
+    let v = t.get::<LuaValue>(i)?;
+    if v.is_nil() {
+        return Ok(());
+    } else if let Some(inner) = v.as_table()
+        && let Some(mt) = inner.metatable()
+        && let Ok(s) = mt.get::<String>("kind")
+        && s == "multicomponent_mt"
+    {
+        for j in 1..=inner.len()? {
+            push_child::<D>(inner, j, children)?;
+        }
+    } else {
+        let component: ComponentBag = t.get(i)?;
+        children.push_back(Some(Box::new(component)));
+    }
+
+    Ok(())
+}
+
 fn prop_children<D: crate::layout::Desc + ?Sized>(
     t: &LuaTable,
 ) -> LuaResult<(im::Vector<Option<Box<ChildOf<D>>>>, PropBag)>
@@ -940,8 +982,7 @@ where
     let mut children: im::Vector<Option<Box<ChildOf<D>>>> = im::Vector::new();
 
     for i in 1..=t.len()? {
-        let component: ComponentBag = t.get(i)?;
-        children.push_back(Some(Box::new(component)));
+        push_child::<D>(t, i, &mut children)?;
     }
 
     let bag: PropBag = get_required(t, "props")?;

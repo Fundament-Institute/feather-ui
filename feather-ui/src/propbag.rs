@@ -117,7 +117,7 @@ macro_rules! gen_prop_bag {
       columns,
       spacing,
       span,
-      index,
+      coord,
       wrap,
       justify,
       align,
@@ -245,16 +245,24 @@ gen_prop_bag_setter_clone!(grow, set_grow, f32);
 gen_prop_bag_setter_clone!(shrink, set_shrink, f32);
 gen_prop_bag_setter_clone!(basis, set_basis, crate::DValue);
 
-gen_prop_bag_setter_clone!(index, set_index, (usize, usize));
+gen_prop_bag_setter_clone!(coord, set_coord, (usize, usize));
 gen_prop_bag_setter_clone!(span, set_span, (usize, usize));
 
 impl crate::layout::grid::Child for PropBag {
-    fn index(&self) -> (usize, usize) {
-        self.get_value(PropBagElement::index)
+    fn coord(&self) -> (usize, usize) {
+        if let Some(t) = self.props.get(&PropBagElement::coord) {
+            *t.downcast_ref().unwrap()
+        } else {
+            panic!("No 'coord' found in propbag, and no default value available!")
+        }
     }
 
     fn span(&self) -> (usize, usize) {
-        self.get_value(PropBagElement::span)
+        if let Some(t) = self.props.get(&PropBagElement::span) {
+            *t.downcast_ref().unwrap()
+        } else {
+            (1, 1)
+        }
     }
 }
 
@@ -281,9 +289,5 @@ impl crate::layout::grid::Prop for PropBag {
 
     fn spacing(&self) -> crate::DPoint {
         self.get_value(PropBagElement::spacing)
-    }
-
-    fn direction(&self) -> crate::RowDirection {
-        self.get_value(PropBagElement::direction)
     }
 }
