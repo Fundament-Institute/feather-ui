@@ -164,6 +164,11 @@ function sandbox_impl(use_weaktables)
 			local owner = proxy_get_owner(self)
 			return translate_args(origin, owner, pairs(proxy_get_target(self)))
 		end,
+		__ipairs = function(self)
+			local origin = proxy_get_origin(self)
+			local owner = proxy_get_owner(self)
+			return translate_args(origin, owner, ipairs(proxy_get_target(self)))
+		end,
 		__len = function(self)
 			local origin = proxy_get_origin(self)
 			local owner = proxy_get_owner(self)
