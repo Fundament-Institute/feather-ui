@@ -894,7 +894,7 @@ return {
 	NONE = 0 / 0,
 	UNSIZED = rel(0, 0, 0 / 0, 0 / 0),
 	Wrap = { None = 0, Word = 1, Character = 2, Any = 3 },
-	Direction = { LeftToRight = 0, RightToLeft = 1, TopToBottom = 2, BottomToTop = 3 },
+	Direction = { LeftToRight = 0, RightToLeft = 1, BottomToTop = 2, TopToBottom = 3 },
 	Justify = {
 		Start = 0,
 		Center = 1,
