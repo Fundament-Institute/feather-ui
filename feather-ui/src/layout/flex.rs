@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::{
-    Concrete, Desc, Layout, Renderable, Staged, base, cap_unsized, check_unsized_abs,
-    map_unsized_area, merge_margin, nuetralize_unsized,
+    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized_abs, map_unsized_area,
+    merge_margin, nuetralize_unsized,
 };
 use crate::layout::Swappable;
 use crate::persist::{FnPersist2, Persist2, VectorFold};
@@ -276,7 +276,7 @@ fn wrap_line(
 
     breaks.push(Linebreak::new(
         childareas.len(),
-        f32::INFINITY,
+        max_aux,
         f32::INFINITY,
         f32::NAN,
     ));
@@ -471,7 +471,7 @@ impl Desc for dyn Prop {
             let mut breaks = SmallVec::<[Linebreak; 10]>::new();
             breaks.push(Linebreak::new(
                 childareas.len(),
-                f32::INFINITY,
+                total_aux,
                 f32::INFINITY,
                 f32::NAN,
             ));
@@ -571,7 +571,7 @@ impl Desc for dyn Prop {
                     PxRect::new(main, aux, main + c.basis, aux + max_aux)
                 };
 
-                area = cap_unsized(area);
+                super::assert_sized(area);
                 area.set_topleft(area.topleft().min(area.bottomright()));
                 // If our axis is swapped, swap the rectangle axis
                 if !xaxis {

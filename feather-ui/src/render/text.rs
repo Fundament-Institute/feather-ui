@@ -230,7 +230,7 @@ impl Instance {
             dim: [width as f32, height as f32].into(),
             uv: [u as f32, v as f32].into(),
             uvdim: [width as f32, height as f32].into(),
-            color: color.0,
+            color: u32::from_be_bytes(color.as_rgba()),
             rotation: 0.0,
             flags: DataFlags::new().with_tex(glyph.region.index).into(),
             ..Default::default()
@@ -275,7 +275,7 @@ impl Instance {
             for glyph in run.glyphs.iter() {
                 let physical_glyph = glyph.physical((pos.x, pos.y), scale);
 
-                let color = match glyph.color_opt {
+                let glyphcolor = match glyph.color_opt {
                     Some(some) => some,
                     None => color,
                 };
@@ -295,7 +295,7 @@ impl Instance {
                     physical_glyph.y,
                     run.line_y,
                     scale,
-                    color,
+                    glyphcolor,
                     bounds_min_x,
                     bounds_min_y,
                     bounds_max_x,

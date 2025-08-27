@@ -80,8 +80,11 @@ impl base::Order for FlexChild {}
 impl base::Anchor for FlexChild {}
 impl base::Limits for FlexChild {}
 impl base::Padding for FlexChild {}
+impl base::ZIndex for FlexChild {}
 impl leaf::Prop for FlexChild {}
 impl leaf::Padded for FlexChild {}
+impl fixed::Prop for FlexChild {}
+impl fixed::Child for FlexChild {}
 
 #[derive(Default, Empty, Area)]
 struct MinimalFlex {
@@ -221,11 +224,8 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     im::Vector::new();
 
                 for (i, id) in scope.iter(0..args.count) {
-                    children.push_back(Some(Box::new(Shape::<
-                        FlexChild,
-                        { ShapeKind::RoundRect as u8 },
-                    >::new(
-                        id,
+                    let rect = Shape::<FlexChild, { ShapeKind::RoundRect as u8 }>::new(
+                        gen_id!(id),
                         FlexChild {
                             area: AbsRect::new(0.0, 0.0, 0.0, 40.0)
                                 + RelRect::new(0.0, 0.0, 1.0, 0.0),
@@ -246,7 +246,26 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                             1.0,
                         ),
                         sRGB::transparent(),
-                    ))));
+                    );
+
+                    // We include a "useless" region around the rectangle because this catches some edge cases
+                    // in the layout logic.
+                    let reg = Region::<FlexChild>::new(
+                        id,
+                        FlexChild {
+                            area: AbsRect::new(0.0, 0.0, 0.0, 40.0)
+                                + RelRect::new(0.0, 0.0, 1.0, 0.0),
+
+                            margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
+                            basis: 40.0.into(),
+                            grow: 0.0,
+                            shrink: 0.0,
+                        }
+                        .into(),
+                        feather_ui::children![fixed::Prop, rect],
+                    );
+
+                    children.push_back(Some(Box::new(reg)));
                 }
 
                 FlexBox::<MinimalFlex>::new(

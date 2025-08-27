@@ -3,7 +3,7 @@
 
 use bytemuck::Zeroable;
 use feather_macro::*;
-use feather_ui::color::sRGB;
+use feather_ui::color::{sRGB, sRGB32};
 use feather_ui::component::button::Button;
 use feather_ui::component::mouse_area;
 use feather_ui::component::region::Region;
@@ -67,6 +67,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                         anchor: feather_ui::RelPoint::new(0.0, 0.5).into(),
                         ..Default::default()
                     }),
+                    color: sRGB::new(1.0, 1.0, 0.0, 1.0),
                     text: format!("Clicks: {}", app.count),
                     font_size: 40.0,
                     line_height: 56.0,
