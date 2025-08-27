@@ -106,6 +106,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
             self.props.anchor().resolve(window.dpi) * evaluated_area.dim(),
         );
 
+        super::assert_sized(evaluated_area);
         Box::new(crate::layout::Concrete::new(
             Some(self.renderable.clone()),
             evaluated_area,

@@ -469,6 +469,15 @@ pub(crate) fn check_unsized_dim(dim: PxDim) -> (bool, bool) {
     check_unsized_abs(dim.to_vector().to_point())
 }
 
+pub(crate) fn assert_sized(area: PxRect) {
+    let ltrb = area.v.as_array_ref();
+
+    for v in ltrb {
+        assert_ne!(*v, UNSIZED_AXIS);
+        assert!(v.is_finite());
+    }
+}
+
 #[must_use]
 #[inline]
 pub(crate) fn cap_unsized(area: PxRect) -> PxRect {
