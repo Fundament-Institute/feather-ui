@@ -93,7 +93,7 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
             return Err(eyre::eyre!("Event handler doesn't handle this method"));
         }
         let result = match self.state.take().unwrap().process(
-            State::Input::restore(input).unwrap(),
+            State::Input::restore(input)?,
             area,
             extent,
             dpi,
@@ -109,7 +109,7 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
         Ok(result.into_iter().map(|x| x.extract()).collect())
     }
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
-        self.output.get(i).ok_or_eyre("index out of bounds")
+        self.output.get(i).ok_or(crate::Error::OutOfRange(i).into())
     }
     fn input_mask(&self) -> u64 {
         self.input_mask
@@ -139,7 +139,7 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
     }
 
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
-        self.output.get(i).ok_or_eyre("index out of bounds")
+        self.output.get(i).ok_or(crate::Error::OutOfRange(i).into())
     }
 
     fn input_masks(&self) -> SmallVec<[u64; 4]> {

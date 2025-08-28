@@ -273,8 +273,8 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
 }
 
 fn main() {
-    let (mut app, event_loop): (App<(), BasicApp>, winit::event_loop::EventLoop<()>) =
-        App::new((), Vec::new(), BasicApp {}, |_| ()).unwrap();
+    let (mut app, event_loop, _, _) =
+        App::<(), BasicApp>::new::<()>((), Vec::new(), BasicApp {}, |_| ()).unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

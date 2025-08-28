@@ -27,9 +27,11 @@ use crate::{
 use guillotiere::euclid::Point2D;
 use mlua::UserData;
 use mlua::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
+use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use wide::f32x4;
 use winit::application::ApplicationHandler;
 
@@ -1472,6 +1474,25 @@ pub struct LuaFragment {
     id_enter: LuaFunction,
 }
 
+impl FromLua for LuaFragment {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let t = value.as_table().ok_or(LuaError::UserDataTypeMismatch)?;
+        Ok(Self {
+            layout: t.get("layout")?,
+            id_enter: t.get("id_enter")?,
+        })
+    }
+}
+
+impl IntoLua for LuaFragment {
+    fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
+        Ok(LuaValue::Table(lua.create_table_from([
+            ("layout", self.layout),
+            ("id_enter", self.id_enter),
+        ])?))
+    }
+}
+
 impl LuaFragment {
     pub fn call<T: IntoLuaMulti>(&self, args: T, mut id: ScopeID<'_>) -> LuaResult<ComponentBag> {
         self.id_enter.call::<ComponentBag>((
@@ -1482,13 +1503,30 @@ impl LuaFragment {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct LuaContext {
     feather: LuaTable,
     modules: LuaTable,
     id_enter: LuaFunction,
     require: LuaFunction,
     load_in_sandbox: LuaFunction,
+    lua_handlers: LuaTable,
+    handler_slots: LuaTable,
+    handler_count: Rc<AtomicU64>,
+}
+
+impl PartialEq for LuaContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.feather == other.feather
+            && self.modules == other.modules
+            && self.id_enter == other.id_enter
+            && self.require == other.require
+            && self.load_in_sandbox == other.load_in_sandbox
+            && self.lua_handlers == other.lua_handlers
+            && self.handler_slots == other.handler_slots
+            && self.handler_count.load(Ordering::Relaxed)
+                == other.handler_count.load(Ordering::Relaxed)
+    }
 }
 
 impl LuaContext {
@@ -1532,6 +1570,22 @@ impl LuaContext {
             .eval()?;
 
         let id_enter = feather.get::<LuaTable>("ID")?.get::<LuaFunction>("enter")?;
+        let lua_handlers = lua.create_table()?;
+        let handlers = lua_handlers.clone();
+        let handler_slots = lua.create_table()?;
+        let slot_clone = handler_slots.clone();
+        let handler_count = Rc::new(AtomicU64::new(0));
+        let handler_count_clone = handler_count.clone();
+
+        feather.set(
+            "add_handler",
+            lua.create_function(move |_, (name, func): (LuaString, LuaFunction)| {
+                let count = handler_count_clone.fetch_add(1, Ordering::Relaxed);
+                handlers.set(&name, func)?;
+                slot_clone.set(name, Slot(APP_SOURCE_ID.into(), count))?;
+                Ok(LuaNil)
+            })?,
+        )?;
 
         let modules = lua.create_table()?;
         preload.set("injected_dep", &modules)?;
@@ -1585,6 +1639,9 @@ end
             load_in_sandbox,
             require,
             modules,
+            lua_handlers,
+            handler_slots,
+            handler_count,
         })
     }
 
@@ -1607,20 +1664,16 @@ end
         })
     }
 
-    fn load_layout<AppData, R: FromLuaMulti>(
-        &self,
-        lua: &Lua,
-        handlers: &[(String, crate::AppEvent<AppData>)],
-        layout: &[u8],
-    ) -> LuaResult<R> {
-        let handler_table = lua.create_table()?;
+    pub fn reserve_handler(&self, name: &str) -> LuaResult<u64> {
+        let index = self.handler_count.fetch_add(1, Ordering::Relaxed);
+        self.handler_slots
+            .set(name, Slot(APP_SOURCE_ID.into(), index))?;
+        Ok(index)
+    }
 
-        for (i, (name, _)) in handlers.iter().enumerate() {
-            handler_table.set(name.as_str(), Slot(APP_SOURCE_ID.into(), i as u64))?;
-        }
-
+    fn load_layout<'a, R: FromLuaMulti>(&self, lua: &Lua, layout: &[u8]) -> LuaResult<R> {
         let interface = lua.create_table()?;
-        interface.set("handlers", handler_table)?;
+        interface.set("handlers", self.handler_slots.clone())?;
         interface.set("f", self.feather.clone())?;
         interface.set("require", self.require.clone())?;
 
@@ -1628,20 +1681,88 @@ end
             .call((lua.create_string(layout)?, "layout", interface))
     }
 
-    pub fn load_fragment<AppData>(
-        &self,
-        lua: &Lua,
-        handlers: &[(String, crate::AppEvent<AppData>)],
-        layout: &[u8],
-    ) -> LuaResult<LuaFragment> {
+    pub fn load_fragment<'a>(&self, lua: &Lua, layout: &[u8]) -> LuaResult<LuaFragment> {
         Ok(LuaFragment {
-            layout: self.load_layout(lua, handlers, layout)?,
+            layout: self.load_layout(lua, layout)?,
             id_enter: self.id_enter.clone(),
         })
     }
+
+    pub fn get_handlers<AppData: FromLua + IntoLua>(
+        &self,
+        mut reserved: HashMap<u64, crate::AppEvent<AppData>>,
+    ) -> LuaResult<Vec<crate::AppEvent<AppData>>> {
+        use std::mem::MaybeUninit;
+
+        let count = self.handler_count.load(Ordering::Relaxed) as usize;
+        let mut handlers: Vec<crate::AppEvent<AppData>> = Vec::with_capacity(count);
+        let spare = handlers.spare_capacity_mut();
+
+        for v in self.handler_slots.pairs::<LuaString, Slot>() {
+            let (key, slot) = v?;
+            if self.lua_handlers.contains_key(&key)? {
+                let func: LuaFunction = self.lua_handlers.get(&key)?;
+                spare[slot.1 as usize] = MaybeUninit::new(Box::new(
+                    move |pair: crate::DispatchPair, state: AppData| {
+                        let (appdata, v): (AppData, LuaValue) = func.call((pair.0, state)).unwrap();
+                        if v.as_boolean().unwrap_or(true) {
+                            Ok(appdata)
+                        } else {
+                            Err(appdata)
+                        }
+                    },
+                ));
+            } else {
+                spare[slot.1 as usize] = MaybeUninit::new(
+                    reserved
+                        .remove(&slot.1)
+                        .expect("Reserved slot had no entry in `reserved` map!"),
+                )
+            }
+        }
+
+        unsafe {
+            handlers.set_len(count);
+        }
+
+        Ok(handlers)
+    }
+
+    pub fn update_handler<AppData: FromLua + IntoLua + 'static>(
+        &self,
+        lua: &Lua,
+        sender: std::sync::mpsc::Sender<(u64, crate::AppEvent<AppData>)>,
+        count: AtomicU64,
+    ) -> LuaResult<()> {
+        let slot_clone = self.handler_slots.clone();
+        self.feather.set(
+            "add_handler",
+            lua.create_function(move |_, (name, func): (LuaString, LuaFunction)| {
+                let count = count.fetch_add(1, Ordering::Relaxed);
+                sender
+                    .send((
+                        count,
+                        Box::new(move |pair: crate::DispatchPair, state: AppData| {
+                            let (appdata, v): (AppData, LuaValue) =
+                                func.call((pair.0, state)).unwrap();
+                            if v.as_boolean().unwrap_or(true) {
+                                Ok(appdata)
+                            } else {
+                                Err(appdata)
+                            }
+                        }),
+                    ))
+                    .unwrap();
+                let slot = Slot(APP_SOURCE_ID.into(), count);
+                slot_clone.set(name, slot.clone())?;
+                Ok(slot)
+            })?,
+        )?;
+
+        Ok(())
+    }
 }
 
-//AppData: 'static + PartialEq
 pub struct LuaApp<AppData: Clone + FromLua + IntoLua>(crate::App<AppData, LuaPersist<AppData>>);
 
 impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
@@ -1652,15 +1773,20 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
         layout: &[u8],
     ) -> eyre::Result<(Self, crate::EventLoop<T>)> {
         let ctx = LuaContext::new(lua)?;
-        let (window, init): (LuaFunction, Option<LuaFunction>) =
-            ctx.load_layout(lua, &handlers, layout)?;
 
-        let (app, event) = crate::App::new(
+        let mut reserved = HashMap::new();
+        for (k, v) in handlers.into_iter() {
+            reserved.insert(ctx.reserve_handler(&k)?, v);
+        }
+
+        let (window, init): (LuaFunction, Option<LuaFunction>) = ctx.load_layout(lua, layout)?;
+
+        let (app, event, sender, count) = crate::App::new(
             app_state.clone(),
-            handlers.into_iter().map(|(_, f)| f).collect(),
+            ctx.get_handlers(reserved)?,
             LuaPersist {
                 window,
-                id_enter: ctx.id_enter,
+                id_enter: ctx.id_enter.clone(),
                 init: if let Some(init) = init {
                     Ok(init)
                 } else {
@@ -1671,6 +1797,8 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
             |_| (),
         )?;
 
+        // Change the add_handler to use the channel to send new handlers
+        ctx.update_handler(lua, sender, count)?;
         Ok((Self(app), event))
     }
 }

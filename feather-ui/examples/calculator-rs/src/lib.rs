@@ -18,6 +18,7 @@ use feather_ui::{
 use std::any::{Any, TypeId};
 use std::f32;
 use std::rc::Rc;
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 #[cfg(target_os = "windows")]
@@ -302,9 +303,11 @@ pub fn register(calc: ::std::sync::Arc<dyn Calculator>) {
     }
 
     let init_calc = calc.copy();
-    let (mut app, event_loop): (
+    let (mut app, event_loop, _, _): (
         App<CalcFFI, CalcApp>,
         feather_ui::winit::event_loop::EventLoop<()>,
+        std::sync::mpsc::Sender<(u64, feather_ui::AppEvent<CalcFFI>)>,
+        AtomicU64,
     ) = App::new(CalcFFI(calc), inputs, CalcApp { init_calc }, |_| ()).unwrap();
 
     event_loop.run_app(&mut app).unwrap();

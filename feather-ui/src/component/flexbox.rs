@@ -43,7 +43,7 @@ impl<T: flex::Prop + 'static> super::Component for FlexBox<T> {
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(manager, driver,window))
+                Some(child.as_ref()?.layout(manager, driver,window))
             })
         );
 

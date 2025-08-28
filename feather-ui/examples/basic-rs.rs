@@ -191,10 +191,7 @@ fn main() {
         .wrap(),
     );
 
-    let (mut app, event_loop): (
-        App<CounterState, BasicApp>,
-        winit::event_loop::EventLoop<()>,
-    ) = App::new(
+    let (mut app, event_loop, _, _) = App::<CounterState, BasicApp>::new::<()>(
         CounterState { count: 0 },
         vec![onclick],
         BasicApp {},

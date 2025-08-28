@@ -883,6 +883,10 @@ local function cond(flag)
 	return self
 end
 
+---@generic T
+---@param f fun(dispatch: integer, state: T) : T
+local function add_handler(f) error("called placeholder function!") end
+
 return {
 	---@type UnifiedPx
 	px = px,
@@ -933,4 +937,5 @@ return {
 	each = each,
 	range = range,
 	cond = cond,
+	add_handler = add_handler,
 }

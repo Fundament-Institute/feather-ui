@@ -313,7 +313,7 @@ where
         // To create a scroll area, we create an intermediate layout node to hold the children, which is always unsized, which we then move around to scroll.
         let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(manager, driver, window))
+                Some(child.as_ref()?.layout(manager, driver, window))
             })
         );
 

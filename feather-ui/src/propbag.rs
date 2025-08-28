@@ -17,15 +17,17 @@ impl PropBag {
     }
     fn get_value<T: Default + Copy + 'static>(&self, e: PropBagElement) -> T {
         if let Some(t) = self.props.get(&e) {
-            *t.downcast_ref::<T>().unwrap()
+            *t.downcast_ref::<T>()
+                .expect(&format!("{e} was wrong type in PropBag!"))
         } else {
             Default::default()
         }
     }
     fn set_value<T: Copy + 'static>(&mut self, e: PropBagElement, v: T) -> Option<T> {
-        self.props
-            .insert(e, Box::new(v))
-            .map(|x| *x.downcast().unwrap())
+        self.props.insert(e, Box::new(v)).map(|x| {
+            *x.downcast()
+                .expect(&format!("{e} was wrong type in PropBag!"))
+        })
     }
 }
 
@@ -105,7 +107,7 @@ macro_rules! gen_prop_bag_all {
 
 macro_rules! gen_prop_bag {
   ($($props:path, $names:ident, $setters:ident, $types:ty, $defaults:expr),+) => (
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, derive_more::Display)]
     #[allow(non_camel_case_types)]
     #[repr(u16)]
     pub enum PropBagElement {
@@ -251,7 +253,7 @@ gen_prop_bag_setter_clone!(span, set_span, (usize, usize));
 impl crate::layout::grid::Child for PropBag {
     fn coord(&self) -> (usize, usize) {
         if let Some(t) = self.props.get(&PropBagElement::coord) {
-            *t.downcast_ref().unwrap()
+            *t.downcast_ref().expect("coord was wrong type in PropBag!")
         } else {
             panic!("No 'coord' found in propbag, and no default value available!")
         }
@@ -259,7 +261,7 @@ impl crate::layout::grid::Child for PropBag {
 
     fn span(&self) -> (usize, usize) {
         if let Some(t) = self.props.get(&PropBagElement::span) {
-            *t.downcast_ref().unwrap()
+            *t.downcast_ref().expect("span was wrong type in PropBag!")
         } else {
             (1, 1)
         }
