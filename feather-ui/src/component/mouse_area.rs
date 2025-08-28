@@ -310,6 +310,7 @@ where
         _: &crate::graphics::Driver,
         _: &Arc<SourceID>,
     ) -> Box<dyn Layout<T> + 'static> {
+        // TODO: allow layout to return a Result
         manager
             .get_mut::<StateMachine<MouseAreaState, { MouseAreaEvent::SIZE }>>(&self.id)
             .and_then(|state| {

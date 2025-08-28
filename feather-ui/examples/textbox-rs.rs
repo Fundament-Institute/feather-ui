@@ -117,16 +117,15 @@ impl FnPersist2<TextState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window
 }
 
 fn main() {
-    let (mut app, event_loop): (App<TextState, BasicApp>, winit::event_loop::EventLoop<()>) =
-        App::new(
-            TextState {
-                text: EditBuffer::new("new text", (0, 0)).into(),
-            },
-            vec![],
-            BasicApp {},
-            |_| (),
-        )
-        .unwrap();
+    let (mut app, event_loop, _, _) = App::<TextState, BasicApp>::new::<()>(
+        TextState {
+            text: EditBuffer::new("new text", (0, 0)).into(),
+        },
+        vec![],
+        BasicApp {},
+        |_| (),
+    )
+    .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

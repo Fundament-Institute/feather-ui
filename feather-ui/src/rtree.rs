@@ -206,8 +206,8 @@ impl Node {
             && let Ok(state) = manager.get_trait(&id)
         {
             let mask = state.input_mask();
-            if (kind as u64 & mask) != 0
-                && manager
+            if (kind as u64 & mask) != 0 {
+                manager
                     .process(
                         event.clone().extract(),
                         &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
@@ -216,8 +216,8 @@ impl Node {
                         self.extent,
                         driver,
                     )
-                    .is_ok()
-            {
+                    .unwrap();
+
                 return match self.postprocess(event, dpi, offset, window_id, manager) {
                     Ok(()) => Ok(mask),
                     Err(()) => Err(mask),
@@ -268,7 +268,7 @@ impl Node {
 
             let mut mask = 0;
             // Children should be sorted from top to bottom
-            for child in self.children.iter() {
+            for child in self.children.iter().rev() {
                 // TODO: Split these iterations into positive and negative z indexes, then call this node after processing index 0 but before negative indices.
                 let child = child.as_ref().unwrap();
                 if child

@@ -177,16 +177,15 @@ impl FnPersist2<Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
 }
 
 fn main() {
-    let (mut app, event_loop): (App<Blocker, BasicApp>, winit::event_loop::EventLoop<()>) =
-        App::new(
-            Blocker {
-                area: AbsRect::new(-1.0, -1.0, -1.0, -1.0),
-            },
-            vec![],
-            BasicApp {},
-            |_| (),
-        )
-        .unwrap();
+    let (mut app, event_loop, _, _) = App::<Blocker, BasicApp>::new::<()>(
+        Blocker {
+            area: AbsRect::new(-1.0, -1.0, -1.0, -1.0),
+        },
+        vec![],
+        BasicApp {},
+        |_| (),
+    )
+    .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }
