@@ -423,7 +423,7 @@ pub fn lua_user_data(input: TokenStream) -> TokenStream {
     let sname = ast.ident;
     quote! {
         impl #impl_generics #crate_name::mlua::UserData for #sname #ty_generics #where_clause {
-            fn add_fields<F: UserDataFields<Self>>(f: &mut F) {
+            fn add_fields<F: #crate_name::mlua::UserDataFields<Self>>(f: &mut F) {
                 #field_methods
             }
         }

@@ -43,7 +43,8 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
-use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
+use std::sync::{Arc, mpsc};
 use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::{CmpGe, CmpGt, f32x4};
 use winit::event::WindowEvent;
@@ -111,6 +112,10 @@ pub enum Error {
         "The resource was in an unrecognized format. Are you sure you enabled the right feature flags?"
     )]
     UnknownResourceFormat,
+    #[error("An index was out of range: {0}")]
+    OutOfRange(usize),
+    #[error("Type mismatch occured when attempting a downcast that should never fail!")]
+    RuntimeTypeMismatch,
 }
 
 impl From<std::io::Error> for Error {
@@ -1323,7 +1328,9 @@ impl From<f32> for DValue {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom, derive_more::Display,
+)]
 #[try_from(repr)]
 #[repr(u8)]
 pub enum RowDirection {
@@ -1777,7 +1784,7 @@ impl StateManager {
             .get_mut(&id)
             .ok_or_eyre("Failed to insert state!")?
             .as_mut() as &mut dyn Any;
-        v.downcast_mut().ok_or_eyre("Runtime type mismatch!")
+        v.downcast_mut().ok_or(Error::RuntimeTypeMismatch.into())
     }
     pub fn init(&mut self, id: Arc<SourceID>, state: Box<dyn StateMachineWrapper>) {
         if !self.states.contains_key(&id) {
@@ -1793,7 +1800,7 @@ impl StateManager {
             .get(id)
             .ok_or_eyre("State does not exist")?
             .as_ref() as &dyn Any;
-        v.downcast_ref().ok_or_eyre("Runtime type mismatch!")
+        v.downcast_ref().ok_or(Error::RuntimeTypeMismatch.into())
     }
     pub fn get_mut<'a, State: 'static + component::StateMachineWrapper>(
         &'a mut self,
@@ -1804,7 +1811,7 @@ impl StateManager {
             .get_mut(id)
             .ok_or_eyre("State does not exist")?
             .as_mut() as &mut dyn Any;
-        v.downcast_mut().ok_or_eyre("Runtime type mismatch!")
+        v.downcast_mut().ok_or(Error::RuntimeTypeMismatch.into())
     }
     #[allow(clippy::borrowed_box)]
     pub fn get_trait<'a>(
@@ -1846,7 +1853,7 @@ impl StateManager {
                 self.changed = true;
                 self.propagate_change(&slot.0);
             }
-            let state = self.states.get(&slot.0).unwrap();
+            let state = self.states.get(&slot.0).ok_or(Error::InternalFailure)?;
 
             v.into_iter()
                 .map(|(i, e)| (e, i, state.output_slot(i.ilog2() as usize).unwrap().clone()))
@@ -1896,11 +1903,12 @@ pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
     root: component::Root, // Root component node containing all windows
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
     _phantom: PhantomData<AppData>,
+    handle_sync: mpsc::Receiver<(u64, AppEvent<AppData>)>,
 }
 
 struct AppDataMachine<AppData> {
     pub state: Option<AppData>,
-    input: Vec<AppEvent<AppData>>,
+    handlers: HashMap<usize, AppEvent<AppData>>,
     changed: bool,
 }
 
@@ -1931,10 +1939,10 @@ impl<AppData: 'static + PartialEq> StateMachineWrapper for AppDataMachine<AppDat
         _: &std::sync::Weak<crate::Driver>,
     ) -> eyre::Result<SmallVec<[DispatchPair; 1]>> {
         let f = self
-            .input
-            .get_mut(index as usize)
-            .ok_or_eyre("index out of bounds")?;
-        let processed = match f(input, self.state.take().unwrap()) {
+            .handlers
+            .get_mut(&(index as usize))
+            .ok_or(Error::OutOfRange(index as usize))?;
+        let processed = match f(input, self.state.take().ok_or(Error::InternalFailure)?) {
             Ok(s) | Err(s) => Some(s),
         };
         // If it actually changed, set the change marker
@@ -1958,7 +1966,12 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
-    ) -> eyre::Result<(Self, EventLoop<T>)> {
+    ) -> eyre::Result<(
+        Self,
+        EventLoop<T>,
+        mpsc::Sender<(u64, AppEvent<AppData>)>,
+        AtomicU64,
+    )> {
         #[cfg(test)]
         let any_thread = true;
         #[cfg(not(test))]
@@ -1973,12 +1986,18 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
         outline: O,
         any_thread: bool,
         driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
-    ) -> eyre::Result<(Self, EventLoop<T>)> {
+    ) -> eyre::Result<(
+        Self,
+        EventLoop<T>,
+        mpsc::Sender<(u64, AppEvent<AppData>)>,
+        AtomicU64,
+    )> {
+        let count = AtomicU64::new(inputs.len() as u64);
         let mut manager: StateManager = Default::default();
         manager.init(
             Arc::new(APP_SOURCE_ID),
             Box::new(AppDataMachine {
-                input: inputs,
+                handlers: HashMap::from_iter(inputs.into_iter().enumerate()),
                 state: Some(app_state),
                 changed: true,
             }),
@@ -2016,6 +2035,7 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
             ..Default::default()
         };
 
+        let (sender, recv) = mpsc::channel();
         Ok((
             Self {
                 instance: wgpu::Instance::new(&desc),
@@ -2027,14 +2047,22 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
                 root: component::Root::new(),
                 driver_init: Some(Box::new(driver_init)),
                 _phantom: PhantomData,
+                handle_sync: recv,
             },
             event_loop,
+            sender,
+            count,
         ))
     }
 
     #[allow(clippy::borrow_interior_mutable_const)]
     fn update_outline(&mut self, event_loop: &ActiveEventLoop, store: O::Store) {
-        let app_state: &AppDataMachine<AppData> = self.state.get(&APP_SOURCE_ID).unwrap();
+        let app_state: &mut AppDataMachine<AppData> = self.state.get_mut(&APP_SOURCE_ID).unwrap();
+
+        for (idx, handler) in self.handle_sync.try_iter() {
+            app_state.handlers.insert(idx as usize, handler);
+        }
+
         let (store, windows) = self.outline.call(
             store,
             app_state.state.as_ref().unwrap().clone(),

@@ -226,10 +226,7 @@ fn main() {
         .wrap(),
     );
 
-    let (mut app, event_loop): (
-        App<GraphState, BasicApp>,
-        feather_ui::winit::event_loop::EventLoop<()>,
-    ) = App::new(
+    let (mut app, event_loop, _, _) = App::<GraphState, BasicApp>::new::<()>(
         GraphState {
             nodes: vec![],
             edges: HashSet::new(),

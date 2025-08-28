@@ -43,7 +43,7 @@ impl<T: grid::Prop + 'static> super::Component for GridBox<T> {
     ) -> Box<dyn Layout<T>> {
         let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn grid::Prop>>>| -> Option<Box<dyn Layout<<dyn grid::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(manager, driver,window))
+                Some(child.as_ref()?.layout(manager, driver,window))
             })
         );
 
