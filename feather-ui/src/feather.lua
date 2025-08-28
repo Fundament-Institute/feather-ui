@@ -867,7 +867,7 @@ function cond_methods:End()
 	ID.pop(self.rootnode, self.rootcount)
 	for i = 1, #self.conditions do
 		if self.conditions[i] then
-			if type(self.conditions[i]) == "function" then
+			if type(self.consequences[i]) == "function" then
 				return self.consequences[i]()
 			else
 				return self.consequences[i]
