@@ -221,6 +221,7 @@ impl EditBuffer {
         font_size: f32,
         line_height: f32,
         wrap: cosmic_text::Wrap,
+        align: Option<cosmic_text::Align>,
         dpi: crate::RelDim,
         attrs: cosmic_text::Attrs<'_>,
     ) {
@@ -239,6 +240,7 @@ impl EditBuffer {
         }
         for line in &mut text_buffer.lines {
             line.set_attrs_list(AttrsList::new(&attrs));
+            line.set_align(align);
         }
         text_buffer.shape_until_scroll(font_system, false);
         self.reflow.store(false, Ordering::Release);

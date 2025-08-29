@@ -154,8 +154,7 @@ impl FnPersist2<Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
                 gen_id!(scope),
                 MinimalArea {
                     area: AbsRect::new(90.0, 90.0, -90.0, -90.0) + RelRect::new(0.0, 0.0, 1.0, 1.0),
-                }
-                .into(),
+                },
                 feather_ui::children![fixed::Prop, flex],
             );
 

@@ -8,7 +8,8 @@ use smallvec::SmallVec;
 use unicode_segmentation::UnicodeSegmentation;
 
 use cosmic_text::{
-    Action, Attrs, AttrsList, Buffer, BufferLine, Cursor, FontSystem, LayoutRun, Selection, Shaping,
+    Action, Align, Attrs, AttrsList, Buffer, BufferLine, Cursor, FontSystem, LayoutRun, Selection,
+    Shaping,
 };
 
 use crate::text::Change;
@@ -343,6 +344,7 @@ impl Editor {
         end: Cursor,
         data: &str,
         attrs: Option<AttrsList>,
+        align: Option<Align>,
     ) -> (Cursor, Change) {
         let mut first = std::cmp::min(start, end);
         let mut last = std::cmp::max(start, end);
@@ -375,7 +377,7 @@ impl Editor {
                 .last()
                 .map(|line| line.ending())
                 .unwrap_or_default();
-            let line = BufferLine::new(
+            let mut line = BufferLine::new(
                 String::new(),
                 ending,
                 AttrsList::new(&attrs.as_ref().map_or_else(
@@ -389,6 +391,7 @@ impl Editor {
                 )),
                 Shaping::Advanced,
             );
+            line.set_align(align);
             buffer.lines.push(line);
         }
 
@@ -414,14 +417,16 @@ impl Editor {
             let mut these_attrs = final_attrs.split_off(data_line.len());
             remaining_split_len -= data_line.len();
             core::mem::swap(&mut these_attrs, &mut final_attrs);
-            line.append(BufferLine::new(
+            let mut tmp = BufferLine::new(
                 data_line
                     .strip_suffix(char::is_control)
                     .unwrap_or(data_line),
                 ending,
                 these_attrs,
                 Shaping::Advanced,
-            ));
+            );
+            tmp.set_align(align);
+            line.append(tmp);
         } else {
             panic!("str::lines() did not yield any elements");
         }
@@ -435,6 +440,7 @@ impl Editor {
                 final_attrs.split_off(remaining_split_len),
                 Shaping::Advanced,
             );
+            tmp.set_align(after.align());
             tmp.append(after);
             buffer.lines.insert(insert_line, tmp);
             cursor.line += 1;
@@ -443,7 +449,7 @@ impl Editor {
         }
         for data_line in lines_iter.rev() {
             remaining_split_len -= data_line.len();
-            let tmp = BufferLine::new(
+            let mut tmp = BufferLine::new(
                 data_line
                     .strip_suffix(char::is_control)
                     .unwrap_or(data_line),
@@ -451,6 +457,7 @@ impl Editor {
                 final_attrs.split_off(remaining_split_len),
                 Shaping::Advanced,
             );
+            tmp.set_align(align);
             buffer.lines.insert(insert_line, tmp);
             cursor.line += 1;
         }
@@ -597,6 +604,7 @@ impl Editor {
         font_system: &mut FontSystem,
         buffer: &mut Buffer,
         changes: &[Change],
+        align: Option<Align>,
     ) -> SmallVec<[Change; 1]> {
         let mut reverse = SmallVec::new();
         for change in changes {
@@ -607,6 +615,7 @@ impl Editor {
                 change.end,
                 unsafe { str::from_utf8_unchecked(&change.old) },
                 None,
+                align,
             );
             self.set_cursor(buffer, cursor);
             reverse.push(undo);
@@ -634,6 +643,7 @@ impl Editor {
         font_system: &mut FontSystem,
         buffer: &mut Buffer,
         action: Action,
+        align: Option<Align>,
     ) -> SmallVec<[Change; 1]> {
         let change = match action {
             Action::TripleClick { .. } => panic!("Not supported"),
@@ -662,11 +672,17 @@ impl Editor {
                     // Filter out special chars (except for tab), use Action instead
                     panic!("use Action instead for special characters")
                 } else if character == '\n' {
-                    self.action(font_system, buffer, Action::Enter)
+                    self.action(font_system, buffer, Action::Enter, align)
                 } else {
                     let mut str_buf = [0u8; 8];
                     let str_ref = character.encode_utf8(&mut str_buf);
-                    SmallVec::from_buf([self.insert_string(font_system, buffer, str_ref, None)])
+                    SmallVec::from_buf([self.insert_string(
+                        font_system,
+                        buffer,
+                        str_ref,
+                        None,
+                        align,
+                    )])
                 }
             }
             Action::Enter => {
@@ -682,9 +698,9 @@ impl Editor {
                             break;
                         }
                     }
-                    self.insert_string(font_system, buffer, &string, None)
+                    self.insert_string(font_system, buffer, &string, None, align)
                 } else {
-                    self.insert_string(font_system, buffer, "\n", None)
+                    self.insert_string(font_system, buffer, "\n", None, align)
                 };
 
                 SmallVec::from_buf([change])
@@ -786,6 +802,7 @@ impl Editor {
                         location,
                         &" ".repeat(required_indent),
                         None,
+                        align,
                     );
                     changes.push(change);
                     self.set_cursor(buffer, cursor);
@@ -1014,10 +1031,11 @@ impl Editor {
         buffer: &mut Buffer,
         data: &str,
         attrs_list: Option<AttrsList>,
+        align: Option<Align>,
     ) -> Change {
         let (cursor, change) = match self.selection_bounds(buffer) {
             Some((start, end)) => {
-                self.replace_range(font_system, buffer, start, end, data, attrs_list)
+                self.replace_range(font_system, buffer, start, end, data, attrs_list, align)
             }
             None => self.replace_range(
                 font_system,
@@ -1026,6 +1044,7 @@ impl Editor {
                 self.cursor(),
                 data,
                 attrs_list,
+                align,
             ),
         };
         self.set_cursor(buffer, cursor);

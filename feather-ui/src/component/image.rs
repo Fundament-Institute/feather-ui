@@ -21,14 +21,14 @@ pub struct Image<T> {
 impl<T: leaf::Padded + 'static> Image<T> {
     pub fn new(
         id: Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         resource: &dyn crate::resource::Location,
         size: DAbsPoint,
         dynamic: bool,
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             resource: dyn_clone::clone_box(resource),
             size,
             dynamic,
