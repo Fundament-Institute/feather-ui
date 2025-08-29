@@ -1090,7 +1090,7 @@ fn create_image(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compo
 
     let mut args = HashSet::from_iter(["props"]);
     let resource: String = get_arg_required(&mut args, &body, "resource")?;
-    let size: DAbsPoint = get_arg_default(&mut args, &body, "domain")?;
+    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
     let dynamic: bool = get_arg_default(&mut args, &body, "dynamic")?;
     check_args("image", body, args)?;
 
@@ -1159,9 +1159,22 @@ fn create_mousearea(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<C
 
 fn create_region(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
     let (children, bag) = prop_children::<dyn fixed::Prop>(&body)?;
-    check_args("region", body, HashSet::from_iter(["props"]))?;
+    let mut args = HashSet::from_iter(["props"]);
+    let color: Option<sRGB> = get_arg_default(&mut args, &body, "color")?;
+    let rotation: Option<f32> = get_arg_default(&mut args, &body, "rotation")?;
+    check_args("region", body, args)?;
 
-    Ok(Box::new(Region::<PropBag>::new(id.0, bag.into(), children)))
+    Ok(Box::new(if color.is_some() || rotation.is_some() {
+        Region::<PropBag>::new_layer(
+            id.0,
+            bag.into(),
+            color.unwrap_or(sRGB::white()).as_32bit(),
+            rotation.unwrap_or_default(),
+            children,
+        )
+    } else {
+        Region::<PropBag>::new(id.0, bag.into(), children)
+    }))
 }
 
 fn create_scrollarea(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
@@ -1304,6 +1317,25 @@ fn to_wrap(wrap: u8) -> LuaResult<cosmic_text::Wrap> {
     }
 }
 
+fn to_align(align: Option<u8>) -> LuaResult<Option<cosmic_text::Align>> {
+    if let Some(a) = align {
+        Ok(Some(match a {
+            0 => cosmic_text::Align::Left,
+            1 => cosmic_text::Align::Right,
+            2 => cosmic_text::Align::Center,
+            3 => cosmic_text::Align::Justified,
+            4 => cosmic_text::Align::End,
+            _ => {
+                return Err(LuaError::RuntimeError(format!(
+                    "{a} is not a valid align enum value!"
+                )));
+            }
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
 fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<ComponentBag> {
     let bag = prop_no_children(&body)?;
 
@@ -1321,10 +1353,12 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compon
     let weight: u16 = get_arg_or(&mut args, &body, "weight", cosmic_text::Weight::NORMAL.0)?;
     let style: u8 = get_arg_default(&mut args, &body, "style")?;
     let wrap: u8 = get_arg_default(&mut args, &body, "wrap")?;
+    let align: Option<u8> = get_arg_default(&mut args, &body, "align")?;
     check_args("text", body, args)?;
 
     let style = to_style(style)?;
     let wrap = to_wrap(wrap)?;
+    let align = to_align(align)?;
 
     Ok(Box::new(Text::<PropBag>::new(
         id.0,
@@ -1337,6 +1371,7 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compon
         cosmic_text::Weight(weight),
         style,
         wrap,
+        align,
     )))
 }
 
@@ -1356,10 +1391,12 @@ fn create_textbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Com
     let weight: u16 = get_arg_or(&mut args, &body, "weight", cosmic_text::Weight::NORMAL.0)?;
     let style: u8 = get_arg_default(&mut args, &body, "style")?;
     let wrap: u8 = get_arg_default(&mut args, &body, "wrap")?;
+    let align: Option<u8> = get_arg_default(&mut args, &body, "align")?;
     check_args("textbox", body, args)?;
 
     let style = to_style(style)?;
     let wrap = to_wrap(wrap)?;
+    let align = to_align(align)?;
 
     Ok(Box::new(TextBox::<PropBag>::new(
         id.0,
@@ -1371,6 +1408,7 @@ fn create_textbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Com
         cosmic_text::Weight(weight),
         style,
         wrap,
+        align,
     )))
 }
 

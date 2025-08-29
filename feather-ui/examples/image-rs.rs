@@ -14,7 +14,6 @@ use feather_ui::{
     UNSIZED_AXIS, gen_id, im, winit,
 };
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive(Default, Empty, Area, Anchor, ZIndex, Limits, RLimits, Padding)]
@@ -51,7 +50,7 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
             scope.next(),
-            Rc::new(PxRect::new(1.0, 1.0, 2.0, 2.0).into()),
+            PxRect::new(1.0, 1.0, 2.0, 2.0).into(),
             0.0,
             0.0,
             wide::f32x4::splat(0.0),
@@ -70,18 +69,16 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
                             size: Option<AbsPoint>| {
             Image::<DRect>::new(
                 scope.next(),
-                Rc::new(
-                    AbsRect::new(
-                        pos.x,
-                        pos.y,
-                        w.map(|x| x + pos.x).unwrap_or_default(),
-                        h.map(|y| y + pos.y).unwrap_or_default(),
-                    ) + RelRect::new(
-                        0.0,
-                        0.0,
-                        if w.is_none() { UNSIZED_AXIS } else { 0.0 },
-                        if h.is_none() { UNSIZED_AXIS } else { 0.0 },
-                    ),
+                AbsRect::new(
+                    pos.x,
+                    pos.y,
+                    w.map(|x| x + pos.x).unwrap_or_default(),
+                    h.map(|y| y + pos.y).unwrap_or_default(),
+                ) + RelRect::new(
+                    0.0,
+                    0.0,
+                    if w.is_none() { UNSIZED_AXIS } else { 0.0 },
+                    if h.is_none() { UNSIZED_AXIS } else { 0.0 },
                 ),
                 res,
                 size.unwrap_or_default().into(),
@@ -244,8 +241,7 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
 
                 zindex: 0,
                 ..Default::default()
-            }
-            .into(),
+            },
             children,
         );
 

@@ -21,12 +21,12 @@ pub struct ListBox<T: list::Prop + 'static> {
 impl<T: list::Prop + 'static> ListBox<T> {
     pub fn new(
         id: Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>>,
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             children,
         }
     }

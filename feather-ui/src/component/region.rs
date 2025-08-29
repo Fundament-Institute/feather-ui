@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+use crate::color::sRGB32;
 use crate::component::ChildOf;
 use crate::layout::{Desc, Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
@@ -13,6 +14,8 @@ use std::sync::Arc;
 #[derive_where(Clone, Default)]
 pub struct Region<T: Default> {
     pub id: Arc<SourceID>,
+    pub color: Option<sRGB32>,
+    pub rotation: Option<f32>,
     props: Rc<T>,
     children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
 }
@@ -20,12 +23,29 @@ pub struct Region<T: Default> {
 impl<T: fixed::Prop + Default + 'static> Region<T> {
     pub fn new(
         id: Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
+            children,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_layer(
+        id: Arc<SourceID>,
+        props: T,
+        color: sRGB32,
+        rotation: f32,
+        children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+    ) -> Self {
+        Self {
+            id,
+            props: props.into(),
+            color: Some(color),
+            rotation: Some(rotation),
             children,
         }
     }
@@ -48,13 +68,22 @@ where
                 Some(child.as_ref()?.layout(manager, driver, window))
             }));
 
+        let layer = if self.color.is_some() || self.rotation.is_some() {
+            Some((
+                self.color.unwrap_or(sRGB32::white()),
+                self.rotation.unwrap_or_default(),
+            ))
+        } else {
+            None
+        };
+
         let (_, children) = map.call(Default::default(), &self.children);
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
             children,
             id: Arc::downgrade(&self.id),
             renderable: None,
-            layer: None,
+            layer,
         })
     }
 }
