@@ -21,12 +21,12 @@ pub struct GridBox<T> {
 impl<T: grid::Prop + 'static> GridBox<T> {
     pub fn new(
         id: Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>>,
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             children,
         }
     }

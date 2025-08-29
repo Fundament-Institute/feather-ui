@@ -71,6 +71,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     text: format!("Clicks: {}", app.count),
                     font_size: 40.0,
                     line_height: 56.0,
+                    align: Some(cosmic_text::Align::Center),
                     ..Default::default()
                 };
 
@@ -97,7 +98,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                 )
             };
 
-            let fakebutton = {
+            let block = {
                 let text = Text::<FixedData> {
                     id: gen_id!(id),
                     props: Rc::new(FixedData {
@@ -112,6 +113,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     font_size: 40.0,
                     line_height: 56.0,
                     wrap: feather_ui::cosmic_text::Wrap::WordOrGlyph,
+                    align: Some(cosmic_text::Align::Center),
                     ..Default::default()
                 };
 
@@ -125,7 +127,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     sRGB::transparent(),
                 );
 
-                Button::<FixedData>::new(
+                Region::<FixedData>::new_layer(
                     gen_id!(id),
                     FixedData {
                         area: AbsRect::new(45.0, 245.0, 0.0, 0.0)
@@ -133,14 +135,15 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                         limits: feather_ui::AbsLimits::new(100.0..300.0, ..).into(),
                         ..Default::default()
                     },
-                    Slot(feather_ui::APP_SOURCE_ID.into(), 0),
+                    sRGB32::from_alpha(128),
+                    0.0,
                     feather_ui::children![fixed::Prop, rect, text],
                 )
             };
 
             let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                 gen_id!(id),
-                Rc::new(PxRect::new(1.0, 1.0, 2.0, 2.0).into()),
+                PxRect::new(1.0, 1.0, 2.0, 2.0).into(),
                 0.0,
                 0.0,
                 wide::f32x4::zeroed(),
@@ -155,9 +158,8 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                         + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 0.0),
                     zindex: 0,
                     ..Default::default()
-                }
-                .into(),
-                feather_ui::children![fixed::Prop, button, fakebutton, pixel],
+                },
+                feather_ui::children![fixed::Prop, block],
             );
             let window = Window::new(
                 gen_id!(id),
@@ -192,7 +194,7 @@ fn main() {
     );
 
     let (mut app, event_loop, _, _) = App::<CounterState, BasicApp>::new::<()>(
-        CounterState { count: 0 },
+        CounterState { count: 1 },
         vec![onclick],
         BasicApp {},
         |_| (),

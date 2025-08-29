@@ -15,7 +15,7 @@ use feather_ui::input::MouseButton;
 use feather_ui::layout::{base, fixed, leaf};
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsRect, App, CrossReferenceDomain, DRect, DataID, FILL_DRECT, Slot, SourceID, WrapEventEx, im,
+    AbsRect, App, CrossReferenceDomain, DRect, FILL_DRECT, Slot, SourceID, WrapEventEx, im,
 };
 use std::collections::HashSet;
 use std::f32;
@@ -130,8 +130,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
                         args.offset.y + 10000.0,
                     )
                     .into(),
-                }
-                .into(),
+                },
                 children,
             );
 
@@ -151,7 +150,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
 
             let region = Region::new(
                 gen_id!(scope),
-                MinimalArea { area: FILL_DRECT }.into(),
+                MinimalArea { area: FILL_DRECT },
                 feather_ui::children![fixed::Prop, subregion, mousearea],
             );
 

@@ -38,12 +38,13 @@ pub struct Text<T> {
     pub weight: cosmic_text::Weight,
     pub style: cosmic_text::Style,
     pub wrap: cosmic_text::Wrap,
+    pub align: Option<cosmic_text::Align>, // Alignment overrides whether text is LTR or RTL so we usually only want to set it if we're centering text
 }
 
 impl<T: leaf::Padded + 'static> Text<T> {
     pub fn new(
         id: Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         font_size: f32,
         line_height: f32,
         text: String,
@@ -52,10 +53,11 @@ impl<T: leaf::Padded + 'static> Text<T> {
         weight: cosmic_text::Weight,
         style: cosmic_text::Style,
         wrap: cosmic_text::Wrap,
+        align: Option<cosmic_text::Align>,
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             font_size,
             line_height,
             text,
@@ -64,6 +66,7 @@ impl<T: leaf::Padded + 'static> Text<T> {
             weight,
             style,
             wrap,
+            align,
         }
     }
 }
@@ -105,6 +108,7 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
             weight: Default::default(),
             style: Default::default(),
             wrap: cosmic_text::Wrap::None,
+            align: None,
         }
     }
 }
@@ -151,6 +155,19 @@ where
                 .style(self.style),
             cosmic_text::Shaping::Advanced,
         );
+
+        if self.align.is_some() {
+            // Eat the cost of the double shape for now until https://github.com/pop-os/cosmic-text/pull/419 or similar is merged
+            // Luckily, the text component is usually used for small amounts of text.
+            for line in textstate.0.borrow_mut().lines.iter_mut() {
+                line.set_align(self.align);
+            }
+
+            textstate
+                .0
+                .borrow_mut()
+                .shape_until_scroll(&mut font_system, false);
+        }
 
         let render = Rc::new(crate::render::text::Instance {
             text_buffer: textstate.0.clone(),

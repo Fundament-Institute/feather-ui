@@ -236,7 +236,7 @@ impl FnPersist2<CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
 
         let text_bg = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
             gen_id!(scope),
-            Rc::new(RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0).into()),
+            RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0).into(),
             0.0,
             0.0,
             wide::f32x4::splat(25.0),

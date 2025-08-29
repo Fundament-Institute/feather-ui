@@ -3,7 +3,7 @@
 
 use feather_ui::component::mouse_area;
 use feather_ui::lua::LuaApp;
-use feather_ui::mlua::{Lua, UserDataFields};
+use feather_ui::mlua::Lua;
 use feather_ui::{WrapEventEx, handlers};
 
 const LAYOUT: &[u8] = include_bytes!("./basic.lua");

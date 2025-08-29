@@ -88,14 +88,14 @@ impl FnPersist2<TextState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window
                 Default::default(),
                 Default::default(),
                 cosmic_text::Wrap::Word,
+                Some(cosmic_text::Align::Right),
             );
 
             let region = Region::new(
                 gen_id!(scope),
                 MinimalArea {
                     area: AbsRect::new(90.0, 0.0, -90.0, -180.0) + RelRect::new(0.0, 0.0, 1.0, 1.0),
-                }
-                .into(),
+                },
                 feather_ui::children![fixed::Prop, textbox],
             );
             let window = Window::new(

@@ -21,12 +21,12 @@ pub struct FlexBox<T> {
 impl<T: flex::Prop + 'static> FlexBox<T> {
     pub fn new(
         id: Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             children,
         }
     }

@@ -907,6 +907,13 @@ return {
 		SpaceAround = 4,
 		SpaceFull = 5,
 	},
+	Align = {
+		Left = 0,
+		Right = 1,
+		Center = 2,
+		Justified = 3,
+		End = 4,
+	},
 	FontStyle = { Normal = 0, Italic = 1, Oblique = 2 },
 	component = component,
 	required = required,
@@ -938,4 +945,5 @@ return {
 	range = range,
 	cond = cond,
 	add_handler = add_handler,
+	multicomponent = function(...) return setmetatable({ ... }, multicomponent_mt) end,
 }

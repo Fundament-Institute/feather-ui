@@ -93,8 +93,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
                 gen_id!(gen_id!(self.id), i),
                 MinimalFlexChild {
                     grow: if fullwidth { 1.0 } else { 0.0 },
-                }
-                .into(),
+                },
                 font_size,
                 line_height,
                 word.to_owned() + " ",
@@ -103,6 +102,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
                 weight,
                 style,
                 cosmic_text::Wrap::None,
+                None, // paragraph does it's own alignment so we don't set any here
             );
             self.children.push_back(Some(Box::new(text)));
         }

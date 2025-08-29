@@ -35,6 +35,7 @@ local function app(appstate)
 					color = 0xFFFFFFFF,
 					fontsize = 40,
 					lineheight = 56,
+					align = f.Align.Right,
 				},
 			},
 			f.cond(appstate.count ~= 0)
@@ -66,6 +67,7 @@ local function app(appstate)
 						fontsize = 40,
 						lineheight = 56,
 						wrap = f.Wrap.Any,
+						align = f.Align.Left,
 					},
 				})
 				:End(),
