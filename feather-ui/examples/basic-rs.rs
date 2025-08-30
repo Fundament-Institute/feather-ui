@@ -159,7 +159,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     zindex: 0,
                     ..Default::default()
                 },
-                feather_ui::children![fixed::Prop, block],
+                feather_ui::children![fixed::Prop, button, block, pixel],
             );
             let window = Window::new(
                 gen_id!(id),
@@ -194,7 +194,7 @@ fn main() {
     );
 
     let (mut app, event_loop, _, _) = App::<CounterState, BasicApp>::new::<()>(
-        CounterState { count: 1 },
+        CounterState { count: 0 },
         vec![onclick],
         BasicApp {},
         |_| (),

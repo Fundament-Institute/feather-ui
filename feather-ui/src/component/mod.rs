@@ -41,7 +41,7 @@ pub trait StateMachineWrapper: Any {
         area: PxRect,
         extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<SmallVec<[DispatchPair; 1]>>;
+    ) -> Result<(SmallVec<[DispatchPair; 1]>, bool)>;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
     fn input_mask(&self) -> u64;
     fn changed(&self) -> bool;
@@ -88,17 +88,20 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
         area: PxRect,
         extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<SmallVec<[DispatchPair; 1]>> {
+    ) -> Result<(SmallVec<[DispatchPair; 1]>, bool)> {
         if input.0 & self.input_mask == 0 {
             return Err(eyre::eyre!("Event handler doesn't handle this method"));
         }
-        let result = match self.state.take().unwrap().process(
+
+        let processed = self.state.take().unwrap().process(
             State::Input::restore(input)?,
             area,
             extent,
             dpi,
             driver,
-        ) {
+        );
+        let handled = processed.is_ok();
+        let result = match processed {
             Ok((s, r)) | Err((s, r)) => {
                 let s = Some(s);
                 self.changed |= self.state != s;
@@ -106,7 +109,7 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
                 r
             }
         };
-        Ok(result.into_iter().map(|x| x.extract()).collect())
+        Ok((result.into_iter().map(|x| x.extract()).collect(), handled))
     }
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
         self.output.get(i).ok_or(crate::Error::OutOfRange(i).into())
