@@ -2,18 +2,22 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
-use crate::component::{EventRouter, StateMachine};
+use crate::component::{EventRouter, StateMachine, text};
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
 use crate::{SourceID, WindowStateMachine, graphics};
-use cosmic_text::Metrics;
+use cosmic_text::{LineIter, Metrics};
 use derive_where::derive_where;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct TextState(Rc<RefCell<cosmic_text::Buffer>>);
+pub struct TextState {
+    buffer: Rc<RefCell<cosmic_text::Buffer>>,
+    text: String,
+    align: Option<cosmic_text::Align>,
+}
 
 impl EventRouter for TextState {
     type Input = ();
@@ -22,7 +26,9 @@ impl EventRouter for TextState {
 
 impl PartialEq for TextState {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        Rc::ptr_eq(&self.buffer, &other.buffer)
+            && self.text == other.text
+            && self.align == other.align
     }
 }
 
@@ -81,12 +87,14 @@ impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
         _: &std::sync::Weak<graphics::Driver>,
     ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         let statemachine: StateMachine<TextState, 0> = StateMachine {
-            state: Some(TextState(Rc::new(RefCell::new(
-                cosmic_text::Buffer::new_empty(Metrics::new(
+            state: Some(TextState {
+                buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics::new(
                     point_to_pixel(self.font_size, 1.0),
                     point_to_pixel(self.line_height, 1.0),
-                )),
-            )))),
+                )))),
+                text: String::new(),
+                align: None,
+            }),
             input_mask: 0,
             output: [],
             changed: true,
@@ -113,6 +121,22 @@ impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
     }
 }
 
+fn buffer_eq(s: &str, b: &cosmic_text::Buffer) -> bool {
+    let mut ranges = LineIter::new(s);
+    let mut lines = b.lines.iter();
+    loop {
+        match (lines.next(), ranges.next()) {
+            (Some(line), Some((r, _))) => {
+                if &s[r] != line.text() {
+                    return false;
+                }
+            }
+            (None, None) => return true,
+            _ => return false,
+        }
+    }
+}
+
 impl<T: leaf::Padded + 'static> super::Component for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
@@ -135,49 +159,55 @@ where
             point_to_pixel(self.line_height, dpi.height),
         );
 
-        let textstate: &StateMachine<TextState, 0> = manager.get(&self.id).unwrap();
-        let textstate = textstate.state.as_ref().expect("No text state available");
+        let textstate: &mut StateMachine<TextState, 0> = manager.get_mut(&self.id).unwrap();
+        let textstate = textstate.state.as_mut().expect("No text state available");
         textstate
-            .0
+            .buffer
             .borrow_mut()
             .set_metrics(&mut font_system, metrics);
         textstate
-            .0
+            .buffer
             .borrow_mut()
             .set_wrap(&mut font_system, self.wrap);
-        textstate.0.borrow_mut().set_text(
-            &mut font_system,
-            &self.text,
-            &cosmic_text::Attrs::new()
-                .family(self.font.as_family())
-                .color(self.color.into())
-                .weight(self.weight)
-                .style(self.style),
-            cosmic_text::Shaping::Advanced,
-        );
 
-        if self.align.is_some() {
-            // Eat the cost of the double shape for now until https://github.com/pop-os/cosmic-text/pull/419 or similar is merged
-            // Luckily, the text component is usually used for small amounts of text.
-            for line in textstate.0.borrow_mut().lines.iter_mut() {
-                line.set_align(self.align);
+        if self.align != textstate.align || !buffer_eq(&self.text, &textstate.buffer.borrow()) {
+            textstate.buffer.borrow_mut().set_text(
+                &mut font_system,
+                &self.text,
+                &cosmic_text::Attrs::new()
+                    .family(self.font.as_family())
+                    .color(self.color.into())
+                    .weight(self.weight)
+                    .style(self.style),
+                cosmic_text::Shaping::Advanced,
+            );
+
+            if self.align.is_some() {
+                // Eat the cost of the double shape for now until https://github.com/pop-os/cosmic-text/pull/419 or similar is merged
+                // Luckily, the text component is usually used for small amounts of text.
+                for line in textstate.buffer.borrow_mut().lines.iter_mut() {
+                    line.set_align(self.align);
+                }
+
+                textstate
+                    .buffer
+                    .borrow_mut()
+                    .shape_until_scroll(&mut font_system, false);
             }
 
-            textstate
-                .0
-                .borrow_mut()
-                .shape_until_scroll(&mut font_system, false);
+            textstate.text = self.text.clone();
+            textstate.align = self.align;
         }
 
         let render = Rc::new(crate::render::text::Instance {
-            text_buffer: textstate.0.clone(),
+            text_buffer: textstate.buffer.clone(),
             padding: self.props.padding().as_perimeter(dpi).into(),
         });
 
         Box::new(layout::text::Node::<T> {
             props: self.props.clone(),
             id: Arc::downgrade(&self.id),
-            buffer: textstate.0.clone(),
+            buffer: textstate.buffer.clone(),
             renderable: render.clone(),
             realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
         })
