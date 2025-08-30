@@ -1925,7 +1925,7 @@ type OutlineReturn = im::HashMap<Arc<SourceID>, Option<Window>>;
 pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
-    state: StateManager,
+    pub state: StateManager,
     store: Option<O::Store>,
     outline: O,
     _parents: BTreeMap<DataID, DataID>,
@@ -1935,7 +1935,7 @@ pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
     handle_sync: mpsc::Receiver<(u64, AppEvent<AppData>)>,
 }
 
-struct AppDataMachine<AppData> {
+pub struct AppDataMachine<AppData> {
     pub state: Option<AppData>,
     handlers: HashMap<usize, AppEvent<AppData>>,
     changed: bool,

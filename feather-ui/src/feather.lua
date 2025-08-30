@@ -1,6 +1,88 @@
 -- SPDX-License-Identifier: Apache-2.0
 -- SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+local function rawdump(t, spaces)
+	if t == nil then return "nil" end
+	local mt = getmetatable(t)
+	setmetatable(t, nil)
+	spaces = spaces or 0
+	local s = "" --"metatable: " .. tostring(mt and mt.name)
+	for k, v in pairs(t) do
+		s = s .. "\n" .. string.rep(" ", spaces) .. "  " .. tostring(k) .. ": "
+		if type(v) == "table" then
+			s = s .. rawdump(v, spaces + 2)
+		else
+			s = s .. tostring(v)
+		end
+	end
+
+	setmetatable(t, mt)
+	return s
+end
+
+local memo_mt = { __mode = "k" }
+local memo_nan_tag = {}
+local memo_nil_tag = {}
+local memo_end_tag = {}
+
+---@param t table
+---@param thismemo table
+local function memo_inner(t, thismemo)
+	local mt = getmetatable(t) or memo_nil_tag
+	local nextmemo = thismemo[mt]
+	if not nextmemo then
+		nextmemo = setmetatable({}, memo_mt)
+		thismemo[mt] = nextmemo
+	end
+	thismemo = nextmemo
+
+	for k, v in pairs(t) do
+		local nextmemo = thismemo[k]
+		if not nextmemo then
+			nextmemo = setmetatable({}, memo_mt)
+			thismemo[k] = nextmemo
+		end
+		thismemo = nextmemo
+
+		if type(v) == "table" then
+			memo_inner(v, thismemo)
+		else
+			if v ~= v then -- This is a NaN number, so we have to substitute it
+				v = memo_nan_tag
+			elseif v == nil then
+				v = memo_nil_tag
+			end
+			local nextmemo = thismemo[v]
+			if not nextmemo then
+				nextmemo = setmetatable({}, memo_mt)
+				thismemo[v] = nextmemo
+			end
+			thismemo = nextmemo
+		end
+	end
+end
+
+---cache a function's outputs to ensure purity with respect to identity
+---@generic F: function
+---@param fn F
+---@return F
+local function memoize(fn)
+	local memotab = setmetatable({}, memo_mt)
+
+	local function wrapfn(args)
+		local thismemo = memotab
+		memo_inner(args, thismemo)
+		if not thismemo[memo_end_tag] then
+			thismemo[memo_end_tag] = table.pack(fn(args))
+		else
+			print("memoized: ", table.unpack(thismemo[memo_end_tag]), fn(args))
+		end
+		local values = thismemo[memo_end_tag]
+		return table.unpack(values, 1, values.n)
+	end
+	return wrapfn
+end
+
 --- Creates a string representation of a unified point
 ---@param px number?
 ---@param dp number?
@@ -126,26 +208,6 @@ local function promote(v)
 
 	error("Unable to promote " .. tostring(v))
 end
-
-local function rawdump(t, spaces)
-	if t == nil then return "nil" end
-	local mt = getmetatable(t)
-	setmetatable(t, nil)
-	spaces = spaces or 0
-	local s = "metatable: " .. tostring(mt and mt.name)
-	for k, v in pairs(t) do
-		s = s .. "\n" .. string.rep(" ", spaces) .. "  " .. tostring(k) .. ": "
-		if type(v) == "table" then
-			s = s .. rawdump(v, spaces + 2)
-		else
-			s = s .. tostring(v)
-		end
-	end
-
-	setmetatable(t, mt)
-	return s
-end
-
 local function table_equality(l, r)
 	local keys = {}
 	for k, lv in pairs(l) do
