@@ -179,6 +179,7 @@ where
             id: Arc::downgrade(&self.id),
             buffer: textstate.0.clone(),
             renderable: render.clone(),
+            realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
         })
     }
 }

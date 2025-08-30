@@ -929,7 +929,7 @@ return {
 	listbox = wrap_create(create_listbox, "create_listbox"),
 	mousearea = wrap_create(create_mousearea, "create_mousearea"),
 	region = wrap_create(create_region, "create_region"),
-	scrollarea = wrap_create(create_, "create_scrollarea"),
+	scrollarea = wrap_create(create_scrollarea, "create_scrollarea"),
 	shape = {
 		line = wrap_create(create_line, "create_line"),
 		rect = wrap_create(create_round_rect, "create_round_rect"),
