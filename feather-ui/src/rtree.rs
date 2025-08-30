@@ -207,7 +207,7 @@ impl Node {
         {
             let mask = state.input_mask();
             if (kind as u64 & mask) != 0 {
-                manager
+                if !manager
                     .process(
                         event.clone().extract(),
                         &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
@@ -216,7 +216,10 @@ impl Node {
                         self.extent,
                         driver,
                     )
-                    .unwrap();
+                    .unwrap()
+                {
+                    return Err(mask);
+                }
 
                 return match self.postprocess(event, dpi, offset, window_id, manager) {
                     Ok(()) => Ok(mask),

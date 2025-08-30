@@ -92,14 +92,10 @@ impl Desc for dyn Prop {
 
                     // First we precalculate all row/column sizes that we can (if an outer axis is unsized, relative sizes are set to 0)
                     for (i, row) in props.rows().iter().enumerate() {
-                        rows[i] = row
-                            .resolve(window.dpi.height)
-                            .resolve(outer_safe.dim().height);
+                        rows[i] = row.resolve(window.dpi.height).resolve(inner_dim.height);
                     }
                     for (i, column) in props.columns().iter().enumerate() {
-                        columns[i] = column
-                            .resolve(window.dpi.width)
-                            .resolve(outer_safe.dim().width);
+                        columns[i] = column.resolve(window.dpi.width).resolve(inner_dim.width);
                     }
 
                     // Then we go through all child elements so we can precalculate the maximum area of all rows and columns

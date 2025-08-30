@@ -21,7 +21,7 @@ fn main() {
      -> Result<CounterState, CounterState> {
         {
             appdata.count += 1;
-            Ok(appdata)
+            Err(appdata)
         }
     }
     .wrap();

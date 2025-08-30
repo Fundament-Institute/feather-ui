@@ -696,7 +696,13 @@ gen_from_lua!(Window);
 impl UserData for LuaSourceID {}
 gen_from_lua!(LuaSourceID);
 
-impl UserData for Slot {}
+impl UserData for Slot {
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_meta_method(mlua::MetaMethod::ToString, |_, this, ()| {
+            Ok(format!("Slot #{}: {}", this.1, this.0))
+        });
+    }
+}
 gen_from_lua!(Slot);
 
 impl UserData for ComponentBag {}
@@ -1655,8 +1661,12 @@ end
         jit.opt.start("recunroll=5")
         jit.opt.start("loopunroll=60")
         
-        local create_module = sandbox_impl(true)
-        
+        --local create_module = sandbox_impl(true)
+        create_module = function(bytes, name, interface) 
+            return load(bytes, name, "t", setmetatable(interface, {__index=_G}))
+         end 
+
+
         function load_in_sandbox(bytes, name, additional_interface)
           local r, err = create_module(bytes, name, additional_interface)
           if r == nil then

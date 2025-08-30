@@ -665,6 +665,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
             id: Arc::downgrade(&self.id),
             renderable: Rc::new(instance),
             buffer: self.props.textedit().obj.buffer.clone(),
+            realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
         })
     }
 }

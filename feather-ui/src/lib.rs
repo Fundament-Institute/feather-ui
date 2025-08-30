@@ -50,7 +50,7 @@ use wide::{CmpGe, CmpGt, f32x4};
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::WindowId;
-pub use {cosmic_text, im, notify, wgpu, wide, winit};
+pub use {cosmic_text, eyre, im, notify, wgpu, wide, winit};
 
 type Mat4x4 = euclid::default::Transform3D<f32>;
 
@@ -1632,6 +1632,29 @@ impl<'a> ScopeID<'a> {
         ScopeIterID::new(self, other.into_iter())
     }
 
+    pub fn cond<R>(
+        &mut self,
+        condition: bool,
+        tvalue: impl FnOnce(ScopeID<'_>) -> R,
+        fvalue: impl FnOnce(ScopeID<'_>) -> R,
+    ) -> R {
+        let (id_true, id_false) = (self.next(), self.next());
+
+        if condition {
+            tvalue(ScopeID {
+                base: id_true,
+                _parent: PhantomData,
+                count: 0,
+            })
+        } else {
+            fvalue(ScopeID {
+                base: id_false,
+                _parent: PhantomData,
+                count: 0,
+            })
+        }
+    }
+
     // Used internally to generate the root scope encapsulating the hardcoded APP_SOURCE_ID
     fn root() -> ScopeID<'a> {
         ScopeID {
@@ -1834,6 +1857,7 @@ impl StateManager {
         }
     }
 
+    #[must_use]
     pub fn process(
         &mut self,
         event: DispatchPair,
@@ -1842,16 +1866,20 @@ impl StateManager {
         area: PxRect,
         extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> eyre::Result<()> {
+    ) -> eyre::Result<bool> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
 
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
+        let mut handled = false;
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let v = state.process(event, slot.1, dpi, area, extent, driver)?;
+            let (v, handle) = state.process(event, slot.1, dpi, area, extent, driver)?;
             if state.changed() {
                 self.changed = true;
                 self.propagate_change(&slot.0);
+            }
+            if v.len() == 0 {
+                handled |= handle;
             }
             let state = self.states.get(&slot.0).ok_or(Error::InternalFailure)?;
 
@@ -1862,10 +1890,11 @@ impl StateManager {
 
         for (e, index, slot) in iter {
             if let Some(s) = slot.as_ref() {
-                self.process((index, e), s, dpi, area, extent, driver)?;
+                handled |= self.process((index, e), s, dpi, area, extent, driver)?;
             }
         }
-        Ok(())
+
+        Ok(handled)
     }
 
     fn init_child(
@@ -1937,18 +1966,20 @@ impl<AppData: 'static + PartialEq> StateMachineWrapper for AppDataMachine<AppDat
         _: PxRect,
         _: PxRect,
         _: &std::sync::Weak<crate::Driver>,
-    ) -> eyre::Result<SmallVec<[DispatchPair; 1]>> {
+    ) -> eyre::Result<(SmallVec<[DispatchPair; 1]>, bool)> {
         let f = self
             .handlers
             .get_mut(&(index as usize))
             .ok_or(Error::OutOfRange(index as usize))?;
-        let processed = match f(input, self.state.take().ok_or(Error::InternalFailure)?) {
-            Ok(s) | Err(s) => Some(s),
+        let (processed, handled) = match f(input, self.state.take().ok_or(Error::InternalFailure)?)
+        {
+            Ok(s) => (Some(s), true),
+            Err(s) => (Some(s), false),
         };
         // If it actually changed, set the change marker
         self.changed |= processed != self.state;
         self.state = processed;
-        Ok(SmallVec::new())
+        Ok((SmallVec::new(), handled))
     }
 }
 #[cfg(target_os = "windows")]
