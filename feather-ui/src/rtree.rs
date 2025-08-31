@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
-use crate::persist::{FnPersist2, VectorFold};
+use crate::persist::{FnPersist2, Persist2, VectorFold};
 use crate::{
     Dispatchable, Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID, StateManager,
     WindowStateMachine,
@@ -40,18 +40,14 @@ impl Node {
         window: &mut crate::component::window::WindowState,
     ) -> Rc<Self> {
         let this = Rc::new_cyclic(|this| {
-            let mut fold = VectorFold::new(
-                |(rect, top, bottom): &(PxRect, i32, i32),
+            let mut fold = VectorFold::new(Persist2::new(
+                |(rect, top, bottom): (PxRect, i32, i32),
                  n: &Option<Rc<Node>>|
                  -> (PxRect, i32, i32) {
                     let n = n.as_ref().unwrap();
-                    (
-                        rect.extend(n.area),
-                        (*top).max(n.top),
-                        (*bottom).min(n.bottom),
-                    )
+                    (rect.extend(n.area), top.max(n.top), bottom.min(n.bottom))
                 },
-            );
+            ));
 
             // TODO: This is inefficient for large trees, but the alternative is to somehow maintain a "capture" pointer on each rtree node,
             // which requires cooperation from the persistent data structure to maintain, which we don't have right now.
@@ -67,7 +63,7 @@ impl Node {
                     .unwrap_or(0)
             });
             let (_, (extent, top, bottom)) =
-                fold.call(fold.init(), &(Default::default(), z, z), &children);
+                fold.call(fold.init(), (Default::default(), z, z), &children);
 
             Self {
                 area,
@@ -210,8 +206,8 @@ impl Node {
             && let Ok(state) = manager.get_trait(&id)
         {
             let mask = state.input_mask();
-            if (kind as u64 & mask) != 0
-                && manager
+            if (kind as u64 & mask) != 0 {
+                if !manager
                     .process(
                         event.clone().extract(),
                         &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
@@ -220,8 +216,11 @@ impl Node {
                         self.extent,
                         driver,
                     )
-                    .is_ok()
-            {
+                    .unwrap()
+                {
+                    return Err(mask);
+                }
+
                 return match self.postprocess(event, dpi, offset, window_id, manager) {
                     Ok(()) => Ok(mask),
                     Err(()) => Err(mask),
@@ -272,7 +271,7 @@ impl Node {
 
             let mut mask = 0;
             // Children should be sorted from top to bottom
-            for child in self.children.iter() {
+            for child in self.children.iter().rev() {
                 // TODO: Split these iterations into positive and negative z indexes, then call this node after processing index 0 but before negative indices.
                 let child = child.as_ref().unwrap();
                 if child

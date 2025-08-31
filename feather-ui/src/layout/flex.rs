@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::{
-    Concrete, Desc, Layout, Renderable, Staged, base, cap_unsized, check_unsized_abs,
-    map_unsized_area, merge_margin, nuetralize_unsized,
+    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized_abs, map_unsized_area,
+    merge_margin, nuetralize_unsized,
 };
 use crate::layout::Swappable;
-use crate::persist::{FnPersist2, VectorFold};
+use crate::persist::{FnPersist2, Persist2, VectorFold};
 use crate::{
     DAbsRect, DValue, PxDim, PxLimits, PxPerimeter, PxPoint, PxRect, RelDim, RowDirection,
     UNSIZED_AXIS, rtree,
@@ -15,7 +15,8 @@ use derive_more::TryFrom;
 use smallvec::SmallVec;
 use std::rc::Rc;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, TryFrom, derive_more::Display)]
+#[try_from(repr)]
 #[repr(u8)]
 pub enum FlexJustify {
     #[default]
@@ -275,7 +276,7 @@ fn wrap_line(
 
     breaks.push(Linebreak::new(
         childareas.len(),
-        f32::INFINITY,
+        max_aux,
         f32::INFINITY,
         f32::NAN,
     ));
@@ -373,8 +374,8 @@ impl Desc for dyn Prop {
         // Note that margins only ever apply between elements, not edges, so we completely ignore the
         // off-axis margin, as this calculation assumes there is only 1 line of items, and the off-axis
         // margin doesn't apply until there are linebreaks.
-        let mut fold = VectorFold::new(&|prev: &(f32, f32, f32),
-                                         n: &Option<ChildCache>|
+        let mut fold = VectorFold::new(Persist2::new(&|prev: (f32, f32, f32),
+                                                       n: &Option<ChildCache>|
          -> (f32, f32, f32) {
             let cache = n.as_ref().unwrap();
             (
@@ -382,10 +383,10 @@ impl Desc for dyn Prop {
                 cache.aux.max(prev.1),
                 cache.margin.bottomright().width,
             )
-        });
+        }));
 
         let (_, (used_main, used_aux, _)) =
-            fold.call(fold.init(), &(0.0, 0.0, f32::NAN), &childareas);
+            fold.call(fold.init(), (0.0, 0.0, f32::NAN), &childareas);
 
         let evaluated_area = {
             let (used_x, used_y) = super::swap_pair(xaxis, (used_main, used_aux));
@@ -470,7 +471,7 @@ impl Desc for dyn Prop {
             let mut breaks = SmallVec::<[Linebreak; 10]>::new();
             breaks.push(Linebreak::new(
                 childareas.len(),
-                f32::INFINITY,
+                total_aux,
                 f32::INFINITY,
                 f32::NAN,
             ));
@@ -570,7 +571,7 @@ impl Desc for dyn Prop {
                     PxRect::new(main, aux, main + c.basis, aux + max_aux)
                 };
 
-                area = cap_unsized(area);
+                super::assert_sized(area);
                 area.set_topleft(area.topleft().min(area.bottomright()));
                 // If our axis is swapped, swap the rectangle axis
                 if !xaxis {

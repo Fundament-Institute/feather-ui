@@ -33,10 +33,9 @@ use eyre::OptionExt;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
 use parking_lot::RwLock;
-use persist::FnPersist;
+use persist::FnPersist2;
 use smallvec::SmallVec;
 use std::any::Any;
-use std::cell::OnceCell;
 use std::cmp::PartialEq;
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
@@ -44,28 +43,36 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
-use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
+use std::sync::{Arc, mpsc};
 use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::{CmpGe, CmpGt, f32x4};
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::WindowId;
-pub use {cosmic_text, im, notify, wgpu, wide, winit};
+pub use {cosmic_text, eyre, im, notify, wgpu, wide, winit};
 
 type Mat4x4 = euclid::default::Transform3D<f32>;
 
 #[cfg(feature = "lua")]
 pub use mlua;
 
+/// While the ID scope provides a .next() method to generate a new, unique ID, this
+/// macro allows you to generate a unique ID with the file name and line embedded in
+/// it. This helps when debugging, because it'll tell you exactly what line of code
+/// generated the element causing the problem.
+///
+/// # Examples:
+///
+/// ```
+/// use feather_ui::{gen_id, ScopeID};
+///
+/// fn app(id: &mut ScopeID) {
+///   let unique_id = gen_id!(id); // unique_id now contains the source location where gen_id! was invoked.
+/// }
+/// ```
 #[macro_export]
 macro_rules! gen_id {
-    () => {
-        std::sync::Arc::new($crate::SourceID::new($crate::DataID::Named(concat!(
-            file!(),
-            ":",
-            line!()
-        ))))
-    };
     ($idx:expr) => {
         $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
     };
@@ -105,6 +112,10 @@ pub enum Error {
         "The resource was in an unrecognized format. Are you sure you enabled the right feature flags?"
     )]
     UnknownResourceFormat,
+    #[error("An index was out of range: {0}")]
+    OutOfRange(usize),
+    #[error("Type mismatch occured when attempting a downcast that should never fail!")]
+    RuntimeTypeMismatch,
 }
 
 impl From<std::io::Error> for Error {
@@ -123,9 +134,15 @@ macro_rules! children {
     ($prop:path, $($param:expr),+ $(,)?) => { $crate::im::Vector::from_iter([$(Some(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>)),+]) };
 }
 
+#[macro_export]
+macro_rules! handlers {
+    () => { [] };
+    ($app:path, $($param:ident),+ $(,)?) => { Vec::from_iter([$((stringify!($param).to_string(), Box::new($param) as $crate::AppEvent<$app>)),+]) };
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-/// Represents display-independent pixels
-pub struct DIP {}
+/// Represents display-independent pixels, or logical units
+pub struct Logical {}
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 /// Represents relative values
 pub struct Relative {}
@@ -136,17 +153,17 @@ pub struct Pixel {}
 /// Represents a combination of DIP and Pixels that have been resolved for the current DPI
 pub struct Resolved {}
 
-pub type AbsPoint = Point2D<f32, DIP>;
+pub type AbsPoint = Point2D<f32, Logical>;
 pub type PxPoint = Point2D<f32, Pixel>;
 pub type RelPoint = Point2D<f32, Relative>;
 pub type ResPoint = Point2D<f32, Resolved>;
 
-pub type AbsVector = Vector2D<f32, DIP>;
+pub type AbsVector = Vector2D<f32, Logical>;
 pub type PxVector = Vector2D<f32, Pixel>;
 pub type RelVector = Vector2D<f32, Relative>;
 pub type ResVector = Vector2D<f32, Resolved>;
 
-pub type AbsDim = Size2D<f32, DIP>;
+pub type AbsDim = Size2D<f32, Logical>;
 pub type PxDim = Size2D<f32, Pixel>;
 pub type RelDim = Size2D<f32, Relative>;
 pub type ResDim = Size2D<f32, Resolved>;
@@ -177,9 +194,9 @@ impl Convert<Size2D<u32, Pixel>> for winit::dpi::PhysicalSize<u32> {
     }
 }
 
-impl Convert<Size2D<u32, DIP>> for winit::dpi::LogicalSize<u32> {
-    fn to(self) -> Size2D<u32, DIP> {
-        Size2D::<u32, DIP>::new(self.width, self.height)
+impl Convert<Size2D<u32, Logical>> for winit::dpi::LogicalSize<u32> {
+    fn to(self) -> Size2D<u32, Logical> {
+        Size2D::<u32, Logical>::new(self.width, self.height)
     }
 }
 
@@ -203,7 +220,7 @@ pub struct Rect<U> {
     pub _unit: PhantomData<U>,
 }
 
-pub type AbsRect = Rect<DIP>;
+pub type AbsRect = Rect<Logical>;
 pub type PxRect = Rect<Pixel>;
 pub type RelRect = Rect<Relative>;
 pub type ResRect = Rect<Resolved>;
@@ -1060,7 +1077,7 @@ pub struct Limits<U> {
 }
 
 pub type PxLimits = Limits<Pixel>;
-pub type AbsLimits = Limits<DIP>;
+pub type AbsLimits = Limits<Logical>;
 pub type RelLimits = Limits<Relative>;
 pub type ResLimits = Limits<Resolved>;
 
@@ -1112,6 +1129,20 @@ impl<U> Limits<U> {
     pub fn max(&self) -> Size2D<f32, U> {
         let minmax = self.v.as_array_ref();
         Size2D::new(minmax[2], minmax[3])
+    }
+
+    #[inline]
+    pub fn set_min(&mut self, bound: Size2D<f32, U>) {
+        let minmax = self.v.as_array_mut();
+        minmax[0] = bound.width;
+        minmax[1] = bound.height;
+    }
+
+    #[inline]
+    pub fn set_max(&mut self, bound: Size2D<f32, U>) {
+        let minmax = self.v.as_array_mut();
+        minmax[2] = bound.width;
+        minmax[3] = bound.height;
     }
 
     /// Discard the units
@@ -1297,14 +1328,17 @@ impl From<f32> for DValue {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom, derive_more::Display,
+)]
+#[try_from(repr)]
 #[repr(u8)]
 pub enum RowDirection {
     #[default]
-    LeftToRight,
-    RightToLeft,
-    TopToBottom,
-    BottomToTop,
+    LeftToRight = 0,
+    RightToLeft = 1,
+    BottomToTop = 2,
+    TopToBottom = 3,
 }
 
 // If a component provides a CrossReferenceDomain, it's children can register themselves with it.
@@ -1356,7 +1390,7 @@ pub enum DataID {
     Named(&'static str),
     Owned(String),
     Int(i64),
-    Other(Box<dyn DynHashEq>),
+    Other(Box<dyn DynHashEq + Sync + Send>),
     #[default]
     None, // Marks an invalid default ID, crashes if you ever try to actually use it.
 }
@@ -1414,23 +1448,11 @@ impl PartialEq for DataID {
 
 #[derive(Clone, Default, Debug)]
 pub struct SourceID {
-    parent: OnceCell<std::sync::Arc<SourceID>>,
+    parent: Option<std::sync::Arc<SourceID>>,
     id: DataID,
 }
 
-// SAFETY: We cannot explain to the compiler that we only ever set "parent" while SourceID
-// only exists in one thread, so we manually implement these unsafe traits.
-unsafe impl Send for SourceID {}
-unsafe impl Sync for SourceID {}
-
 impl SourceID {
-    pub const fn new(id: DataID) -> Self {
-        Self {
-            parent: OnceCell::new(),
-            id,
-        }
-    }
-
     /// Creates a new SourceID out of the given DataID, with ourselves as its parent
     pub fn child(self: &Arc<Self>, id: DataID) -> Arc<Self> {
         Self {
@@ -1446,15 +1468,19 @@ impl SourceID {
         self.child(DataID::Int(Arc::strong_count(self) as i64))
     }
 
+    #[allow(dead_code)] // TODO: not sure if we'll need this later
     #[cfg(debug_assertions)]
     #[allow(clippy::mutable_key_type)]
     pub(crate) fn parents(self: &Arc<Self>) -> std::collections::HashSet<&Arc<Self>> {
         let mut set = std::collections::HashSet::new();
 
-        let mut cur = self.parent.get();
+        let mut cur = self.parent.as_ref();
         while let Some(id) = cur {
+            if set.contains(id) {
+                panic!("Loop detected in IDs! {:?} already existed!", id.id);
+            }
             set.insert(id);
-            cur = id.parent.get();
+            cur = id.parent.as_ref();
         }
         set
     }
@@ -1462,20 +1488,20 @@ impl SourceID {
 impl std::cmp::Eq for SourceID {}
 impl PartialEq for SourceID {
     fn eq(&self, other: &Self) -> bool {
-        if let Some(parent) = self.parent.get() {
-            if let Some(pother) = other.parent.get() {
+        if let Some(parent) = self.parent.as_ref() {
+            if let Some(pother) = other.parent.as_ref() {
                 parent == pother && self.id == other.id
             } else {
                 false
             }
         } else {
-            other.parent.get().is_none() && self.id == other.id
+            other.parent.is_none() && self.id == other.id
         }
     }
 }
 impl Hash for SourceID {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Some(parent) = self.parent.get() {
+        if let Some(parent) = self.parent.as_ref() {
             parent.id.hash(state);
         }
         self.id.hash(state);
@@ -1483,11 +1509,11 @@ impl Hash for SourceID {
 }
 impl Display for SourceID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(parent) = self.parent.get() {
+        if let Some(parent) = self.parent.as_ref() {
             parent.fmt(f)?;
         }
 
-        match (&self.id, self.parent.get().is_some()) {
+        match (&self.id, self.parent.is_some()) {
             (DataID::Named(_), true) | (DataID::Owned(_), true) => f.write_str(" -> "),
             (DataID::Other(_), true) => f.write_str(" "),
             _ => Ok(()),
@@ -1503,6 +1529,138 @@ impl Display for SourceID {
                 write!(f, "{{{}}}", h.finish())
             }
             DataID::None => Ok(()),
+        }
+    }
+}
+
+pub struct ScopeIterID<'a, T> {
+    base: ScopeID<'a>,
+    it: T,
+}
+
+impl<'a, T: Iterator> ScopeIterID<'a, T> {
+    fn new(parent: &'a mut ScopeID<'_>, it: T) -> Self {
+        Self {
+            base: parent.scope(),
+            it,
+        }
+    }
+}
+
+impl<T> Iterator for ScopeIterID<'_, T>
+where
+    T: Iterator,
+{
+    type Item = (T::Item, Arc<SourceID>);
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let x = self.it.next()?;
+        let id = self.base.create();
+        Some((x, id))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.it.size_hint()
+    }
+
+    #[inline]
+    fn nth(&mut self, mut n: usize) -> Option<Self::Item> {
+        while let Some(x) = Iterator::next(self) {
+            if n == 0 {
+                return Some(x);
+            }
+            n -= 1;
+        }
+        None
+    }
+
+    #[inline]
+    fn fold<Acc, F>(mut self, init: Acc, mut f: F) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
+    {
+        let mut accum = init;
+        while let Some(x) = Iterator::next(&mut self) {
+            accum = f(accum, x);
+        }
+        accum
+    }
+}
+
+/// Represents a scope with a particular ID assigned to it. Used to generate new IDs for anything created
+/// inside this scope, with this scope's ID as parents, or to generate a new ScopeID with this scope as its
+/// parent.
+pub struct ScopeID<'a> {
+    // This is only used to force a mutable borrow of the parent, which ensures you cannot fork ID scopes
+    _parent: PhantomData<&'a mut ()>,
+    base: Arc<SourceID>,
+    count: i64,
+}
+
+impl<'a> ScopeID<'a> {
+    /// Gets the underlying ID for this scope
+    pub fn id(&mut self) -> &Arc<SourceID> {
+        &self.base
+    }
+
+    /// Creates a new unique SourceID using an internal counter with this scope as it's parent.
+    pub fn create(&mut self) -> Arc<SourceID> {
+        let node = self.base.child(crate::DataID::Int(self.count));
+        self.count += 1;
+        node
+    }
+
+    /// Creates a new scoped ID with this scope as it's parent that can then be passed into a function.
+    pub fn scope(&mut self) -> ScopeID<'_> {
+        ScopeID {
+            base: self.create(),
+            _parent: PhantomData,
+            count: 0,
+        }
+    }
+
+    /// Creates a new unique SourceID using the provided DataID, which bypasses the internal counter.
+    /// This should generally not be invoked directly by users - instead it is used by the `gen_id!()` macro.
+    pub fn child(&mut self, id: DataID) -> Arc<SourceID> {
+        self.base.child(id)
+    }
+
+    /// Wraps another iterator and returns a pair of both a unique ID and the result of the iterator.
+    pub fn iter<U: IntoIterator>(&mut self, other: U) -> ScopeIterID<'_, U::IntoIter> {
+        ScopeIterID::new(self, other.into_iter())
+    }
+
+    pub fn cond<R>(
+        &mut self,
+        condition: bool,
+        tvalue: impl FnOnce(ScopeID<'_>) -> R,
+        fvalue: impl FnOnce(ScopeID<'_>) -> R,
+    ) -> R {
+        let (id_true, id_false) = (self.create(), self.create());
+
+        if condition {
+            tvalue(ScopeID {
+                base: id_true,
+                _parent: PhantomData,
+                count: 0,
+            })
+        } else {
+            fvalue(ScopeID {
+                base: id_false,
+                _parent: PhantomData,
+                count: 0,
+            })
+        }
+    }
+
+    // Used internally to generate the root scope encapsulating the hardcoded APP_SOURCE_ID
+    fn root() -> ScopeID<'a> {
+        ScopeID {
+            _parent: PhantomData,
+            base: Arc::new(APP_SOURCE_ID),
+            count: 0,
         }
     }
 }
@@ -1649,7 +1807,7 @@ impl StateManager {
             .get_mut(&id)
             .ok_or_eyre("Failed to insert state!")?
             .as_mut() as &mut dyn Any;
-        v.downcast_mut().ok_or_eyre("Runtime type mismatch!")
+        v.downcast_mut().ok_or(Error::RuntimeTypeMismatch.into())
     }
     pub fn init(&mut self, id: Arc<SourceID>, state: Box<dyn StateMachineWrapper>) {
         if !self.states.contains_key(&id) {
@@ -1665,7 +1823,7 @@ impl StateManager {
             .get(id)
             .ok_or_eyre("State does not exist")?
             .as_ref() as &dyn Any;
-        v.downcast_ref().ok_or_eyre("Runtime type mismatch!")
+        v.downcast_ref().ok_or(Error::RuntimeTypeMismatch.into())
     }
     pub fn get_mut<'a, State: 'static + component::StateMachineWrapper>(
         &'a mut self,
@@ -1676,7 +1834,7 @@ impl StateManager {
             .get_mut(id)
             .ok_or_eyre("State does not exist")?
             .as_mut() as &mut dyn Any;
-        v.downcast_mut().ok_or_eyre("Runtime type mismatch!")
+        v.downcast_mut().ok_or(Error::RuntimeTypeMismatch.into())
     }
     #[allow(clippy::borrowed_box)]
     pub fn get_trait<'a>(
@@ -1687,7 +1845,7 @@ impl StateManager {
     }
 
     fn propagate_change(&mut self, mut id: &Arc<SourceID>) {
-        while let Some(parent) = id.parent.get() {
+        while let Some(parent) = id.parent.as_ref() {
             if let Some(state) = self.states.get_mut(parent) {
                 if state.changed() {
                     // If this state is marked change, then this change must have already propagated upwards and we have no more work to do.
@@ -1707,18 +1865,22 @@ impl StateManager {
         area: PxRect,
         extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> eyre::Result<()> {
+    ) -> eyre::Result<bool> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
 
         // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
+        let mut handled = false;
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let v = state.process(event, slot.1, dpi, area, extent, driver)?;
+            let (v, handle) = state.process(event, slot.1, dpi, area, extent, driver)?;
             if state.changed() {
                 self.changed = true;
                 self.propagate_change(&slot.0);
             }
-            let state = self.states.get(&slot.0).unwrap();
+            if v.is_empty() {
+                handled |= handle;
+            }
+            let state = self.states.get(&slot.0).ok_or(Error::InternalFailure)?;
 
             v.into_iter()
                 .map(|(i, e)| (e, i, state.output_slot(i.ilog2() as usize).unwrap().clone()))
@@ -1727,10 +1889,11 @@ impl StateManager {
 
         for (e, index, slot) in iter {
             if let Some(s) = slot.as_ref() {
-                self.process((index, e), s, dpi, area, extent, driver)?;
+                handled |= self.process((index, e), s, dpi, area, extent, driver)?;
             }
         }
-        Ok(())
+
+        Ok(handled)
     }
 
     fn init_child(
@@ -1752,24 +1915,29 @@ impl StateManager {
 
 #[allow(clippy::declare_interior_mutable_const)]
 pub const APP_SOURCE_ID: SourceID = SourceID {
-    parent: OnceCell::new(),
+    parent: None,
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
-pub struct App<AppData, O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>> {
+type OutlineReturn = im::HashMap<Arc<SourceID>, Option<Window>>;
+pub type EventPair<AppData> = (u64, AppEvent<AppData>);
+
+pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
-    state: StateManager,
+    pub state: StateManager,
     store: Option<O::Store>,
     outline: O,
     _parents: BTreeMap<DataID, DataID>,
     root: component::Root, // Root component node containing all windows
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
+    _phantom: PhantomData<AppData>,
+    handle_sync: mpsc::Receiver<EventPair<AppData>>,
 }
 
-struct AppDataMachine<AppData> {
+pub struct AppDataMachine<AppData> {
     pub state: Option<AppData>,
-    input: Vec<AppEvent<AppData>>,
+    handlers: HashMap<usize, AppEvent<AppData>>,
     changed: bool,
 }
 
@@ -1798,18 +1966,20 @@ impl<AppData: 'static + PartialEq> StateMachineWrapper for AppDataMachine<AppDat
         _: PxRect,
         _: PxRect,
         _: &std::sync::Weak<crate::Driver>,
-    ) -> eyre::Result<SmallVec<[DispatchPair; 1]>> {
+    ) -> eyre::Result<(SmallVec<[DispatchPair; 1]>, bool)> {
         let f = self
-            .input
-            .get_mut(index as usize)
-            .ok_or_eyre("index out of bounds")?;
-        let processed = match f(input, self.state.take().unwrap()) {
-            Ok(s) | Err(s) => Some(s),
+            .handlers
+            .get_mut(&(index as usize))
+            .ok_or(Error::OutOfRange(index as usize))?;
+        let (processed, handled) = match f(input, self.state.take().ok_or(Error::InternalFailure)?)
+        {
+            Ok(s) => (Some(s), true),
+            Err(s) => (Some(s), false),
         };
         // If it actually changed, set the change marker
         self.changed |= processed != self.state;
         self.state = processed;
-        Ok(SmallVec::new())
+        Ok((SmallVec::new(), handled))
     }
 }
 #[cfg(target_os = "windows")]
@@ -1819,17 +1989,21 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-impl<
-    AppData: PartialEq + 'static,
-    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
-> App<AppData, O>
+impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
+    App<AppData, O>
 {
+    #[allow(clippy::type_complexity)]
     pub fn new<T: 'static>(
         app_state: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
-    ) -> eyre::Result<(Self, EventLoop<T>)> {
+    ) -> eyre::Result<(
+        Self,
+        EventLoop<T>,
+        mpsc::Sender<EventPair<AppData>>,
+        AtomicU64,
+    )> {
         #[cfg(test)]
         let any_thread = true;
         #[cfg(not(test))]
@@ -1838,18 +2012,25 @@ impl<
         Self::new_any_thread(app_state, inputs, outline, any_thread, driver_init)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn new_any_thread<T: 'static>(
         app_state: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         any_thread: bool,
         driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
-    ) -> eyre::Result<(Self, EventLoop<T>)> {
+    ) -> eyre::Result<(
+        Self,
+        EventLoop<T>,
+        mpsc::Sender<EventPair<AppData>>,
+        AtomicU64,
+    )> {
+        let count = AtomicU64::new(inputs.len() as u64);
         let mut manager: StateManager = Default::default();
         manager.init(
             Arc::new(APP_SOURCE_ID),
             Box::new(AppDataMachine {
-                input: inputs,
+                handlers: HashMap::from_iter(inputs.into_iter().enumerate()),
                 state: Some(app_state),
                 changed: true,
             }),
@@ -1887,6 +2068,7 @@ impl<
             ..Default::default()
         };
 
+        let (sender, recv) = mpsc::channel();
         Ok((
             Self {
                 instance: wgpu::Instance::new(&desc),
@@ -1897,17 +2079,30 @@ impl<
                 _parents: Default::default(),
                 root: component::Root::new(),
                 driver_init: Some(Box::new(driver_init)),
+                _phantom: PhantomData,
+                handle_sync: recv,
             },
             event_loop,
+            sender,
+            count,
         ))
     }
 
     #[allow(clippy::borrow_interior_mutable_const)]
     fn update_outline(&mut self, event_loop: &ActiveEventLoop, store: O::Store) {
-        let app_state: &AppDataMachine<AppData> = self.state.get(&APP_SOURCE_ID).unwrap();
-        let (store, windows) = self.outline.call(store, app_state.state.as_ref().unwrap());
+        let app_state: &mut AppDataMachine<AppData> = self.state.get_mut(&APP_SOURCE_ID).unwrap();
+
+        for (idx, handler) in self.handle_sync.try_iter() {
+            app_state.handlers.insert(idx as usize, handler);
+        }
+
+        let (store, windows) = self.outline.call(
+            store,
+            app_state.state.as_ref().unwrap().clone(),
+            ScopeID::root(),
+        );
         debug_assert!(
-            APP_SOURCE_ID.parent.get().is_none(),
+            APP_SOURCE_ID.parent.is_none(),
             "Something set the APP_SOURCE parent! This should never happen!"
         );
 
@@ -1932,9 +2127,9 @@ impl<
 }
 
 impl<
-    AppData: PartialEq + 'static,
+    AppData: Clone + PartialEq + 'static,
     T: 'static,
-    O: FnPersist<AppData, im::HashMap<Arc<SourceID>, Option<Window>>>,
+    O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>,
 > winit::application::ApplicationHandler<T> for App<AppData, O>
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -2071,6 +2266,7 @@ impl<
                                                 wgpu::RenderPassColorAttachment {
                                                     view: &atlas.targets[slice as usize],
                                                     resolve_target: None,
+                                                    depth_slice: None,
                                                     ops: wgpu::Operations {
                                                         load: if true {
                                                             wgpu::LoadOp::Clear(
@@ -2166,50 +2362,53 @@ impl<
 struct TestApp {}
 
 #[cfg(test)]
-impl FnPersist<u8, im::HashMap<Arc<SourceID>, Option<Window>>> for TestApp {
-    type Store = (u8, im::HashMap<Arc<SourceID>, Option<Window>>);
+impl crate::persist::FnPersistStore for TestApp {
+    type Store = (u8, OutlineReturn);
+}
 
+#[cfg(test)]
+impl FnPersist2<u8, ScopeID<'static>, OutlineReturn> for TestApp {
     fn init(&self) -> Self::Store {
+        (0, im::HashMap::new())
+    }
+
+    fn call(
+        &mut self,
+        store: Self::Store,
+        _: u8,
+        mut id: ScopeID<'static>,
+    ) -> (Self::Store, OutlineReturn) {
         use crate::color::sRGB;
         use crate::component::shape::Shape;
-        use bytemuck::Zeroable;
+
         let rect = Shape::<DRect, { component::shape::ShapeKind::RoundRect as u8 }>::new(
-            gen_id!(),
+            gen_id!(id),
             crate::FILL_DRECT.into(),
             0.0,
             0.0,
-            f32x4::zeroed(),
+            f32x4::splat(0.0),
             sRGB::new(1.0, 0.0, 0.0, 1.0),
             sRGB::transparent(),
         );
         let window = Window::new(
-            gen_id!(),
+            gen_id!(id),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),
             Box::new(rect),
         );
 
-        let mut hash = im::HashMap::new();
-        hash.insert(window.id().clone(), Some(window));
+        let mut windows = im::HashMap::new();
+        windows.insert(window.id().clone(), Some(window));
 
-        (0, hash)
-    }
-
-    fn call(
-        &mut self,
-        store: Self::Store,
-        _: &u8,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        let windows = store.1.clone();
         (store, windows)
     }
 }
 
 #[test]
 fn test_basic() {
-    let (mut app, event_loop): (App<u8, TestApp>, EventLoop<()>) =
-        App::new(0u8, vec![], TestApp {}, |_| ()).unwrap();
+    let (mut app, event_loop, _, _) =
+        App::<u8, TestApp>::new::<()>(0u8, vec![], TestApp {}, |_| ()).unwrap();
 
     let proxy = event_loop.create_proxy();
     proxy.send_event(()).unwrap();

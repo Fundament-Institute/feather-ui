@@ -28,7 +28,7 @@ pub struct Shape<T, const KIND: u8> {
 
 pub fn round_rect<T: leaf::Padded + 'static>(
     id: std::sync::Arc<SourceID>,
-    props: Rc<T>,
+    props: T,
     border: f32,
     blur: f32,
     corners: wide::f32x4,
@@ -37,7 +37,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
 ) -> Shape<T, { ShapeKind::RoundRect as u8 }> {
     Shape {
         id,
-        props,
+        props: props.into(),
         border,
         blur,
         corners: corners.to_array(),
@@ -48,7 +48,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
 
 pub fn triangle<T: leaf::Padded + 'static>(
     id: std::sync::Arc<SourceID>,
-    props: Rc<T>,
+    props: T,
     border: f32,
     blur: f32,
     corners: [f32; 3],
@@ -58,7 +58,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
 ) -> Shape<T, { ShapeKind::Triangle as u8 }> {
     Shape {
         id,
-        props,
+        props: props.into(),
         border,
         blur,
         corners: [corners[0], corners[1], corners[2], offset],
@@ -69,7 +69,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
 
 pub fn circle<T: leaf::Padded + 'static>(
     id: std::sync::Arc<SourceID>,
-    props: Rc<T>,
+    props: T,
     border: f32,
     blur: f32,
     radii: [f32; 2],
@@ -78,7 +78,7 @@ pub fn circle<T: leaf::Padded + 'static>(
 ) -> Shape<T, { ShapeKind::Circle as u8 }> {
     Shape {
         id,
-        props,
+        props: props.into(),
         border,
         blur,
         corners: [radii[0], radii[1], 0.0, 0.0],
@@ -89,19 +89,20 @@ pub fn circle<T: leaf::Padded + 'static>(
 
 pub fn arcs<T: leaf::Padded + 'static>(
     id: std::sync::Arc<SourceID>,
-    props: Rc<T>,
+    props: T,
     border: f32,
     blur: f32,
-    arcs: wide::f32x4,
+    inner_radius: f32,
+    arcs: [f32; 2],
     fill: sRGB,
     outline: sRGB,
 ) -> Shape<T, { ShapeKind::Arc as u8 }> {
     Shape {
         id,
-        props,
+        props: props.into(),
         border,
         blur,
-        corners: arcs.to_array(),
+        corners: [arcs[0] + arcs[1] * 0.5, arcs[1] * 0.5, inner_radius, 0.0],
         fill,
         outline,
     }
@@ -124,7 +125,7 @@ impl<T: leaf::Padded + 'static, const KIND: u8> Clone for Shape<T, KIND> {
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
     pub fn new(
         id: std::sync::Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         border: f32,
         blur: f32,
         corners: wide::f32x4,
@@ -133,7 +134,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             border,
             blur,
             corners: corners.to_array(),
@@ -146,7 +147,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
     pub fn new(
         id: std::sync::Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         border: f32,
         blur: f32,
         corners: [f32; 3],
@@ -156,7 +157,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             border,
             blur,
             corners: [corners[0], corners[1], corners[2], offset],
@@ -169,7 +170,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
     pub fn new(
         id: std::sync::Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         border: f32,
         blur: f32,
         radii: [f32; 2],
@@ -178,7 +179,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             border,
             blur,
             corners: [radii[0], radii[1], 0.0, 0.0],
@@ -191,19 +192,20 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
     pub fn new(
         id: std::sync::Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         border: f32,
         blur: f32,
-        arcs: wide::f32x4,
+        inner_radius: f32,
+        arcs: [f32; 2],
         fill: sRGB,
         outline: sRGB,
     ) -> Self {
         Self {
             id,
-            props,
+            props: props.into(),
             border,
             blur,
-            corners: arcs.to_array(),
+            corners: [arcs[0] + arcs[1] * 0.5, arcs[1] * 0.5, inner_radius, 0.0],
             fill,
             outline,
         }

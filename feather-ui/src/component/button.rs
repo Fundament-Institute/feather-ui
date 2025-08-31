@@ -27,21 +27,17 @@ impl<T: fixed::Prop + 'static> Button<T> {
         onclick: Slot,
         children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
     ) -> Self {
-        super::set_children(Self {
+        Self {
             id: id.clone(),
             props: props.into(),
             marea: MouseArea::new(
-                SourceID {
-                    parent: id.clone().into(),
-                    id: crate::DataID::Named("__marea_internal__"),
-                }
-                .into(),
+                id.child(crate::DataID::Named("__marea_internal__")),
                 crate::FILL_DRECT,
                 None,
                 [Some(onclick), None, None, None, None, None],
             ),
             children,
-        })
+        }
     }
 }
 
@@ -73,10 +69,10 @@ where
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let mut map = VectorMap::new(
+        let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(manager, driver, window))
-            },
+                Some(child.as_ref()?.layout(manager, driver, window))
+            })
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);

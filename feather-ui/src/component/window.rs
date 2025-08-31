@@ -148,6 +148,7 @@ impl WindowState {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
+                    depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(backcolor),
                         store: wgpu::StoreOp::Store,
@@ -313,8 +314,8 @@ impl Window {
 
             // This causes an unwanted flash, but makes it easier to capture the initial frame for debugging, so it's left here
             // to be uncommented for debugging purposes
-            let frame = windowstate.surface.get_current_texture().unwrap();
-            frame.present();
+            //let frame = windowstate.surface.get_current_texture()?;
+            //frame.present();
 
             manager.init(
                 self.id.clone(),
@@ -336,11 +337,11 @@ impl Window {
         attributes: WindowAttributes,
         child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
     ) -> Self {
-        super::set_children(Self {
+        Self {
             id,
             attributes,
             child,
-        })
+        }
     }
 
     fn resize(size: PhysicalSize<u32>, state: &mut WindowState) {

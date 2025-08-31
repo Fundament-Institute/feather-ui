@@ -77,8 +77,8 @@ impl crate::render::Renderable for Instance {
         let bounds_min_y = bounds_top.max(0);
         let bounds_max_x = bounds.bottomright().x as i32;
         let bounds_max_y = bounds_bottom;
-        let color = cosmic_text::Color(self.color.as_32bit().rgba);
-        let selection_color = cosmic_text::Color(self.selection_color.as_32bit().rgba);
+        let color = self.color.into();
+        let selection_color = self.selection_color.into();
 
         let is_run_visible = |run: &cosmic_text::LayoutRun| {
             let start_y_physical = (pos.y + (run.line_top * self.scale)) as i32;
