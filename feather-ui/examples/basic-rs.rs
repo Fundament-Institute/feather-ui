@@ -77,7 +77,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!(id),
-                    feather_ui::FILL_DRECT.into(),
+                    feather_ui::FILL_DRECT,
                     0.0,
                     0.0,
                     wide::f32x4::splat(10.0),
@@ -119,7 +119,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!(id),
-                    feather_ui::FILL_DRECT.into(),
+                    feather_ui::FILL_DRECT,
                     0.0,
                     0.0,
                     wide::f32x4::splat(10.0),

@@ -18,7 +18,7 @@ impl PropBag {
     fn get_value<T: Default + Copy + 'static>(&self, e: PropBagElement) -> T {
         if let Some(t) = self.props.get(&e) {
             *t.downcast_ref::<T>()
-                .expect(&format!("{e} was wrong type in PropBag!"))
+                .unwrap_or_else(|| panic!("{e} was wrong type in PropBag!"))
         } else {
             Default::default()
         }
@@ -26,7 +26,7 @@ impl PropBag {
     fn set_value<T: Copy + 'static>(&mut self, e: PropBagElement, v: T) -> Option<T> {
         self.props.insert(e, Box::new(v)).map(|x| {
             *x.downcast()
-                .expect(&format!("{e} was wrong type in PropBag!"))
+                .unwrap_or_else(|_| panic!("{e} was wrong type in PropBag!"))
         })
     }
 }

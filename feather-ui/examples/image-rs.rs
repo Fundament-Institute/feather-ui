@@ -49,7 +49,7 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
         mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-            scope.next(),
+            scope.create(),
             PxRect::new(1.0, 1.0, 2.0, 2.0).into(),
             0.0,
             0.0,
@@ -68,7 +68,7 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
                             res: &dyn feather_ui::resource::Location,
                             size: Option<AbsPoint>| {
             Image::<DRect>::new(
-                scope.next(),
+                scope.create(),
                 AbsRect::new(
                     pos.x,
                     pos.y,

@@ -116,7 +116,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
             let button = {
                 let text = {
                     Text::<FixedData> {
-                        id: scope.next(),
+                        id: scope.create(),
                         props: FixedData {
                             area: AbsRect::new(10.0, 15.0, 10.0, 15.0)
                                 + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
@@ -132,8 +132,8 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                 };
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                    scope.next(),
-                    feather_ui::FILL_DRECT.into(),
+                    scope.create(),
+                    feather_ui::FILL_DRECT,
                     0.0,
                     0.0,
                     wide::f32x4::splat(10.0),
@@ -142,7 +142,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                 );
 
                 Button::<FixedData>::new(
-                    scope.next(),
+                    scope.create(),
                     FixedData {
                         area: AbsRect::new(0.0, 20.0, 0.0, 0.0)
                             + RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
@@ -169,8 +169,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                                 area: FILL_DRECT,
                                 x: i % NUM_COLUMNS,
                                 y: i / NUM_COLUMNS,
-                            }
-                            .into(),
+                            },
                             0.0,
                             0.0,
                             wide::f32x4::splat(4.0),
@@ -186,7 +185,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                 }
 
                 GridBox::<GridData>::new(
-                    scope.next(),
+                    scope.create(),
                     GridData {
                         area: AbsRect::new(0.0, 200.0, 0.0, 0.0)
                             + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
@@ -199,14 +198,13 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                         columns: [80.0, 40.0, 80.0, 40.0, 80.0].map(DValue::from).to_vec(),
                         spacing: AbsPoint::new(4.0, 4.0).into(),
                         padding: AbsRect::new(8.0, 8.0, 8.0, 8.0).into(),
-                    }
-                    .into(),
+                    },
                     children,
                 )
             };
 
             let region = Region::new(
-                scope.next(),
+                scope.create(),
                 FixedData {
                     area: FILL_DRECT,
                     zindex: 0,
@@ -215,7 +213,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                 feather_ui::children![fixed::Prop, button, rectgrid],
             );
             let window = Window::new(
-                scope.next(),
+                scope.create(),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
