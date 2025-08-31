@@ -9,7 +9,8 @@ use jxl_oxide::{EnumColourEncoding, JxlImage};
 use resvg::{tiny_skia, usvg};
 
 use crate::render::atlas;
-use crate::{Error, PxDim};
+use crate::{Error, Pixel, PxDim};
+use guillotiere::euclid::Size2D;
 use std::hash::Hash;
 
 pub(crate) const MIN_AREA: i32 = 64 * 64;
@@ -55,11 +56,14 @@ pub trait Location: crate::DynHashEq + Any + Send + Sync {
 dyn_clone::clone_trait_object!(Location);
 
 pub trait Loader: std::fmt::Debug + Send + Sync {
+    /// The preload function does most of the work, loading the image into a byte buffer of a given width and height
+    fn preload(&self, size: atlas::Size, dpi: f32) -> Result<(Vec<u8>, Size2D<u32, Pixel>), Error>;
+
+    /// The load function simply consumes the byte buffer and loads it into the atlas.
     fn load(
         &self,
         driver: &crate::graphics::Driver,
-        size: atlas::Size,
-        dpi: f32,
+        data: (Vec<u8>, Size2D<u32, Pixel>),
         resize: bool,
     ) -> Result<(atlas::Region, atlas::Size), Error>;
 }
@@ -284,13 +288,11 @@ fn in_place_map<const N: usize, const FORWARD: bool>(
 
 #[cfg(feature = "jxl")]
 impl Loader for JxlImage {
-    fn load(
+    fn preload(
         &self,
-        driver: &crate::graphics::Driver,
         mut size: atlas::Size,
         _: f32,
-        resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error> {
+    ) -> Result<(Vec<u8>, Size2D<u32, Pixel>), Error> {
         use crate::color::sRGB;
         use wide::f32x4;
 
@@ -300,7 +302,6 @@ impl Loader for JxlImage {
             ))));
         }
 
-        let native = atlas::Size::new(self.width() as i32, self.height() as i32);
         size = fill_size(
             size,
             atlas::Size::new(self.width() as i32, self.height() as i32),
@@ -449,27 +450,37 @@ impl Loader for JxlImage {
             (output, self.width() as u32, self.height() as u32)
         };
 
+        Ok((raw, Size2D::new(w, h)))
+    }
+    fn load(
+        &self,
+        driver: &crate::graphics::Driver,
+        data: (Vec<u8>, Size2D<u32, Pixel>),
+        resize: bool,
+    ) -> Result<(atlas::Region, atlas::Size), Error> {
         let region = driver.atlas.write().reserve(
             &driver.device,
-            atlas::Size::new(w as i32, h as i32),
+            atlas::Size::new(data.1.width as i32, data.1.height as i32),
             if resize { Some(&driver.queue) } else { None },
         )?;
 
-        queue_atlas_data(&raw, &region, &driver.queue, w, h, &driver.atlas.read());
+        queue_atlas_data(
+            &data.0,
+            &region,
+            &driver.queue,
+            data.1.width,
+            data.1.height,
+            &driver.atlas.read(),
+        );
 
+        let native = atlas::Size::new(self.width() as i32, self.height() as i32);
         Ok((region, native))
     }
 }
 
 #[cfg(feature = "svg")]
 impl Loader for SvgXml {
-    fn load(
-        &self,
-        driver: &crate::graphics::Driver,
-        mut size: atlas::Size,
-        dpi: f32,
-        resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error> {
+    fn preload(&self, size: atlas::Size, dpi: f32) -> Result<(Vec<u8>, Size2D<u32, Pixel>), Error> {
         let xml_opt = usvg::roxmltree::ParsingOptions {
             allow_dtd: true,
             ..Default::default()
@@ -519,7 +530,17 @@ impl Loader for SvgXml {
             c.swap(0, 2);
         }
 
-        size = atlas::Size::new(pixmap.width() as i32, pixmap.height() as i32);
+        let sz = Size2D::new(pixmap.width(), pixmap.height());
+        Ok((pixmap.take(), sz))
+    }
+
+    fn load(
+        &self,
+        driver: &crate::graphics::Driver,
+        data: (Vec<u8>, Size2D<u32, Pixel>),
+        resize: bool,
+    ) -> Result<(atlas::Region, atlas::Size), Error> {
+        let size = atlas::Size::new(data.1.width as i32, data.1.height as i32);
         let region = driver.atlas.write().reserve(
             &driver.device,
             size,
@@ -527,11 +548,11 @@ impl Loader for SvgXml {
         )?;
 
         queue_atlas_data(
-            pixmap.data(),
+            &data.0,
             &region,
             &driver.queue,
-            pixmap.width(),
-            pixmap.height(),
+            data.1.width,
+            data.1.height,
             &driver.atlas.read(),
         );
 
@@ -752,16 +773,13 @@ fn gen_test_image() {
 
 #[cfg(any(feature = "png", feature = "jpeg"))]
 impl Loader for load_image::Image {
-    fn load(
+    fn preload(
         &self,
-        driver: &crate::graphics::Driver,
         mut size: atlas::Size,
         _: f32,
-        resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error> {
+    ) -> Result<(Vec<u8>, Size2D<u32, Pixel>), Error> {
         use crate::color::{sRGB32, sRGB64};
 
-        let native = atlas::Size::new(self.width as i32, self.height as i32);
         size = fill_size(
             size,
             atlas::Size::new(self.width as i32, self.height as i32),
@@ -844,13 +862,30 @@ impl Loader for load_image::Image {
             (output, self.width as u32, self.height as u32)
         };
 
+        Ok((raw, Size2D::new(w, h)))
+    }
+    fn load(
+        &self,
+        driver: &crate::graphics::Driver,
+        data: (Vec<u8>, Size2D<u32, Pixel>),
+        resize: bool,
+    ) -> Result<(atlas::Region, atlas::Size), Error> {
         let region = driver.atlas.write().reserve(
             &driver.device,
-            atlas::Size::new(w as i32, h as i32),
+            atlas::Size::new(data.1.width as i32, data.1.height as i32),
             if resize { Some(&driver.queue) } else { None },
         )?;
 
-        queue_atlas_data(&raw, &region, &driver.queue, w, h, &driver.atlas.read());
+        queue_atlas_data(
+            &data.0,
+            &region,
+            &driver.queue,
+            data.1.width,
+            data.1.height,
+            &driver.atlas.read(),
+        );
+
+        let native = atlas::Size::new(self.width as i32, self.height as i32);
 
         Ok((region, native))
     }
@@ -872,13 +907,11 @@ impl Loader for load_image::Image {
     feature = "webp"
 ))]
 impl Loader for image::DynamicImage {
-    fn load(
+    fn preload(
         &self,
-        driver: &crate::graphics::Driver,
         mut size: atlas::Size,
         _: f32,
-        resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error> {
+    ) -> Result<(Vec<u8>, Size2D<u32, Pixel>), Error> {
         use crate::color::{Premultiplied, sRGB32};
 
         let native = atlas::Size::new(self.width() as i32, self.height() as i32);
@@ -923,14 +956,31 @@ impl Loader for image::DynamicImage {
             (raw, self.width(), self.height())
         };
 
+        Ok((raw, Size2D::new(w, h)))
+    }
+
+    fn load(
+        &self,
+        driver: &crate::graphics::Driver,
+        data: (Vec<u8>, Size2D<u32, Pixel>),
+        resize: bool,
+    ) -> Result<(atlas::Region, atlas::Size), Error> {
         let region = driver.atlas.write().reserve(
             &driver.device,
-            atlas::Size::new(w as i32, h as i32),
+            atlas::Size::new(data.1.width as i32, data.1.height as i32),
             if resize { Some(&driver.queue) } else { None },
         )?;
 
-        queue_atlas_data(&raw, &region, &driver.queue, w, h, &driver.atlas.read());
+        queue_atlas_data(
+            &data.0,
+            &region,
+            &driver.queue,
+            data.1.width,
+            data.1.height,
+            &driver.atlas.read(),
+        );
 
+        let native = atlas::Size::new(self.width() as i32, self.height() as i32);
         Ok((region, native))
     }
 }
@@ -966,4 +1016,28 @@ pub(crate) fn queue_atlas_data(
             depth_or_array_layers: 1,
         },
     );
+}
+
+pub fn load_icon(location: &dyn Location) -> Result<winit::window::Icon, Error> {
+    let loader = location.fetch()?;
+
+    #[cfg(target_os = "windows")]
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXICON, SM_CYICON};
+
+    #[cfg(target_os = "windows")]
+    let sz = unsafe { atlas::Size::new(GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON)) };
+
+    #[cfg(not(target_os = "windows"))]
+    let sz = atlas::Size::new(128, 128);
+
+    let (mut data, dim) = loader.preload(sz, crate::BASE_DPI.width)?;
+
+    // This data is in BGRA format, but this wants RGBA, so we swap it (again). Not very efficient, but icons
+    // shouldn't be very large anyway.
+    for c in data.as_chunks_mut::<4>().0 {
+        c.swap(0, 2);
+    }
+
+    winit::window::Icon::from_rgba(data, dim.width, dim.height)
+        .map_err(|e| Error::ResourceError(Box::new(e)))
 }

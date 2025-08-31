@@ -381,3 +381,66 @@ pub fn state_machine_child(input: TokenStream) -> TokenStream {
     }
     .into()
 }
+
+#[proc_macro_derive(UserData)]
+pub fn lua_user_data(input: TokenStream) -> TokenStream {
+    /*let crate_name = std::env::var("CARGO_PKG_NAME").unwrap();
+
+    let crate_name = format_ident!(
+        "{}",
+        if crate_name == "feather-ui" {
+            "crate"
+        } else {
+            "feather_ui"
+        }
+    );*/
+    let crate_name = format_ident!("feather_ui");
+
+    let ast = parse_macro_input!(input as DeriveInput);
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    let data = if let Data::Struct(data_enum) = &ast.data {
+        data_enum
+    } else {
+        panic!("`UserData` derive can only be used on a struct.");
+    };
+
+    let mut field_methods = proc_macro2::TokenStream::new();
+    for m in data.fields.members() {
+        match m {
+            syn::Member::Named(ident) => {
+                field_methods.extend(quote! {
+                    f.add_field_method_get(stringify!(#ident), |_, this| Ok(this.#ident.clone()));
+                    f.add_field_method_set(stringify!(#ident), |_, this, v| Ok(this.#ident = v));
+                });
+            }
+            syn::Member::Unnamed(_) => panic!(
+                "You can't use a UserData derive on a tuple, because mlua knows how to parse tuples already!"
+            ),
+        }
+    }
+
+    let sname = ast.ident;
+    quote! {
+        impl #impl_generics #crate_name::mlua::UserData for #sname #ty_generics #where_clause {
+            fn add_fields<F: #crate_name::mlua::UserDataFields<Self>>(f: &mut F) {
+                #field_methods
+            }
+        }
+
+        impl #impl_generics #crate_name::mlua::FromLua for #sname #ty_generics #where_clause {
+            #[inline]
+            fn from_lua(value: #crate_name::mlua::Value, _: &#crate_name::mlua::Lua) -> #crate_name::mlua::Result<Self> {
+                match value {
+                    #crate_name::mlua::Value::UserData(ud) => Ok(ud.borrow::<Self>()?.clone()),
+                    _ => Err(#crate_name::mlua::Error::FromLuaConversionError {
+                        from: value.type_name(),
+                        to: stringify!(#sname).to_string(),
+                        message: None,
+                    }),
+                }
+            }
+        }
+    }
+    .into()
+}

@@ -418,29 +418,31 @@ pub(crate) fn eval_dim(area: URect, dim: PxDim) -> PxDim {
 #[inline]
 pub(crate) fn apply_limit(dim: PxDim, limits: PxLimits, rlimits: RelLimits) -> PxLimits {
     let (unsized_x, unsized_y) = check_unsized_dim(dim);
+    let sign = limits.v.sign_bit() | rlimits.v.sign_bit();
     PxLimits {
-        v: f32x4::new([
+        v: (f32x4::new([
             if unsized_x {
                 limits.min().width
             } else {
-                limits.min().width.max(rlimits.min().width * dim.width)
+                limits.min().width.max(dim.width)
             },
             if unsized_y {
                 limits.min().height
             } else {
-                limits.min().height.max(rlimits.min().height * dim.height)
+                limits.min().height.max(dim.height)
             },
             if unsized_x {
                 limits.max().width
             } else {
-                limits.max().width.min(rlimits.max().width * dim.width)
+                limits.max().width.min(dim.width)
             },
             if unsized_y {
                 limits.max().height
             } else {
-                limits.max().height.min(rlimits.max().height * dim.height)
+                limits.max().height.min(dim.height)
             },
-        ]),
+        ]) * rlimits.v)
+            .copysign(sign),
         _unit: PhantomData,
     }
 }
@@ -467,6 +469,15 @@ pub(crate) fn check_unsized_abs<U>(bottomright: Point2D<f32, U>) -> (bool, bool)
 #[inline]
 pub(crate) fn check_unsized_dim(dim: PxDim) -> (bool, bool) {
     check_unsized_abs(dim.to_vector().to_point())
+}
+
+pub(crate) fn assert_sized(area: PxRect) {
+    let ltrb = area.v.as_array_ref();
+
+    for v in ltrb {
+        assert_ne!(*v, UNSIZED_AXIS);
+        assert!(v.is_finite());
+    }
 }
 
 #[must_use]

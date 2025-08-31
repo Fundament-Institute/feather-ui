@@ -34,6 +34,7 @@ struct TextBoxState {
     focused: bool,
     editor: Editor,
     props: Rc<dyn Prop + 'static>,
+    align: Option<cosmic_text::Align>,
 }
 
 impl TextBoxState {
@@ -107,6 +108,7 @@ impl super::EventRouter for TextBoxState {
                                 &mut driver.font_system.write(),
                                 buffer,
                                 Action::Enter,
+                                self.align,
                             ),
                             NamedKey::Tab => self.editor.action(
                                 &mut driver.font_system.write(),
@@ -116,11 +118,13 @@ impl super::EventRouter for TextBoxState {
                                 } else {
                                     Action::Indent
                                 },
+                                self.align,
                             ),
                             NamedKey::Space => self.editor.action(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 Action::Insert(' '),
+                                self.align,
                             ),
                             NamedKey::ArrowLeft
                             | NamedKey::ArrowRight
@@ -146,6 +150,7 @@ impl super::EventRouter for TextBoxState {
                                                         1
                                                     },
                                                 },
+                                                self.align,
                                             );
                                             return Ok((self, SmallVec::new()));
                                         }
@@ -160,7 +165,12 @@ impl super::EventRouter for TextBoxState {
                                             self.editor.set_cursor(buffer, end);
                                         }
                                     }
-                                    self.editor.action(font_system, buffer, Action::Escape);
+                                    self.editor.action(
+                                        font_system,
+                                        buffer,
+                                        Action::Escape,
+                                        self.align,
+                                    );
                                 } else if self.editor.selection() == cosmic_text::Selection::None {
                                     // if a selection doesn't exist, make one.
                                     self.editor.set_selection(
@@ -194,6 +204,7 @@ impl super::EventRouter for TextBoxState {
                                         (NamedKey::End, true) => cosmic_text::Motion::BufferEnd,
                                         _ => return Ok((self, SmallVec::new())),
                                     }),
+                                    self.align,
                                 )
                             }
                             NamedKey::Select => {
@@ -210,6 +221,7 @@ impl super::EventRouter for TextBoxState {
                                     &mut driver.font_system.write(),
                                     buffer,
                                     Action::Motion(cosmic_text::Motion::BufferEnd),
+                                    self.align,
                                 );
                                 SmallVec::new()
                             }
@@ -217,11 +229,13 @@ impl super::EventRouter for TextBoxState {
                                 &mut driver.font_system.write(),
                                 buffer,
                                 Action::Backspace,
+                                self.align,
                             ),
                             NamedKey::Delete => self.editor.action(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 Action::Delete,
+                                self.align,
                             ),
                             NamedKey::Clear => {
                                 let change = self
@@ -245,6 +259,7 @@ impl super::EventRouter for TextBoxState {
                                     &mut driver.font_system.write(),
                                     buffer,
                                     Action::Motion(cosmic_text::Motion::BufferEnd),
+                                    self.align,
                                 );
                                 let change = self
                                     .editor
@@ -293,6 +308,7 @@ impl super::EventRouter for TextBoxState {
                                         buffer,
                                         &s,
                                         None,
+                                        self.align,
                                     );
                                     self.editor.shape_as_needed(
                                         &mut driver.font_system.write(),
@@ -339,6 +355,7 @@ impl super::EventRouter for TextBoxState {
                                 buffer,
                                 &c,
                                 None,
+                                self.align,
                             );
                             self.append(SmallVec::from_buf([c]));
 
@@ -373,6 +390,7 @@ impl super::EventRouter for TextBoxState {
                                 x: (pos.x - p.x).round() as i32,
                                 y: (pos.y - p.y).round() as i32,
                             },
+                            self.align,
                         );
                     }
                 }
@@ -401,7 +419,7 @@ impl super::EventRouter for TextBoxState {
                         _ => return Ok((self, SmallVec::new())),
                     };
                     self.editor
-                        .action(&mut d.font_system.write(), buffer, action);
+                        .action(&mut d.font_system.write(), buffer, action, self.align);
                 }
                 obj.set_selection(
                     EditBuffer::from_cursor(buffer, self.editor.selection_or_cursor()),
@@ -425,6 +443,7 @@ impl super::EventRouter for TextBoxState {
                                 Action::Scroll {
                                     lines: -(dist.y.round() as i32),
                                 },
+                                self.align,
                             );
                         }
                     }
@@ -448,6 +467,7 @@ impl Clone for TextBoxState {
             focused: self.focused,
             editor: self.editor.clone(),
             props: self.props.clone(),
+            align: self.align,
         }
     }
 }
@@ -462,11 +482,11 @@ impl PartialEq for TextBoxState {
             && self.cursor_count.load(Ordering::Relaxed)
                 == other.cursor_count.load(Ordering::Relaxed)
             && self.editor == other.editor
+            && self.align == other.align
             && Rc::ptr_eq(&self.props, &other.props)
     }
 }
 
-impl TextBoxState {}
 pub trait Prop: leaf::Padded + base::TextEdit {}
 
 #[derive_where(Clone)]
@@ -480,6 +500,7 @@ pub struct TextBox<T> {
     pub weight: cosmic_text::Weight,
     pub style: cosmic_text::Style,
     pub wrap: cosmic_text::Wrap,
+    pub align: Option<cosmic_text::Align>,
     pub slots: [Option<crate::Slot>; TextBoxEvent::SIZE],
 }
 
@@ -487,9 +508,12 @@ impl TextBoxState {
     fn redo(&mut self, font_system: &mut cosmic_text::FontSystem, buffer: &mut Buffer) -> usize {
         // Redo the current Edit event (or execute cursor events until we find one) then run all Cursor events after it until the next Edit event
         if self.undo_index < self.history.len() {
-            self.history[self.undo_index] =
-                self.editor
-                    .apply_change(font_system, buffer, &self.history[self.undo_index]);
+            self.history[self.undo_index] = self.editor.apply_change(
+                font_system,
+                buffer,
+                &self.history[self.undo_index],
+                self.align,
+            );
             self.undo_index + 1
         } else {
             self.undo_index
@@ -498,9 +522,12 @@ impl TextBoxState {
 
     fn undo(&mut self, font_system: &mut cosmic_text::FontSystem, buffer: &mut Buffer) -> usize {
         if self.undo_index > 0 {
-            self.history[self.undo_index - 1] =
-                self.editor
-                    .apply_change(font_system, buffer, &self.history[self.undo_index - 1]);
+            self.history[self.undo_index - 1] = self.editor.apply_change(
+                font_system,
+                buffer,
+                &self.history[self.undo_index - 1],
+                self.align,
+            );
             self.undo_index - 1
         } else {
             self.undo_index
@@ -525,6 +552,7 @@ impl<T: Prop + 'static> TextBox<T> {
         weight: cosmic_text::Weight,
         style: cosmic_text::Style,
         wrap: cosmic_text::Wrap,
+        align: Option<cosmic_text::Align>,
     ) -> Self {
         Self {
             id: id.clone(),
@@ -536,6 +564,7 @@ impl<T: Prop + 'static> TextBox<T> {
             weight,
             style,
             wrap,
+            align,
             slots: [None],
         }
     }
@@ -561,6 +590,7 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                 cursor_count: Default::default(),
                 focused: Default::default(),
                 props: self.props.clone(),
+                align: self.align,
             }),
             input_mask: RawEventKind::Focus as u64
                 | RawEventKind::Mouse as u64
@@ -593,6 +623,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
             manager.get_mut(&self.id).unwrap();
         let textstate = textstate.state.as_mut().unwrap();
         textstate.props = self.props.clone();
+        textstate.align = self.align;
 
         if self.props.textedit().obj.reflow.load(Ordering::Acquire) {
             let attrs = cosmic_text::Attrs::new()
@@ -605,6 +636,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
                 self.font_size,
                 self.line_height,
                 self.wrap,
+                self.align,
                 dpi,
                 attrs,
             );
@@ -633,6 +665,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
             id: Arc::downgrade(&self.id),
             renderable: Rc::new(instance),
             buffer: self.props.textedit().obj.buffer.clone(),
+            realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
         })
     }
 }

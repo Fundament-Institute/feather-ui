@@ -32,41 +32,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use window::WindowStateMachine;
 
-#[cfg(debug_assertions)]
-#[allow(clippy::mutable_key_type)]
-fn cycle_check(id: &Arc<SourceID>, set: &std::collections::HashSet<&Arc<SourceID>>) {
-    debug_assert!(!set.contains(id), "Cycle detected!");
-}
-
-fn set_child_parent(mut child: &Arc<SourceID>, id: Arc<SourceID>) -> Result<()> {
-    while let Some(parent) = child.parent.get() {
-        // If we're already in this child's inheritance stack, bail out
-        if Arc::ptr_eq(&id, parent) {
-            return Ok(());
-        }
-        child = parent;
-    }
-    child
-        .parent
-        .set(id.clone())
-        .map_err(|e| eyre::Report::msg(e.to_string()))
-}
-
-#[inline]
-#[allow(clippy::mutable_key_type)]
-fn set_children<T: StateMachineChild>(this: T) -> T {
-    let id = this.id();
-    #[cfg(debug_assertions)]
-    let parents = id.parents();
-    this.apply_children(&mut |x| {
-        #[cfg(debug_assertions)]
-        cycle_check(&x.id(), &parents);
-        set_child_parent(&x.id(), id.clone())
-    })
-    .expect("Parent set failed when it should never fail!");
-    this
-}
-
 pub trait StateMachineWrapper: Any {
     fn process(
         &mut self,
@@ -76,7 +41,7 @@ pub trait StateMachineWrapper: Any {
         area: PxRect,
         extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<SmallVec<[DispatchPair; 1]>>;
+    ) -> Result<(SmallVec<[DispatchPair; 1]>, bool)>;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
     fn input_mask(&self) -> u64;
     fn changed(&self) -> bool;
@@ -123,17 +88,20 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
         area: PxRect,
         extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<SmallVec<[DispatchPair; 1]>> {
+    ) -> Result<(SmallVec<[DispatchPair; 1]>, bool)> {
         if input.0 & self.input_mask == 0 {
             return Err(eyre::eyre!("Event handler doesn't handle this method"));
         }
-        let result = match self.state.take().unwrap().process(
-            State::Input::restore(input).unwrap(),
+
+        let processed = self.state.take().unwrap().process(
+            State::Input::restore(input)?,
             area,
             extent,
             dpi,
             driver,
-        ) {
+        );
+        let handled = processed.is_ok();
+        let result = match processed {
             Ok((s, r)) | Err((s, r)) => {
                 let s = Some(s);
                 self.changed |= self.state != s;
@@ -141,10 +109,10 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
                 r
             }
         };
-        Ok(result.into_iter().map(|x| x.extract()).collect())
+        Ok((result.into_iter().map(|x| x.extract()).collect(), handled))
     }
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
-        self.output.get(i).ok_or_eyre("index out of bounds")
+        self.output.get(i).ok_or(crate::Error::OutOfRange(i).into())
     }
     fn input_mask(&self) -> u64 {
         self.input_mask
@@ -174,7 +142,7 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
     }
 
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
-        self.output.get(i).ok_or_eyre("index out of bounds")
+        self.output.get(i).ok_or(crate::Error::OutOfRange(i).into())
     }
 
     fn input_masks(&self) -> SmallVec<[u64; 4]> {
@@ -334,28 +302,8 @@ impl Root {
     pub fn validate_ids(&self) -> eyre::Result<()> {
         struct Validator(std::collections::HashSet<Arc<SourceID>>);
         impl Validator {
-            fn f(
-                &mut self,
-                x: &dyn StateMachineChild,
-                parent: Option<&Arc<SourceID>>,
-            ) -> eyre::Result<()> {
+            fn f(&mut self, x: &dyn StateMachineChild) -> eyre::Result<()> {
                 let id = x.id();
-                let mut cur = Some(&id);
-                if let Some(parent_id) = parent {
-                    while let Some(cur_id) = cur {
-                        if cur_id == parent_id {
-                            break;
-                        }
-                        let c = cur_id.parent.get();
-                        cur = c;
-                    }
-                    if cur.is_none() {
-                        return Err(eyre::eyre!(
-                            "Invalid Parent ID found! All components must have an ID that is a direct or indirect child of their parent! {}",
-                            x.id()
-                        ));
-                    }
-                }
                 if !self.0.insert(id.clone()) {
                     return Err(eyre::eyre!(
                         "Duplicate ID found! Did you forget to add a child index to an ID? {}",
@@ -363,13 +311,13 @@ impl Root {
                     ));
                 }
 
-                x.apply_children(&mut |x| self.f(x, Some(&id)))
+                x.apply_children(&mut |x| self.f(x))
             }
         }
         let mut v = Validator(std::collections::HashSet::new());
         for (_, child) in &self.children {
             if let Some(window) = child {
-                v.f(window, None)?;
+                v.f(window)?;
             }
         }
 

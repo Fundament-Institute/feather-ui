@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use feather_ui::color::sRGB;
-use feather_ui::{AbsPoint, AbsVector, gen_id};
+use feather_ui::{AbsPoint, AbsVector, ScopeID, gen_id};
 
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
@@ -13,15 +13,15 @@ use feather_ui::component::window::Window;
 use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::input::MouseButton;
 use feather_ui::layout::{base, fixed, leaf};
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsRect, App, CrossReferenceDomain, DRect, DataID, FILL_DRECT, Slot, SourceID, WrapEventEx, im,
+    AbsRect, App, CrossReferenceDomain, DRect, FILL_DRECT, Slot, SourceID, WrapEventEx, im,
 };
 use std::collections::HashSet;
 use std::f32;
 use std::sync::Arc;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Default)]
 struct GraphState {
     nodes: Vec<AbsPoint>,
     edges: HashSet<(usize, usize)>,
@@ -48,41 +48,36 @@ impl leaf::Prop for MinimalArea {}
 
 const NODE_RADIUS: f32 = 25.0;
 
-impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersistStore for BasicApp {
     type Store = (GraphState, im::HashMap<Arc<SourceID>, Option<Window>>);
+}
 
+impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
-        (
-            GraphState {
-                nodes: Vec::new(),
-                edges: HashSet::new(),
-                offset: AbsVector::zero(),
-                selected: None,
-            },
-            im::HashMap::new(),
-        )
+        (Default::default(), im::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &GraphState,
+        args: GraphState,
+        mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0 != args {
             let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
             let domain: Arc<CrossReferenceDomain> = Default::default();
 
             let mut node_ids: Vec<Arc<SourceID>> = Vec::new();
 
-            for i in 0..args.nodes.len() {
+            for (i, id) in scope.iter(0..args.nodes.len()) {
                 let node = args.nodes[i];
                 const BASE: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
 
-                let point = DomainPoint::new(gen_id!(), domain.clone());
+                let point = DomainPoint::new(id, domain.clone());
                 node_ids.push(point.id.clone());
 
                 let circle = Shape::<DRect, { ShapeKind::Circle as u8 }>::new(
-                    gen_id!(),
-                    FILL_DRECT.into(),
+                    gen_id!(point.id),
+                    FILL_DRECT,
                     0.0,
                     0.0,
                     [0.0, 20.0],
@@ -95,7 +90,7 @@ impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for Basic
                 );
 
                 let bag = Region::<MinimalArea>::new(
-                    gen_id!(gen_id!(), i),
+                    gen_id!(point.id),
                     MinimalArea {
                         area: AbsRect::new(
                             node.x - NODE_RADIUS,
@@ -104,21 +99,16 @@ impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for Basic
                             node.y + NODE_RADIUS,
                         )
                         .into(),
-                    }
-                    .into(),
+                    },
                     feather_ui::children![fixed::Prop, point, circle],
                 );
 
                 children.push_back(Some(Box::new(bag)));
             }
 
-            let edge_id = gen_id!();
-
-            for (a, b) in &args.edges {
+            for ((a, b), id) in scope.iter(&args.edges) {
                 let line = DomainLine::<()> {
-                    id: edge_id
-                        .child(DataID::Int(*a as i64))
-                        .child(DataID::Int(*b as i64)),
+                    id,
                     fill: sRGB::white(),
                     domain: domain.clone(),
                     start: node_ids[*a].clone(),
@@ -130,7 +120,7 @@ impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for Basic
             }
 
             let subregion = Region::new(
-                gen_id!(),
+                gen_id!(scope),
                 MinimalArea {
                     area: AbsRect::new(
                         args.offset.x,
@@ -139,13 +129,12 @@ impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for Basic
                         args.offset.y + 10000.0,
                     )
                     .into(),
-                }
-                .into(),
+                },
                 children,
             );
 
             let mousearea: MouseArea<MinimalArea> = MouseArea::new(
-                gen_id!(),
+                gen_id!(scope),
                 MinimalArea { area: FILL_DRECT },
                 Some(4.0),
                 [
@@ -159,13 +148,13 @@ impl FnPersist<GraphState, im::HashMap<Arc<SourceID>, Option<Window>>> for Basic
             );
 
             let region = Region::new(
-                gen_id!(),
-                MinimalArea { area: FILL_DRECT }.into(),
+                gen_id!(scope),
+                MinimalArea { area: FILL_DRECT },
                 feather_ui::children![fixed::Prop, subregion, mousearea],
             );
 
             let window = Window::new(
-                gen_id!(),
+                gen_id!(scope),
                 feather_ui::winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
@@ -235,10 +224,7 @@ fn main() {
         .wrap(),
     );
 
-    let (mut app, event_loop): (
-        App<GraphState, BasicApp>,
-        feather_ui::winit::event_loop::EventLoop<()>,
-    ) = App::new(
+    let (mut app, event_loop, _, _) = App::<GraphState, BasicApp>::new::<()>(
         GraphState {
             nodes: vec![],
             edges: HashSet::new(),

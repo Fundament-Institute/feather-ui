@@ -16,6 +16,7 @@ pub struct Node<T> {
     pub props: Rc<T>,
     pub buffer: Rc<RefCell<cosmic_text::Buffer>>,
     pub renderable: Rc<dyn render::Renderable>,
+    pub realign: bool,
 }
 
 impl<T: leaf::Padded> Layout<T> for Node<T> {
@@ -60,7 +61,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
 
         let mut text_buffer = self.buffer.borrow_mut();
         let driver = window.driver.clone();
-        let dim = evaluated_area.dim() - allpadding;
+        let dim = evaluated_area.dim() - padding.topleft() - padding.bottomright();
         {
             let mut font_system = driver.font_system.write();
 
@@ -83,8 +84,11 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         if unsized_x || unsized_y {
             let mut h = 0.0;
             let mut w: f32 = 0.0;
+            let mut realign = self.realign;
             for run in text_buffer.layout_runs() {
                 w = w.max(run.line_w);
+                // If a line is RTL and we're unsized, we ALWAYS have to re-evaluate it!
+                realign = realign || run.rtl;
                 h += run.line_height;
             }
 
@@ -98,6 +102,13 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
             if unsized_y {
                 ltrb[3] = ltrb[1] + h + allpadding.height;
             }
+
+            // If we are centered or right aligned, we have to set the size again now that we know how big it really is.
+            // This is true even if all the text was originally marked as RTL - the layout will still be wrong because
+            // it didn't know how big the text would be.
+            if realign {
+                text_buffer.set_size(&mut driver.font_system.write(), Some(w), Some(h))
+            }
         };
 
         evaluated_area = crate::layout::apply_anchor(
@@ -106,6 +117,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
             self.props.anchor().resolve(window.dpi) * evaluated_area.dim(),
         );
 
+        super::assert_sized(evaluated_area);
         Box::new(crate::layout::Concrete::new(
             Some(self.renderable.clone()),
             evaluated_area,
