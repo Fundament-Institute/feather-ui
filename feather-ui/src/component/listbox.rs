@@ -21,14 +21,14 @@ pub struct ListBox<T: list::Prop + 'static> {
 impl<T: list::Prop + 'static> ListBox<T> {
     pub fn new(
         id: Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>>,
     ) -> Self {
-        super::set_children(Self {
+        Self {
             id,
-            props,
+            props: props.into(),
             children,
-        })
+        }
     }
 }
 
@@ -41,10 +41,10 @@ impl<T: list::Prop + 'static> super::Component for ListBox<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let mut map = VectorMap::new(
+        let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn list::Prop>>>| -> Option<Box<dyn Layout<<dyn list::Prop as Desc>::Child>>> {
                 Some(child.as_ref().unwrap().layout(manager, driver,window))
-            },
+            })
         );
 
         let (_, children) = map.call(Default::default(), &self.children);

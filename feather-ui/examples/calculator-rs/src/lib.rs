@@ -10,13 +10,13 @@ use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
 use feather_ui::component::{mouse_area, ChildOf};
 use feather_ui::layout::fixed;
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    gen_id, im, wide, AbsRect, App, DRect, RelRect, Slot, SourceID, WrapEventEx, FILL_DRECT,
+    gen_id, im, wide, AbsRect, App, DRect, RelRect, ScopeID, Slot, SourceID, WrapEventEx,
+    FILL_DRECT,
 };
 use std::any::{Any, TypeId};
 use std::f32;
-use std::rc::Rc;
 use std::sync::Arc;
 
 #[cfg(target_os = "windows")]
@@ -162,23 +162,26 @@ static BUTTONS: LazyLock<[(&str, BoxedAction, sRGB); 24]> = LazyLock::new(|| {
     ]
 });
 
-impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp {
+impl FnPersistStore for CalcApp {
     type Store = (CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>);
+}
 
+impl FnPersist2<CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp {
     fn init(&self) -> Self::Store {
         (CalcFFI(self.init_calc.clone()), im::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &CalcFFI,
+        args: CalcFFI,
+        mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
         let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
 
-        for (i, (txt, _, color)) in BUTTONS.iter().enumerate() {
+        for ((i, (txt, _, color)), id) in scope.iter(BUTTONS.iter().enumerate()) {
             let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-                gen_id!(),
+                gen_id!(id),
                 FILL_DRECT.into(),
                 0.0,
                 0.0,
@@ -188,7 +191,7 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
             );
 
             let text = Text::<DRect> {
-                id: gen_id!(),
+                id: gen_id!(id),
                 props: FILL_DRECT.into(),
                 text: txt.to_string(),
                 font_size: 40.0,
@@ -201,7 +204,7 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
             let (w, h) = (1.0 / ROW_COUNT as f32, 1.0 / 7.0);
 
             let btn = Button::<FixedData>::new(
-                gen_id!(gen_id!(), i),
+                gen_id!(id),
                 FixedData {
                     area: AbsRect::new(4.0, 4.0, -4.0, -4.0)
                         + RelRect::new(
@@ -221,7 +224,7 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
         }
 
         let display = Text::<DRect> {
-            id: gen_id!(),
+            id: gen_id!(scope),
             props: FILL_DRECT.into(),
             text: args.0.get().to_string(),
             font_size: 60.0,
@@ -230,8 +233,8 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
         };
 
         let text_bg = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
-            gen_id!(),
-            Rc::new(RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0).into()),
+            gen_id!(scope),
+            RelRect::new(0.0, 0.0, 1.0, 1.0 / 7.0).into(),
             0.0,
             0.0,
             wide::f32x4::splat(25.0),
@@ -243,7 +246,7 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
         children.push_back(Some(Box::new(display)));
 
         let region = Region::<FixedData>::new(
-            gen_id!(),
+            gen_id!(scope),
             FixedData {
                 area: FILL_DRECT,
                 ..Default::default()
@@ -254,7 +257,7 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
 
         #[cfg(target_os = "windows")]
         let window = Window::new(
-            gen_id!(),
+            gen_id!(scope),
             feather_ui::winit::window::Window::default_attributes()
                 .with_title(env!("CARGO_CRATE_NAME"))
                 .with_drag_and_drop(false)
@@ -263,7 +266,7 @@ impl FnPersist<CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp 
         );
         #[cfg(not(target_os = "windows"))]
         let window = Window::new(
-            gen_id!(),
+            gen_id!(scope),
             feather_ui::winit::window::Window::default_attributes()
                 .with_title(env!("CARGO_CRATE_NAME"))
                 .with_resizable(true),
@@ -298,10 +301,9 @@ pub fn register(calc: ::std::sync::Arc<dyn Calculator>) {
     }
 
     let init_calc = calc.copy();
-    let (mut app, event_loop): (
-        App<CalcFFI, CalcApp>,
-        feather_ui::winit::event_loop::EventLoop<()>,
-    ) = App::new(CalcFFI(calc), inputs, CalcApp { init_calc }, |_| ()).unwrap();
+    let (mut app, event_loop, _, _) =
+        App::<CalcFFI, CalcApp>::new::<()>(CalcFFI(calc), inputs, CalcApp { init_calc }, |_| ())
+            .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

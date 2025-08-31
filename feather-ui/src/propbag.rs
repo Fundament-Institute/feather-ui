@@ -17,15 +17,17 @@ impl PropBag {
     }
     fn get_value<T: Default + Copy + 'static>(&self, e: PropBagElement) -> T {
         if let Some(t) = self.props.get(&e) {
-            *t.downcast_ref::<T>().unwrap()
+            *t.downcast_ref::<T>()
+                .unwrap_or_else(|| panic!("{e} was wrong type in PropBag!"))
         } else {
             Default::default()
         }
     }
     fn set_value<T: Copy + 'static>(&mut self, e: PropBagElement, v: T) -> Option<T> {
-        self.props
-            .insert(e, Box::new(v))
-            .map(|x| *x.downcast().unwrap())
+        self.props.insert(e, Box::new(v)).map(|x| {
+            *x.downcast()
+                .unwrap_or_else(|_| panic!("{e} was wrong type in PropBag!"))
+        })
     }
 }
 
@@ -59,21 +61,8 @@ macro_rules! gen_prop_bag_base {
     };
 }
 
-macro_rules! gen_prop_bag_value_clone {
-    ($prop:path, $name:ident, $setter:ident, $t:ty, $default:expr) => {
-        impl $prop for PropBag {
-            fn $name(&self) -> $t {
-                if let Some(v) = self.props.get(&PropBagElement::$name) {
-                    (*v.downcast_ref::<$t>().expect(concat!(
-                        stringify!($name),
-                        " in PropBag was the wrong type!"
-                    )))
-                    .clone()
-                } else {
-                    $default
-                }
-            }
-        }
+macro_rules! gen_prop_bag_setter_clone {
+    ($name:ident, $setter:ident, $t:ty) => {
         impl PropBag {
             #[allow(dead_code)]
             pub fn $setter(&mut self, v: $t) -> Option<$t> {
@@ -89,6 +78,24 @@ macro_rules! gen_prop_bag_value_clone {
         }
     };
 }
+macro_rules! gen_prop_bag_value_clone {
+    ($prop:path, $name:ident, $setter:ident, $t:ty, $default:expr) => {
+        impl $prop for PropBag {
+            fn $name(&self) -> $t {
+                if let Some(v) = self.props.get(&PropBagElement::$name) {
+                    (*v.downcast_ref::<$t>().expect(concat!(
+                        stringify!($name),
+                        " in PropBag was the wrong type!"
+                    )))
+                    .clone()
+                } else {
+                    $default
+                }
+            }
+        }
+        gen_prop_bag_setter_clone!($name, $setter, $t);
+    };
+}
 
 macro_rules! gen_prop_bag_all {
   ($prop:path, $name:ident, $setter:ident, $ty:ty, $default:expr) => (gen_prop_bag_base!($prop, $name, $setter, $ty, $default););
@@ -100,7 +107,7 @@ macro_rules! gen_prop_bag_all {
 
 macro_rules! gen_prop_bag {
   ($($props:path, $names:ident, $setters:ident, $types:ty, $defaults:expr),+) => (
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, derive_more::Display)]
     #[allow(non_camel_case_types)]
     #[repr(u16)]
     pub enum PropBagElement {
@@ -108,6 +115,11 @@ macro_rules! gen_prop_bag {
       zindex,
       obstacles,
       direction,
+      rows,
+      columns,
+      spacing,
+      span,
+      coord,
       wrap,
       justify,
       align,
@@ -150,10 +162,27 @@ impl crate::layout::base::Obstacles for PropBag {
 }
 
 impl PropBag {
-    #[allow(dead_code)]
     pub fn set_obstacles(&mut self, v: &[crate::DAbsRect]) -> Option<Vec<crate::DAbsRect>> {
         self.props
-            .insert(PropBagElement::zindex, Box::new(v.to_vec()))
+            .insert(PropBagElement::obstacles, Box::new(v.to_vec()))
+            .map(move |x| {
+                *x.downcast()
+                    .expect("obstacles in PropBag was the wrong type!")
+            })
+    }
+
+    pub fn set_rows(&mut self, v: &[crate::DValue]) -> Option<Vec<crate::DValue>> {
+        self.props
+            .insert(PropBagElement::rows, Box::new(v.to_vec()))
+            .map(move |x| {
+                *x.downcast()
+                    .expect("obstacles in PropBag was the wrong type!")
+            })
+    }
+
+    pub fn set_columns(&mut self, v: &[crate::DValue]) -> Option<Vec<crate::DValue>> {
+        self.props
+            .insert(PropBagElement::columns, Box::new(v.to_vec()))
             .map(move |x| {
                 *x.downcast()
                     .expect("obstacles in PropBag was the wrong type!")
@@ -169,7 +198,8 @@ gen_prop_bag!(
   crate::layout::base::Limits, limits, set_limits, crate::DLimits, &crate::DEFAULT_DLIMITS,
   crate::layout::base::RLimits, rlimits, set_rlimits, crate::RelLimits, &crate::DEFAULT_RLIMITS,
   crate::layout::base::Anchor, anchor, set_anchor, crate::DPoint, &crate::ZERO_DPOINT,
-  crate::layout::root::Prop, dim, set_dim, crate::PxDim, panic!("No dim set and no default available!")
+  crate::layout::root::Prop, dim, set_dim, crate::PxDim, panic!("No dim set and no default available!"),
+  crate::layout::base::TextEdit, textedit, set_textedit, crate::text::EditView, panic!("No textedit set and no default available!")
 );
 
 impl crate::layout::base::Empty for PropBag {}
@@ -179,6 +209,7 @@ impl crate::layout::fixed::Child for PropBag {}
 impl crate::layout::list::Child for PropBag {}
 impl crate::layout::list::Prop for PropBag {}
 impl crate::layout::leaf::Padded for PropBag {}
+impl crate::component::textbox::Prop for PropBag {}
 
 impl crate::layout::flex::Prop for PropBag {
     fn wrap(&self) -> bool {
@@ -194,6 +225,10 @@ impl crate::layout::flex::Prop for PropBag {
     }
 }
 
+gen_prop_bag_setter_clone!(wrap, set_wrap, bool);
+gen_prop_bag_setter_clone!(justify, set_justify, crate::layout::flex::FlexJustify);
+gen_prop_bag_setter_clone!(align, set_align, crate::layout::flex::FlexJustify);
+
 impl crate::layout::flex::Child for PropBag {
     fn grow(&self) -> f32 {
         self.get_value(PropBagElement::grow)
@@ -205,5 +240,56 @@ impl crate::layout::flex::Child for PropBag {
 
     fn basis(&self) -> crate::DValue {
         self.get_value(PropBagElement::basis)
+    }
+}
+
+gen_prop_bag_setter_clone!(grow, set_grow, f32);
+gen_prop_bag_setter_clone!(shrink, set_shrink, f32);
+gen_prop_bag_setter_clone!(basis, set_basis, crate::DValue);
+
+gen_prop_bag_setter_clone!(coord, set_coord, (usize, usize));
+gen_prop_bag_setter_clone!(span, set_span, (usize, usize));
+
+impl crate::layout::grid::Child for PropBag {
+    fn coord(&self) -> (usize, usize) {
+        if let Some(t) = self.props.get(&PropBagElement::coord) {
+            *t.downcast_ref().expect("coord was wrong type in PropBag!")
+        } else {
+            panic!("No 'coord' found in propbag, and no default value available!")
+        }
+    }
+
+    fn span(&self) -> (usize, usize) {
+        if let Some(t) = self.props.get(&PropBagElement::span) {
+            *t.downcast_ref().expect("span was wrong type in PropBag!")
+        } else {
+            (1, 1)
+        }
+    }
+}
+
+gen_prop_bag_setter_clone!(spacing, set_spacing, crate::DPoint);
+
+impl crate::layout::grid::Prop for PropBag {
+    fn rows(&self) -> &[crate::DValue] {
+        // We have to be careful here because the actual stored type is a Vec<>, not a slice.
+        self.props
+            .get(&PropBagElement::rows)
+            .expect("PropBag didn't have rows")
+            .downcast_ref::<Vec<crate::DValue>>()
+            .expect("rows in PropBag was the wrong type!")
+    }
+
+    fn columns(&self) -> &[crate::DValue] {
+        // We have to be careful here because the actual stored type is a Vec<>, not a slice.
+        self.props
+            .get(&PropBagElement::columns)
+            .expect("PropBag didn't have columns")
+            .downcast_ref::<Vec<crate::DValue>>()
+            .expect("columns in PropBag was the wrong type!")
+    }
+
+    fn spacing(&self) -> crate::DPoint {
+        self.get_value(PropBagElement::spacing)
     }
 }

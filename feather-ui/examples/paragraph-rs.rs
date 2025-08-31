@@ -3,14 +3,14 @@
 
 use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, flex, leaf};
-use feather_ui::{DAbsRect, DValue, gen_id};
+use feather_ui::{DAbsRect, DValue, ScopeID, gen_id};
 
 use feather_ui::component::paragraph::Paragraph;
 use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
 use feather_ui::layout::base;
-use feather_ui::persist::FnPersist;
+use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{AbsRect, App, DRect, FILL_DRECT, RelRect, SourceID, cosmic_text};
 use std::f32;
 use std::sync::Arc;
@@ -91,9 +91,10 @@ impl flex::Prop for MinimalFlex {
     }
 }
 
-impl FnPersist<Blocker, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersistStore for BasicApp {
     type Store = (Blocker, im::HashMap<Arc<SourceID>, Option<Window>>);
-
+}
+impl FnPersist2<Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
         (
             Blocker {
@@ -105,16 +106,16 @@ impl FnPersist<Blocker, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: &Blocker,
+        args: Blocker,
+        mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != *args {
+        if store.0 != args {
             let flex = {
                 let rect = Shape::<MinimalFlexChild, { ShapeKind::RoundRect as u8 }>::new(
-                    gen_id!(),
+                    gen_id!(scope),
                     MinimalFlexChild {
                         area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
-                    }
-                    .into(),
+                    },
                     0.0,
                     0.0,
                     wide::f32x4::splat(10.0),
@@ -123,7 +124,7 @@ impl FnPersist<Blocker, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp
                 );
 
                 let mut p = Paragraph::new(
-                    gen_id!(),
+                    gen_id!(scope),
                     MinimalFlex {
                         area: FILL_DRECT,
                         obstacles: vec![AbsRect::new(200.0, 30.0, 300.0, 150.0).into()],
@@ -149,16 +150,15 @@ impl FnPersist<Blocker, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp
             };
 
             let region = Region::new(
-                gen_id!(),
+                gen_id!(scope),
                 MinimalArea {
                     area: AbsRect::new(90.0, 90.0, -90.0, -90.0) + RelRect::new(0.0, 0.0, 1.0, 1.0),
-                }
-                .into(),
+                },
                 feather_ui::children![fixed::Prop, flex],
             );
 
             let window = Window::new(
-                gen_id!(),
+                gen_id!(scope),
                 winit::window::Window::default_attributes()
                     .with_title(env!("CARGO_CRATE_NAME"))
                     .with_resizable(true),
@@ -175,16 +175,15 @@ impl FnPersist<Blocker, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp
 }
 
 fn main() {
-    let (mut app, event_loop): (App<Blocker, BasicApp>, winit::event_loop::EventLoop<()>) =
-        App::new(
-            Blocker {
-                area: AbsRect::new(-1.0, -1.0, -1.0, -1.0),
-            },
-            vec![],
-            BasicApp {},
-            |_| (),
-        )
-        .unwrap();
+    let (mut app, event_loop, _, _) = App::<Blocker, BasicApp>::new::<()>(
+        Blocker {
+            area: AbsRect::new(-1.0, -1.0, -1.0, -1.0),
+        },
+        vec![],
+        BasicApp {},
+        |_| (),
+    )
+    .unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

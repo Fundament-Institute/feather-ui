@@ -21,14 +21,14 @@ pub struct GridBox<T> {
 impl<T: grid::Prop + 'static> GridBox<T> {
     pub fn new(
         id: Arc<SourceID>,
-        props: Rc<T>,
+        props: T,
         children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>>,
     ) -> Self {
-        super::set_children(Self {
+        Self {
             id,
-            props,
+            props: props.into(),
             children,
-        })
+        }
     }
 }
 
@@ -41,10 +41,10 @@ impl<T: grid::Prop + 'static> super::Component for GridBox<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let mut map = VectorMap::new(
+        let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn grid::Prop>>>| -> Option<Box<dyn Layout<<dyn grid::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(manager, driver,window))
-            },
+                Some(child.as_ref()?.layout(manager, driver,window))
+            })
         );
 
         let (_, children) = map.call(Default::default(), &self.children);
