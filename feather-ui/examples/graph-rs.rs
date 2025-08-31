@@ -77,7 +77,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
 
                 let circle = Shape::<DRect, { ShapeKind::Circle as u8 }>::new(
                     gen_id!(point.id),
-                    FILL_DRECT.into(),
+                    FILL_DRECT,
                     0.0,
                     0.0,
                     [0.0, 20.0],
@@ -99,8 +99,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
                             node.y + NODE_RADIUS,
                         )
                         .into(),
-                    }
-                    .into(),
+                    },
                     feather_ui::children![fixed::Prop, point, circle],
                 );
 

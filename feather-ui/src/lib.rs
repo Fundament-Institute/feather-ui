@@ -1556,7 +1556,7 @@ where
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let x = self.it.next()?;
-        let id = self.base.next();
+        let id = self.base.create();
         Some((x, id))
     }
 
@@ -1606,7 +1606,7 @@ impl<'a> ScopeID<'a> {
     }
 
     /// Creates a new unique SourceID using an internal counter with this scope as it's parent.
-    pub fn next(&mut self) -> Arc<SourceID> {
+    pub fn create(&mut self) -> Arc<SourceID> {
         let node = self.base.child(crate::DataID::Int(self.count));
         self.count += 1;
         node
@@ -1615,7 +1615,7 @@ impl<'a> ScopeID<'a> {
     /// Creates a new scoped ID with this scope as it's parent that can then be passed into a function.
     pub fn scope(&mut self) -> ScopeID<'_> {
         ScopeID {
-            base: self.next(),
+            base: self.create(),
             _parent: PhantomData,
             count: 0,
         }
@@ -1638,7 +1638,7 @@ impl<'a> ScopeID<'a> {
         tvalue: impl FnOnce(ScopeID<'_>) -> R,
         fvalue: impl FnOnce(ScopeID<'_>) -> R,
     ) -> R {
-        let (id_true, id_false) = (self.next(), self.next());
+        let (id_true, id_false) = (self.create(), self.create());
 
         if condition {
             tvalue(ScopeID {
@@ -1857,7 +1857,6 @@ impl StateManager {
         }
     }
 
-    #[must_use]
     pub fn process(
         &mut self,
         event: DispatchPair,
@@ -1878,7 +1877,7 @@ impl StateManager {
                 self.changed = true;
                 self.propagate_change(&slot.0);
             }
-            if v.len() == 0 {
+            if v.is_empty() {
                 handled |= handle;
             }
             let state = self.states.get(&slot.0).ok_or(Error::InternalFailure)?;
@@ -1921,6 +1920,7 @@ pub const APP_SOURCE_ID: SourceID = SourceID {
 };
 
 type OutlineReturn = im::HashMap<Arc<SourceID>, Option<Window>>;
+pub type EventPair<AppData> = (u64, AppEvent<AppData>);
 
 pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>> {
     pub instance: wgpu::Instance,
@@ -1932,7 +1932,7 @@ pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
     root: component::Root, // Root component node containing all windows
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
     _phantom: PhantomData<AppData>,
-    handle_sync: mpsc::Receiver<(u64, AppEvent<AppData>)>,
+    handle_sync: mpsc::Receiver<EventPair<AppData>>,
 }
 
 pub struct AppDataMachine<AppData> {
@@ -1992,6 +1992,7 @@ use winit::platform::x11::EventLoopBuilderExtX11;
 impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
     App<AppData, O>
 {
+    #[allow(clippy::type_complexity)]
     pub fn new<T: 'static>(
         app_state: AppData,
         inputs: Vec<AppEvent<AppData>>,
@@ -2000,7 +2001,7 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
     ) -> eyre::Result<(
         Self,
         EventLoop<T>,
-        mpsc::Sender<(u64, AppEvent<AppData>)>,
+        mpsc::Sender<EventPair<AppData>>,
         AtomicU64,
     )> {
         #[cfg(test)]
@@ -2011,6 +2012,7 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
         Self::new_any_thread(app_state, inputs, outline, any_thread, driver_init)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn new_any_thread<T: 'static>(
         app_state: AppData,
         inputs: Vec<AppEvent<AppData>>,
@@ -2020,7 +2022,7 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
     ) -> eyre::Result<(
         Self,
         EventLoop<T>,
-        mpsc::Sender<(u64, AppEvent<AppData>)>,
+        mpsc::Sender<EventPair<AppData>>,
         AtomicU64,
     )> {
         let count = AtomicU64::new(inputs.len() as u64);
@@ -2405,8 +2407,8 @@ impl FnPersist2<u8, ScopeID<'static>, OutlineReturn> for TestApp {
 
 #[test]
 fn test_basic() {
-    let (mut app, event_loop): (App<u8, TestApp>, EventLoop<()>) =
-        App::new(0u8, vec![], TestApp {}, |_| ()).unwrap();
+    let (mut app, event_loop, _, _) =
+        App::<u8, TestApp>::new::<()>(0u8, vec![], TestApp {}, |_| ()).unwrap();
 
     let proxy = event_loop.create_proxy();
     proxy.send_event(()).unwrap();

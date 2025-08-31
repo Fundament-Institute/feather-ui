@@ -115,8 +115,7 @@ impl FnPersist2<Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
                     gen_id!(scope),
                     MinimalFlexChild {
                         area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
-                    }
-                    .into(),
+                    },
                     0.0,
                     0.0,
                     wide::f32x4::splat(10.0),

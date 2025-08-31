@@ -155,7 +155,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
 
                 let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!(scope),
-                    feather_ui::FILL_DRECT.into(),
+                    feather_ui::FILL_DRECT,
                     0.0,
                     0.0,
                     wide::f32x4::splat(10.0),
@@ -190,8 +190,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                         ListChild {
                             area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
                             margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
-                        }
-                        .into(),
+                        },
                         0.0,
                         0.0,
                         wide::f32x4::splat(8.0),
@@ -213,8 +212,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
 
                         rlimits: feather_ui::RelLimits::new(0.0..1.0, 0.0..),
                         direction: feather_ui::RowDirection::BottomToTop,
-                    }
-                    .into(),
+                    },
                     children,
                 )
             };
@@ -234,8 +232,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                             basis: 40.0.into(),
                             grow: 0.0,
                             shrink: 0.0,
-                        }
-                        .into(),
+                        },
                         0.0,
                         0.0,
                         wide::f32x4::splat(8.0),
@@ -260,8 +257,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                             basis: 40.0.into(),
                             grow: 0.0,
                             shrink: 0.0,
-                        }
-                        .into(),
+                        },
                         feather_ui::children![fixed::Prop, rect],
                     );
 
@@ -272,10 +268,8 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     gen_id!(scope),
                     MinimalFlex {
                         area: (AbsRect::new(40.0, 40.0, 0.0, 200.0)
-                            + RelRect::new(0.0, 0.0, 1.0, 0.0))
-                        .into(),
-                    }
-                    .into(),
+                            + RelRect::new(0.0, 0.0, 1.0, 0.0)),
+                    },
                     children,
                 )
             };
