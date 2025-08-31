@@ -277,9 +277,9 @@ impl<U> LuaPoint<U> {
     }
 }
 
-impl<U> Into<Point2D<f32, U>> for LuaPoint<U> {
-    fn into(self) -> Point2D<f32, U> {
-        self.0
+impl<U> From<LuaPoint<U>> for Point2D<f32, U> {
+    fn from(val: LuaPoint<U>) -> Self {
+        val.0
     }
 }
 
@@ -779,7 +779,7 @@ impl FromLua for LuaDualPoint {
             } else if t.contains_key("px")? && !t.contains_key("dp")? {
                 Ok(LuaDualPoint::Px(Point2D::<f32, Pixel>::splat(t.get("px")?)))
             } else {
-                return Err(LuaError::RuntimeError("This property only accepts a point that is either abs or px, not relative or a combination.".to_string()));
+                Err(LuaError::RuntimeError("This property only accepts a point that is either abs or px, not relative or a combination.".to_string()))
             }
         } else if t.contains_key("dp")? && !t.contains_key("px")? {
             Ok(LuaDualPoint::Dp(t.get::<LuaPoint<Logical>>("dp")?.0))
@@ -796,7 +796,7 @@ impl FromLua for LuaDualPoint {
                 t.get("y")?,
             )))
         } else {
-            return Err(LuaError::RuntimeError("This property only accepts a point that is either abs or px, not relative or a combination.".to_string()));
+            Err(LuaError::RuntimeError("This property only accepts a point that is either abs or px, not relative or a combination.".to_string()))
         }
     }
 }
@@ -980,6 +980,7 @@ where
     Ok(())
 }
 
+#[allow(clippy::type_complexity)]
 fn prop_children<D: crate::layout::Desc + ?Sized>(
     t: &LuaTable,
 ) -> LuaResult<(im::Vector<Option<Box<ChildOf<D>>>>, PropBag)>
@@ -1000,8 +1001,8 @@ where
 fn check_args(name: &str, t: LuaTable, v: HashSet<&'static str>) -> LuaResult<()> {
     for pair in t.pairs() {
         let (k, _): (LuaValue, LuaValue) = pair?;
-        if !k.as_integer().is_some()
-            && !k.as_number().is_some()
+        if k.as_integer().is_none()
+            && k.as_number().is_none()
             && let Some(s) = k.as_string()
         {
             let str = s.to_string_lossy();
@@ -1026,10 +1027,7 @@ fn create_button(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Comp
     check_args("button", body, args)?;
 
     let res: LuaResult<ComponentBag> = Ok(Box::new(Button::<PropBag>::new(
-        id.0,
-        bag.into(),
-        onclick,
-        children,
+        id.0, bag, onclick, children,
     )));
     res
 }
@@ -1061,7 +1059,7 @@ fn create_domain_point(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResul
     let args = HashSet::from_iter(["props"]);
     check_args("domain-point", body, args)?;
 
-    let res: LuaResult<ComponentBag> = Ok(Box::new(DomainPoint::<PropBag>::new(id.0, bag.into())));
+    let res: LuaResult<ComponentBag> = Ok(Box::new(DomainPoint::<PropBag>::new(id.0, bag)));
     res
 }
 
@@ -1070,11 +1068,7 @@ fn create_flexbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Com
     let args = HashSet::from_iter(["props"]);
     check_args("flexbox", body, args)?;
 
-    let res: LuaResult<ComponentBag> = Ok(Box::new(FlexBox::<PropBag>::new(
-        id.0,
-        bag.into(),
-        children,
-    )));
+    let res: LuaResult<ComponentBag> = Ok(Box::new(FlexBox::<PropBag>::new(id.0, bag, children)));
     res
 }
 
@@ -1083,11 +1077,7 @@ fn create_gridbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Com
     let args = HashSet::from_iter(["props"]);
     check_args("gridbox", body, args)?;
 
-    let res: LuaResult<ComponentBag> = Ok(Box::new(GridBox::<PropBag>::new(
-        id.0,
-        bag.into(),
-        children,
-    )));
+    let res: LuaResult<ComponentBag> = Ok(Box::new(GridBox::<PropBag>::new(id.0, bag, children)));
     res
 }
 
@@ -1103,11 +1093,7 @@ fn create_image(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compo
     let location = std::path::PathBuf::from(resource);
 
     let res: LuaResult<ComponentBag> = Ok(Box::new(Image::<PropBag>::new(
-        id.0,
-        bag.into(),
-        &location,
-        size,
-        dynamic,
+        id.0, bag, &location, size, dynamic,
     )));
     res
 }
@@ -1136,11 +1122,7 @@ fn create_listbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Com
     let args = HashSet::from_iter(["props"]);
     check_args("listbox", body, args)?;
 
-    let res: LuaResult<ComponentBag> = Ok(Box::new(ListBox::<PropBag>::new(
-        id.0,
-        bag.into(),
-        children,
-    )));
+    let res: LuaResult<ComponentBag> = Ok(Box::new(ListBox::<PropBag>::new(id.0, bag, children)));
     res
 }
 
@@ -1156,7 +1138,7 @@ fn create_mousearea(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<C
 
     let res: LuaResult<ComponentBag> = Ok(Box::new(MouseArea::<PropBag>::new(
         id.0,
-        bag.into(),
+        bag,
         Some(deadzone),
         [onclick, ondblclick, ondrag, None, None, None],
     )));
@@ -1173,13 +1155,13 @@ fn create_region(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Comp
     Ok(Box::new(if color.is_some() || rotation.is_some() {
         Region::<PropBag>::new_layer(
             id.0,
-            bag.into(),
+            bag,
             color.unwrap_or(sRGB::white()).as_32bit(),
             rotation.unwrap_or_default(),
             children,
         )
     } else {
-        Region::<PropBag>::new(id.0, bag.into(), children)
+        Region::<PropBag>::new(id.0, bag, children)
     }))
 }
 
@@ -1194,7 +1176,7 @@ fn create_scrollarea(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<
 
     let res: LuaResult<ComponentBag> = Ok(Box::new(ScrollArea::<PropBag>::new(
         id.0,
-        bag.into(),
+        bag,
         (stepx, stepy),
         extension,
         children,
@@ -1216,7 +1198,7 @@ fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResul
 
     Ok(Box::new(shape::round_rect(
         id.0,
-        bag.into(),
+        bag,
         border,
         blur,
         wide::f32x4::new(corners),
@@ -1239,7 +1221,7 @@ fn create_arc(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compo
 
     Ok(Box::new(shape::arcs(
         id.0,
-        bag.into(),
+        bag,
         border,
         blur,
         inner_radius,
@@ -1262,14 +1244,7 @@ fn create_triangle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<
     check_args("triangle", body, args)?;
 
     Ok(Box::new(shape::triangle(
-        id.0,
-        bag.into(),
-        border,
-        blur,
-        corners,
-        offset,
-        fill,
-        outline,
+        id.0, bag, border, blur, corners, offset, fill, outline,
     )))
 }
 
@@ -1285,13 +1260,7 @@ fn create_circle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Co
     check_args("circle", body, args)?;
 
     Ok(Box::new(shape::circle(
-        id.0,
-        bag.into(),
-        border,
-        blur,
-        radii,
-        fill,
-        outline,
+        id.0, bag, border, blur, radii, fill, outline,
     )))
 }
 
@@ -1368,7 +1337,7 @@ fn create_text(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compon
 
     Ok(Box::new(Text::<PropBag>::new(
         id.0,
-        bag.into(),
+        bag,
         font_size,
         line_height,
         text,
@@ -1406,7 +1375,7 @@ fn create_textbox(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Com
 
     Ok(Box::new(TextBox::<PropBag>::new(
         id.0,
-        bag.into(),
+        bag,
         font_size,
         line_height,
         font.0,
@@ -1719,7 +1688,7 @@ end
         Ok(index)
     }
 
-    fn load_layout<'a, R: FromLuaMulti>(&self, lua: &Lua, layout: &[u8]) -> LuaResult<R> {
+    fn load_layout<R: FromLuaMulti>(&self, lua: &Lua, layout: &[u8]) -> LuaResult<R> {
         let interface = lua.create_table()?;
         interface.set("handlers", self.handler_slots.clone())?;
         interface.set("f", self.feather.clone())?;
@@ -1729,7 +1698,7 @@ end
             .call((lua.create_string(layout)?, "layout", interface))
     }
 
-    pub fn load_fragment<'a>(&self, lua: &Lua, layout: &[u8]) -> LuaResult<LuaFragment> {
+    pub fn load_fragment(&self, lua: &Lua, layout: &[u8]) -> LuaResult<LuaFragment> {
         Ok(LuaFragment {
             layout: self.load_layout(lua, layout)?,
             id_enter: self.id_enter.clone(),
@@ -1779,7 +1748,7 @@ end
     pub fn update_handler<AppData: FromLua + IntoLua + 'static>(
         &self,
         lua: &Lua,
-        sender: std::sync::mpsc::Sender<(u64, crate::AppEvent<AppData>)>,
+        sender: std::sync::mpsc::Sender<crate::EventPair<AppData>>,
         count: AtomicU64,
     ) -> LuaResult<()> {
         let slot_clone = self.handler_slots.clone();
