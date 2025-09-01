@@ -5,7 +5,7 @@ use crate::color::sRGB;
 use crate::component::{EventRouter, StateMachine};
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
-use crate::{SourceID, WindowStateMachine, graphics};
+use crate::{SourceID, graphics};
 use cosmic_text::{LineIter, Metrics};
 use derive_where::derive_where;
 use std::cell::RefCell;
@@ -87,14 +87,14 @@ impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
         _: &std::sync::Weak<graphics::Driver>,
     ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         let statemachine: StateMachine<TextState, 0> = StateMachine {
-            state: Some(TextState {
+            state: TextState {
                 buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics::new(
                     point_to_pixel(self.font_size, 1.0),
                     point_to_pixel(self.line_height, 1.0),
                 )))),
                 text: String::new(),
                 align: None,
-            }),
+            },
             input_mask: 0,
             output: [],
             changed: true,
@@ -149,9 +149,10 @@ where
         driver: &graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &WindowStateMachine = manager.get(window).unwrap();
-        let winstate = winstate.state.as_ref().expect("No window state available");
-        let dpi = winstate.dpi;
+        let dpi = manager
+            .get::<super::window::WindowStateMachine>(window)
+            .map(|x| x.state.dpi)
+            .unwrap_or(crate::BASE_DPI);
         let mut font_system = driver.font_system.write();
 
         let metrics = cosmic_text::Metrics::new(
@@ -160,7 +161,7 @@ where
         );
 
         let textstate: &mut StateMachine<TextState, 0> = manager.get_mut(&self.id).unwrap();
-        let textstate = textstate.state.as_mut().expect("No text state available");
+        let textstate = &mut textstate.state;
         textstate
             .buffer
             .borrow_mut()

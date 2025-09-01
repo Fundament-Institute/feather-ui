@@ -8,8 +8,8 @@ use crate::layout::root;
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
 use crate::{
-    PxDim, PxPoint, PxVector, RelDim, RelVector, SourceID, StateMachineChild, StateManager,
-    graphics, layout, rtree,
+    InputResult, PxDim, PxPoint, PxVector, RelDim, RelVector, SourceID, StateMachineChild,
+    StateManager, graphics, layout, rtree,
 };
 use alloc::sync::Arc;
 use core::f32;
@@ -217,12 +217,7 @@ impl Component for Window {
     ) -> Box<dyn crate::layout::Layout<PxDim>> {
         use crate::Convert;
 
-        let inner = manager
-            .get::<WindowStateMachine>(&self.id)
-            .unwrap()
-            .state
-            .as_ref()
-            .unwrap();
+        let inner = &manager.get::<WindowStateMachine>(&self.id).unwrap().state;
         let size = inner.window.inner_size();
         let driver = inner.driver.clone();
         Box::new(layout::Node::<PxDim, dyn root::Prop> {
@@ -320,7 +315,7 @@ impl Window {
             manager.init(
                 self.id.clone(),
                 Box::new(StateMachine::<WindowState, 0> {
-                    state: Some(windowstate),
+                    state: windowstate,
                     output: [],
                     input_mask: 0,
                     changed: false,
@@ -357,18 +352,21 @@ impl Window {
         event: WindowEvent,
         manager: &mut StateManager,
         driver: std::sync::Weak<graphics::Driver>,
-    ) -> Result<(), ()> {
+    ) -> InputResult<()> {
         use crate::Convert;
 
-        let state: &mut WindowStateMachine = manager.get_mut(&id).map_err(|_| ())?;
-        let window = state.state.as_mut().unwrap();
+        let state = match manager.get_mut::<WindowStateMachine>(&id) {
+            Ok(s) => s,
+            Err(e) => return InputResult::Error(e),
+        };
+        let window = &mut state.state;
         let dpi = window.dpi;
         let inner = window.window.clone();
         match event {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 window.dpi = RelDim::splat(scale_factor as f32);
                 window.window.request_redraw();
-                Ok(())
+                InputResult::Consume(())
             }
             WindowEvent::ModifiersChanged(m) => {
                 window.modifiers = if m.state().control_key() {
@@ -388,7 +386,7 @@ impl Window {
                 } else {
                     0
                 };
-                Ok(())
+                InputResult::Consume(())
             }
             WindowEvent::Resized(new_size) => {
                 // Resize events can sometimes give empty sizes if the window is minimized
@@ -397,11 +395,11 @@ impl Window {
                 }
                 // On macos the window needs to be redrawn manually after resizing
                 window.window.request_redraw();
-                Ok(())
+                InputResult::Consume(())
             }
             WindowEvent::CloseRequested => {
-                // If this returns Some(data), the close request will be ignored
-                Err(())
+                // If this returns Reject(data), the close request will be ignored
+                InputResult::Consume(())
             }
             WindowEvent::RedrawRequested => {
                 panic!("Don't process this with on_window_event");
@@ -428,7 +426,7 @@ impl Window {
                         manager,
                     );
                 }
-                Ok(())
+                InputResult::Consume(())
             }
             _ => {
                 let e = match event {
@@ -580,7 +578,7 @@ impl Window {
                             None => 0.0,
                         },
                     },
-                    _ => return Err(()),
+                    _ => return InputResult::Forward(()),
                 };
 
                 match e {
@@ -592,8 +590,8 @@ impl Window {
                     _ => (),
                 }
                 let r = match e {
-                    RawEvent::Drag => Err(()),
-                    RawEvent::Focus { .. } => Err(()),
+                    RawEvent::Drag => InputResult::Forward(()),
+                    RawEvent::Focus { .. } => InputResult::Forward(()),
                     RawEvent::JoyAxis { device_id: _, .. }
                     | RawEvent::JoyButton { device_id: _, .. }
                     | RawEvent::JoyOrientation { device_id: _, .. }
@@ -616,13 +614,13 @@ impl Window {
                                         &driver,
                                         manager,
                                     )
-                                    .is_ok()
+                                    .is_accept()
                                 })
                                 .unwrap_or(false)
                         }) {
-                            Ok(())
+                            InputResult::Consume(())
                         } else {
-                            Err(())
+                            InputResult::Forward(())
                         }
                     }
                     RawEvent::MouseOff { .. } => {
@@ -658,7 +656,7 @@ impl Window {
                             );
                         }
 
-                        Ok(())
+                        InputResult::Consume(())
                     }
                     RawEvent::Mouse {
                         device_id,
@@ -706,8 +704,7 @@ impl Window {
                                     &driver,
                                     manager,
                                 )
-                                .map(|_| ())
-                                .map_err(|_| ());
+                                .map(|_| ());
                         }
 
                         if let Some(rt) = rtree.upgrade() {
@@ -722,7 +719,7 @@ impl Window {
                                 id.clone(),
                             )
                         } else {
-                            Err(())
+                            InputResult::Forward(())
                         }
                     }
                 };
@@ -737,9 +734,10 @@ impl Window {
                             ..
                         } => {
                             // We reborrow everything here or rust gets upset
-                            let state: &mut WindowStateMachine =
-                                manager.get_mut(&id).map_err(|_| ())?;
-                            let window = state.state.as_mut().unwrap();
+                            let state = match manager.get_mut::<WindowStateMachine>(&id) {
+                                Ok(s) => s,
+                                Err(e) => return InputResult::Error(e),
+                            };
                             let evt = RawEvent::MouseOff {
                                 device_id,
                                 modifiers,
@@ -748,7 +746,7 @@ impl Window {
 
                             // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
                             let nodes: SmallVec<[Weak<Node>; 4]> =
-                                window.drain(WindowNodeTrack::Hover);
+                                state.state.drain(WindowNodeTrack::Hover);
 
                             for node in nodes.iter().filter_map(|x| x.upgrade()) {
                                 let _ = node.inject_event(
@@ -779,17 +777,18 @@ impl Window {
                             ..
                         } => {
                             // We reborrow everything here or rust gets upset
-                            let state: &mut WindowStateMachine =
-                                manager.get_mut(&id).map_err(|_| ())?;
-                            let window = state.state.as_mut().unwrap();
+                            let state = match manager.get_mut::<WindowStateMachine>(&id) {
+                                Ok(s) => s,
+                                Err(e) => return InputResult::Error(e),
+                            };
                             let evt = RawEvent::Focus {
                                 acquired: false,
-                                window: window.window.clone(),
+                                window: state.state.window.clone(),
                             };
 
                             // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
                             let nodes: SmallVec<[Weak<Node>; 4]> =
-                                window.drain(WindowNodeTrack::Focus);
+                                state.state.drain(WindowNodeTrack::Focus);
 
                             for node in nodes.iter().filter_map(|x| x.upgrade()) {
                                 let _ = node.inject_event(

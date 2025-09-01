@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use feather_ui::color::sRGB;
-use feather_ui::{AbsPoint, AbsVector, ScopeID, gen_id};
+use feather_ui::{AbsPoint, AbsVector, InputResult, ScopeID, gen_id};
 
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
@@ -173,8 +173,8 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
 fn main() {
     let handle_input = Box::new(
         |e: mouse_area::MouseAreaEvent,
-         mut appdata: GraphState|
-         -> Result<GraphState, GraphState> {
+         mut appdata: feather_ui::AccessCell<GraphState>|
+         -> InputResult<()> {
             match e {
                 mouse_area::MouseAreaEvent::OnClick(MouseButton::Left, pos) => {
                     if let Some(selected) = appdata.selected {
@@ -199,26 +199,28 @@ fn main() {
                             let diff = appdata.nodes[i] - pos + appdata.offset;
                             if diff.dot(diff) < NODE_RADIUS * NODE_RADIUS {
                                 appdata.selected = Some(i);
-                                return Ok(appdata);
+                                return InputResult::Consume(());
                             }
                         }
 
                         // TODO: maybe make this require shift click
-                        appdata.nodes.push(pos - appdata.offset);
+                        let offset = appdata.offset;
+                        appdata.nodes.push(pos - offset);
                     }
 
-                    Ok(appdata)
+                    InputResult::Consume(())
                 }
                 mouse_area::MouseAreaEvent::OnDblClick(MouseButton::Left, pos) => {
                     // TODO: winit currently doesn't capture double clicks
-                    appdata.nodes.push(pos - appdata.offset);
-                    Ok(appdata)
+                    let offset = appdata.offset;
+                    appdata.nodes.push(pos - offset);
+                    InputResult::Consume(())
                 }
                 mouse_area::MouseAreaEvent::OnDrag(MouseButton::Left, diff) => {
                     appdata.offset += diff;
-                    Ok(appdata)
+                    InputResult::Consume(())
                 }
-                _ => Ok(appdata),
+                _ => InputResult::Consume(()),
             }
         }
         .wrap(),
