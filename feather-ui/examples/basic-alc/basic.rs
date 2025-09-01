@@ -9,7 +9,7 @@ use feather_ui::winit::event_loop;
 
 fn wrap_luafunc(
     f: Function,
-) -> impl FnMut(feather_ui::DispatchPair, AppState) -> Result<AppState, AppState> {
+) -> impl FnMut(feather_ui::DispatchPair, AppState) -> InputResult<AppState> {
     move |pair, state| Ok(f.call((pair.0, state)).unwrap())
 }
 
