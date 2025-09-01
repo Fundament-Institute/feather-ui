@@ -56,11 +56,9 @@ where
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &super::window::WindowStateMachine = manager.get(window).unwrap();
-        let dpi = winstate
-            .state
-            .as_ref()
-            .map(|x| x.dpi)
+        let dpi = manager
+            .get::<super::window::WindowStateMachine>(window)
+            .map(|x| x.state.dpi)
             .unwrap_or(crate::BASE_DPI);
 
         let size = self.size.resolve(dpi);

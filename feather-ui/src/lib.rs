@@ -6,6 +6,7 @@ extern crate alloc;
 pub mod color;
 pub mod component;
 mod editor;
+pub mod event;
 pub mod graphics;
 pub mod input;
 pub mod layout;
@@ -1665,21 +1666,59 @@ impl<'a> ScopeID<'a> {
     }
 }
 
+/// This replaces [Result] and allows event handlers to consume an event (preventing any further
+/// processing), forward an event (allow other components to process the event), or return an error.
+pub enum InputResult<T> {
+    Consume(T),
+    Forward(T),
+    Error(eyre::ErrReport),
+}
+
+impl<T, E: std::error::Error + Send + Sync + 'static> From<Result<T, E>> for InputResult<T> {
+    fn from(value: Result<T, E>) -> Self {
+        match value {
+            Ok(v) => InputResult::Consume(v),
+            Err(e) => InputResult::Error(e.into()),
+        }
+    }
+}
+
+impl<T> InputResult<T> {
+    /// Maps the [`InputResult`] inner value to a different type, just like [`Result::map`].
+    fn map<U>(self, f: impl FnOnce(T) -> U) -> InputResult<U> {
+        match self {
+            InputResult::Consume(v) => InputResult::Consume(f(v)),
+            InputResult::Forward(v) => InputResult::Forward(f(v)),
+            InputResult::Error(error) => InputResult::Error(error),
+        }
+    }
+
+    fn is_accept(&self) -> bool {
+        matches!(*self, InputResult::Consume(_))
+    }
+    fn is_reject(&self) -> bool {
+        matches!(*self, InputResult::Forward(_))
+    }
+    fn is_err(&self) -> bool {
+        matches!(*self, InputResult::Error(_))
+    }
+}
+
 #[derive(Clone)]
 pub struct Slot(pub Arc<SourceID>, pub u64);
 
-pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, State) -> Result<State, State>>;
+pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>>;
 
 pub trait WrapEventEx<State: 'static + PartialEq, Input: Dispatchable + 'static> {
-    fn wrap(self) -> impl FnMut(DispatchPair, State) -> Result<State, State>;
+    fn wrap(self) -> impl FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>;
 }
 
 impl<AppData: 'static + PartialEq, Input: Dispatchable + 'static, T> WrapEventEx<AppData, Input>
     for T
 where
-    T: FnMut(Input, AppData) -> Result<AppData, AppData>,
+    T: FnMut(Input, AccessCell<AppData>) -> InputResult<()>,
 {
-    fn wrap(mut self) -> impl FnMut(DispatchPair, AppData) -> Result<AppData, AppData> {
+    fn wrap(mut self) -> impl FnMut(DispatchPair, AccessCell<AppData>) -> InputResult<()> {
         move |pair, state| (self)(Input::restore(pair).unwrap(), state)
     }
 }
@@ -1727,7 +1766,7 @@ pub trait StateMachineChild {
 
 // This was originally supposed to use a pointer, but rust moves things all over the place, so a version that
 // doesn't store the ID would have to be pinned (which likely isn't even possible inside an appstate).
-pub struct StateCell<T> {
+/*pub struct StateCell<T> {
     value: T,
     id: Arc<SourceID>,
 }
@@ -1755,6 +1794,47 @@ impl<T> std::ops::Deref for StateCell<T> {
     #[inline]
     fn deref(&self) -> &T {
         &self.value
+    }
+}*/
+
+/// Mutable access to the appstate is put behind this smart pointer to allow the state manager to detect
+/// when the value was actually changed.
+pub struct AccessCell<'a, 'b, T> {
+    value: &'a mut T,
+    changed: &'b mut bool,
+}
+
+impl<'a, 'b, T> std::borrow::BorrowMut<T> for AccessCell<'a, 'b, T> {
+    #[inline]
+    fn borrow_mut(&mut self) -> &mut T {
+        // TODO: Later, this can be optimized for persistent data structures by cloning the state here,
+        // then comparing the resulting value with the original value when this cell is dropped and only
+        // setting changed to true if it was actually modified.
+        *self.changed = true;
+        self.value
+    }
+}
+
+impl<'a, 'b, T> std::borrow::Borrow<T> for AccessCell<'a, 'b, T> {
+    #[inline]
+    fn borrow(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'a, 'b, T> std::ops::Deref for AccessCell<'a, 'b, T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'a, 'b, T> std::ops::DerefMut for AccessCell<'a, 'b, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        *self.changed = true;
+        self.value
     }
 }
 
@@ -1872,14 +1952,19 @@ impl StateManager {
         let mut handled = false;
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let (v, handle) = state.process(event, slot.1, dpi, area, extent, driver)?;
+            let v = match state.process(event, slot.1, dpi, area, extent, driver) {
+                InputResult::Consume(v) => {
+                    handled |= v.is_empty();
+                    v
+                }
+                InputResult::Forward(v) => v,
+                InputResult::Error(error) => return Err(error.into()),
+            };
             if state.changed() {
                 self.changed = true;
                 self.propagate_change(&slot.0);
             }
-            if v.is_empty() {
-                handled |= handle;
-            }
+
             let state = self.states.get(&slot.0).ok_or(Error::InternalFailure)?;
 
             v.into_iter()
@@ -1936,7 +2021,7 @@ pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
 }
 
 pub struct AppDataMachine<AppData> {
-    pub state: Option<AppData>,
+    pub state: AppData,
     handlers: HashMap<usize, AppEvent<AppData>>,
     changed: bool,
 }
@@ -1966,20 +2051,16 @@ impl<AppData: 'static + PartialEq> StateMachineWrapper for AppDataMachine<AppDat
         _: PxRect,
         _: PxRect,
         _: &std::sync::Weak<crate::Driver>,
-    ) -> eyre::Result<(SmallVec<[DispatchPair; 1]>, bool)> {
-        let f = self
-            .handlers
-            .get_mut(&(index as usize))
-            .ok_or(Error::OutOfRange(index as usize))?;
-        let (processed, handled) = match f(input, self.state.take().ok_or(Error::InternalFailure)?)
-        {
-            Ok(s) => (Some(s), true),
-            Err(s) => (Some(s), false),
-        };
-        // If it actually changed, set the change marker
-        self.changed |= processed != self.state;
-        self.state = processed;
-        Ok((SmallVec::new(), handled))
+    ) -> InputResult<SmallVec<[DispatchPair; 1]>> {
+        if let Some(f) = self.handlers.get_mut(&(index as usize)) {
+            let cell = AccessCell {
+                value: &mut self.state,
+                changed: &mut self.changed,
+            };
+            f(input, cell).map(|_| SmallVec::new())
+        } else {
+            InputResult::Error(Error::InternalFailure.into())
+        }
     }
 }
 #[cfg(target_os = "windows")]
@@ -2031,7 +2112,7 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
             Arc::new(APP_SOURCE_ID),
             Box::new(AppDataMachine {
                 handlers: HashMap::from_iter(inputs.into_iter().enumerate()),
-                state: Some(app_state),
+                state: app_state,
                 changed: true,
             }),
         );
@@ -2096,11 +2177,9 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
             app_state.handlers.insert(idx as usize, handler);
         }
 
-        let (store, windows) = self.outline.call(
-            store,
-            app_state.state.as_ref().unwrap().clone(),
-            ScopeID::root(),
-        );
+        let (store, windows) = self
+            .outline
+            .call(store, app_state.state.clone(), ScopeID::root());
         debug_assert!(
             APP_SOURCE_ID.parent.is_none(),
             "Something set the APP_SOURCE parent! This should never happen!"
@@ -2153,22 +2232,25 @@ impl<
                 let window = window.as_ref().unwrap();
                 let mut resized = false;
                 let _ = match event {
-                    WindowEvent::CloseRequested => Window::on_window_event(
-                        window.id(),
-                        rtree,
-                        event,
-                        &mut self.state,
-                        self.driver.clone(),
-                    )
-                    .inspect_err(|_| {
-                        delete = Some(window.id());
-                    }),
+                    WindowEvent::CloseRequested => {
+                        let v = Window::on_window_event(
+                            window.id(),
+                            rtree,
+                            event,
+                            &mut self.state,
+                            self.driver.clone(),
+                        );
+                        if v.is_accept() {
+                            delete = Some(window.id());
+                        }
+                        v
+                    }
                     WindowEvent::RedrawRequested => {
                         if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id())
                             && let Some(driver) = self.driver.upgrade()
                         {
                             if let Some(staging) = root.staging.as_ref() {
-                                let inner = state.state.as_mut().unwrap();
+                                let inner = &mut state.state;
                                 let surface_dim = inner.surface_dim().to_f32();
 
                                 loop {
@@ -2297,12 +2379,12 @@ impl<
                                 }
                             }
 
-                            state.state.as_mut().unwrap().draw(encoder);
+                            state.state.draw(encoder);
                             driver.layer_composite[0].write().cleanup();
                             driver.layer_composite[1].write().cleanup();
                         }
 
-                        Ok(())
+                        InputResult::Consume(())
                     }
                     WindowEvent::Resized(_) => {
                         resized = true;

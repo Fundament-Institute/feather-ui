@@ -235,13 +235,13 @@ impl Calculator for Calc {
 
 fn wrap_luafunc(
     f: Function,
-) -> impl FnMut(feather_ui::DispatchPair, AppState) -> Result<AppState, AppState> {
+) -> impl FnMut(feather_ui::DispatchPair, AppState) -> InputResult<AppState> {
     move |pair, state| Ok(f.call((pair.0, state)).unwrap())
 }
 
 fn wrap_luafunc2(
     f: Function,
-) -> impl FnMut(feather_ui::DispatchPair, AppState) -> Result<AppState, AppState> {
+) -> impl FnMut(feather_ui::DispatchPair, AppState) -> InputResult<AppState> {
     move |pair, state| Ok(f.call((pair.0, state)).unwrap())
 }
 

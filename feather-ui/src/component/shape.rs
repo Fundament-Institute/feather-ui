@@ -3,7 +3,7 @@
 
 use crate::color::sRGB;
 use crate::layout::{Layout, leaf};
-use crate::{BASE_DPI, SourceID, WindowStateMachine, layout};
+use crate::{SourceID, layout};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -230,8 +230,10 @@ where
         _: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &WindowStateMachine = manager.get(window).unwrap();
-        let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
+        let dpi = manager
+            .get::<super::window::WindowStateMachine>(window)
+            .map(|x| x.state.dpi)
+            .unwrap_or(crate::BASE_DPI);
 
         let mut corners = self.corners;
         if KIND == ShapeKind::RoundRect as u8 {

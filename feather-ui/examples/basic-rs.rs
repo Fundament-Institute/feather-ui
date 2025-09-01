@@ -183,11 +183,11 @@ use feather_ui::WrapEventEx;
 fn main() {
     let onclick = Box::new(
         |_: mouse_area::MouseAreaEvent,
-         mut appdata: CounterState|
-         -> Result<CounterState, CounterState> {
+         mut appdata: feather_ui::AccessCell<CounterState>|
+         -> feather_ui::InputResult<()> {
             {
                 appdata.count += 1;
-                Ok(appdata)
+                feather_ui::InputResult::Consume(())
             }
         }
         .wrap(),

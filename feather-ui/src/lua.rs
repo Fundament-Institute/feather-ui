@@ -21,8 +21,9 @@ use crate::layout::{fixed, flex, grid, list};
 use crate::persist::FnPersistStore;
 use crate::propbag::PropBag;
 use crate::{
-    APP_SOURCE_ID, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist2, Logical, Pixel,
-    Rect, Relative, ScopeID, Slot, SourceID, StateMachineChild, UNSIZED_AXIS,
+    APP_SOURCE_ID, AccessCell, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist2,
+    InputResult, Logical, Pixel, Rect, Relative, ScopeID, Slot, SourceID, StateMachineChild,
+    UNSIZED_AXIS,
 };
 use guillotiere::euclid::Point2D;
 use mlua::UserData;
@@ -1705,7 +1706,7 @@ end
         })
     }
 
-    pub fn get_handlers<AppData: FromLua + IntoLua>(
+    pub fn get_handlers<AppData: FromLua + IntoLua + Clone>(
         &self,
         mut reserved: HashMap<u64, crate::AppEvent<AppData>>,
     ) -> LuaResult<Vec<crate::AppEvent<AppData>>> {
@@ -1720,12 +1721,17 @@ end
             if self.lua_handlers.contains_key(&key)? {
                 let func: LuaFunction = self.lua_handlers.get(&key)?;
                 spare[slot.1 as usize] = MaybeUninit::new(Box::new(
-                    move |pair: crate::DispatchPair, state: AppData| {
-                        let (appdata, v): (AppData, LuaValue) = func.call((pair.0, state)).unwrap();
+                    move |pair: crate::DispatchPair, mut state: AccessCell<AppData>| {
+                        let (appdata, v): (AppData, LuaValue) =
+                            match func.call((pair.0, state.value.clone())) {
+                                Ok(v) => v,
+                                Err(e) => return InputResult::Error(e.into()),
+                            };
+                        *state = appdata;
                         if v.as_boolean().unwrap_or(true) {
-                            Ok(appdata)
+                            InputResult::Consume(())
                         } else {
-                            Err(appdata)
+                            InputResult::Forward(())
                         }
                     },
                 ));
@@ -1745,7 +1751,7 @@ end
         Ok(handlers)
     }
 
-    pub fn update_handler<AppData: FromLua + IntoLua + 'static>(
+    pub fn update_handler<AppData: FromLua + IntoLua + Clone + 'static>(
         &self,
         lua: &Lua,
         sender: std::sync::mpsc::Sender<crate::EventPair<AppData>>,
@@ -1759,15 +1765,21 @@ end
                 sender
                     .send((
                         count,
-                        Box::new(move |pair: crate::DispatchPair, state: AppData| {
-                            let (appdata, v): (AppData, LuaValue) =
-                                func.call((pair.0, state)).unwrap();
-                            if v.as_boolean().unwrap_or(true) {
-                                Ok(appdata)
-                            } else {
-                                Err(appdata)
-                            }
-                        }),
+                        Box::new(
+                            move |pair: crate::DispatchPair, mut state: AccessCell<AppData>| {
+                                let (appdata, v): (AppData, LuaValue) =
+                                    match func.call((pair.0, state.value.clone())) {
+                                        Ok(v) => v,
+                                        Err(e) => return InputResult::Error(e.into()),
+                                    };
+                                *state = appdata;
+                                if v.as_boolean().unwrap_or(true) {
+                                    InputResult::Consume(())
+                                } else {
+                                    InputResult::Forward(())
+                                }
+                            },
+                        ),
                     ))
                     .unwrap();
                 let slot = Slot(APP_SOURCE_ID.into(), count);

@@ -8,10 +8,9 @@ use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::persist::{FnPersist2, Persist2, VectorFold};
 use crate::{
-    Dispatchable, Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID, StateManager,
+    Dispatchable, InputResult, Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID, StateManager,
     WindowStateMachine,
 };
-use eyre::Result;
 use guillotiere::euclid::Point3D;
 use std::rc::Rc;
 use winit::dpi::PhysicalPosition;
@@ -92,7 +91,7 @@ impl Node {
         offset: PxVector,
         window_id: Arc<SourceID>,
         manager: &mut StateManager,
-    ) -> Result<(), ()> {
+    ) -> InputResult<()> {
         match event {
             // If we successfully process a mousemove event, this node gains hover
             RawEvent::MouseMove {
@@ -101,8 +100,12 @@ impl Node {
                 modifiers,
                 all_buttons,
             } => {
-                let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
-                let window = state.state.as_mut().unwrap();
+                let state = match manager.get_mut::<WindowStateMachine>(&window_id) {
+                    Ok(v) => v,
+                    Err(e) => return InputResult::Error(e),
+                };
+
+                let window = &mut state.state;
 
                 // Either replace the old node, or simply remove it if this is not a valid focus target
                 let (old, valid) = if let Some(id) = self.id.upgrade() {
@@ -169,8 +172,12 @@ impl Node {
                 ..
             } => {
                 // On any mouseup event, uncapture the cursor if no buttons are down
-                let state: &mut WindowStateMachine = manager.get_mut(&window_id).map_err(|_| ())?;
-                let window = state.state.as_mut().unwrap();
+                let state = match manager.get_mut::<WindowStateMachine>(&window_id) {
+                    Ok(v) => v,
+                    Err(e) => return InputResult::Error(e),
+                };
+
+                let window = &mut state.state;
                 window.remove(WindowNodeTrack::Capture, device_id);
                 let driver = Arc::downgrade(&window.driver);
 
@@ -189,7 +196,7 @@ impl Node {
             _ => (),
         };
 
-        Ok(())
+        InputResult::Consume(())
     }
 
     pub(crate) fn inject_event(
@@ -201,34 +208,32 @@ impl Node {
         window_id: Arc<SourceID>,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
-    ) -> Result<u64, u64> {
+    ) -> InputResult<u64> {
         if let Some(id) = self.id.upgrade()
             && let Ok(state) = manager.get_trait(&id)
         {
             let mask = state.input_mask();
             if (kind as u64 & mask) != 0 {
-                if !manager
-                    .process(
-                        event.clone().extract(),
-                        &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
-                        dpi,
-                        self.area + offset,
-                        self.extent,
-                        driver,
-                    )
-                    .unwrap()
-                {
-                    return Err(mask);
+                match manager.process(
+                    event.clone().extract(),
+                    &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
+                    dpi,
+                    self.area + offset,
+                    self.extent,
+                    driver,
+                ) {
+                    Ok(false) => return InputResult::Forward(mask),
+                    Ok(true) => (),
+                    Err(e) => return InputResult::Error(e),
                 }
 
-                return match self.postprocess(event, dpi, offset, window_id, manager) {
-                    Ok(()) => Ok(mask),
-                    Err(()) => Err(mask),
-                };
+                return self
+                    .postprocess(event, dpi, offset, window_id, manager)
+                    .map(|_| mask);
             }
-            return Err(mask);
+            return InputResult::Forward(mask);
         }
-        Err(u64::MAX)
+        InputResult::Forward(u64::MAX)
     }
 
     // We allow this to return an invalid weak pointer because returning an *invalid* root is a more obvious problem than returning
@@ -263,7 +268,7 @@ impl Node {
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
         window_id: Arc<SourceID>,
-    ) -> Result<(), ()> {
+    ) -> InputResult<()> {
         if (self.mask.load(Ordering::Acquire) & kind as u64) != 0
             && self.area.contains(position - offset)
         {
@@ -274,36 +279,35 @@ impl Node {
             for child in self.children.iter().rev() {
                 // TODO: Split these iterations into positive and negative z indexes, then call this node after processing index 0 but before negative indices.
                 let child = child.as_ref().unwrap();
-                if child
-                    .process(
-                        event,
-                        kind,
-                        position,
-                        child_offset.to_vector(),
-                        dpi,
-                        driver,
-                        manager,
-                        window_id.clone(),
-                    )
-                    .is_ok()
-                {
+                let r = child.process(
+                    event,
+                    kind,
+                    position,
+                    child_offset.to_vector(),
+                    dpi,
+                    driver,
+                    manager,
+                    window_id.clone(),
+                );
+                if !r.is_reject() {
                     // At this point, we should've already set focus, and are simply walking back up the stack
-                    return Ok(());
+                    return r;
                 }
 
                 mask |= child.mask.load(Ordering::Relaxed);
             }
 
             let e = self.inject_event(event, kind, dpi, offset, window_id.clone(), driver, manager);
-            mask |= match e {
-                Ok(m) | Err(m) => m,
+            match e {
+                InputResult::Consume(m) | InputResult::Forward(m) => mask |= m,
+                _ => (),
             };
 
             // This is only ever stored when a message has been rejected by all children and this node. It's mostly used
             // as an optimization for large sets of non-interactive nodes, but it could be made more aggressive.
             self.mask.store(mask, Ordering::Release);
 
-            if e.is_ok() {
+            if e.is_accept() {
                 match event {
                     // If we successfully process a mouse event, this node gains focus in it's parent window
                     RawEvent::Mouse {
@@ -318,9 +322,14 @@ impl Node {
                         pos: Point3D::<f32, Pixel> { x, y, .. },
                         ..
                     } => {
-                        let state: &mut WindowStateMachine =
-                            manager.get_mut(&window_id).map_err(|_| ())?;
-                        let window = state.state.as_mut().unwrap();
+                        let state = manager.get_mut::<WindowStateMachine>(&window_id);
+                        let state = if let Err(e) = state {
+                            return InputResult::Error(e);
+                        } else {
+                            state.unwrap()
+                        };
+
+                        let window = &mut state.state;
                         let inner = window.window.clone();
 
                         // Either replace the old node, or simply remove it if this is not a valid focus target
@@ -396,10 +405,10 @@ impl Node {
                     }
                     _ => (),
                 }
-                return Ok(());
             }
+            return e.map(|_| ());
         }
-        Err(())
+        InputResult::Forward(())
     }
 }
 

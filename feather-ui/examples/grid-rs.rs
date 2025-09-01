@@ -14,8 +14,8 @@ use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, grid, leaf};
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsPoint, AbsRect, App, DAbsRect, DRect, DValue, FILL_DRECT, RelRect, ScopeID, Slot, SourceID,
-    UNSIZED_AXIS,
+    AbsPoint, AbsRect, App, DAbsRect, DRect, DValue, FILL_DRECT, InputResult, RelRect, ScopeID,
+    Slot, SourceID, UNSIZED_AXIS,
 };
 use std::sync::Arc;
 
@@ -234,11 +234,11 @@ use feather_ui::WrapEventEx;
 fn main() {
     let onclick = Box::new(
         |_: mouse_area::MouseAreaEvent,
-         mut appdata: CounterState|
-         -> Result<CounterState, CounterState> {
+         mut appdata: feather_ui::AccessCell<CounterState>|
+         -> InputResult<()> {
             {
                 appdata.count += 1;
-                Ok(appdata)
+                InputResult::Consume(())
             }
         }
         .wrap(),
