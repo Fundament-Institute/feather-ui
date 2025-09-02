@@ -1850,9 +1850,9 @@ checksum = "f5e54036fe321fd421e10d732f155734c4e4afd610dd556d9a82833ab3ee0bed"
 
 [[package]]
 name = "load_image"
-version = "3.3.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d12cf7326432de65e798b379a30dc33399bdfae278525acbed34f65a1ff9156"
+checksum = "13af80aa49d27d6334430fcc8aa55c01acdf23209da94f670e217650320644c0"
 dependencies = [
  "bytemuck",
  "imgref",
