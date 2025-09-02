@@ -617,6 +617,20 @@ pub struct DAbsPoint {
 }
 
 impl DAbsPoint {
+    pub const fn zero() -> Self {
+        Self {
+            dp: AbsPoint::new(0.0, 0.0),
+            px: PxPoint::new(0.0, 0.0),
+        }
+    }
+
+    pub const fn unit() -> Self {
+        Self {
+            dp: AbsPoint::new(1.0, 1.0),
+            px: PxPoint::new(1.0, 1.0),
+        }
+    }
+
     fn resolve(&self, dpi: RelDim) -> ResPoint {
         ResPoint {
             x: self.px.x + (self.dp.x * dpi.width),
@@ -2471,6 +2485,7 @@ impl FnPersist2<u8, ScopeID<'static>, OutlineReturn> for TestApp {
             f32x4::splat(0.0),
             sRGB::new(1.0, 0.0, 0.0, 1.0),
             sRGB::transparent(),
+            DAbsPoint::zero(),
         );
         let window = Window::new(
             gen_id!(id),
