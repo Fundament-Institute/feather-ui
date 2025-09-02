@@ -15,8 +15,8 @@ use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, flex, leaf, list};
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsRect, App, DRect, DValue, FILL_DRECT, InputResult, RelRect, ScopeID, Slot, SourceID,
-    UNSIZED_AXIS, gen_id, im,
+    AbsRect, App, DAbsPoint, DRect, DValue, FILL_DRECT, InputResult, RelRect, ScopeID, Slot,
+    SourceID, UNSIZED_AXIS, gen_id, im,
 };
 use std::sync::Arc;
 
@@ -161,6 +161,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
+                    DAbsPoint::zero(),
                 );
 
                 Button::<FixedData>::new(
@@ -201,6 +202,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                             1.0,
                         ),
                         sRGB::transparent(),
+                        DAbsPoint::zero(),
                     ))));
                 }
 
@@ -243,6 +245,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                             1.0,
                         ),
                         sRGB::transparent(),
+                        DAbsPoint::zero(),
                     );
 
                     // We include a "useless" region around the rectangle because this catches some edge cases

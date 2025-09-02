@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use feather_ui::color::sRGB;
-use feather_ui::{AbsPoint, AbsVector, InputResult, ScopeID, gen_id};
+use feather_ui::{AbsPoint, AbsVector, DAbsPoint, InputResult, ScopeID, gen_id};
 
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
@@ -87,6 +87,7 @@ impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
                         BASE
                     },
                     BASE,
+                    DAbsPoint::zero(),
                 );
 
                 let bag = Region::<MinimalArea>::new(
