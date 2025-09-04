@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-#![doc = include_str!("../../README.md")]
+//! # Reactive Data-Driven UI
+//!
+//! Feather is a reactive data-driven UI framework that only mutates application state in
+//! response to user inputs or events, using event streams and reactive properties, and
+//! represents application state using persistent data structures, which then efficiently
+//! render only the parts of the UI that changed using either a standard GPU compositor
+//! or custom shaders.
+//!
+//! Examples can be found in [feather-ui/examples](feather-ui/examples), and can be run
+//! via `cargo run --example <example_name>`.
 
 extern crate alloc;
 
@@ -1248,11 +1257,23 @@ where
 ///
 /// # Examples
 /// ```
+/// use feather_ui::euclid::Size2D;
+/// use feather_ui::{AbsLimits, RelLimits, Logical, Relative};
+///
 /// // Results in a minimum size of [-inf, 10.0] and a maximum size of [inf, 200.0]
-/// let limits = feather_ui::AbsLimits::new(.., 10.0..200.0);
+/// let limits = AbsLimits::new(.., 10.0..200.0);
+/// assert_eq!(limits.min(), Size2D::<f32, Logical>::new(f32::NEG_INFINITY, 10.0));
+/// assert_eq!(limits.max(), Size2D::<f32, Logical>::new(f32::INFINITY, 200.0));
 ///
 /// // Results in a minimum size of [-inf, -inf] and a maximum size of [1.0, inf]
-/// let rlimits = feather_ui::RelLimits::new(..1.0, ..);
+/// let rlimits = RelLimits::new(..1.0, ..);
+/// assert_eq!(rlimits.min(), Size2D::<f32, Relative>::new(f32::NEG_INFINITY, f32::NEG_INFINITY));
+/// assert_eq!(rlimits.max(), Size2D::<f32, Relative>::new(1.0, f32::INFINITY));
+///
+/// // Result in a minimum size of [0.0, 10.0] and a maximum size of [inf, 100.0]
+/// let merged = AbsLimits::new(0.0.., 5.0..100.0) + limits;
+/// assert_eq!(merged.min(), Size2D::<f32, Logical>::new(0.0, 10.0));
+/// assert_eq!(merged.max(), Size2D::<f32, Logical>::new(f32::INFINITY, 100.0));
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Limits<U> {
@@ -1520,6 +1541,13 @@ impl From<f32> for DValue {
     }
 }
 
+/// Represents a particular layout direction, which is used in several layout operations. Note
+/// that this is also used for a Grid's layout directions, but [`RowDirection::TopToBottom`]
+/// doesn't make sense for a grid and instead means a combination of
+/// [`RowDirection::RightToLeft`] and [`RowDirection::BottomToTop`]. While this is confusing,
+/// Rust does not allow us to create two variants with the same discriminator, so we can't make
+/// a `RowDirection::RightToLeftAndBottomToTop` option without duplicating the entire enum
+/// for Grid. [Tracking issue](https://github.com/Fundament-Institute/feather-ui/issues/159).
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom, derive_more::Display,
 )]
@@ -1577,6 +1605,11 @@ impl<H: Hash + PartialEq + std::cmp::Eq + Clone + std::fmt::Debug + Any> DynHash
     }
 }
 
+/// Represents different kinds of IDs that can be used to populate a [`SourceID`]. Provides
+/// both static strings and owned strings, plus a way to create your own ID using a dynamic
+/// hash object.
+///
+/// Might be [replaced in the future](https://github.com/Fundament-Institute/feather-ui/issues/156) with pointer-based IDs instead.
 #[derive(Clone, Default, Debug)]
 pub enum DataID {
     Named(&'static str),
@@ -1638,6 +1671,11 @@ impl PartialEq for DataID {
     }
 }
 
+/// Represents a unique ID out of a linked list of [`DataID`]. Taken together, all the IDs in a program
+/// form a tree that doesn't just ensure uniqueness, but also allows tracking the structure of the data
+/// being used and how each piece of data depends on another piece of data. As a result, the tree structure
+/// of IDs generally diverges from the component tree of the actual UI, and may or may not actually resemble
+/// the storage structure of the data.
 #[derive(Clone, Default, Debug)]
 pub struct SourceID {
     parent: Option<std::sync::Arc<SourceID>>,
@@ -1645,7 +1683,7 @@ pub struct SourceID {
 }
 
 impl SourceID {
-    /// Creates a new SourceID out of the given DataID, with ourselves as its parent
+    /// Creates a new [`SourceID`] out of the given [`DataID`], with ourselves as its parent
     pub fn child(self: &Arc<Self>, id: DataID) -> Arc<Self> {
         Self {
             parent: self.clone().into(),
@@ -1655,7 +1693,9 @@ impl SourceID {
     }
 
     /// Creates a new, unique duplicate ID using this as the parent and the strong count
-    /// of this Rc as the child DataID.
+    /// of this Rc as the child [`DataID`]. This is used to enable cloning certain components,
+    /// like [`component::shape::Shape`], while automatically generating a new unique ID for
+    /// the cloned component.
     pub fn duplicate(self: &Arc<Self>) -> Arc<Self> {
         self.child(DataID::Int(Arc::strong_count(self) as i64))
     }
@@ -1782,8 +1822,38 @@ where
 }
 
 /// Represents a scope with a particular ID assigned to it. Used to generate new IDs for anything created
-/// inside this scope, with this scope's ID as parents, or to generate a new [`ScopeID`] with this scope as its
-/// parent.
+/// inside this scope, with this scope's ID as parents, or to generate a new [`ScopeID`] with this scope as
+/// its parent. Includes [`ScopeID::iter`] and [`ScopeID::cond`] to make it easier to generate stable IDs
+/// across control flow boundaries. It can be used in conjunction with [`gen_id`] to generate child IDs with
+/// source and line numbers.
+///
+/// # Examples
+/// ```
+/// use feather_ui::layout::fixed;
+/// use feather_ui::component::{shape, region::Region};
+/// use feather_ui::{ScopeID, gen_id, DRect, DAbsPoint, color::sRGB, FILL_DRECT, children };
+///
+/// fn foobar(mut id: ScopeID<'_>) {
+///
+/// let rect = shape::round_rect::<DRect>(
+///     gen_id!(id),
+///     FILL_DRECT,
+///     0.0,
+///     0.0,
+///     wide::f32x4::splat(10.0),
+///     sRGB::new(0.2, 0.7, 0.4, 1.0),
+///     sRGB::transparent(),
+///     DAbsPoint::zero(),
+/// );
+///
+/// let region = Region::<DRect>::new(
+///     id.create(),
+///     FILL_DRECT,
+///     children![fixed::Prop, rect],
+/// );
+/// }
+///
+/// ```
 pub struct ScopeID<'a> {
     // This is only used to force a mutable borrow of the parent, which ensures you cannot fork ID scopes
     _parent: PhantomData<&'a mut ()>,
@@ -1792,12 +1862,33 @@ pub struct ScopeID<'a> {
 }
 
 impl<'a> ScopeID<'a> {
-    /// Gets the underlying ID for this scope
+    /// Gets the underlying ID for this scope. This is sometimes useful when creating custom scopes that belong
+    /// to a specific component.
     pub fn id(&mut self) -> &Arc<SourceID> {
         &self.base
     }
 
-    /// Creates a new unique SourceID using an internal counter with this scope as it's parent.
+    /// Creates a new unique [`SourceID`] using an internal counter with this scope as it's parent.
+    ///
+    /// # Examples
+    /// ```
+    /// use feather_ui::component::shape;
+    /// use feather_ui::{ScopeID, DRect, DAbsPoint, color::sRGB, FILL_DRECT };
+    ///
+    /// fn foobar(mut id: ScopeID<'_>) {
+    /// let rect = shape::round_rect::<DRect>(
+    ///     id.create(),
+    ///     FILL_DRECT,
+    ///     0.0,
+    ///     0.0,
+    ///     wide::f32x4::splat(10.0),
+    ///     sRGB::new(0.2, 0.7, 0.4, 1.0),
+    ///     sRGB::transparent(),
+    ///     DAbsPoint::zero(),
+    /// );
+    /// }
+    ///
+    /// ```
     pub fn create(&mut self) -> Arc<SourceID> {
         let node = self.base.child(crate::DataID::Int(self.count));
         self.count += 1;
@@ -1814,16 +1905,71 @@ impl<'a> ScopeID<'a> {
     }
 
     /// Creates a new unique SourceID using the provided DataID, which bypasses the internal counter.
-    /// This should generally not be invoked directly by users - instead it is used by the `gen_id!()` macro.
+    /// This can be used to either manually create a new SourceID from a custom DataID by the user, or
+    /// by calling [`gen_id`], which calls this function internally.
     pub fn child(&mut self, id: DataID) -> Arc<SourceID> {
         self.base.child(id)
     }
 
     /// Wraps another iterator and returns a pair of both a unique ID and the result of the iterator.
+    /// Required for outline functions that use a for loop when iterating through data.
+    ///  
+    /// # Examples
+    /// ```
+    /// use feather_ui::component::shape;
+    /// use feather_ui::{ScopeID, DRect, DAbsPoint, color::sRGB, FILL_DRECT };
+    ///
+    /// fn foobar(count: usize, mut scope: ScopeID<'_>) {
+    /// for (i, id) in scope.iter(0..count) {
+    ///     let _ = shape::round_rect::<DRect>(
+    ///         id,
+    ///         FILL_DRECT,
+    ///         i as f32,
+    ///         0.0,
+    ///         wide::f32x4::splat(4.0),
+    ///         sRGB::transparent(),
+    ///         sRGB::transparent(),
+    ///         DAbsPoint::zero(),
+    ///     );
+    /// }
+    /// }
+    /// ```
     pub fn iter<U: IntoIterator>(&mut self, other: U) -> ScopeIterID<'_, U::IntoIter> {
         ScopeIterID::new(self, other.into_iter())
     }
 
+    /// Wraps the true and false branches of a condition, ensuring the IDs for both are maintained seperately
+    /// regardless of which branch is picked.
+    ///
+    /// # Examples
+    /// ```
+    /// use feather_ui::component::{shape, ComponentWrap, text::Text};
+    /// use feather_ui::{ScopeID, DRect, DAbsPoint, color::sRGB, FILL_DRECT };
+    /// fn foobar(cond: bool, mut scope: ScopeID<'_>) {
+    /// let _ = scope.cond::<Box<dyn ComponentWrap<dyn feather_ui::layout::base::Empty>>>(
+    ///     cond,
+    ///     |mut id: ScopeID<'_>| Box::new(shape::round_rect::<DRect>(
+    ///         id.create(),
+    ///         FILL_DRECT,
+    ///         0.0,
+    ///         0.0,
+    ///         wide::f32x4::splat(4.0),
+    ///         sRGB::transparent(),
+    ///         sRGB::transparent(),
+    ///         DAbsPoint::zero(),
+    ///     )),
+    ///     |mut id: ScopeID<'_>| {
+    ///         Box::new(Text::<DRect> {
+    ///             id: id.create(),
+    ///             props: FILL_DRECT.into(),
+    ///             text: "Foobar".to_string(),
+    ///             font_size: 40.0,
+    ///             line_height: 56.0,
+    ///             ..Default::default()
+    ///         })
+    ///     });
+    /// }
+    /// ```
     pub fn cond<R>(
         &mut self,
         condition: bool,
@@ -1857,8 +2003,8 @@ impl<'a> ScopeID<'a> {
     }
 }
 
-/// This replaces [`Result`] and allows event handlers to consume an event (preventing any further
-/// processing), forward an event (allow other components to process the event), or return an error.
+/// This replaces [`Result`] and allows event handlers to consume an event with [`InputResult::Consume`] (preventing any further
+/// processing), forward an event with [`InputResult::Forward`] (allow other components to process the event), or return an error.
 pub enum InputResult<T> {
     Consume(T),
     Forward(T),
@@ -1898,9 +2044,55 @@ impl<T> InputResult<T> {
 #[derive(Clone)]
 pub struct Slot(pub Arc<SourceID>, pub u64);
 
+/// Represents a wrapped lambda that can act as an top-level event handler using the AppState.
 pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>>;
 
+/// This trait is used to wrap rust lambdas into [`AppEvent<AppData>`] objects that can be boxed for
+/// use in [`App::new`]. These lambdas must always take the form of `|evt: AnEventEnum, state: AccessCell<AppData>| -> InputResult<()> {}`
+/// After implorting this extension trait, you will be able to call [`WrapEventEx::wrap`] on a
+/// qualifying lambda.
+///
+/// # Examples
+/// ```
+/// use feather_ui::component::{ mouse_area, window::Window };
+/// use feather_ui::persist::{ FnPersist2, FnPersistStore };
+/// use feather_ui::{ SourceID, ScopeID, App, AccessCell };
+/// use std::sync::Arc;
+///
+/// #[derive(Clone, PartialEq)]
+/// struct MyState {
+///   count: i32
+/// }
+///
+/// // Remember to use the extension trait here so you can call `.wrap()` on a qualifying lambda.
+/// use crate::feather_ui::WrapEventEx;
+///
+/// let onclick = |_: mouse_area::MouseAreaEvent,
+///  mut appdata: AccessCell<MyState>|
+///  -> feather_ui::InputResult<()> {
+///     {
+///         appdata.count += 1;
+///         feather_ui::InputResult::Consume(())
+///     }
+/// }
+/// .wrap();
+///
+/// struct MyApp {}
+///
+/// impl FnPersistStore for MyApp { type Store = (); }
+///
+/// impl FnPersist2<MyState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
+///     fn init(&self) -> Self::Store { () }
+///
+///     fn call(&mut self,  _: Self::Store,  _: MyState, _: ScopeID<'_>) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+///         ((), im::HashMap::new())
+///     }
+/// }
+///
+/// App::<MyState, MyApp>::new::<()>(MyState { count: 0 }, vec![Box::new(onclick)], MyApp {}, |_| ());
+/// ```
 pub trait WrapEventEx<State: 'static + PartialEq, Input: Dispatchable + 'static> {
+    /// Wraps a lambda with the appropriate type signature. See [`WrapEventEx`] for examples.
     fn wrap(self) -> impl FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>;
 }
 
@@ -1914,6 +2106,7 @@ where
     }
 }
 
+/// Used internally for event routing.
 pub type DispatchPair = (u64, Box<dyn Any>);
 
 pub trait Dispatchable
@@ -1937,6 +2130,41 @@ impl Dispatchable for Infallible {
     }
 }
 
+/// Represents any potentially stateful component. All components must implement this trait
+/// because all components are tracked by the state manager even if they are stateless. A
+/// derive macro [`feather_macro::StateMachineChild`] is provided to make it easier for
+/// stateless components to correctly implement StateMachineChild and correctly propagate
+/// events to their children. It is important that this is done correctly, as a component
+/// can be stateless itself, but have stateful children.
+///
+/// # Examples
+/// ```
+/// use feather_ui::component::ChildOf;
+/// use feather_ui::layout::fixed;
+/// use feather_ui::{ StateMachineChild, SourceID};
+/// use std::sync::Arc;
+/// use std::rc::Rc;
+///
+/// pub struct MyComponent<T> {
+///     pub id: Arc<SourceID>,
+///     pub props: Rc<T>,
+///     pub children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+/// }
+///
+/// impl<T: Default> StateMachineChild for MyComponent<T> {
+///     fn id(&self) -> std::sync::Arc<SourceID> {
+///         self.id.clone()
+///     }
+///     fn apply_children(
+///         &self,
+///         f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
+///     ) -> eyre::Result<()> {
+///         self.children
+///             .iter()
+///             .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
+///     }
+/// }
+/// ```
 pub trait StateMachineChild {
     #[allow(unused_variables)]
     fn init(
@@ -2334,6 +2562,12 @@ pub const APP_SOURCE_ID: SourceID = SourceID {
 type OutlineReturn = im::HashMap<Arc<SourceID>, Option<Window>>;
 pub type EventPair<AppData> = (u64, AppEvent<AppData>);
 
+/// Represents a feather application with a given `AppData` and persistent outline function `O`.
+/// The outline function must always be a persistent function that takes two parameters, a copy
+/// of the AppData, and a ScopeID. It must always return [`OutlineReturn`].
+///
+/// An App creates all the top level structures needed for Feather to function. It stores all
+/// wgpu, winit, and any other global state needed. See [`App::new`] for examples.
 pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
@@ -2400,6 +2634,49 @@ use winit::platform::x11::EventLoopBuilderExtX11;
 impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
     App<AppData, O>
 {
+    /// Creates a new feather application. `app_state` represents the initial state of the application, and
+    /// will override any value returned by `<O as FnPersist2>::init()`. `inputs` must be an array of
+    /// [`AppEvent`], which can be acquired by boxing and wrapping lambdas using [`WrapEventEx`]. The `outline`
+    /// must by a persistent function that takes two arguments (and implements [`FnPersist2`]): a copy
+    /// of the AppData, and a ScopeID. It must always return [`OutlineReturn`].
+    ///
+    /// `driver_init` is an *optional* hook used to enable hotloading of resources. For most basic applications,
+    /// it can be set to the empty lambda: `|_| ()`.
+    ///
+    /// This function returns 4 values - the [`App`] object itself, the [`EventLoop`] that you must call
+    /// [`EventLoop::run_app`] on to actually start the application, a channel for sending dynamic `AppEvent`
+    /// handlers, and an atomic integer representing the current dynamic slot for any additional events. If
+    /// your handlers are not going to change after the app has been created, you can ignore the last 2 returns.
+    ///
+    /// # Examples
+    /// ```
+    /// use feather_ui::component::window::Window;
+    /// use feather_ui::persist::{ FnPersist2, FnPersistStore };
+    /// use feather_ui::{ SourceID, ScopeID, App };
+    /// use std::sync::Arc;
+    ///
+    /// #[derive(Clone, PartialEq)]
+    /// struct MyState {
+    ///   count: i32
+    /// }
+    ///
+    /// struct MyApp {}
+    ///
+    /// impl FnPersistStore for MyApp { type Store = (); }
+    ///
+    /// impl FnPersist2<MyState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
+    ///     fn init(&self) -> Self::Store { () }
+    ///
+    ///     fn call(&mut self,  _: Self::Store,  _: MyState, _: ScopeID<'_>) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ///         ((), im::HashMap::new())
+    ///     }
+    /// }
+    ///
+    /// let (mut app, event_loop, _, _) = App::<MyState, MyApp>::new::<()>(MyState { count: 0 }, Vec::new(), MyApp {}, |_| ()).unwrap();
+    ///
+    /// // You would then run the app like so (commented out because docs can't test UIs)
+    /// // event_loop.run_app(&mut app).unwrap();
+    /// ```
     #[allow(clippy::type_complexity)]
     pub fn new<T: 'static>(
         app_state: AppData,
@@ -2420,6 +2697,8 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
         Self::new_any_thread(app_state, inputs, outline, any_thread, driver_init)
     }
 
+    /// This is the same as [`App::new`], but it allows overriding the main thread detection that winit uses. This is necessary
+    /// for running tests, which don't run on the main thread.
     #[allow(clippy::type_complexity)]
     pub fn new_any_thread<T: 'static>(
         app_state: AppData,
@@ -2938,5 +3217,35 @@ fn test_absrect_extend() {
     assert!(target.extend(AbsRect::new(2.0, 2.0, 6.0, 6.0)) == AbsRect::new(0.0, 0.0, 6.0, 6.0));
     assert!(
         target.extend(AbsRect::new(-2.0, -2.0, 2.0, 2.0)) == AbsRect::new(-2.0, -2.0, 4.0, 4.0)
+    );
+}
+
+#[test]
+fn test_limits_add() {
+    let limits = AbsLimits::new(.., 10.0..200.0);
+    assert_eq!(
+        limits.min(),
+        Size2D::<f32, Logical>::new(f32::NEG_INFINITY, 10.0)
+    );
+    assert_eq!(
+        limits.max(),
+        Size2D::<f32, Logical>::new(f32::INFINITY, 200.0)
+    );
+
+    let rlimits = RelLimits::new(..1.0, ..);
+    assert_eq!(
+        rlimits.min(),
+        Size2D::<f32, Relative>::new(f32::NEG_INFINITY, f32::NEG_INFINITY)
+    );
+    assert_eq!(
+        rlimits.max(),
+        Size2D::<f32, Relative>::new(1.0, f32::INFINITY)
+    );
+
+    let merged = AbsLimits::new(0.0.., 5.0..100.0) + limits;
+    assert_eq!(merged.min(), Size2D::<f32, Logical>::new(0.0, 10.0));
+    assert_eq!(
+        merged.max(),
+        Size2D::<f32, Logical>::new(f32::INFINITY, 100.0)
     );
 }
