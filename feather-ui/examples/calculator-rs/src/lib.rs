@@ -12,8 +12,8 @@ use feather_ui::component::{mouse_area, ChildOf};
 use feather_ui::layout::fixed;
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    gen_id, im, wide, AbsRect, App, DRect, RelRect, ScopeID, Slot, SourceID, WrapEventEx,
-    FILL_DRECT,
+    gen_id, im, wide, AbsRect, AccessCell, App, DAbsPoint, DRect, InputResult, RelRect, ScopeID,
+    Slot, SourceID, WrapEventEx, FILL_DRECT,
 };
 use std::any::{Any, TypeId};
 use std::f32;
@@ -188,6 +188,7 @@ impl FnPersist2<CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
                 wide::f32x4::splat(10.0),
                 *color,
                 sRGB::transparent(),
+                DAbsPoint::zero(),
             );
 
             let text = Text::<DRect> {
@@ -240,6 +241,7 @@ impl FnPersist2<CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
             wide::f32x4::splat(25.0),
             sRGB::new(0.2, 0.2, 0.2, 1.0),
             Default::default(),
+            DAbsPoint::zero(),
         );
 
         children.push_back(Some(Box::new(text_bg)));
@@ -285,15 +287,16 @@ impl FnPersist2<CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
 pub fn register(calc: ::std::sync::Arc<dyn Calculator>) {
     #[allow(clippy::type_complexity)]
     let mut inputs: Vec<
-        Box<dyn FnMut((u64, Box<dyn Any>), CalcFFI) -> Result<CalcFFI, CalcFFI>>,
+        Box<dyn FnMut((u64, Box<dyn Any>), AccessCell<CalcFFI>) -> InputResult<()>>,
     > = Vec::new();
 
     for (_, f, _) in BUTTONS.iter() {
         inputs.push(Box::new(
-            |_: mouse_area::MouseAreaEvent, appdata: CalcFFI| -> Result<CalcFFI, CalcFFI> {
+            |_: mouse_area::MouseAreaEvent, mut appdata: AccessCell<CalcFFI>| -> InputResult<()> {
                 {
-                    f(&appdata.0);
-                    Ok(appdata)
+                    // This needs to be a mutable reference purely so feather knows something actually changed
+                    f(&mut appdata.0);
+                    InputResult::Consume(())
                 }
             }
             .wrap(),

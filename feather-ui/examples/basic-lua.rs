@@ -4,7 +4,7 @@
 use feather_ui::component::mouse_area;
 use feather_ui::lua::LuaApp;
 use feather_ui::mlua::Lua;
-use feather_ui::{WrapEventEx, handlers};
+use feather_ui::{InputResult, WrapEventEx, handlers};
 
 const LAYOUT: &[u8] = include_bytes!("./basic.lua");
 
@@ -17,11 +17,11 @@ fn main() {
     let lua = Lua::new();
 
     let onclick = |_: mouse_area::MouseAreaEvent,
-                   mut appdata: CounterState|
-     -> Result<CounterState, CounterState> {
+                   mut appdata: feather_ui::AccessCell<CounterState>|
+     -> InputResult<()> {
         {
             appdata.count += 1;
-            Err(appdata)
+            InputResult::Forward(())
         }
     }
     .wrap();

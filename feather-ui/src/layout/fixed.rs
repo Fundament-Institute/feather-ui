@@ -16,6 +16,7 @@ pub trait Child: base::RLimits {}
 
 crate::gen_from_to_dyn!(Child);
 
+impl Prop for crate::DRect {}
 impl Child for crate::DRect {}
 
 impl Desc for dyn Prop {

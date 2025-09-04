@@ -19,10 +19,11 @@ pub mod textbox;
 pub mod window;
 
 use crate::component::window::Window;
+use crate::event::EventRouter;
 use crate::layout::{Desc, Layout, Staged, root};
 use crate::{
-    DispatchPair, Dispatchable, PxRect, Slot, SourceID, StateMachineChild, StateManager, graphics,
-    rtree,
+    DispatchPair, Dispatchable, InputResult, PxRect, Slot, SourceID, StateMachineChild,
+    StateManager, graphics, rtree,
 };
 use dyn_clone::DynClone;
 use eyre::{OptionExt, Result};
@@ -41,37 +42,15 @@ pub trait StateMachineWrapper: Any {
         area: PxRect,
         extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<(SmallVec<[DispatchPair; 1]>, bool)>;
+    ) -> InputResult<SmallVec<[DispatchPair; 1]>>;
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
     fn input_mask(&self) -> u64;
     fn changed(&self) -> bool;
     fn set_changed(&mut self, changed: bool);
 }
 
-// : zerocopy::Immutable
-pub trait EventRouter
-where
-    Self: std::marker::Sized,
-{
-    type Input: Dispatchable + 'static;
-    type Output: Dispatchable + 'static;
-
-    #[allow(unused_variables)]
-    #[allow(clippy::type_complexity)]
-    fn process(
-        self,
-        input: Self::Input,
-        area: PxRect,
-        extent: PxRect,
-        dpi: crate::RelDim,
-        driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)> {
-        Err((self, SmallVec::new()))
-    }
-}
-
 pub struct StateMachine<State, const OUTPUT_SIZE: usize> {
-    pub state: Option<State>,
+    pub state: State,
     pub output: [Option<Slot>; OUTPUT_SIZE],
     pub input_mask: u64,
     pub(crate) changed: bool,
@@ -88,28 +67,28 @@ impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMa
         area: PxRect,
         extent: PxRect,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> Result<(SmallVec<[DispatchPair; 1]>, bool)> {
+    ) -> InputResult<SmallVec<[DispatchPair; 1]>> {
         if input.0 & self.input_mask == 0 {
-            return Err(eyre::eyre!("Event handler doesn't handle this method"));
+            return InputResult::Error(crate::Error::UnhandledEvent.into());
         }
 
-        let processed = self.state.take().unwrap().process(
-            State::Input::restore(input)?,
+        let s = match State::Input::restore(input) {
+            Ok(s) => s,
+            Err(e) => return InputResult::Error(e.into()),
+        };
+
+        State::process(
+            crate::AccessCell {
+                value: &mut self.state,
+                changed: &mut self.changed,
+            },
+            s,
             area,
             extent,
             dpi,
             driver,
-        );
-        let handled = processed.is_ok();
-        let result = match processed {
-            Ok((s, r)) | Err((s, r)) => {
-                let s = Some(s);
-                self.changed |= self.state != s;
-                self.state = s;
-                r
-            }
-        };
-        Ok((result.into_iter().map(|x| x.extract()).collect(), handled))
+        )
+        .map(|x| x.into_iter().map(|x| x.extract()).collect())
     }
     fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
         self.output.get(i).ok_or(crate::Error::OutOfRange(i).into())
@@ -137,7 +116,7 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
         index: u64,
         dpi: crate::RelDim,
         area: AbsRect,
-    ) -> Result<(Vec<DispatchPair>, bool)> {
+    ) -> InputResult<SmallVec<[DispatchPair; 1]>>{
         todo!()
     }
 
@@ -150,6 +129,62 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
     }
 }*/
 
+/// The trait representing an arbitrary UI component. The Props associated type
+/// must be used to expose the concrete property type that was used to instantiate
+/// the component. This is expect to be different, so it is assumed that almost
+/// all components are generic over the property type, so long as the property
+/// type satisfies the requirements of the chosen layout.
+///
+/// All components must implement [`StateMachineChild`] even if they are stateless,
+/// a derive macro is provided to implement an empty version of the trait for you.
+/// In addition, the component must enforce some rather specific constraints due to
+/// limitations of the rust type system to properly capture them. See the example
+/// for what the simplest possible component looks like.
+///
+/// # Examples
+/// ```
+/// use feather_ui::component::{Component};
+/// use feather_ui::layout::base;
+/// use feather_ui::{ StateMachineChild, SourceID, layout, graphics, StateManager };
+/// use std::sync::Arc;
+/// use std::rc::Rc;
+///
+/// // #[derive(feather_macro::StateMachineChild)]
+/// // This derive macro simply implements the following. The implementation would be
+/// // more complex if our component had children, which the derive macro also handles.
+/// impl<T> StateMachineChild for MyComponent<T> {
+///     fn id(&self) -> Arc<SourceID> {
+///         self.id.clone()
+///     }
+/// }
+///
+/// #[derive_where::derive_where(Clone)]
+/// pub struct MyComponent<T> {
+///     pub id: Arc<SourceID>,
+///     pub props: Rc<T>,
+/// }
+/// impl<T: base::Empty + 'static> Component for MyComponent<T>
+/// where
+///     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
+/// {
+///     type Props = T;
+///
+///     fn layout(
+///         &self,
+///         _: &mut StateManager,
+///         _: &graphics::Driver,
+///         _: &Arc<SourceID>,
+///     ) -> Box<dyn layout::Layout<T>> {
+///         Box::new(layout::Node::<T, dyn base::Empty> {
+///             props: self.props.clone(),
+///             children: Default::default(),
+///             id: Arc::downgrade(&self.id),
+///             renderable: None,
+///             layer: None,
+///         })
+///     }
+/// }
+/// ```
 pub trait Component: crate::StateMachineChild + DynClone {
     type Props: 'static;
 
@@ -255,7 +290,7 @@ impl Root {
             let window = window.as_ref().unwrap();
             window.init_custom(manager, driver, instance, event_loop, on_driver)?;
             let state: &WindowStateMachine = manager.get(&window.id())?;
-            let id = state.state.as_ref().unwrap().window.id();
+            let id = state.state.window.id();
             self.states
                 .entry(id)
                 .or_insert_with(|| RootState::new(window.id().clone()));
@@ -264,7 +299,7 @@ impl Root {
                 .states
                 .get_mut(&id)
                 .ok_or_eyre("Couldn't find window state")?;
-            let driver = state.state.as_ref().unwrap().driver.clone();
+            let driver = state.state.driver.clone();
             root.layout_tree = Some(crate::component::Component::layout(
                 window,
                 manager,
@@ -279,21 +314,18 @@ impl Root {
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
             let state: &mut WindowStateMachine = states.get_mut(&window.id())?;
-            let id = state.state.as_ref().unwrap().window.id();
+            let id = state.state.window.id();
             let root = self
                 .states
                 .get_mut(&id)
                 .ok_or_eyre("Couldn't find window state")?;
             if let Some(layout) = root.layout_tree.as_ref() {
                 let layout: &dyn Layout<dyn root::Prop> = &layout.as_ref();
-                let staging = layout.stage(
-                    Default::default(),
-                    Default::default(),
-                    state.state.as_mut().unwrap(),
-                );
+                let staging =
+                    layout.stage(Default::default(), Default::default(), &mut state.state);
                 root.rtree = staging.get_rtree();
                 root.staging = Some(staging);
-                state.state.as_ref().unwrap().window.request_redraw();
+                state.state.window.request_redraw();
             }
         }
         Ok(())
