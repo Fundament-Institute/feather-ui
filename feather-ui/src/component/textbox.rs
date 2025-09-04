@@ -280,16 +280,12 @@ impl super::EventRouter for TextBoxState {
                                     && clipboard.set_text(&s).is_ok()
                                     && named_key == NamedKey::Cut
                                 {
+                                    let font_system = &mut driver.font_system.write();
                                     // Only delete the text for a cut command if the operation succeeds
-                                    if let Some(c) = this
-                                        .editor
-                                        .delete_selection(&mut driver.font_system.write(), buffer)
+                                    if let Some(c) =
+                                        this.editor.delete_selection(font_system, buffer)
                                     {
-                                        this.editor.shape_as_needed(
-                                            &mut driver.font_system.write(),
-                                            buffer,
-                                            false,
-                                        );
+                                        this.editor.shape_as_needed(font_system, buffer, false);
                                         this.append(SmallVec::from_buf([c]))
                                     }
                                 }

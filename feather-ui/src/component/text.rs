@@ -9,6 +9,7 @@ use crate::{SourceID, graphics};
 use cosmic_text::{LineIter, Metrics};
 use derive_where::derive_where;
 use std::cell::RefCell;
+use std::convert::Infallible;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -20,8 +21,8 @@ pub struct TextState {
 }
 
 impl EventRouter for TextState {
-    type Input = ();
-    type Output = ();
+    type Input = Infallible;
+    type Output = Infallible;
 }
 
 impl PartialEq for TextState {
@@ -160,7 +161,9 @@ where
             point_to_pixel(self.line_height, dpi.height),
         );
 
-        let textstate: &mut StateMachine<TextState, 0> = manager.get_mut(&self.id).unwrap();
+        let textstate = manager
+            .get_mut::<StateMachine<TextState, 0>>(&self.id)
+            .unwrap();
         let textstate = &mut textstate.state;
         textstate
             .buffer

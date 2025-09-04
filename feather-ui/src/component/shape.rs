@@ -3,7 +3,7 @@
 
 use crate::color::sRGB;
 use crate::layout::{Layout, leaf};
-use crate::{DAbsPoint, SourceID, layout};
+use crate::{DAbsPoint, SourceID};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;

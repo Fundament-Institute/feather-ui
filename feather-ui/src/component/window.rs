@@ -18,6 +18,7 @@ use guillotiere::euclid::default::Rotation3D;
 use guillotiere::euclid::{Point3D, Size2D};
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::rc::{Rc, Weak};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
@@ -50,8 +51,8 @@ pub struct WindowState {
 }
 
 impl super::EventRouter for WindowState {
-    type Input = ();
-    type Output = ();
+    type Input = Infallible;
+    type Output = Infallible;
 }
 
 const BACKCOLOR: wgpu::Color = wgpu::Color {
@@ -197,7 +198,7 @@ impl PartialEq for WindowState {
     }
 }
 
-pub(crate) type WindowStateMachine = StateMachine<WindowState, 0>;
+pub type WindowStateMachine = StateMachine<WindowState, 0>;
 
 #[derive(Clone)]
 pub struct Window {
