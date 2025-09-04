@@ -7,7 +7,7 @@ use crate::editor::Editor;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Layout, base, leaf};
 use crate::text::{Change, EditBuffer};
-use crate::{Dispatchable, Error, PxRect, SourceID, WindowStateMachine, layout};
+use crate::{Dispatchable, Error, InputResult, PxRect, SourceID, layout};
 use cosmic_text::{Action, Buffer, Cursor};
 use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
@@ -76,19 +76,19 @@ impl super::EventRouter for TextBoxState {
     type Output = TextBoxEvent;
 
     fn process(
-        mut self,
+        mut this: crate::AccessCell<Self>,
         input: Self::Input,
         area: PxRect,
         _: PxRect,
         dpi: crate::RelDim,
         driver: &std::sync::Weak<crate::Driver>,
-    ) -> eyre::Result<(Self, SmallVec<[Self::Output; 1]>), (Self, SmallVec<[Self::Output; 1]>)>
-    {
-        let obj = self.props.textedit().obj.clone();
+    ) -> InputResult<SmallVec<[Self::Output; 1]>> {
+        let obj = this.props.textedit().obj.clone();
         let buffer = &mut obj.buffer.borrow_mut();
+        let align = this.align;
         match Self::translate(input) {
             RawEvent::Focus { acquired, window } => {
-                self.focused = acquired;
+                this.focused = acquired;
                 window.set_ime_allowed(acquired);
                 if acquired {
                     window.set_ime_purpose(winit::window::ImePurpose::Normal);
@@ -104,13 +104,13 @@ impl super::EventRouter for TextBoxState {
                 Key::Named(named_key) => {
                     if down && let Some(driver) = driver.upgrade() {
                         let change = match named_key {
-                            NamedKey::Enter => self.editor.action(
+                            NamedKey::Enter => this.editor.action(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 Action::Enter,
-                                self.align,
+                                align,
                             ),
-                            NamedKey::Tab => self.editor.action(
+                            NamedKey::Tab => this.editor.action(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 if (modifiers & ModifierKeys::Shift as u8) != 0 {
@@ -118,13 +118,13 @@ impl super::EventRouter for TextBoxState {
                                 } else {
                                     Action::Indent
                                 },
-                                self.align,
+                                align,
                             ),
-                            NamedKey::Space => self.editor.action(
+                            NamedKey::Space => this.editor.action(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 Action::Insert(' '),
-                                self.align,
+                                align,
                             ),
                             NamedKey::ArrowLeft
                             | NamedKey::ArrowRight
@@ -140,7 +140,7 @@ impl super::EventRouter for TextBoxState {
                                 if !shift {
                                     match (named_key, ctrl) {
                                         (NamedKey::ArrowUp, true) | (NamedKey::ArrowDown, true) => {
-                                            self.editor.action(
+                                            this.editor.action(
                                                 font_system,
                                                 buffer,
                                                 Action::Scroll {
@@ -150,35 +150,32 @@ impl super::EventRouter for TextBoxState {
                                                         1
                                                     },
                                                 },
-                                                self.align,
+                                                align,
                                             );
-                                            return Ok((self, SmallVec::new()));
+                                            return InputResult::Consume(SmallVec::new());
                                         }
                                         _ => (),
                                     }
 
-                                    if let Some((start, end)) = self.editor.selection_bounds(buffer)
+                                    if let Some((start, end)) = this.editor.selection_bounds(buffer)
                                     {
                                         if named_key == NamedKey::ArrowLeft {
-                                            self.editor.set_cursor(buffer, start);
+                                            this.editor.set_cursor(buffer, start);
                                         } else if named_key == NamedKey::ArrowRight {
-                                            self.editor.set_cursor(buffer, end);
+                                            this.editor.set_cursor(buffer, end);
                                         }
                                     }
-                                    self.editor.action(
-                                        font_system,
-                                        buffer,
-                                        Action::Escape,
-                                        self.align,
-                                    );
-                                } else if self.editor.selection() == cosmic_text::Selection::None {
+                                    this.editor
+                                        .action(font_system, buffer, Action::Escape, align);
+                                } else if this.editor.selection() == cosmic_text::Selection::None {
                                     // if a selection doesn't exist, make one.
-                                    self.editor.set_selection(
+                                    let cursor = this.editor.cursor();
+                                    this.editor.set_selection(
                                         buffer,
-                                        cosmic_text::Selection::Normal(self.editor.cursor()),
+                                        cosmic_text::Selection::Normal(cursor),
                                     );
                                 }
-                                self.editor.action(
+                                this.editor.action(
                                     font_system,
                                     buffer,
                                     Action::Motion(match (named_key, ctrl) {
@@ -202,14 +199,14 @@ impl super::EventRouter for TextBoxState {
                                         }
                                         (NamedKey::Home, true) => cosmic_text::Motion::BufferStart,
                                         (NamedKey::End, true) => cosmic_text::Motion::BufferEnd,
-                                        _ => return Ok((self, SmallVec::new())),
+                                        _ => return InputResult::Consume(SmallVec::new()),
                                     }),
-                                    self.align,
+                                    align,
                                 )
                             }
                             NamedKey::Select => {
                                 // Represents a Select All operation
-                                self.editor.set_selection(
+                                this.editor.set_selection(
                                     buffer,
                                     cosmic_text::Selection::Normal(Cursor {
                                         line: 0,
@@ -217,33 +214,33 @@ impl super::EventRouter for TextBoxState {
                                         affinity: cosmic_text::Affinity::Before,
                                     }),
                                 );
-                                self.editor.action(
+                                this.editor.action(
                                     &mut driver.font_system.write(),
                                     buffer,
                                     Action::Motion(cosmic_text::Motion::BufferEnd),
-                                    self.align,
+                                    align,
                                 );
                                 SmallVec::new()
                             }
-                            NamedKey::Backspace => self.editor.action(
+                            NamedKey::Backspace => this.editor.action(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 Action::Backspace,
-                                self.align,
+                                align,
                             ),
-                            NamedKey::Delete => self.editor.action(
+                            NamedKey::Delete => this.editor.action(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 Action::Delete,
-                                self.align,
+                                align,
                             ),
                             NamedKey::Clear => {
-                                let change = self
+                                let change = this
                                     .editor
                                     .delete_selection(&mut driver.font_system.write(), buffer)
                                     .map(|x| SmallVec::from_buf([x]))
                                     .unwrap_or_default();
-                                self.editor.shape_as_needed(
+                                this.editor.shape_as_needed(
                                     &mut driver.font_system.write(),
                                     buffer,
                                     false,
@@ -251,22 +248,21 @@ impl super::EventRouter for TextBoxState {
                                 change
                             }
                             NamedKey::EraseEof => {
-                                self.editor.set_selection(
-                                    buffer,
-                                    cosmic_text::Selection::Normal(self.editor.cursor()),
-                                );
-                                self.editor.action(
+                                let cursor = this.editor.cursor();
+                                this.editor
+                                    .set_selection(buffer, cosmic_text::Selection::Normal(cursor));
+                                this.editor.action(
                                     &mut driver.font_system.write(),
                                     buffer,
                                     Action::Motion(cosmic_text::Motion::BufferEnd),
-                                    self.align,
+                                    align,
                                 );
-                                let change = self
+                                let change = this
                                     .editor
                                     .delete_selection(&mut driver.font_system.write(), buffer)
                                     .map(|x| SmallVec::from_buf([x]))
                                     .unwrap_or_default();
-                                self.editor.shape_as_needed(
+                                this.editor.shape_as_needed(
                                     &mut driver.font_system.write(),
                                     buffer,
                                     false,
@@ -274,27 +270,23 @@ impl super::EventRouter for TextBoxState {
                                 change
                             }
                             NamedKey::Insert => {
-                                self.insert_mode = !self.insert_mode;
+                                this.insert_mode = !this.insert_mode;
                                 SmallVec::new()
                             }
                             NamedKey::Cut | NamedKey::Copy => {
                                 if modifiers & ModifierKeys::Held as u8 == 0
-                                    && let Some(s) = self.editor.copy_selection(buffer)
+                                    && let Some(s) = this.editor.copy_selection(buffer)
                                     && let Ok(mut clipboard) = arboard::Clipboard::new()
                                     && clipboard.set_text(&s).is_ok()
                                     && named_key == NamedKey::Cut
                                 {
+                                    let font_system = &mut driver.font_system.write();
                                     // Only delete the text for a cut command if the operation succeeds
-                                    if let Some(c) = self
-                                        .editor
-                                        .delete_selection(&mut driver.font_system.write(), buffer)
+                                    if let Some(c) =
+                                        this.editor.delete_selection(font_system, buffer)
                                     {
-                                        self.editor.shape_as_needed(
-                                            &mut driver.font_system.write(),
-                                            buffer,
-                                            false,
-                                        );
-                                        self.append(SmallVec::from_buf([c]))
+                                        this.editor.shape_as_needed(font_system, buffer, false);
+                                        this.append(SmallVec::from_buf([c]))
                                     }
                                 }
                                 SmallVec::new()
@@ -303,73 +295,73 @@ impl super::EventRouter for TextBoxState {
                                 if let Ok(mut clipboard) = arboard::Clipboard::new()
                                     && let Ok(s) = clipboard.get_text()
                                 {
-                                    let c = self.editor.insert_string(
+                                    let c = this.editor.insert_string(
                                         &mut driver.font_system.write(),
                                         buffer,
                                         &s,
                                         None,
-                                        self.align,
+                                        align,
                                     );
-                                    self.editor.shape_as_needed(
+                                    this.editor.shape_as_needed(
                                         &mut driver.font_system.write(),
                                         buffer,
                                         false,
                                     );
-                                    self.append(SmallVec::from_buf([c]))
+                                    this.append(SmallVec::from_buf([c]))
                                 }
                                 SmallVec::new()
                             }
                             NamedKey::Redo => {
-                                if self.undo_index > 0 {
-                                    self.undo_index =
-                                        self.redo(&mut driver.font_system.write(), buffer)
+                                if this.undo_index > 0 {
+                                    this.undo_index =
+                                        this.redo(&mut driver.font_system.write(), buffer)
                                 }
                                 SmallVec::new()
                             }
                             NamedKey::Undo => {
-                                if self.undo_index > 0 {
-                                    self.undo_index =
-                                        self.undo(&mut driver.font_system.write(), buffer)
+                                if this.undo_index > 0 {
+                                    this.undo_index =
+                                        this.undo(&mut driver.font_system.write(), buffer)
                                 }
                                 SmallVec::new()
                             }
                             // Do not capture key events we don't recognize
-                            _ => return Err((self, SmallVec::new())),
+                            _ => return InputResult::Forward(SmallVec::new()),
                         };
 
-                        self.append(change);
+                        this.append(change);
                         obj.set_selection(
-                            EditBuffer::from_cursor(buffer, self.editor.selection_or_cursor()),
-                            EditBuffer::from_cursor(buffer, self.editor.cursor()),
+                            EditBuffer::from_cursor(buffer, this.editor.selection_or_cursor()),
+                            EditBuffer::from_cursor(buffer, this.editor.cursor()),
                         );
-                        return Ok((self, SmallVec::new()));
+                        return InputResult::Consume(SmallVec::new());
                     }
                     // Always capture the key event if we recognize it even if we don't do anything with it
-                    return Ok((self, SmallVec::new()));
+                    return InputResult::Consume(SmallVec::new());
                 }
                 Key::Character(c) => {
                     if down {
                         if let Some(driver) = driver.upgrade() {
-                            let c = self.editor.insert_string(
+                            let c = this.editor.insert_string(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 &c,
                                 None,
-                                self.align,
+                                align,
                             );
-                            self.append(SmallVec::from_buf([c]));
+                            this.append(SmallVec::from_buf([c]));
 
-                            self.editor.shape_as_needed(
+                            this.editor.shape_as_needed(
                                 &mut driver.font_system.write(),
                                 buffer,
                                 false,
                             );
                             obj.set_selection(
-                                EditBuffer::from_cursor(buffer, self.editor.selection_or_cursor()),
-                                EditBuffer::from_cursor(buffer, self.editor.cursor()),
+                                EditBuffer::from_cursor(buffer, this.editor.selection_or_cursor()),
+                                EditBuffer::from_cursor(buffer, this.editor.cursor()),
                             );
                         }
-                        return Ok((self, SmallVec::new()));
+                        return InputResult::Consume(SmallVec::new());
                     }
                 }
                 _ => (),
@@ -380,32 +372,32 @@ impl super::EventRouter for TextBoxState {
                 if let Some(d) = driver.upgrade() {
                     *d.cursor.write() = winit::window::CursorIcon::Text;
                     let p =
-                        area.topleft() + self.props.padding().resolve(dpi).topleft().to_vector();
+                        area.topleft() + this.props.padding().resolve(dpi).topleft().to_vector();
 
                     if (all_buttons & MouseButton::Left as u16) != 0 {
-                        self.editor.action(
+                        this.editor.action(
                             &mut d.font_system.write(),
                             buffer,
                             Action::Drag {
                                 x: (pos.x - p.x).round() as i32,
                                 y: (pos.y - p.y).round() as i32,
                             },
-                            self.align,
+                            align,
                         );
                     }
                 }
                 obj.set_selection(
-                    EditBuffer::from_cursor(buffer, self.editor.selection_or_cursor()),
-                    EditBuffer::from_cursor(buffer, self.editor.cursor()),
+                    EditBuffer::from_cursor(buffer, this.editor.selection_or_cursor()),
+                    EditBuffer::from_cursor(buffer, this.editor.cursor()),
                 );
-                return Ok((self, SmallVec::new()));
+                return InputResult::Consume(SmallVec::new());
             }
             RawEvent::Mouse {
                 pos, state, button, ..
             } => {
                 if let Some(d) = driver.upgrade() {
                     let p =
-                        area.topleft() + self.props.padding().resolve(dpi).topleft().to_vector();
+                        area.topleft() + this.props.padding().resolve(dpi).topleft().to_vector();
 
                     let action = match (state, button) {
                         (MouseState::Down, MouseButton::Left) => Action::Click {
@@ -416,16 +408,16 @@ impl super::EventRouter for TextBoxState {
                             x: (pos.x - p.x).round() as i32,
                             y: (pos.y - p.y).round() as i32,
                         },
-                        _ => return Ok((self, SmallVec::new())),
+                        _ => return InputResult::Consume(SmallVec::new()),
                     };
-                    self.editor
-                        .action(&mut d.font_system.write(), buffer, action, self.align);
+                    this.editor
+                        .action(&mut d.font_system.write(), buffer, action, align);
                 }
                 obj.set_selection(
-                    EditBuffer::from_cursor(buffer, self.editor.selection_or_cursor()),
-                    EditBuffer::from_cursor(buffer, self.editor.cursor()),
+                    EditBuffer::from_cursor(buffer, this.editor.selection_or_cursor()),
+                    EditBuffer::from_cursor(buffer, this.editor.cursor()),
                 );
-                return Ok((self, SmallVec::new()));
+                return InputResult::Consume(SmallVec::new());
             }
             RawEvent::MouseScroll { delta, .. } => {
                 if let Some(d) = driver.upgrade() {
@@ -437,13 +429,13 @@ impl super::EventRouter for TextBoxState {
                             buffer.set_scroll(scroll);
                         }
                         Err(dist) => {
-                            self.editor.action(
+                            this.editor.action(
                                 &mut d.font_system.write(),
                                 buffer,
                                 Action::Scroll {
                                     lines: -(dist.y.round() as i32),
                                 },
-                                self.align,
+                                align,
                             );
                         }
                     }
@@ -451,7 +443,7 @@ impl super::EventRouter for TextBoxState {
             }
             _ => (),
         }
-        Err((self, SmallVec::new()))
+        InputResult::Forward(SmallVec::new())
     }
 }
 
@@ -580,7 +572,7 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
         _: &std::sync::Weak<crate::Driver>,
     ) -> Result<Box<dyn super::StateMachineWrapper>, Error> {
         let statemachine = StateMachine {
-            state: Some(TextBoxState {
+            state: TextBoxState {
                 editor: Editor::new(),
                 last_x_offset: Default::default(),
                 history: Default::default(),
@@ -591,7 +583,7 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
                 focused: Default::default(),
                 props: self.props.clone(),
                 align: self.align,
-            }),
+            },
             input_mask: RawEventKind::Focus as u64
                 | RawEventKind::Mouse as u64
                 | RawEventKind::MouseMove as u64
@@ -614,14 +606,15 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &WindowStateMachine = manager.get(window).unwrap();
-        let winstate = winstate.state.as_ref().expect("No window state available");
-        let dpi = winstate.dpi;
+        let dpi = manager
+            .get::<super::window::WindowStateMachine>(window)
+            .map(|x| x.state.dpi)
+            .unwrap_or(crate::BASE_DPI);
         let mut font_system = driver.font_system.write();
 
         let textstate: &mut StateMachine<TextBoxState, { TextBoxEvent::SIZE }> =
             manager.get_mut(&self.id).unwrap();
-        let textstate = textstate.state.as_mut().unwrap();
+        let textstate = &mut textstate.state;
         textstate.props = self.props.clone();
         textstate.align = self.align;
 

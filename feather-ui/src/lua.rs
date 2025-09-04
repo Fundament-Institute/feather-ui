@@ -21,8 +21,9 @@ use crate::layout::{fixed, flex, grid, list};
 use crate::persist::FnPersistStore;
 use crate::propbag::PropBag;
 use crate::{
-    APP_SOURCE_ID, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist2, Logical, Pixel,
-    Rect, Relative, ScopeID, Slot, SourceID, StateMachineChild, UNSIZED_AXIS,
+    APP_SOURCE_ID, AccessCell, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist2,
+    InputResult, Logical, Pixel, Rect, Relative, ScopeID, Slot, SourceID, StateMachineChild,
+    UNSIZED_AXIS,
 };
 use guillotiere::euclid::Point2D;
 use mlua::UserData;
@@ -1194,6 +1195,7 @@ fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResul
     let fill = get_arg_default(&mut args, &body, "fill")?;
     let outline = get_arg_default(&mut args, &body, "outline")?;
     let corners = get_array_arg(&mut args, lua, &body, "corners", [0.0; 4])?;
+    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
     check_args("round_rect", body, args)?;
 
     Ok(Box::new(shape::round_rect(
@@ -1204,6 +1206,7 @@ fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResul
         wide::f32x4::new(corners),
         fill,
         outline,
+        size,
     )))
 }
 
@@ -1217,6 +1220,7 @@ fn create_arc(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compo
     let outline = get_arg_default(&mut args, &body, "outline")?;
     let angles = get_array_arg(&mut args, lua, &body, "angles", [0.0; 2])?;
     let inner_radius = get_arg_default(&mut args, &body, "innerRadius")?;
+    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
     check_args("arc", body, args)?;
 
     Ok(Box::new(shape::arcs(
@@ -1228,6 +1232,7 @@ fn create_arc(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compo
         angles,
         fill,
         outline,
+        size,
     )))
 }
 
@@ -1241,10 +1246,11 @@ fn create_triangle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<
     let outline = get_arg_default(&mut args, &body, "outline")?;
     let corners = get_array_arg(&mut args, lua, &body, "corners", [0.0; 3])?;
     let offset = get_arg_default(&mut args, &body, "offset")?;
+    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
     check_args("triangle", body, args)?;
 
     Ok(Box::new(shape::triangle(
-        id.0, bag, border, blur, corners, offset, fill, outline,
+        id.0, bag, border, blur, corners, offset, fill, outline, size,
     )))
 }
 
@@ -1257,10 +1263,11 @@ fn create_circle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Co
     let fill = get_arg_default(&mut args, &body, "fill")?;
     let outline = get_arg_default(&mut args, &body, "outline")?;
     let radii = get_array_arg(&mut args, lua, &body, "radii", [0.0; 2])?;
+    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
     check_args("circle", body, args)?;
 
     Ok(Box::new(shape::circle(
-        id.0, bag, border, blur, radii, fill, outline,
+        id.0, bag, border, blur, radii, fill, outline, size,
     )))
 }
 
@@ -1705,7 +1712,7 @@ end
         })
     }
 
-    pub fn get_handlers<AppData: FromLua + IntoLua>(
+    pub fn get_handlers<AppData: FromLua + IntoLua + Clone>(
         &self,
         mut reserved: HashMap<u64, crate::AppEvent<AppData>>,
     ) -> LuaResult<Vec<crate::AppEvent<AppData>>> {
@@ -1720,12 +1727,17 @@ end
             if self.lua_handlers.contains_key(&key)? {
                 let func: LuaFunction = self.lua_handlers.get(&key)?;
                 spare[slot.1 as usize] = MaybeUninit::new(Box::new(
-                    move |pair: crate::DispatchPair, state: AppData| {
-                        let (appdata, v): (AppData, LuaValue) = func.call((pair.0, state)).unwrap();
+                    move |pair: crate::DispatchPair, mut state: AccessCell<AppData>| {
+                        let (appdata, v): (AppData, LuaValue) =
+                            match func.call((pair.0, state.value.clone())) {
+                                Ok(v) => v,
+                                Err(e) => return InputResult::Error(e.into()),
+                            };
+                        *state = appdata;
                         if v.as_boolean().unwrap_or(true) {
-                            Ok(appdata)
+                            InputResult::Consume(())
                         } else {
-                            Err(appdata)
+                            InputResult::Forward(())
                         }
                     },
                 ));
@@ -1745,7 +1757,7 @@ end
         Ok(handlers)
     }
 
-    pub fn update_handler<AppData: FromLua + IntoLua + 'static>(
+    pub fn update_handler<AppData: FromLua + IntoLua + Clone + 'static>(
         &self,
         lua: &Lua,
         sender: std::sync::mpsc::Sender<crate::EventPair<AppData>>,
@@ -1759,15 +1771,21 @@ end
                 sender
                     .send((
                         count,
-                        Box::new(move |pair: crate::DispatchPair, state: AppData| {
-                            let (appdata, v): (AppData, LuaValue) =
-                                func.call((pair.0, state)).unwrap();
-                            if v.as_boolean().unwrap_or(true) {
-                                Ok(appdata)
-                            } else {
-                                Err(appdata)
-                            }
-                        }),
+                        Box::new(
+                            move |pair: crate::DispatchPair, mut state: AccessCell<AppData>| {
+                                let (appdata, v): (AppData, LuaValue) =
+                                    match func.call((pair.0, state.value.clone())) {
+                                        Ok(v) => v,
+                                        Err(e) => return InputResult::Error(e.into()),
+                                    };
+                                *state = appdata;
+                                if v.as_boolean().unwrap_or(true) {
+                                    InputResult::Consume(())
+                                } else {
+                                    InputResult::Forward(())
+                                }
+                            },
+                        ),
                     ))
                     .unwrap();
                 let slot = Slot(APP_SOURCE_ID.into(), count);

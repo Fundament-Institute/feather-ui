@@ -7,8 +7,8 @@ use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::{Desc, base, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{
-    AbsRect, AbsVector, Dispatchable, PxPoint, PxRect, PxVector, RelDim, RelVector, Slot, SourceID,
-    UNSIZED_AXIS, UnResolve, layout,
+    AbsRect, AbsVector, Dispatchable, InputResult, PxPoint, PxRect, PxVector, RelDim, RelVector,
+    Slot, SourceID, UNSIZED_AXIS, UnResolve, layout,
 };
 use core::f32;
 use derive_where::derive_where;
@@ -92,23 +92,20 @@ impl super::EventRouter for ScrollAreaState {
     type Output = ScrollAreaEvent;
 
     fn process(
-        mut self,
+        mut this: crate::AccessCell<Self>,
         input: Self::Input,
         area: PxRect,
         extent: PxRect,
         dpi: crate::RelDim,
         _: &std::sync::Weak<crate::Driver>,
-    ) -> eyre::Result<
-        (Self, smallvec::SmallVec<[Self::Output; 1]>),
-        (Self, smallvec::SmallVec<[Self::Output; 1]>),
-    > {
+    ) -> InputResult<SmallVec<[Self::Output; 1]>> {
         match input {
             RawEvent::Key {
                 down: true,
                 logical_key: winit::keyboard::Key::Named(code),
                 ..
             } => {
-                if let Some(change) = match (code, self.stepsize.0, self.stepsize.1) {
+                if let Some(change) = match (code, this.stepsize.0, this.stepsize.1) {
                     (NamedKey::ArrowUp, _, Some(y)) => Some(PxVector::new(0.0, -y)),
                     (NamedKey::ArrowDown, _, Some(y)) => Some(PxVector::new(0.0, y)),
                     (NamedKey::ArrowLeft, Some(x), _) => Some(PxVector::new(-x, 0.0)),
@@ -117,25 +114,25 @@ impl super::EventRouter for ScrollAreaState {
                     (NamedKey::PageDown, _, Some(_)) => Some(PxVector::new(0.0, area.dim().height)),
                     _ => None,
                 } {
-                    let e = self.apply_scroll(change, &area, &extent, dpi);
-                    return Ok((self, [e].into()));
+                    let e = this.apply_scroll(change, &area, &extent, dpi);
+                    return InputResult::Consume([e].into());
                 }
             }
             RawEvent::MouseScroll { delta, .. } => {
                 let change = match delta {
                     Ok(change) => change,
                     Err(change) => PxVector::new(
-                        change.x * self.stepsize.0.unwrap_or_default(),
-                        change.y * self.stepsize.1.unwrap_or_default(),
+                        change.x * this.stepsize.0.unwrap_or_default(),
+                        change.y * this.stepsize.1.unwrap_or_default(),
                     ),
                 };
 
-                let e = self.apply_scroll(change, &area, &extent, dpi);
-                return Ok((self, [e].into()));
+                let e = this.apply_scroll(change, &area, &extent, dpi);
+                return InputResult::Consume([e].into());
             }
             RawEvent::MouseMove { device_id, pos, .. } => {
-                let stepvec = self.stepvec();
-                if let Some((last_pos, drag)) = self.lastdown.get_mut(&(device_id, 0)) {
+                let stepvec = this.stepvec();
+                if let Some((last_pos, drag)) = this.lastdown.get_mut(&(device_id, 0)) {
                     let diff = (pos - *last_pos).component_mul(stepvec.cast_unit());
                     if !*drag {
                         *drag = true;
@@ -143,10 +140,10 @@ impl super::EventRouter for ScrollAreaState {
 
                     if *drag {
                         *last_pos = pos;
-                        let e = self.apply_scroll(diff, &area, &extent, dpi);
-                        return Ok((self, [e].into()));
+                        let e = this.apply_scroll(diff, &area, &extent, dpi);
+                        return InputResult::Consume([e].into());
                     }
-                    return Ok((self, SmallVec::new()));
+                    return InputResult::Consume(SmallVec::new());
                 }
             }
             RawEvent::Mouse {
@@ -158,16 +155,20 @@ impl super::EventRouter for ScrollAreaState {
             } => match (state, button) {
                 (MouseState::Down, MouseButton::Left) => {
                     if area.contains(pos) {
-                        self.lastdown.insert((device_id, 0), (pos, false));
-                        return Ok((self, SmallVec::new()));
+                        this.lastdown.insert((device_id, 0), (pos, false));
+                        return InputResult::Consume(SmallVec::new());
                     }
                 }
                 (MouseState::Up, MouseButton::Left) => {
-                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, 0))
+                    if let Some((last_pos, drag)) = this.lastdown.remove(&(device_id, 0))
                         && area.contains(pos)
                     {
-                        let e = self.apply_scroll(pos - last_pos, &area, &extent, dpi);
-                        return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
+                        let e = this.apply_scroll(pos - last_pos, &area, &extent, dpi);
+                        return InputResult::Consume(if drag {
+                            [e].into()
+                        } else {
+                            SmallVec::new()
+                        });
                     }
                 }
                 _ => (),
@@ -181,44 +182,49 @@ impl super::EventRouter for ScrollAreaState {
             } => match state {
                 crate::input::TouchState::Start => {
                     if area.contains(pos.xy()) {
-                        self.lastdown
+                        this.lastdown
                             .insert((device_id, index as u64), (pos.xy(), false));
-                        return Ok((self, SmallVec::new()));
+                        return InputResult::Consume(SmallVec::new());
                     }
                 }
                 crate::input::TouchState::Move => {
-                    let stepvec = self.stepvec();
+                    let stepvec = this.stepvec();
                     if let Some((last_pos, drag)) =
-                        self.lastdown.get_mut(&(device_id, index as u64))
+                        this.lastdown.get_mut(&(device_id, index as u64))
                     {
                         let diff = (pos.xy() - *last_pos).component_mul(stepvec.cast_unit());
                         if !*drag {
                             *drag = true;
                         }
 
-                        let e = self.apply_scroll(diff, &area, &extent, dpi);
-                        return Ok((self, [e].into()));
+                        let e = this.apply_scroll(diff, &area, &extent, dpi);
+                        return InputResult::Consume([e].into());
                     }
                 }
                 crate::input::TouchState::End => {
                     // TODO: implement kinetic drag
-                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index as u64))
+                    if let Some((last_pos, drag)) = this.lastdown.remove(&(device_id, index as u64))
                         && area.contains(pos.xy())
                     {
-                        let e = self.apply_scroll(
-                            (pos.xy() - last_pos).component_mul(self.stepvec().cast_unit()),
+                        let stepvec = this.stepvec();
+                        let e = this.apply_scroll(
+                            (pos.xy() - last_pos).component_mul(stepvec.cast_unit()),
                             &area,
                             &extent,
                             dpi,
                         );
-                        return Ok((self, if drag { [e].into() } else { SmallVec::new() }));
+                        return InputResult::Consume(if drag {
+                            [e].into()
+                        } else {
+                            SmallVec::new()
+                        });
                     }
                 }
             },
             _ => (),
         }
 
-        Err((self, SmallVec::new()))
+        InputResult::Forward(SmallVec::new())
     }
 }
 
@@ -261,9 +267,9 @@ impl<T: fixed::Prop + 'static> crate::StateMachineChild for ScrollArea<T> {
         _: &std::sync::Weak<crate::Driver>,
     ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
         Ok(Box::new(StateMachine {
-            state: Some(ScrollAreaState {
+            state: ScrollAreaState {
                 ..Default::default()
-            }),
+            },
             input_mask: RawEventKind::MouseScroll as u64
                 | RawEventKind::Mouse as u64
                 | RawEventKind::MouseMove as u64
@@ -297,16 +303,10 @@ where
     ) -> Box<dyn Layout<T> + 'static> {
         let scroll = manager
             .get_mut::<StateMachine<ScrollAreaState, { ScrollAreaEvent::SIZE }>>(&self.id)
-            .and_then(|state| {
-                state
-                    .state
-                    .as_mut()
-                    .ok_or(crate::Error::InternalFailure.into())
-            })
             .map(|state| {
-                state.stepsize = self.stepsize;
-                state.extension = self.extension;
-                state.scroll
+                state.state.stepsize = self.stepsize;
+                state.state.extension = self.extension;
+                state.state.scroll
             })
             .unwrap();
 

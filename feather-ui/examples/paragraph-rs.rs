@@ -121,6 +121,7 @@ impl FnPersist2<Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
                     wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
+                    feather_ui::DAbsPoint::zero(),
                 );
 
                 let mut p = Paragraph::new(

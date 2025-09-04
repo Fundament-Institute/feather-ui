@@ -161,6 +161,7 @@ impl crate::layout::base::Obstacles for PropBag {
     }
 }
 
+#[allow(dead_code)]
 impl PropBag {
     pub fn set_obstacles(&mut self, v: &[crate::DAbsRect]) -> Option<Vec<crate::DAbsRect>> {
         self.props

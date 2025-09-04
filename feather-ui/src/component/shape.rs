@@ -3,7 +3,7 @@
 
 use crate::color::sRGB;
 use crate::layout::{Layout, leaf};
-use crate::{BASE_DPI, SourceID, WindowStateMachine, layout};
+use crate::{DAbsPoint, SourceID};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -17,13 +17,14 @@ pub enum ShapeKind {
 }
 
 pub struct Shape<T, const KIND: u8> {
-    pub id: std::sync::Arc<SourceID>,
-    pub props: Rc<T>,
+    id: std::sync::Arc<SourceID>,
+    props: Rc<T>,
     border: f32,
     blur: f32,
-    pub corners: [f32; 4],
-    pub fill: sRGB,
-    pub outline: sRGB,
+    size: crate::DAbsPoint,
+    corners: [f32; 4],
+    fill: sRGB,
+    outline: sRGB,
 }
 
 pub fn round_rect<T: leaf::Padded + 'static>(
@@ -34,6 +35,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
     corners: wide::f32x4,
     fill: sRGB,
     outline: sRGB,
+    size: DAbsPoint,
 ) -> Shape<T, { ShapeKind::RoundRect as u8 }> {
     Shape {
         id,
@@ -43,6 +45,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
         corners: corners.to_array(),
         fill,
         outline,
+        size,
     }
 }
 
@@ -55,6 +58,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
     offset: f32,
     fill: sRGB,
     outline: sRGB,
+    size: DAbsPoint,
 ) -> Shape<T, { ShapeKind::Triangle as u8 }> {
     Shape {
         id,
@@ -64,6 +68,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
         corners: [corners[0], corners[1], corners[2], offset],
         fill,
         outline,
+        size,
     }
 }
 
@@ -75,6 +80,7 @@ pub fn circle<T: leaf::Padded + 'static>(
     radii: [f32; 2],
     fill: sRGB,
     outline: sRGB,
+    size: DAbsPoint,
 ) -> Shape<T, { ShapeKind::Circle as u8 }> {
     Shape {
         id,
@@ -84,6 +90,7 @@ pub fn circle<T: leaf::Padded + 'static>(
         corners: [radii[0], radii[1], 0.0, 0.0],
         fill,
         outline,
+        size,
     }
 }
 
@@ -96,6 +103,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
     arcs: [f32; 2],
     fill: sRGB,
     outline: sRGB,
+    size: DAbsPoint,
 ) -> Shape<T, { ShapeKind::Arc as u8 }> {
     Shape {
         id,
@@ -105,6 +113,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
         corners: [arcs[0] + arcs[1] * 0.5, arcs[1] * 0.5, inner_radius, 0.0],
         fill,
         outline,
+        size,
     }
 }
 
@@ -118,6 +127,7 @@ impl<T: leaf::Padded + 'static, const KIND: u8> Clone for Shape<T, KIND> {
             corners: self.corners,
             fill: self.fill,
             outline: self.outline,
+            size: self.size,
         }
     }
 }
@@ -131,6 +141,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
         corners: wide::f32x4,
         fill: sRGB,
         outline: sRGB,
+        size: DAbsPoint,
     ) -> Self {
         Self {
             id,
@@ -140,6 +151,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
             corners: corners.to_array(),
             fill,
             outline,
+            size,
         }
     }
 }
@@ -154,6 +166,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
         offset: f32,
         fill: sRGB,
         outline: sRGB,
+        size: DAbsPoint,
     ) -> Self {
         Self {
             id,
@@ -163,6 +176,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
             corners: [corners[0], corners[1], corners[2], offset],
             fill,
             outline,
+            size,
         }
     }
 }
@@ -176,6 +190,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
         radii: [f32; 2],
         fill: sRGB,
         outline: sRGB,
+        size: DAbsPoint,
     ) -> Self {
         Self {
             id,
@@ -185,6 +200,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
             corners: [radii[0], radii[1], 0.0, 0.0],
             fill,
             outline,
+            size,
         }
     }
 }
@@ -199,6 +215,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
         arcs: [f32; 2],
         fill: sRGB,
         outline: sRGB,
+        size: DAbsPoint,
     ) -> Self {
         Self {
             id,
@@ -208,6 +225,7 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
             corners: [arcs[0] + arcs[1] * 0.5, arcs[1] * 0.5, inner_radius, 0.0],
             fill,
             outline,
+            size,
         }
     }
 }
@@ -230,8 +248,10 @@ where
         _: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
-        let winstate: &WindowStateMachine = manager.get(window).unwrap();
-        let dpi = winstate.state.as_ref().map(|x| x.dpi).unwrap_or(BASE_DPI);
+        let dpi = manager
+            .get::<super::window::WindowStateMachine>(window)
+            .map(|x| x.state.dpi)
+            .unwrap_or(crate::BASE_DPI);
 
         let mut corners = self.corners;
         if KIND == ShapeKind::RoundRect as u8 {
@@ -241,10 +261,10 @@ where
             corners[3] *= dpi.height;
         }
 
-        Box::new(layout::Node::<T, dyn leaf::Prop> {
+        Box::new(leaf::Sized::<T> {
             props: self.props.clone(),
-            children: Default::default(),
             id: Arc::downgrade(&self.id),
+            size: self.size.resolve(dpi).to_vector().to_size().cast_unit(),
             renderable: Some(Rc::new(crate::render::shape::Instance::<
                 crate::render::shape::Shape<KIND>,
             > {
@@ -257,7 +277,6 @@ where
                 id: self.id.clone(),
                 phantom: PhantomData,
             })),
-            layer: None,
         })
     }
 }

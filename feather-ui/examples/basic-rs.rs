@@ -5,16 +5,15 @@ use bytemuck::Zeroable;
 use feather_macro::*;
 use feather_ui::color::{sRGB, sRGB32};
 use feather_ui::component::button::Button;
-use feather_ui::component::mouse_area;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
+use feather_ui::component::{mouse_area, shape};
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, PxRect, RelRect, ScopeID, Slot, SourceID, UNSIZED_AXIS,
-    gen_id, im, winit,
+    AbsRect, App, DAbsPoint, DAbsRect, DPoint, DRect, PxRect, RelRect, ScopeID, Slot, SourceID,
+    UNSIZED_AXIS, gen_id, im, winit,
 };
 use std::rc::Rc;
 use std::sync::Arc;
@@ -75,7 +74,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     ..Default::default()
                 };
 
-                let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+                let rect = shape::round_rect::<DRect>(
                     gen_id!(id),
                     feather_ui::FILL_DRECT,
                     0.0,
@@ -83,6 +82,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
+                    DAbsPoint::zero(),
                 );
 
                 Button::<FixedData>::new(
@@ -117,7 +117,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     ..Default::default()
                 };
 
-                let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+                let rect = shape::round_rect::<DRect>(
                     gen_id!(id),
                     feather_ui::FILL_DRECT,
                     0.0,
@@ -125,6 +125,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                     wide::f32x4::splat(10.0),
                     sRGB::new(0.7, 0.2, 0.4, 1.0),
                     sRGB::transparent(),
+                    DAbsPoint::zero(),
                 );
 
                 Region::<FixedData>::new_layer(
@@ -141,7 +142,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                 )
             };
 
-            let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+            let pixel = shape::round_rect::<DRect>(
                 gen_id!(id),
                 PxRect::new(1.0, 1.0, 2.0, 2.0).into(),
                 0.0,
@@ -149,6 +150,7 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
                 wide::f32x4::zeroed(),
                 sRGB::new(1.0, 1.0, 1.0, 1.0),
                 sRGB::transparent(),
+                DAbsPoint::zero(),
             );
 
             let region = Region::new(
@@ -183,11 +185,11 @@ use feather_ui::WrapEventEx;
 fn main() {
     let onclick = Box::new(
         |_: mouse_area::MouseAreaEvent,
-         mut appdata: CounterState|
-         -> Result<CounterState, CounterState> {
+         mut appdata: feather_ui::AccessCell<CounterState>|
+         -> feather_ui::InputResult<()> {
             {
                 appdata.count += 1;
-                Ok(appdata)
+                feather_ui::InputResult::Consume(())
             }
         }
         .wrap(),
