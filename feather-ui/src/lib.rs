@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+#![doc = include_str!("../../README.md")]
+
 extern crate alloc;
 
 pub mod color;
@@ -39,6 +41,7 @@ use smallvec::SmallVec;
 use std::any::Any;
 use std::cmp::PartialEq;
 use std::collections::{BTreeMap, HashMap};
+use std::convert::Infallible;
 use std::ffi::c_void;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -125,10 +128,45 @@ impl From<std::io::Error> for Error {
     }
 }
 
+/// Represents an axis that is "unsized", which is roughly equivelent to CSS `auto`. It will
+/// set the size of the axis either to the size of the children, if the layout has any, or to
+/// the intrinsic size of the element, if one exists. Otherwise it will evaluate to 0.
 pub const UNSIZED_AXIS: f32 = f32::MAX;
-const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
+
+/// The standard base DPI, by convention, is 96, which corresponds to a scale factor of 1.0 -
+/// all other DPI values are divided by this to get the appropriate scale factor.
 pub const BASE_DPI: RelDim = RelDim::new(96.0, 96.0);
 
+const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
+
+/// This macro automates away some boilerplate necessary to make a vector of children that
+/// can be passed into a component. The first argument is the required layout of the parent,
+/// followed by a list of children to include (by value).
+///
+/// # Examples
+///
+/// ```
+/// use feather_ui::{DRect, FILL_DRECT, gen_id, color::sRGB, wide, UNSIZED_AXIS, DAbsPoint, AbsRect, APP_SOURCE_ID};
+/// use feather_ui::layout::fixed;
+/// use feather_ui::component::{region::Region, shape};
+/// use std::sync::Arc;
+///
+/// let rect = shape::round_rect::<DRect>(
+///     gen_id!(Arc::new(APP_SOURCE_ID)),
+///     FILL_DRECT,
+///     0.0,
+///     0.0,
+///     wide::f32x4::splat(10.0),
+///     sRGB::new(0.2, 0.7, 0.4, 1.0),
+///     sRGB::transparent(),
+///     DAbsPoint::zero(),
+/// );
+/// let region = Region::<DRect>::new(
+///     gen_id!(Arc::new(APP_SOURCE_ID)),
+///      AbsRect::new(45.0, 45.0, 0.0, 0.0).into(),
+///     feather_ui::children![fixed::Prop, rect],
+/// );
+/// ```
 #[macro_export]
 macro_rules! children {
     () => { [] };
@@ -154,22 +192,35 @@ pub struct Pixel {}
 /// Represents a combination of DIP and Pixels that have been resolved for the current DPI
 pub struct Resolved {}
 
+/// A 2D point in logical units (display-independent pixels)
 pub type AbsPoint = Point2D<f32, Logical>;
+/// A 2D point in physical device pixels
 pub type PxPoint = Point2D<f32, Pixel>;
+/// A 2D point in relative coordinates
 pub type RelPoint = Point2D<f32, Relative>;
+/// A 2D point in resolved physical pixels that hasn't yet been combined with it's paired relative coordinates.
 pub type ResPoint = Point2D<f32, Resolved>;
 
+/// A 2D vector in logical units (display-independent pixels)
 pub type AbsVector = Vector2D<f32, Logical>;
+/// A 2D vector in physical device pixels
 pub type PxVector = Vector2D<f32, Pixel>;
+/// A 2D vector in relative coordinates
 pub type RelVector = Vector2D<f32, Relative>;
+/// A 2D vector in resolved physical pixels that hasn't yet been combined with it's paired relative coordinates.
 pub type ResVector = Vector2D<f32, Resolved>;
 
+/// A 2D dimension (or size) in logical units (display-independent pixels)
 pub type AbsDim = Size2D<f32, Logical>;
+/// A 2D dimension (or size) in physical device pixels
 pub type PxDim = Size2D<f32, Pixel>;
+/// A 2D dimension (or size) in relative coordinates
 pub type RelDim = Size2D<f32, Relative>;
+/// A 2D dimension (or size) in resolved physical pixels that hasn't yet been combined with it's paired relative coordinates.
 pub type ResDim = Size2D<f32, Resolved>;
 
-pub trait UnResolve<U> {
+/// Internal trait for "unresolving" a set of physical pixels into logical units.
+trait UnResolve<U> {
     fn unresolve(self, dpi: RelDim) -> U;
 }
 
@@ -185,7 +236,9 @@ impl UnResolve<AbsPoint> for PxPoint {
     }
 }
 
-pub trait Convert<U> {
+/// Internal trait for allowing conversions between foreign types that we're not
+/// allowed to implement From or Into on.
+trait Convert<U> {
     fn to(self) -> U;
 }
 
@@ -213,7 +266,8 @@ impl Convert<Point2D<f64, Pixel>> for winit::dpi::PhysicalPosition<f64> {
     }
 }
 
-// We use our own SSE optimized Rect type instead of the euclid ones
+/// Represents a 2D Rectangle, similar to the Euclid rectangle, but SSE optimized
+/// and uses a LTRB absolute representation, instead of a position and a size.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Rect<U> {
     pub v: f32x4,
@@ -221,9 +275,13 @@ pub struct Rect<U> {
     pub _unit: PhantomData<U>,
 }
 
+/// A 2D rectangle in logical units (display-independent pixels)
 pub type AbsRect = Rect<Logical>;
+/// A 2D rectangle in physical pixels
 pub type PxRect = Rect<Pixel>;
+/// A 2D rectangle in relative values
 pub type RelRect = Rect<Relative>;
+/// A 2D rectangle in resolved pixels that haven't been merged with their paired relative component
 pub type ResRect = Rect<Resolved>;
 
 unsafe impl<U: Copy + 'static> NoUninit for Rect<U> {}
@@ -610,10 +668,30 @@ impl Neg for DAbsRect {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// A point with both pixel and display independent units, but no relative component.
+/// A point with both pixel and display independent units, but no relative component. Must be
+/// constructed manually or from a [`PxPoint`] or [`AbsPoint`]. This is commonly used in DPI
+/// sensitive values that could theoretically have pixels, or logical units, or both, but where
+/// a relative value doesn't make any sense (such as the intrinsic size of a shape).
+///
+/// # Examples
+/// ```
+/// use feather_ui::{DAbsPoint, AbsPoint, PxPoint, RelPoint};
+/// let foo: DAbsPoint = AbsPoint::new(1.0,2.0).into();
+///
+/// let bar: DAbsPoint = PxPoint::new(2.0,3.0).into();
+///
+/// let foobar = foo + bar;
+///
+/// let test = DAbsPoint{
+///     px: PxPoint::new(1.0,2.0),
+///     dp: AbsPoint::new(1.0,4.0),
+/// };
+///
+/// let bartest = bar + test;
+/// ```
 pub struct DAbsPoint {
-    dp: AbsPoint,
-    px: PxPoint,
+    pub dp: AbsPoint,
+    pub px: PxPoint,
 }
 
 impl DAbsPoint {
@@ -659,6 +737,24 @@ impl From<PxPoint> for DAbsPoint {
     }
 }
 
+impl Add<DAbsPoint> for DAbsPoint {
+    type Output = DAbsPoint;
+
+    fn add(self, rhs: DAbsPoint) -> Self::Output {
+        Self::Output {
+            dp: self.dp + rhs.dp.to_vector(),
+            px: self.px + rhs.px.to_vector(),
+        }
+    }
+}
+
+impl AddAssign<DAbsPoint> for DAbsPoint {
+    fn add_assign(&mut self, rhs: DAbsPoint) {
+        self.dp += rhs.dp.to_vector();
+        self.px += rhs.px.to_vector();
+    }
+}
+
 impl Neg for DAbsPoint {
     type Output = DAbsPoint;
 
@@ -676,7 +772,7 @@ pub fn build_aabb<U>(a: Point2D<f32, U>, b: Point2D<f32, U>) -> Rect<U> {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// Unified coordinate
+/// Partially resolved unified coordinate
 pub struct UPoint(f32x4);
 
 pub const ZERO_UPOINT: UPoint = UPoint(f32x4::ZERO);
@@ -747,11 +843,31 @@ impl Neg for UPoint {
     }
 }
 
+/// Unified Display Point with both per-pixel and display-independent pixels. Unlike a Rect, must
+/// be constructed manually or from a [`PxPoint`], [`AbsPoint`] or [`RelPoint`].
+///
+/// # Examples
+/// ```
+/// use feather_ui::{DPoint, AbsPoint, PxPoint, RelPoint};
+/// let foo: DPoint = AbsPoint::new(1.0,2.0).into();
+///
+/// let bar: DPoint = PxPoint::new(2.0,3.0).into();
+///
+/// let foobar = foo + bar;
+///
+/// let test = DPoint{
+///     px: PxPoint::new(1.0,2.0),
+///     dp: AbsPoint::new(1.0,4.0),
+///     rel: RelPoint::new(3.0,4.0),
+/// };
+///
+/// let bartest = bar + test;
+/// ```
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct DPoint {
-    dp: AbsPoint,
-    px: PxPoint,
-    rel: RelPoint,
+    pub dp: AbsPoint,
+    pub px: PxPoint,
+    pub rel: RelPoint,
 }
 
 pub const ZERO_DPOINT: DPoint = DPoint {
@@ -848,7 +964,7 @@ impl Neg for DPoint {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// Unified coordinate rectangle
+/// Partially resolved unified coordinate rectangle
 pub struct URect {
     pub abs: ResRect,
     pub rel: RelRect,
@@ -937,7 +1053,30 @@ impl Neg for URect {
     }
 }
 
-/// Display Rectangle with both per-pixel and display-independent pixels
+/// Unified Display Rectangle with both per-pixel and display-independent pixels. Can be
+/// constructed by adding together any combination of [`PxRect`], [`AbsRect`] or [`RelRect`].
+///
+/// # Examples
+/// ```
+/// use feather_ui::{DRect, AbsRect, PxRect, RelRect};
+/// let foo: DRect = AbsRect::new(1.0,2.0,3.0,4.0).into();
+///
+/// let bar = AbsRect::new(1.0,2.0,3.0,4.0) + PxRect::new(1.0,2.0,3.0,4.0);
+///
+/// let baz = RelRect::new(1.0,2.0,3.0,4.0) + PxRect::new(1.0,2.0,3.0,4.0);
+///
+/// // These can be added together because bar turned into a `DRect` from adding `PxRect`
+/// // and `AbsRect` together
+/// let foobar = foo + bar;
+///
+/// let test = DRect{
+///     px: PxRect::new(1.0,2.0,3.0,4.0),
+///     dp: AbsRect::new(1.0,2.0,3.0,4.0),
+///     rel: RelRect::new(1.0,2.0,3.0,4.0),
+/// };
+///
+/// let baztest = baz + test;
+/// ```
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct DRect {
     pub px: PxRect,
@@ -955,6 +1094,9 @@ impl DRect {
             rel: self.rel,
         }
     }
+
+    /// Returns the top-left corner of the unified display rectangle as a unified
+    /// display point.
     pub fn topleft(&self) -> DPoint {
         DPoint {
             dp: self.dp.topleft(),
@@ -962,6 +1104,11 @@ impl DRect {
             rel: self.rel.topleft(),
         }
     }
+
+    /// Returns the bottom-right corner of the unified display rectangle. This
+    /// is ***not*** the size of the rectangle! To get the actual size of the
+    /// rectangle, you must subtract the top-left corner from the bottom-right
+    /// corner, or call [`DRect::size`] which does this for you.
     pub fn bottomright(&self) -> DPoint {
         DPoint {
             dp: self.dp.bottomright(),
@@ -970,6 +1117,12 @@ impl DRect {
         }
     }
 
+    /// Returns the size of the rectangle as a unified display point.
+    pub fn size(&self) -> DPoint {
+        self.bottomright() - self.topleft()
+    }
+
+    /// Returns a degenerate zero-sized rectangle.
     pub const fn zero() -> Self {
         Self {
             px: PxRect::zero(),
@@ -978,6 +1131,8 @@ impl DRect {
         }
     }
 
+    /// Returns a DRect with a relative component mapped to the entire available area. This
+    /// is often used for any element that should be the same size as it's parent container.
     pub const fn fill() -> Self {
         DRect {
             px: PxRect::zero(),
@@ -986,6 +1141,9 @@ impl DRect {
         }
     }
 
+    /// Returns a DRect with two [`UNSIZED_AXIS`], meaning they will be set to the size of the
+    /// children of the element, or the element's intrinsic size (or zero if it doesn't have
+    /// any).
     pub const fn auto() -> Self {
         DRect {
             px: PxRect::zero(),
@@ -1083,7 +1241,19 @@ where
     }
 }
 
-// We use our own SSE optimized Rect type instead of the euclid ones
+/// The Limits type represents both a minimum size and a maximum size for a given unit. Adding limits
+/// together actually merges them, by taking the largest minimum size and the smallest maximum size of
+/// either. You aren't expected to construct this type manually, however - the Limits constructor takes
+/// a range parameter to make it easier to represent the minimum and maximum range of sizes you want.
+///
+/// # Examples
+/// ```
+/// // Results in a minimum size of [-inf, 10.0] and a maximum size of [inf, 200.0]
+/// let limits = feather_ui::AbsLimits::new(.., 10.0..200.0);
+///
+/// // Results in a minimum size of [-inf, -inf] and a maximum size of [1.0, inf]
+/// let rlimits = feather_ui::RelLimits::new(..1.0, ..);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Limits<U> {
     pub v: f32x4,
@@ -1098,6 +1268,9 @@ pub type ResLimits = Limits<Resolved>;
 
 //pub const Unbounded: std::ops::Range<f32> = std::ops::Range
 // It would be cheaper to avoid using actual infinities here but we currently need them to make the math work
+
+/// Represents the default limit values for any limit type. This simply represents a minimum size
+/// of [`f32::NEG_INFINITY`] and a maximum size of [`f32::INFINITY`]
 pub const DEFAULT_LIMITS: f32x4 = f32x4::new([
     f32::NEG_INFINITY,
     f32::NEG_INFINITY,
@@ -1105,11 +1278,15 @@ pub const DEFAULT_LIMITS: f32x4 = f32x4::new([
     f32::INFINITY,
 ]);
 
+/// Represents the default absolute value limit with a minimum size of [`f32::NEG_INFINITY`] and a
+/// maximum size of [`f32::INFINITY`]
 pub const DEFAULT_ABSLIMITS: AbsLimits = AbsLimits {
     v: DEFAULT_LIMITS,
     _unit: PhantomData,
 };
 
+/// Represents the default relative value limit with a minimum size of [`f32::NEG_INFINITY`] and a
+/// maximum size of [`f32::INFINITY`]
 pub const DEFAULT_RLIMITS: RelLimits = RelLimits {
     v: DEFAULT_LIMITS,
     _unit: PhantomData,
@@ -1605,7 +1782,7 @@ where
 }
 
 /// Represents a scope with a particular ID assigned to it. Used to generate new IDs for anything created
-/// inside this scope, with this scope's ID as parents, or to generate a new ScopeID with this scope as its
+/// inside this scope, with this scope's ID as parents, or to generate a new [`ScopeID`] with this scope as its
 /// parent.
 pub struct ScopeID<'a> {
     // This is only used to force a mutable borrow of the parent, which ensures you cannot fork ID scopes
@@ -1670,7 +1847,7 @@ impl<'a> ScopeID<'a> {
         }
     }
 
-    // Used internally to generate the root scope encapsulating the hardcoded APP_SOURCE_ID
+    // Used internally to generate the root scope encapsulating the hardcoded [`APP_SOURCE_ID`]
     fn root() -> ScopeID<'a> {
         ScopeID {
             _parent: PhantomData,
@@ -1680,7 +1857,7 @@ impl<'a> ScopeID<'a> {
     }
 }
 
-/// This replaces [Result] and allows event handlers to consume an event (preventing any further
+/// This replaces [`Result`] and allows event handlers to consume an event (preventing any further
 /// processing), forward an event (allow other components to process the event), or return an error.
 pub enum InputResult<T> {
     Consume(T),
@@ -1748,7 +1925,7 @@ where
     fn restore(pair: DispatchPair) -> Result<Self, Error>;
 }
 
-impl Dispatchable for () {
+impl Dispatchable for Infallible {
     const SIZE: usize = 0;
 
     fn extract(self) -> DispatchPair {
@@ -1756,7 +1933,7 @@ impl Dispatchable for () {
     }
 
     fn restore(_: DispatchPair) -> Result<Self, Error> {
-        Ok(())
+        Err(Error::Stateless)
     }
 }
 
@@ -1811,8 +1988,40 @@ impl<T> std::ops::Deref for StateCell<T> {
     }
 }*/
 
-/// Mutable access to the appstate is put behind this smart pointer to allow the state manager to detect
-/// when the value was actually changed.
+/// `AccessCell` allows feather to track when a value passed into a function has actually been
+/// changed, by tracking if a mutable borrow has been requested. Like [`std::cell::RefCell`], it
+/// implements [`std::borrow::Borrow`] and [`std::borrow::BorrowMut`], but also implements the
+/// [`std::ops::Deref`] and [`std::ops::DerefMut`] operators so it can be used more like a smart
+/// pointer.
+///
+/// Generally speaking, **this type should never be constructed** - it is used at Feather's API
+/// boundaries where appropriate.
+///
+/// # Examples
+///
+/// ```
+/// use feather_ui::AccessCell;
+///
+/// struct FooBar {
+///   i: i32,
+/// }
+///
+/// fn change(change: bool, mut v: AccessCell<FooBar>) {
+///     if change {
+///         // FooBar only marked as changed once this mutable access happens
+///         v.i = 4;
+///     }
+/// }
+///
+/// ```
+///
+/// # Future-proofing
+/// Currently, `AccessCell` does not attempt to determine if the new value is actually *different*
+/// than what was previously stored, because this would be a very expensive comparison. However,
+/// in the future, a specialization of AccessCell for Persistent data structures that only marks
+/// the value as changed if it is actually different when the AccessCell is dropped might be
+/// implemented. As a result, you should assume that AccessCell implements [`Drop`] even if it
+/// technically doesn't right now.
 pub struct AccessCell<'a, 'b, T> {
     value: &'a mut T,
     changed: &'b mut bool,
@@ -1852,6 +2061,104 @@ impl<'a, 'b, T> std::ops::DerefMut for AccessCell<'a, 'b, T> {
     }
 }
 
+#[test]
+fn test_access_cell() {
+    struct FooBar {
+        i: i32,
+    }
+
+    fn change(change: bool, mut v: AccessCell<FooBar>) {
+        if change {
+            v.i = 4;
+        }
+    }
+    let mut foobar = FooBar { i: 1 };
+    let mut tracker = false;
+
+    let accessor = AccessCell {
+        value: &mut foobar,
+        changed: &mut tracker,
+    };
+    change(false, accessor);
+    assert_eq!(foobar.i, 1);
+    assert_eq!(tracker, false);
+
+    let accessor = AccessCell {
+        value: &mut foobar,
+        changed: &mut tracker,
+    };
+    change(true, accessor);
+    assert_eq!(foobar.i, 4);
+    assert_eq!(tracker, true);
+}
+
+/// `StateManager` is used to manage the mutable state associated with a particular component's ID.
+/// Because components technically only exist while a layout tree is being calculated, this is
+/// where a component is expected to store all it's durable state that must survive through the
+/// next layout pass. The StateManager also requires that all components implement
+/// [`StateMachineChild`], even if they are stateless. A derive macro is provided for this case.
+/// Likewise, the internal state object must implement [`event::EventRouter`], even if it doesn't process
+/// any events, in which case it can simply set Input and Output to [`std::convert::Infallible`]
+///
+///
+/// All components can access their own state by calling [`StateManager::get`] with their ID and
+/// the [`component::StateMachine`] wrapper type around their internal state object, which should have been
+/// created earlier by feather automatically calling [`StateMachineChild::init`].
+///
+/// # Examples
+///
+/// ```
+/// use feather_ui::{SourceID, StateManager, component::StateMachine, event::EventRouter};
+/// use std::sync::Arc;
+/// use std::convert::Infallible;
+///
+/// #[derive(Clone, PartialEq)]
+/// struct FooBar {
+///   i: i32
+/// }
+///
+/// impl EventRouter for FooBar {
+///    type Input = Infallible;
+///    type Output = Infallible;
+/// }
+///
+/// fn layout(id: Arc<SourceID>, manager: &mut StateManager) {
+///     let outer = manager.get_mut::<StateMachine<FooBar, 0>>(&id).unwrap();
+///     outer.state.i = 3;
+/// }
+/// ```
+///
+/// A component can even retrieve a *different* component's internal state as long as it has the
+/// ID and knows the type of the inner state. This is how most feather components get the DPI
+/// for the current window.
+///
+/// ```
+/// use feather_ui::{SourceID, StateManager, component::StateMachine, event::EventRouter};
+/// use std::sync::Arc;
+/// use std::convert::Infallible;
+/// use feather_ui::component::window::WindowStateMachine;
+///
+/// #[derive(Clone, PartialEq)]
+/// struct FooBar {
+///   i: i32
+/// }
+///
+/// impl EventRouter for FooBar {
+///    type Input = Infallible;
+///    type Output = Infallible;
+/// }
+///
+/// fn layout(
+///     manager: &mut StateManager,
+///     window: &Arc<SourceID>,
+/// ) {
+/// let dpi = manager
+///     .get::<WindowStateMachine>(window)
+///     .map(|x| x.state.dpi)
+///     .unwrap_or(feather_ui::BASE_DPI);
+/// println!("{dpi:?}");
+/// }
+/// ```
 #[derive(Default)]
 pub struct StateManager {
     states: HashMap<Arc<SourceID>, Box<dyn StateMachineWrapper>>,
@@ -1903,11 +2210,14 @@ impl StateManager {
             .as_mut() as &mut dyn Any;
         v.downcast_mut().ok_or(Error::RuntimeTypeMismatch.into())
     }
-    pub fn init(&mut self, id: Arc<SourceID>, state: Box<dyn StateMachineWrapper>) {
+    fn init(&mut self, id: Arc<SourceID>, state: Box<dyn StateMachineWrapper>) {
         if !self.states.contains_key(&id) {
             self.states.insert(id.clone(), state);
         }
     }
+
+    /// Gets a reference to a state for the given `id`. Returns an error if the state doesn't
+    /// exist or if the requested type doesn't match.
     pub fn get<'a, State: 'static + component::StateMachineWrapper>(
         &'a self,
         id: &SourceID,
@@ -1919,6 +2229,9 @@ impl StateManager {
             .as_ref() as &dyn Any;
         v.downcast_ref().ok_or(Error::RuntimeTypeMismatch.into())
     }
+
+    /// Gets a **mutable** reference to a state for the given `id`. Returns an error if the
+    /// state doesn't exist or if the requested type doesn't match.
     pub fn get_mut<'a, State: 'static + component::StateMachineWrapper>(
         &'a mut self,
         id: &SourceID,
@@ -1930,11 +2243,9 @@ impl StateManager {
             .as_mut() as &mut dyn Any;
         v.downcast_mut().ok_or(Error::RuntimeTypeMismatch.into())
     }
+
     #[allow(clippy::borrowed_box)]
-    pub fn get_trait<'a>(
-        &'a self,
-        id: &SourceID,
-    ) -> eyre::Result<&'a Box<dyn StateMachineWrapper>> {
+    fn get_trait<'a>(&'a self, id: &SourceID) -> eyre::Result<&'a Box<dyn StateMachineWrapper>> {
         self.states.get(id).ok_or_eyre("State does not exist")
     }
 
@@ -1951,7 +2262,7 @@ impl StateManager {
         }
     }
 
-    pub fn process(
+    fn process(
         &mut self,
         event: DispatchPair,
         slot: &Slot,
@@ -1972,7 +2283,7 @@ impl StateManager {
                     v
                 }
                 InputResult::Forward(v) => v,
-                InputResult::Error(error) => return Err(error.into()),
+                InputResult::Error(error) => return Err(error),
             };
             if state.changed() {
                 self.changed = true;
@@ -2012,6 +2323,8 @@ impl StateManager {
     }
 }
 
+/// This is the root ID for the application itself, representing the user's AppState. All IDs are derived
+/// from this root ID, and this is the only ID that is allowed to have a parent of [`None`]
 #[allow(clippy::declare_interior_mutable_const)]
 pub const APP_SOURCE_ID: SourceID = SourceID {
     parent: None,
