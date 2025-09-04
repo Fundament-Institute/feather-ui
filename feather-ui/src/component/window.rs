@@ -200,6 +200,11 @@ impl PartialEq for WindowState {
 
 pub type WindowStateMachine = StateMachine<WindowState, 0>;
 
+/// Represents an OS window. All outline functions must return a set of windows as a result of their evaluation,
+/// which represents all the windows that are currently open as part of the application. The ID of the window that
+/// a particular component belongs to is propagated down the outline evaluation phase, because this is needed to
+/// acquire window-specific information that depends on which monitor the OS thinks the window belongs to, like DPI
+/// or orientation.
 #[derive(Clone)]
 pub struct Window {
     pub id: Arc<SourceID>,

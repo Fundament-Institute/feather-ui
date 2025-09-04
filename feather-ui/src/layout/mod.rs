@@ -26,6 +26,10 @@ use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
+/// Represents an arbitrary layout node that hasn't been staged yet. The vast majority of
+/// the time, components should simply use the standard [`Node`] implementation of this
+/// trait, which handles most common layout cases. However, some components, like the text
+/// component, have complex layout logic or special cases that [`Node`] can't cover.
 pub trait Layout<Props: ?Sized>: DynClone {
     fn get_props(&self) -> &Props;
     fn stage<'a>(
@@ -93,6 +97,14 @@ pub trait Desc {
     ) -> Box<dyn Staged + 'a>;
 }
 
+/// The standard layout node. Expects the layout properties, which must be compatible with the
+/// layout description `D` provided, which also determines the type that contains the children.
+/// A unique ID must be provided, and a renderable is optional - it will be passed to staging
+/// if provided. The layer, if provided will create a new layer operation with the given color
+/// and rotation. This is normally used to do correct transparency.
+///
+/// # Examples
+/// See [`super::component::Component`]
 #[derive_where(Clone)]
 pub struct Node<T, D: Desc + ?Sized> {
     pub props: Rc<T>,
