@@ -420,7 +420,7 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "calculator-rs"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "feather-macro",
  "feather-ui",
@@ -972,7 +972,7 @@ dependencies = [
 
 [[package]]
 name = "feather-macro"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "itertools 0.14.0",
  "proc-macro2",
@@ -983,7 +983,7 @@ dependencies = [
 
 [[package]]
 name = "feather-ui"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "alloca",
  "arboard",
