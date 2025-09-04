@@ -72,6 +72,8 @@ pub trait ZIndex {
     }
 }
 
+impl ZIndex for DRect {}
+
 // Padding is used so an element's actual area can be larger than the area it draws children inside (like text).
 pub trait Padding {
     fn padding(&self) -> &DAbsRect {

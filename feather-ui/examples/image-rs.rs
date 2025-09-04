@@ -56,6 +56,7 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
             wide::f32x4::splat(0.0),
             sRGB::new(1.0, 1.0, 1.0, 1.0),
             sRGB::transparent(),
+            feather_ui::DAbsPoint::zero(),
         );
 
         let mut children: im::Vector<Option<Box<feather_ui::component::ChildOf<dyn fixed::Prop>>>> =
