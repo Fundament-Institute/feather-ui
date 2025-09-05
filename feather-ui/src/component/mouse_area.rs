@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::StateMachine;
+use super::StateMachineImpl;
 use crate::component::Layout;
+use crate::event::{DistributeStream, EventStream};
 use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
 use crate::layout::leaf;
 use crate::{
@@ -266,7 +267,7 @@ impl<T: leaf::Prop + 'static> crate::StateMachineChild for MouseArea<T> {
         &self,
         _: &std::sync::Weak<crate::Driver>,
     ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
-        Ok(Box::new(StateMachine {
+        Ok(Box::new(StateMachineImpl {
             state: MouseAreaState {
                 lastdown: HashMap::new(),
                 hover: false,
@@ -296,7 +297,7 @@ where
     ) -> Box<dyn Layout<T> + 'static> {
         // TODO: allow layout to return a Result
         manager
-            .get_mut::<StateMachine<MouseAreaState, { MouseAreaEvent::SIZE }>>(&self.id)
+            .get_mut::<StateMachineImpl<MouseAreaState, { MouseAreaEvent::SIZE }>>(&self.id)
             .map(|state| {
                 state.state.deadzone = self.deadzone;
             })

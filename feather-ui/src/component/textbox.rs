@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::StateMachine;
+use super::StateMachineImpl;
 use crate::color::sRGB;
 use crate::editor::Editor;
 use crate::input::{ModifierKeys, MouseButton, MouseState, RawEvent, RawEventKind};
@@ -571,7 +571,7 @@ impl<T: Prop + 'static> crate::StateMachineChild for TextBox<T> {
         &self,
         _: &std::sync::Weak<crate::Driver>,
     ) -> Result<Box<dyn super::StateMachineWrapper>, Error> {
-        let statemachine = StateMachine {
+        let statemachine = StateMachineImpl {
             state: TextBoxState {
                 editor: Editor::new(),
                 last_x_offset: Default::default(),
@@ -612,7 +612,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
             .unwrap_or(crate::BASE_DPI);
         let mut font_system = driver.font_system.write();
 
-        let textstate: &mut StateMachine<TextBoxState, { TextBoxEvent::SIZE }> =
+        let textstate: &mut StateMachineImpl<TextBoxState, { TextBoxEvent::SIZE }> =
             manager.get_mut(&self.id).unwrap();
         let textstate = &mut textstate.state;
         textstate.props = self.props.clone();

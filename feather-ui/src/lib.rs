@@ -2113,13 +2113,19 @@ pub trait Dispatchable
 where
     Self: Sized,
 {
+    type Productize<S: crate::event::EventStream<Self>>;
+
     const SIZE: usize;
     fn extract(self) -> DispatchPair;
     fn restore(pair: DispatchPair) -> Result<Self, Error>;
+    fn distribute<S: crate::event::EventStream<Self>>(s: S) -> Self::Productize<S>
+    where
+        Self: 'static;
 }
 
 impl Dispatchable for Infallible {
     const SIZE: usize = 0;
+    type Productize<A: crate::event::EventStream<Self>> = ();
 
     fn extract(self) -> DispatchPair {
         (0, Box::new(self))
@@ -2127,6 +2133,13 @@ impl Dispatchable for Infallible {
 
     fn restore(_: DispatchPair) -> Result<Self, Error> {
         Err(Error::Stateless)
+    }
+
+    fn distribute<S: crate::event::EventStream<Self>>(_: S) -> Self::Productize<S>
+    where
+        Self: 'static,
+    {
+        ()
     }
 }
 

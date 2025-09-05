@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
-use crate::component::{EventRouter, StateMachine};
+use crate::component::{EventRouter, StateMachineImpl};
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
 use crate::{SourceID, graphics};
@@ -87,7 +87,7 @@ impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
         &self,
         _: &std::sync::Weak<graphics::Driver>,
     ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
-        let statemachine: StateMachine<TextState, 0> = StateMachine {
+        let statemachine: StateMachineImpl<TextState, 0> = StateMachineImpl {
             state: TextState {
                 buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics::new(
                     point_to_pixel(self.font_size, 1.0),
@@ -162,7 +162,7 @@ where
         );
 
         let textstate = manager
-            .get_mut::<StateMachine<TextState, 0>>(&self.id)
+            .get_mut::<StateMachineImpl<TextState, 0>>(&self.id)
             .unwrap();
         let textstate = &mut textstate.state;
         textstate

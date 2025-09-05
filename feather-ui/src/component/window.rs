@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::{Component, StateMachine};
+use super::{Component, StateMachineImpl};
 use crate::component::ComponentWrap;
 use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
@@ -198,7 +198,7 @@ impl PartialEq for WindowState {
     }
 }
 
-pub type WindowStateMachine = StateMachine<WindowState, 0>;
+pub type WindowStateMachine = StateMachineImpl<WindowState, 0>;
 
 /// Represents an OS window. All outline functions must return a set of windows as a result of their evaluation,
 /// which represents all the windows that are currently open as part of the application. The ID of the window that
@@ -320,7 +320,7 @@ impl Window {
 
             manager.init(
                 self.id.clone(),
-                Box::new(StateMachine::<WindowState, 0> {
+                Box::new(StateMachineImpl::<WindowState, 0> {
                     state: windowstate,
                     output: [],
                     input_mask: 0,

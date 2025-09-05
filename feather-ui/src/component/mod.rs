@@ -49,15 +49,20 @@ pub trait StateMachineWrapper: Any {
     fn set_changed(&mut self, changed: bool);
 }
 
-pub struct StateMachine<State, const OUTPUT_SIZE: usize> {
+pub struct StateMachineImpl<State, const OUTPUT_SIZE: usize> {
     pub state: State,
     pub output: [Option<Slot>; OUTPUT_SIZE],
     pub input_mask: u64,
     pub(crate) changed: bool,
 }
 
+trait StateMachine<InputEvent, InputState: Clone, OutputEvent, OutputState: Clone> {
+    fn update(&mut self, ie: InputEvent, is: InputState) -> impl IntoIterator<Item = OutputEvent>;
+    fn get(&self, is: InputState) -> OutputState;
+}
+
 impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMachineWrapper
-    for StateMachine<State, OUTPUT_SIZE>
+    for StateMachineImpl<State, OUTPUT_SIZE>
 {
     fn process(
         &mut self,
