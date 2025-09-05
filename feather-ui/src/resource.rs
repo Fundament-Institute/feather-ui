@@ -545,15 +545,15 @@ impl Loader for SvgXml {
             &driver.device,
             size,
             if resize { Some(&driver.queue) } else { None },
+            None,
         )?;
 
-        queue_atlas_data(
+        driver.atlas.read().queue_data(
             &data.0,
             &region,
             &driver.queue,
             data.1.width,
             data.1.height,
-            &driver.atlas.read(),
         );
 
         Ok((region, size))
@@ -874,15 +874,15 @@ impl Loader for load_image::Image {
             &driver.device,
             atlas::Size::new(data.1.width as i32, data.1.height as i32),
             if resize { Some(&driver.queue) } else { None },
+            None,
         )?;
 
-        queue_atlas_data(
+        driver.atlas.read().queue_data(
             &data.0,
             &region,
             &driver.queue,
             data.1.width,
             data.1.height,
-            &driver.atlas.read(),
         );
 
         let native = atlas::Size::new(self.width as i32, self.height as i32);
@@ -969,53 +969,20 @@ impl Loader for image::DynamicImage {
             &driver.device,
             atlas::Size::new(data.1.width as i32, data.1.height as i32),
             if resize { Some(&driver.queue) } else { None },
+            None,
         )?;
 
-        queue_atlas_data(
+        driver.atlas.read().queue_data(
             &data.0,
             &region,
             &driver.queue,
             data.1.width,
             data.1.height,
-            &driver.atlas.read(),
         );
 
         let native = atlas::Size::new(self.width() as i32, self.height() as i32);
         Ok((region, native))
     }
-}
-
-pub(crate) fn queue_atlas_data(
-    data: &[u8],
-    region: &atlas::Region,
-    queue: &wgpu::Queue,
-    width: u32,
-    height: u32,
-    atlas: &atlas::Atlas,
-) {
-    queue.write_texture(
-        wgpu::TexelCopyTextureInfo {
-            texture: atlas.get_texture(),
-            mip_level: 0,
-            origin: wgpu::Origin3d {
-                x: region.uv.min.x as u32,
-                y: region.uv.min.y as u32,
-                z: region.index as u32,
-            },
-            aspect: wgpu::TextureAspect::All,
-        },
-        data,
-        wgpu::TexelCopyBufferLayout {
-            offset: 0,
-            bytes_per_row: Some(width * atlas.get_texture().format().components() as u32),
-            rows_per_image: None,
-        },
-        wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        },
-    );
 }
 
 pub fn load_icon(location: &dyn Location) -> Result<winit::window::Icon, Error> {

@@ -7,10 +7,9 @@ use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
 use crate::render::atlas::Atlas;
 use crate::render::compositor::CompositorView;
-use crate::{PxDim, PxPoint, shaders};
+use crate::{Pixel, PxDim, PxPoint, shaders};
 use core::f32;
-use guillotiere::euclid::Size2D;
-use num_traits::Zero;
+use guillotiere::euclid::{Point2D, Size2D};
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -37,12 +36,17 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {
-        let areadim = area.dim();
+        let dim = area.dim() - self.padding.bottomright() - self.padding.topleft();
+
+        if dim.width <= 0.0 || dim.height <= 0.0 {
+            return Ok(());
+        }
+
         let perimeter = [
-            areadim.height - self.corners[0] - self.corners[3],
-            areadim.width - self.corners[0] - self.corners[1],
-            areadim.height - self.corners[1] - self.corners[2],
-            areadim.width - self.corners[2] - self.corners[3],
+            dim.height - self.corners[0] - self.corners[3],
+            dim.width - self.corners[0] - self.corners[1],
+            dim.height - self.corners[1] - self.corners[2],
+            dim.width - self.corners[2] - self.corners[3],
         ];
 
         // RoundRects have a specific optimization, but only if no edge length is less than 2 pixels
@@ -50,8 +54,8 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             && perimeter.iter().all(|x| *x >= 2.0)
         {
             // If the border is larger than the corner itself, pretend the size of that corner is the border.
-            let corners = self.corners.map(|x| x.max(self.border));
-            let intcorners = corners.map(|x| x.ceil() as i32);
+            let mut corners = self.corners.map(|x| x.max(self.border));
+            let mut intcorners = corners.map(|x| x.ceil() as i32);
 
             let intsides = [
                 intcorners[0].max(intcorners[3]),
@@ -75,18 +79,19 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                     &self.id,
                     inner + Size2D::<i32, crate::Pixel>::new(2, 2),
                     None,
+                    Some(&driver.queue),
                 )?;
                 (region.uv, region.index)
             };
 
-            // Queue a write command to zero out the texture
-            driver.queue.write_texture(texture, data, data_layout, size);
-            driver.atlas.write().queue_clear(wgpu::ImageSubresourceRange{ aspect:wgpu::TextureAspect::All, base_mip_level: 0, mip_level_count: None, base_array_layer: todo!(), array_layer_count: todo!()   })
             // We render the rect here with corners raised to the nearest pixel so we can cut out the corners neatly
             driver.with_pipeline::<PIPELINE>(|pipeline| {
                 pipeline.append(
                     &Data {
-                        pos: (region_uv.min.to_f32() + PxPoint::splat(1.0).to_vector())
+                        pos: region_uv
+                            .min
+                            .add_size(&Size2D::splat(1))
+                            .to_f32()
                             .to_array()
                             .into(),
                         dim: inner.to_f32().to_array().into(),
@@ -100,7 +105,6 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                 )
             });
 
-            let dim = areadim - self.padding.bottomright() - self.padding.topleft();
             if dim.width <= 0.0 || dim.height <= 0.0 {
                 return Ok(());
             }
@@ -114,16 +118,22 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             // 4 8 3
 
             // Pretend all corners are 1 pixel larger (this works because our buffer is 3 pixels)
-            let corners = corners.map(|x| x + 1.0);
+            corners = corners.map(|x| x + 1.0);
+            intcorners = intcorners.map(|x| x + 1);
+
             let topleft = area.topleft().add_size(&self.padding.topleft()).to_vector();
-            // Add 1 to our UV coordinates to account for the 1 pixel transparent border
+            // Add 1 to account for the 1 pixel transparent border
             let uvpos = region_uv.min.add_size(&Size2D::splat(1));
-            let gen_corner = |pos: PxPoint, corner: f32| {
-                let intdim = PxDim::splat(corner.ceil() + 1.0);
+            let mut gen_corner = |pos: PxPoint, corner: f32, u: i32, v: i32| {
+                let intdim = PxDim::splat(corner.ceil());
                 compositor.append_data(
                     pos + topleft,
-                    PxDim::splat(corner + 1.0),
-                    uvpos.to_f32().add_size(&intdim).to_array().into(),
+                    PxDim::splat(corner),
+                    uvpos
+                        .add_size(&Size2D::new(u, v))
+                        .to_f32()
+                        .to_array()
+                        .into(),
                     intdim.to_array().into(),
                     0xFFFFFFFF,
                     0.0,
@@ -132,23 +142,25 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                 );
             };
 
-            let gen_side = |dim: PxDim, x: f32, w: f32, y: f32, h: f32| {
-                compositor.append_data(
-                    PxPoint::new(x, y) + topleft,
-                    dim,
-                    uvpos.to_f32().add_size(PxDim::new(x, y)).to_array().into(),
-                    PxDim::new(w, h).ceil().to_array().into(),
-                    0xFFFFFFFF,
-                    0.0,
-                    region_index,
-                    true,
-                );
-            };
-
-            gen_corner(PxPoint::new(0.0, 0.0), corners[0]);
-            gen_corner(PxPoint::new(0.0, 0.0), corners[1]);
-            gen_corner(PxPoint::new(0.0, 0.0), corners[2]);
-            gen_corner(PxPoint::new(0.0, 0.0), corners[3]);
+            gen_corner(PxPoint::new(0.0, 0.0), corners[0], 0, 0);
+            gen_corner(
+                PxPoint::new(dim.width - corners[1], 0.0),
+                corners[1],
+                inner.width - intcorners[1],
+                0,
+            );
+            gen_corner(
+                PxPoint::new(dim.width - corners[2], dim.height - corners[2]),
+                corners[2],
+                inner.width - intcorners[2],
+                inner.height - intcorners[2],
+            );
+            gen_corner(
+                PxPoint::new(0.0, dim.height - corners[3]),
+                corners[3],
+                0,
+                inner.height - intcorners[3],
+            );
 
             let sides = crate::PxRect::new(
                 corners[0].max(corners[3]),
@@ -157,11 +169,64 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                 corners[2].max(corners[3]),
             );
 
+            // We can't just do sides.ceil() because the result is not the same as ceiling both corners and adding them.
+            let intsides = [
+                intcorners[0].max(intcorners[3]),
+                intcorners[0].max(intcorners[1]),
+                intcorners[1].max(intcorners[2]),
+                intcorners[2].max(intcorners[3]),
+            ];
+
+            let mut gen_side = |dim: PxDim, pos: PxPoint, u: i32, v: i32, w: i32, h: i32| {
+                compositor.append_data(
+                    pos + topleft,
+                    dim,
+                    uvpos
+                        .add_size(&Size2D::new(u, v))
+                        .to_f32()
+                        .to_array()
+                        .into(),
+                    [w as f32, h as f32].into(),
+                    0xFFFFFFFF,
+                    0.0,
+                    region_index,
+                    true,
+                );
+            };
+
             // Left Top Right Bottom side order
-            gen_side(PxDim::new(0.0, 0.0));
-            gen_side(PxDim::new(0.0, 0.0), corners[0]);
-            gen_side(PxDim::new(0.0, 0.0), corners[0]);
-            gen_side(PxDim::new(0.0, 0.0), corners[0]);
+            gen_side(
+                PxDim::new(sides.left(), dim.height - corners[0] - corners[3]),
+                PxPoint::new(0.0, corners[0]),
+                0,
+                intsides[1],
+                intsides[0],
+                0,
+            );
+            gen_side(
+                PxDim::new(dim.width - corners[0] - corners[1], sides.top()),
+                PxPoint::new(corners[0], 0.0),
+                intsides[0],
+                0,
+                0,
+                intsides[1],
+            );
+            gen_side(
+                PxDim::new(sides.right(), dim.height - corners[1] - corners[2]),
+                PxPoint::new(dim.width - sides.right(), corners[1]),
+                inner.width - intsides[2],
+                intsides[1],
+                intsides[2],
+                0,
+            );
+            gen_side(
+                PxDim::new(dim.width - corners[3] - corners[2], sides.bottom()),
+                PxPoint::new(corners[3], dim.height - sides.bottom()),
+                intsides[0],
+                inner.height - intsides[3],
+                0,
+                intsides[3],
+            );
 
             // Inner area is just a flat color
             compositor.append_data(
@@ -174,16 +239,14 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                 u8::MAX,
                 true,
             );
-        }
 
-        let dim = areadim - self.padding.bottomright() - self.padding.topleft();
-        if dim.width <= 0.0 || dim.height <= 0.0 {
             return Ok(());
         }
 
         let (region_uv, region_index) = {
             let mut atlas = driver.atlas.write();
-            let region = atlas.cache_region(&driver.device, &self.id, dim.ceil().cast(), None)?;
+            let region =
+                atlas.cache_region(&driver.device, &self.id, dim.ceil().cast(), None, None)?;
             (region.uv, region.index)
         };
 
