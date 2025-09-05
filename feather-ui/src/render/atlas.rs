@@ -422,10 +422,8 @@ impl Atlas {
                 );
             });
         } else {
-            let mut data = Vec::new();
-            data.resize(bytes, 0);
             self.queue_data(
-                &data,
+                &vec![0; bytes],
                 region,
                 queue,
                 region.uv.width() as u32,
