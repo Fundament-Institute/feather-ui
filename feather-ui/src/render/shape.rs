@@ -7,9 +7,10 @@ use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
 use crate::render::atlas::Atlas;
 use crate::render::compositor::CompositorView;
-use crate::{Pixel, PxDim, PxPoint, shaders};
+use crate::{PxDim, PxPoint, shaders};
 use core::f32;
-use guillotiere::euclid::{Point2D, Size2D};
+use guillotiere::euclid::Size2D;
+use num_traits::Zero;
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -42,6 +43,22 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             return Ok(());
         }
 
+        // If a rect has no corners and no outline, it's just a flat color box and we can draw it directly in the compositor
+        if self.corners.iter().all(|x| x.is_zero()) && self.border.is_zero() {
+            compositor.append_data(
+                area.topleft().add_size(&self.padding.topleft()),
+                dim,
+                [0.0, 0.0].into(),
+                [0.0, 0.0].into(),
+                self.fill.as_32bit().rgba,
+                0.0,
+                u8::MAX,
+                false,
+            );
+
+            return Ok(());
+        }
+
         let perimeter = [
             dim.height - self.corners[0] - self.corners[3],
             dim.width - self.corners[0] - self.corners[1],
@@ -71,13 +88,16 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             );
 
             // TODO: cache this if the inputs are identical
-            // We reserve an additional 1 pixel border around each side of our rect for sampling purposes.
+            // We reserve an additional 2 pixel border around each side of our rect for sampling purposes. It
+            // must be 2 pixels because we have to inflate the rect by 1 pixel for fractional draws already,
+            // which means we need an additional transparent pixel of buffer to cover all possible sampling
+            // scenarios.
             let (region_uv, region_index) = {
                 let mut atlas = driver.atlas.write();
                 let region = atlas.cache_region(
                     &driver.device,
                     &self.id,
-                    inner + Size2D::<i32, crate::Pixel>::new(2, 2),
+                    inner + Size2D::<i32, crate::Pixel>::new(4, 4),
                     None,
                     Some(&driver.queue),
                 )?;
@@ -90,7 +110,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                     &Data {
                         pos: region_uv
                             .min
-                            .add_size(&Size2D::splat(1))
+                            .add_size(&Size2D::splat(2))
                             .to_f32()
                             .to_array()
                             .into(),
@@ -105,10 +125,6 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                 )
             });
 
-            if dim.width <= 0.0 || dim.height <= 0.0 {
-                return Ok(());
-            }
-
             // The only reason this works is because we set the uvdim here to 0 on the axis that is being
             // extended, which ensures no interpolation of the UV coordinate happens along that axis
 
@@ -122,8 +138,8 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             intcorners = intcorners.map(|x| x + 1);
 
             let topleft = area.topleft().add_size(&self.padding.topleft()).to_vector();
-            // Add 1 to account for the 1 pixel transparent border
-            let uvpos = region_uv.min.add_size(&Size2D::splat(1));
+            // Add 2 to account for the 2 pixel transparent border
+            let uvpos = region_uv.min.add_size(&Size2D::splat(2));
             let mut gen_corner = |pos: PxPoint, corner: f32, u: i32, v: i32| {
                 let intdim = PxDim::splat(corner.ceil());
                 compositor.append_data(
@@ -142,23 +158,26 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
                 );
             };
 
-            gen_corner(PxPoint::new(0.0, 0.0), corners[0], 0, 0);
+            // This is nontrivial, because this must be assembled in raw mode, which means we must do the directional inflation
+            // here ourselves. This amounts to changing every 0 into a -1, but *not* changing the non-zero positions and instead
+            // adding 1 to the dimensions, which on corners means adding yet another +1 to the corner size.
+            gen_corner(PxPoint::new(-1.0, -1.0), corners[0] + 1.0, -1, -1);
             gen_corner(
-                PxPoint::new(dim.width - corners[1], 0.0),
-                corners[1],
+                PxPoint::new(dim.width - corners[1], -1.0),
+                corners[1] + 1.0,
                 inner.width - intcorners[1],
-                0,
+                -1,
             );
             gen_corner(
                 PxPoint::new(dim.width - corners[2], dim.height - corners[2]),
-                corners[2],
+                corners[2] + 1.0,
                 inner.width - intcorners[2],
                 inner.height - intcorners[2],
             );
             gen_corner(
-                PxPoint::new(0.0, dim.height - corners[3]),
-                corners[3],
-                0,
+                PxPoint::new(-1.0, dim.height - corners[3]),
+                corners[3] + 1.0,
+                -1,
                 inner.height - intcorners[3],
             );
 
@@ -195,37 +214,39 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             };
 
             // Left Top Right Bottom side order
+            // Once again, we must manually inflate the sides here, but these are more tricky. To make it
+            // a bit easier, we only inflate exactly the one pixel of the side that actually matters.
             gen_side(
-                PxDim::new(sides.left(), dim.height - corners[0] - corners[3]),
-                PxPoint::new(0.0, corners[0]),
-                0,
+                PxDim::new(sides.left() + 1.0, dim.height - corners[0] - corners[3]),
+                PxPoint::new(-1.0, corners[0]),
+                -1,
                 intsides[1],
-                intsides[0],
+                intsides[0] + 1,
                 0,
             );
             gen_side(
-                PxDim::new(dim.width - corners[0] - corners[1], sides.top()),
-                PxPoint::new(corners[0], 0.0),
+                PxDim::new(dim.width - corners[0] - corners[1], sides.top() + 1.0),
+                PxPoint::new(corners[0], -1.0),
                 intsides[0],
+                -1,
                 0,
-                0,
-                intsides[1],
+                intsides[1] + 1,
             );
             gen_side(
-                PxDim::new(sides.right(), dim.height - corners[1] - corners[2]),
+                PxDim::new(sides.right() + 1.0, dim.height - corners[1] - corners[2]),
                 PxPoint::new(dim.width - sides.right(), corners[1]),
                 inner.width - intsides[2],
                 intsides[1],
-                intsides[2],
+                intsides[2] + 1,
                 0,
             );
             gen_side(
-                PxDim::new(dim.width - corners[3] - corners[2], sides.bottom()),
+                PxDim::new(dim.width - corners[3] - corners[2], sides.bottom() + 1.0),
                 PxPoint::new(corners[3], dim.height - sides.bottom()),
                 intsides[0],
                 inner.height - intsides[3],
                 0,
-                intsides[3],
+                intsides[3] + 1,
             );
 
             // Inner area is just a flat color
