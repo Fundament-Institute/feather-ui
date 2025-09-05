@@ -264,6 +264,7 @@ impl Staged for Concrete {
                     &id,
                     layer.area.dim().ceil().to_i32(),
                     None,
+                    None,
                 )?;
                 region_uv = Some(region.uv);
 
