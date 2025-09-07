@@ -375,12 +375,76 @@ impl Atlas {
         }
     }
 
+    pub fn queue_data(
+        &self,
+        data: &[u8],
+        region: &Region,
+        queue: &wgpu::Queue,
+        width: u32,
+        height: u32,
+    ) {
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d {
+                    x: region.uv.min.x as u32,
+                    y: region.uv.min.y as u32,
+                    z: region.index as u32,
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
+            data,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width * self.texture.format().block_copy_size(None).unwrap()),
+                rows_per_image: None,
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+    }
+
+    pub fn clear_region(&self, region: &Region, queue: &wgpu::Queue) {
+        let bytes = region.uv.area() as usize
+            * self.get_texture().format().block_copy_size(None).unwrap() as usize;
+        if bytes <= crate::MAX_ALLOCA {
+            alloca::with_alloca_zeroed(bytes, |data| {
+                self.queue_data(
+                    data,
+                    region,
+                    queue,
+                    region.uv.width() as u32,
+                    region.uv.height() as u32,
+                );
+            });
+        } else {
+            self.queue_data(
+                &vec![0; bytes],
+                region,
+                queue,
+                region.uv.width() as u32,
+                region.uv.height() as u32,
+            );
+        }
+    }
+    /// Allocates a new region in the texture atlas with an associated ID. If the ID already
+    /// exists, returns the existing region, provided it is the same size as before,
+    /// otherwise allocates a new one and releases the old one, if it exists. If `clear` is
+    /// set, also queues a texture write command to clear the region. Clearing a region is
+    /// rarely needed, since most pipelines will overwrite the entire region anyway.
+    ///
+    /// If mipmap is set, queues a set of mipmaps for the region.
     pub fn cache_region(
         &mut self,
         device: &wgpu::Device,
         id: &Arc<crate::SourceID>,
         dim: Size,
-        mipmap: Option<&wgpu::Queue>,
+        mipmap: Option<&wgpu::Queue>, // This is a little silly but works because we can have two immutable references at once
+        clear: Option<&wgpu::Queue>,
     ) -> Result<&Region, Error> {
         let uv = self.cache.get(id).map(|x| x.uv);
 
@@ -389,11 +453,11 @@ impl Atlas {
                 if let Some(mut region) = self.cache.remove(id) {
                     self.destroy(&mut region);
                 }
-                let region = self.reserve(device, dim, mipmap)?;
+                let region = self.reserve(device, dim, mipmap, clear)?;
                 self.cache.insert(id.clone(), region);
             }
         } else {
-            let region = self.reserve(device, dim, mipmap)?;
+            let region = self.reserve(device, dim, mipmap, clear)?;
             self.cache.insert(id.clone(), region);
         }
 
@@ -405,6 +469,7 @@ impl Atlas {
         device: &wgpu::Device,
         dim: Size,
         mipmap: Option<&wgpu::Queue>,
+        clear: Option<&wgpu::Queue>,
     ) -> Result<Region, Error> {
         if dim.height == 0 {
             assert_ne!(dim.height, 0);
@@ -415,6 +480,9 @@ impl Atlas {
         for (idx, a) in self.allocators.iter_mut().enumerate() {
             if let Some(r) = a.allocate(dim.to_untyped()) {
                 let region = self.create_region(idx, r, dim);
+                if let Some(queue) = clear {
+                    self.clear_region(&region, queue);
+                }
                 if let Some(queue) = mipmap {
                     self.queue_mip(&region, device, queue);
                 }
