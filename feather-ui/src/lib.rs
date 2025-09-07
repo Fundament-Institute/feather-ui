@@ -70,6 +70,8 @@ type Mat4x4 = euclid::default::Transform3D<f32>;
 #[cfg(feature = "lua")]
 pub use mlua;
 
+const MAX_ALLOCA: usize = 1 << 20;
+
 /// While the ID scope provides a .next() method to generate a new, unique ID, this
 /// macro allows you to generate a unique ID with the file name and line embedded in
 /// it. This helps when debugging, because it'll tell you exactly what line of code
@@ -378,6 +380,26 @@ impl<U> Rect<U> {
             v: (self.v * MINUS_BOTTOMRIGHT).fast_min(rhs.v * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT,
             _unit: PhantomData,
         }
+    }
+
+    #[inline]
+    pub fn left(&self) -> f32 {
+        self.v.as_array_ref()[0]
+    }
+
+    #[inline]
+    pub fn top(&self) -> f32 {
+        self.v.as_array_ref()[1]
+    }
+
+    #[inline]
+    pub fn right(&self) -> f32 {
+        self.v.as_array_ref()[2]
+    }
+
+    #[inline]
+    pub fn bottom(&self) -> f32 {
+        self.v.as_array_ref()[3]
     }
 
     #[inline]

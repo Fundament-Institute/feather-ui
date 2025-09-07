@@ -100,6 +100,7 @@ impl Instance {
                 device,
                 Size::new(image.placement.width as i32, image.placement.height as i32),
                 None,
+                None,
             )?
         };
 
@@ -136,13 +137,12 @@ impl Instance {
                 }
             }
 
-            crate::resource::queue_atlas_data(
+            atlas.queue_data(
                 &image.data,
                 &region,
                 queue,
                 image.placement.width,
                 image.placement.height,
-                atlas,
             );
         }
 
