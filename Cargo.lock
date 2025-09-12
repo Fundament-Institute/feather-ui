@@ -134,7 +134,7 @@ dependencies = [
  "objc2-foundation 0.3.1",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
  "wl-clipboard-rs",
  "x11rb",
 ]
@@ -1019,7 +1019,7 @@ dependencies = [
  "vello_svg",
  "wgpu 26.0.1",
  "wide",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.0",
  "winit",
 ]
 
@@ -1830,7 +1830,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.3",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
