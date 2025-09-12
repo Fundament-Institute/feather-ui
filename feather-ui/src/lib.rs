@@ -129,7 +129,7 @@ pub enum Error {
     UnknownResourceFormat,
     #[error("An index was out of range: {0}")]
     OutOfRange(usize),
-    #[error("Type mismatch occured when attempting a downcast that should never fail!")]
+    #[error("Type mismatch occurred when attempting a downcast that should never fail!")]
     RuntimeTypeMismatch,
 }
 
@@ -139,7 +139,7 @@ impl From<std::io::Error> for Error {
     }
 }
 
-/// Represents an axis that is "unsized", which is roughly equivelent to CSS `auto`. It will
+/// Represents an axis that is "unsized", which is roughly equivalent to CSS `auto`. It will
 /// set the size of the axis either to the size of the children, if the layout has any, or to
 /// the intrinsic size of the element, if one exists. Otherwise it will evaluate to 0.
 pub const UNSIZED_AXIS: f32 = f32::MAX;
@@ -284,6 +284,33 @@ pub struct Rect<U> {
     pub v: f32x4,
     #[doc(hidden)]
     pub _unit: PhantomData<U>,
+}
+
+/// This trait is used to canonicalize floats into forms suitable for hashing. Because
+/// NaNs should never get this far in the pipeline, we only care about the +0.0 and -0.0
+/// problem, which can be solved because IEEE defines -0.0 plus +0.0 to equal +0.0.
+trait Canonicalize {
+    type Bits;
+
+    fn canonical_bits(self) -> Self::Bits;
+}
+
+impl Canonicalize for f32 {
+    type Bits = u32;
+
+    fn canonical_bits(self) -> Self::Bits {
+        debug_assert!(!self.is_nan()); // In debug mode, ensure this is not a NaN
+        (self + 0.0).to_bits()
+    }
+}
+
+impl Canonicalize for f64 {
+    type Bits = u64;
+
+    fn canonical_bits(self) -> Self::Bits {
+        debug_assert!(!self.is_nan()); // In debug mode, ensure this is not a NaN
+        (self + 0.0).to_bits()
+    }
 }
 
 /// A 2D rectangle in logical units (display-independent pixels)
@@ -1960,7 +1987,7 @@ impl<'a> ScopeID<'a> {
         ScopeIterID::new(self, other.into_iter())
     }
 
-    /// Wraps the true and false branches of a condition, ensuring the IDs for both are maintained seperately
+    /// Wraps the true and false branches of a condition, ensuring the IDs for both are maintained separately
     /// regardless of which branch is picked.
     ///
     /// # Examples
