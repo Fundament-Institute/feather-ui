@@ -5,32 +5,28 @@ use super::compositor;
 use crate::color::sRGB;
 use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
-use crate::render::atlas::Atlas;
+use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
-use crate::{PxDim, PxPoint, shaders};
+use crate::{Canonicalize, PxDim, PxPoint, SourceID, shaders};
 use core::f32;
 use guillotiere::euclid::Size2D;
 use num_traits::Zero;
-use std::any::TypeId;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::num::NonZero;
+use std::sync::Arc;
 use wgpu::BindGroupLayout;
 
-pub struct Instance<PIPELINE> {
+pub struct Instance<const KIND: u8> {
     pub padding: crate::PxPerimeter,
     pub border: f32,
     pub blur: f32,
     pub fill: sRGB,
     pub outline: sRGB,
     pub corners: [f32; 4],
-    pub id: std::sync::Arc<crate::SourceID>,
-    pub phantom: PhantomData<PIPELINE>,
+    pub id: Arc<SourceID>,
 }
 
-impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
-    for Instance<PIPELINE>
-{
+impl<const KIND: u8> super::Renderable for Instance<KIND> {
     fn render(
         &self,
         area: crate::PxRect,
@@ -67,9 +63,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
         ];
 
         // RoundRects have a specific optimization, but only if no edge length is less than 2 pixels
-        if TypeId::of::<PIPELINE>() == TypeId::of::<Shape<{ ShapeKind::RoundRect as u8 }>>()
-            && perimeter.iter().all(|x| *x >= 2.0)
-        {
+        if KIND == ShapeKind::RoundRect as u8 && perimeter.iter().all(|x| *x >= 2.0) {
             // If the border is larger than the corner itself, pretend the size of that corner is the border.
             let mut corners = self.corners.map(|x| x.max(self.border));
             let mut intcorners = corners.map(|x| x.ceil() as i32);
@@ -82,48 +76,36 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             ];
 
             // Here we generate a rounded block equal to exactly left side + 3 pixels + right side
-            let inner = Size2D::<i32, crate::Pixel>::new(
+            let inner = atlas::Size::new(
                 intsides[0] + intsides[2] + 3, // left + right
                 intsides[1] + intsides[3] + 3, // top + bottom
             );
 
-            // TODO: cache this if the inputs are identical
             // We reserve an additional 2 pixel border around each side of our rect for sampling purposes. It
             // must be 2 pixels because we have to inflate the rect by 1 pixel for fractional draws already,
             // which means we need an additional transparent pixel of buffer to cover all possible sampling
             // scenarios.
-            let (region_uv, region_index) = {
-                let mut atlas = driver.atlas.write();
-                let region = atlas.cache_region(
-                    &driver.device,
-                    &self.id,
-                    inner + Size2D::<i32, crate::Pixel>::new(4, 4),
-                    None,
-                    Some(&driver.queue),
-                )?;
-                (region.uv, region.index)
-            };
-
-            // We render the rect here with corners raised to the nearest pixel so we can cut out the corners neatly
-            driver.with_pipeline::<PIPELINE>(|pipeline| {
-                pipeline.append(
-                    &Data {
-                        pos: region_uv
-                            .min
-                            .add_size(&Size2D::splat(2))
-                            .to_f32()
-                            .to_array()
-                            .into(),
-                        dim: inner.to_f32().to_array().into(),
-                        border: self.border,
-                        blur: self.blur,
-                        corners: intcorners.map(|x| x as f32).into(),
-                        fill: self.fill.as_32bit().rgba,
-                        outline: self.outline.as_32bit().rgba,
+            let (region_uv, region_index) = driver
+                .with_pipeline::<Shape<KIND>, Result<(atlas::PxBox, u8), crate::Error>>(
+                    |pipeline| {
+                        pipeline.reserve(
+                            driver,
+                            self.id.clone(),
+                            inner + atlas::Size::new(4, 4),
+                            Data {
+                                pos: [2.0; 2].into(),
+                                dim: inner.to_f32().to_array().into(),
+                                border: self.border,
+                                blur: self.blur,
+                                // We use corners raised to the nearest pixel so we can cut out the corners neatly
+                                corners: intcorners.map(|x| x as f32).into(),
+                                fill: self.fill.as_32bit().rgba,
+                                outline: self.outline.as_32bit().rgba,
+                            },
+                            true,
+                        )
                     },
-                    region_index,
-                )
-            });
+                )?;
 
             // The only reason this works is because we set the uvdim here to 0 on the axis that is being
             // extended, which ensures no interpolation of the UV coordinate happens along that axis
@@ -264,34 +246,30 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
             return Ok(());
         }
 
-        let (region_uv, region_index) = {
-            let mut atlas = driver.atlas.write();
-            let region =
-                atlas.cache_region(&driver.device, &self.id, dim.ceil().cast(), None, None)?;
-            (region.uv, region.index)
-        };
-
         // The region dimensions here can be wrong, because the region is rounded up to the nearest pixel.
         // However, properly fixing this requires changing how the SDF shader works so it can properly
         // emulate conservative rasterization. For now, we keep our original behavior of rounding up and
         // then letting the compositor squish the result slightly, which is actually pretty accurate.
         // TODO: Change this to be pixel-perfect by outputting the exact dimensions instead of rounded ones.
 
-        // TODO: cache this if the inputs are identical
-        driver.with_pipeline::<PIPELINE>(|pipeline| {
-            pipeline.append(
-                &Data {
-                    pos: region_uv.min.to_f32().to_array().into(),
-                    dim: region_uv.size().to_f32().to_array().into(),
-                    border: self.border,
-                    blur: self.blur,
-                    corners: self.corners.into(),
-                    fill: self.fill.as_32bit().rgba,
-                    outline: self.outline.as_32bit().rgba,
-                },
-                region_index,
-            )
-        });
+        let (region_uv, region_index) = driver
+            .with_pipeline::<Shape<KIND>, Result<(atlas::PxBox, u8), crate::Error>>(|pipeline| {
+                pipeline.reserve(
+                    driver,
+                    self.id.clone(),
+                    dim.ceil().cast(),
+                    Data {
+                        pos: [0.0; 2].into(),
+                        dim: dim.to_array().into(),
+                        border: self.border,
+                        blur: self.blur,
+                        corners: self.corners.into(),
+                        fill: self.fill.as_32bit().rgba,
+                        outline: self.outline.as_32bit().rgba,
+                    },
+                    false,
+                )
+            })?;
 
         compositor.append_data(
             area.topleft().add_size(&self.padding.topleft()),
@@ -320,6 +298,7 @@ impl<PIPELINE: crate::render::Pipeline<Data = Data> + 'static> super::Renderable
 // };
 // Data d[];
 
+// TODO: Maybe use NotNaN from ordered_float if this doesn't mess up alignment?
 #[derive(Debug, Clone, Copy, Default, PartialEq, bytemuck::NoUninit)]
 #[repr(C)]
 pub struct Data {
@@ -332,21 +311,96 @@ pub struct Data {
     pub outline: u32,
 }
 
+// We manually implement Eq because no NaNs should be in Data
+impl Eq for Data {}
+
+impl std::hash::Hash for Data {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.corners.hash(state);
+        self.pos.hash(state);
+        self.dim.hash(state);
+        self.border.canonical_bits().hash(state);
+        self.blur.canonical_bits().hash(state);
+        self.fill.hash(state);
+        self.outline.hash(state);
+    }
+}
+
 #[derive(Debug)]
 pub struct Shape<const KIND: u8> {
     data: HashMap<u8, Vec<Data>>,
     buffer: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
+    cache: HashMap<Arc<SourceID>, (Data, atlas::PxBox, u8)>,
+    refcount: HashMap<(Data, atlas::Size), (atlas::Region, usize)>,
+}
+
+impl<const KIND: u8> Shape<KIND> {
+    fn reserve(
+        &mut self,
+        driver: &graphics::Driver,
+        id: Arc<SourceID>,
+        uvdim: atlas::Size,
+        mut data: Data,
+        clear: bool,
+    ) -> Result<(atlas::PxBox, u8), crate::Error> {
+        // First we check our ID cache to see if there's an existing entry
+        if let Some((cache, uv, layer)) = self.cache.get(&id) {
+            // If we already have data cached, see if it changed. If it didn't, just append the cached data.
+            if data == *cache && uvdim == uv.size() {
+                // To make the cache possible, the data only contains the offset, so we add the region position here.
+                data.pos += uv.min.to_f32().to_array();
+                self.data.entry(*layer).or_default().push(data);
+                return Ok((*uv, *layer));
+            } else if let Some((old, uv, _)) = self.cache.remove(&id) {
+                // Otherwise, we have to delete the cache and decrement the refcount. If the refcount reaches 0,
+                // we delete the region entirely.
+                if let std::collections::hash_map::Entry::Occupied(mut v) =
+                    self.refcount.entry((old, uv.size()))
+                {
+                    if v.get().1 <= 1 {
+                        driver.atlas.write().destroy(&mut v.get_mut().0);
+                        v.remove();
+                    } else {
+                        v.get_mut().1 -= 1;
+                    }
+                }
+            }
+        }
+
+        // If we get this far, either we didn't have something cached, or it had to be replaced. We check to see if the data key
+        // we have is already being used for something else, and increment the refcount if so. Otherwise, we allocate a new region.
+        let (region, _) = match self.refcount.entry((data, uvdim)) {
+            std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
+                occupied_entry.get_mut().1 += 1;
+                occupied_entry.into_mut()
+            }
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => vacant_entry.insert((
+                driver.atlas.write().reserve(
+                    &driver.device,
+                    uvdim,
+                    None,
+                    if clear { Some(&driver.queue) } else { None },
+                )?,
+                1,
+            )),
+        };
+
+        debug_assert_eq!(uvdim, region.uv.size());
+
+        self.cache
+            .entry(id)
+            .and_modify(|v| *v = (data, region.uv, region.index))
+            .or_insert((data, region.uv, region.index));
+
+        data.pos += region.uv.min.to_f32().to_array();
+        self.data.entry(region.index).or_default().push(data);
+        Ok((region.uv, region.index))
+    }
 }
 
 impl<const KIND: u8> super::Pipeline for Shape<KIND> {
-    type Data = Data;
-
-    fn append(&mut self, data: &Self::Data, layer: u8) {
-        self.data.entry(layer).or_default().push(*data);
-    }
-
     fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u8) {
         if let Some(data) = self.data.get_mut(&layer) {
             let size = data.len() * size_of::<Data>();
@@ -374,6 +428,12 @@ impl<const KIND: u8> super::Pipeline for Shape<KIND> {
             pass.set_bind_group(0, &self.group, &[0]);
             pass.draw(0..(data.len() as u32 * 6), 0..1);
             data.clear();
+        }
+    }
+
+    fn destroy(&mut self, driver: &graphics::Driver) {
+        for (_, (mut region, _)) in self.refcount.drain() {
+            driver.atlas.write().destroy(&mut region);
         }
     }
 }
@@ -514,6 +574,8 @@ impl<const KIND: u8> Shape<KIND> {
             buffer,
             pipeline,
             group,
+            cache: HashMap::new(),
+            refcount: HashMap::new(),
         }
     }
 }
@@ -523,7 +585,7 @@ impl Shape<0> {
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
-    ) -> Box<dyn super::AnyPipeline> {
+    ) -> Box<dyn super::Pipeline> {
         Box::new(Self::new(layout, shader, driver, "rectangle"))
     }
 }
@@ -533,7 +595,7 @@ impl Shape<1> {
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
-    ) -> Box<dyn super::AnyPipeline> {
+    ) -> Box<dyn super::Pipeline> {
         Box::new(Self::new(layout, shader, driver, "triangle"))
     }
 }
@@ -543,7 +605,7 @@ impl Shape<2> {
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
-    ) -> Box<dyn super::AnyPipeline> {
+    ) -> Box<dyn super::Pipeline> {
         Box::new(Self::new(layout, shader, driver, "circle"))
     }
 }
@@ -553,7 +615,7 @@ impl Shape<3> {
         layout: &wgpu::PipelineLayout,
         shader: &wgpu::ShaderModule,
         driver: &graphics::Driver,
-    ) -> Box<dyn super::AnyPipeline> {
+    ) -> Box<dyn super::Pipeline> {
         Box::new(Self::new(layout, shader, driver, "arcs"))
     }
 }

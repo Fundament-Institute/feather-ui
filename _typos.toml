@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
+
+[default.extend-words]
+ot = "ot"
+MERCHANTIBILITY = "MERCHANTIBILITY"
