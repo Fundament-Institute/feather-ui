@@ -34,9 +34,7 @@ pub(crate) struct PipelineState {
     shader: ShaderModule,
     #[derive_where(skip)]
     generator: Box<
-        dyn Fn(&PipelineLayout, &ShaderModule, &Driver) -> Box<dyn render::AnyPipeline>
-            + Send
-            + Sync,
+        dyn Fn(&PipelineLayout, &ShaderModule, &Driver) -> Box<dyn render::Pipeline> + Send + Sync,
     >,
 }
 
@@ -116,7 +114,7 @@ pub struct Driver {
     pub(crate) layer_atlas: [RwLock<Atlas>; 2],
     pub(crate) layer_composite: [RwLock<compositor::Compositor>; 2],
     pub(crate) shared: compositor::Shared,
-    pub(crate) pipelines: RwLock<HashMap<PipelineID, Box<dyn crate::render::AnyPipeline>>>,
+    pub(crate) pipelines: RwLock<HashMap<PipelineID, Box<dyn crate::render::Pipeline>>>,
     pub(crate) registry: RwLock<HashMap<PipelineID, PipelineState>>,
     pub(crate) queue: wgpu::Queue,
     pub(crate) device: wgpu::Device,
@@ -129,6 +127,10 @@ pub struct Driver {
 
 impl Drop for Driver {
     fn drop(&mut self) {
+        for (_, mut p) in self.pipelines.write().drain() {
+            p.destroy(self);
+        }
+
         for (_, mut r) in self.glyphs.get_mut().drain() {
             r.region.id = AllocId::deserialize(u32::MAX);
         }
@@ -247,7 +249,7 @@ impl Driver {
         &mut self,
         layout: PipelineLayout,
         shader: ShaderModule,
-        generator: impl Fn(&PipelineLayout, &ShaderModule, &Self) -> Box<dyn render::AnyPipeline>
+        generator: impl Fn(&PipelineLayout, &ShaderModule, &Self) -> Box<dyn render::Pipeline>
         + Send
         + Sync
         + 'static,
@@ -272,7 +274,10 @@ impl Driver {
         pipeline.shader = shader;
         self.pipelines.write().remove(&id);
     }
-    pub fn with_pipeline<T: crate::render::Pipeline + 'static>(&self, f: impl FnOnce(&mut T)) {
+    pub fn with_pipeline<T: crate::render::Pipeline + 'static, R>(
+        &self,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> R {
         let id = TypeId::of::<T>();
 
         // We can't use the result of this because it makes the lifetimes weird
@@ -292,7 +297,7 @@ impl Driver {
             (self.pipelines.write().get_mut(&id).unwrap().as_mut() as &mut dyn std::any::Any)
                 .downcast_mut()
                 .unwrap(),
-        );
+        )
     }
 
     pub fn prefetch(&self, location: &dyn Location) -> Result<(), Error> {
@@ -305,7 +310,7 @@ impl Driver {
     }
 
     /// This function is called during layout, outside of a render pass, which allows the texture atlas to be
-    /// immediately resized to accomdate the new resource. As a result, it assumes you don't need the region,
+    /// immediately resized to accommodate the new resource. As a result, it assumes you don't need the region,
     /// only the final intrinsic size.
     pub fn load_and_resize(
         &self,
@@ -470,20 +475,45 @@ pub struct Vec2f(pub(crate) [f32; 2]);
 
 gen_from_array!(Vec2f, f32, 2);
 
+static_assertions::assert_eq_size!(Vec2f, [f32; 2]);
+
+impl std::hash::Hash for Vec2f {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        use crate::Canonicalize;
+        self.0.map(|x| x.canonical_bits()).hash(state);
+    }
+}
+
+impl std::ops::AddAssign<[f32; 2]> for Vec2f {
+    fn add_assign(&mut self, rhs: [f32; 2]) {
+        self.0[0] += rhs[0];
+        self.0[1] += rhs[1];
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
 pub struct Vec4f(pub(crate) [f32; 4]);
 
 gen_from_array!(Vec4f, f32, 4);
 
+static_assertions::assert_eq_size!(Vec4f, [f32; 4]);
+
+impl std::hash::Hash for Vec4f {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        use crate::Canonicalize;
+        self.0.map(|x| x.canonical_bits()).hash(state);
+    }
+}
+
 #[repr(C, align(8))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Hash, bytemuck::NoUninit)]
 pub struct Vec2i(pub(crate) [i32; 2]);
 
 gen_from_array!(Vec2i, i32, 2);
 
 #[repr(C, align(16))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::NoUninit)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Hash, bytemuck::NoUninit)]
 pub struct Vec4i(pub(crate) [i32; 4]);
 
 gen_from_array!(Vec4i, i32, 4);

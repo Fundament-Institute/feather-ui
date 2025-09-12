@@ -76,7 +76,7 @@ pub trait ColorSpace: Premultiplied {
     fn xyz(&self) -> XYZ;
 
     /// This uses the standard formulation to transform into OkLab from XYZ
-    /// but this can be overriden if there's a more efficient pathway
+    /// but this can be overridden if there's a more efficient pathway
     fn oklab(&self) -> OkLab {
         let xyz = self.xyz();
 
@@ -102,7 +102,7 @@ pub trait ColorSpace: Premultiplied {
         }
     }
 
-    /// This automatically converts from XYZ, but can be overriden if there's a faster pathway
+    /// This automatically converts from XYZ, but can be overridden if there's a faster pathway
     fn linear_srgb(&self) -> Raw_sRGB<true, false> {
         let xyz = self.xyz();
 

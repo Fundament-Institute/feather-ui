@@ -46,6 +46,7 @@ pub struct Atlas {
 // TODO: Should be possible to define an HDR pipeline with 16-bit channels
 pub const ATLAS_FORMAT: TextureFormat = TextureFormat::Bgra8UnormSrgb;
 const ATLAS_MIP_LEVELS: u32 = 8;
+pub type PxBox = guillotiere::euclid::Box2D<i32, Pixel>;
 
 impl Drop for Atlas {
     fn drop(&mut self) {
@@ -666,7 +667,7 @@ impl Atlas {
 /// A single allocated region on a particular texture atlas. We store the pixel coordinates, not the normalized UV coordinates.
 pub struct Region {
     pub id: AllocId,
-    pub uv: guillotiere::euclid::Box2D<i32, Pixel>,
+    pub uv: PxBox,
     pub index: u8,
 }
 

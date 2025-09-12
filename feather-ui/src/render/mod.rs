@@ -25,10 +25,6 @@ pub trait Renderable {
 }
 
 pub trait Pipeline: Any + std::fmt::Debug + Send + Sync {
-    type Data: 'static;
-
-    fn append(&mut self, data: &Self::Data, layer: u8);
-
     #[allow(unused_variables)]
     fn prepare(
         &mut self,
@@ -38,34 +34,8 @@ pub trait Pipeline: Any + std::fmt::Debug + Send + Sync {
     ) {
     }
     fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u8);
-}
-
-pub trait AnyPipeline: Any + std::fmt::Debug + Send + Sync {
-    fn append(&mut self, data: &dyn Any, layer: u8);
-    fn prepare(
-        &mut self,
-        driver: &graphics::Driver,
-        encoder: &mut wgpu::CommandEncoder,
-        config: &wgpu::SurfaceConfiguration,
-    );
-    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u8);
-}
-
-impl<T: Pipeline + std::fmt::Debug + Send + Sync + 'static> AnyPipeline for T {
-    fn append(&mut self, data: &dyn Any, layer: u8) {
-        Pipeline::append(self, data.downcast_ref().unwrap(), layer)
-    }
-    fn prepare(
-        &mut self,
-        driver: &graphics::Driver,
-        encoder: &mut wgpu::CommandEncoder,
-        config: &wgpu::SurfaceConfiguration,
-    ) {
-        Pipeline::prepare(self, driver, encoder, config);
-    }
-    fn draw(&mut self, driver: &graphics::Driver, pass: &mut wgpu::RenderPass<'_>, layer: u8) {
-        Pipeline::draw(self, driver, pass, layer);
-    }
+    #[allow(unused_variables)]
+    fn destroy(&mut self, driver: &graphics::Driver) {}
 }
 
 pub struct Chain<const N: usize>(pub [Rc<dyn Renderable>; N]);

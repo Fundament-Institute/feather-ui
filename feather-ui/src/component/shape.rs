@@ -4,7 +4,6 @@
 use crate::color::sRGB;
 use crate::layout::{Layout, leaf};
 use crate::{DAbsPoint, SourceID};
-use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -265,9 +264,7 @@ where
             props: self.props.clone(),
             id: Arc::downgrade(&self.id),
             size: self.size.resolve(dpi).to_vector().to_size().cast_unit(),
-            renderable: Some(Rc::new(crate::render::shape::Instance::<
-                crate::render::shape::Shape<KIND>,
-            > {
+            renderable: Some(Rc::new(crate::render::shape::Instance::<KIND> {
                 padding: self.props.padding().as_perimeter(dpi),
                 border: self.border,
                 blur: self.blur,
@@ -275,7 +272,6 @@ where
                 outline: self.outline,
                 corners,
                 id: self.id.clone(),
-                phantom: PhantomData,
             })),
         })
     }
