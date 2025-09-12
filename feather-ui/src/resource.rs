@@ -22,7 +22,7 @@ pub(crate) fn within_variance(l: i32, r: i32, range: f32) -> bool {
 }
 
 /// An empty size request equates to requesting the native size of the image. One axis being zero equates to requesting the
-/// equivelent aspect ratio from tha native aspect ratio.
+/// equivalent aspect ratio from the native aspect ratio.
 #[inline]
 pub fn fill_size(size: atlas::Size, native: atlas::Size) -> atlas::Size {
     match (size.width, size.height) {
