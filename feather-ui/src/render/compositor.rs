@@ -3,7 +3,8 @@
 
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
-use crate::{Pixel, PxDim, PxPoint, PxRect, PxVector, RelDim, SourceID};
+use crate::render::atlas::PxBox;
+use crate::{PxDim, PxPoint, PxRect, PxVector, RelDim, SourceID};
 use derive_where::derive_where;
 use num_traits::Zero;
 use smallvec::SmallVec;
@@ -917,12 +918,7 @@ impl<'a> CompositorView<'a> {
     }
 
     #[inline]
-    pub(crate) fn append_layer(
-        &mut self,
-        layer: &Layer,
-        parent_pos: PxPoint,
-        uv: guillotiere::euclid::Box2D<i32, Pixel>,
-    ) -> u32 {
+    pub(crate) fn append_layer(&mut self, layer: &Layer, parent_pos: PxPoint, uv: PxBox) -> u32 {
         // I really wish rust had partial borrows
         let compositor = match self.index {
             0 => &mut self.window,

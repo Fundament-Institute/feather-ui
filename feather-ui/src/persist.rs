@@ -32,7 +32,7 @@ impl<Arg1, Arg2, Output, T: FnMut(Arg1, Arg2) -> Output> Persist2<Arg1, Arg2, Ou
 
 /// This represents the storage of a persistent function. This trait is shared between all [`FnPersist`]
 /// traits for each distinct number of arguments. The storage type must satisfy [`Clone`] and should ideally
-/// be built using persistent data structures. In order to allow a persisten function to work correctly,
+/// be built using persistent data structures. In order to allow a persistent function to work correctly,
 /// Store should have space to store both the *input arguments* and the *output result* of a persistent
 /// function. This is essential to allowing a persistent function to detect that it's arguments are the same
 /// as the previous invocation and return the previous output without any additional computation.
