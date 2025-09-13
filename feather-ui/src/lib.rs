@@ -2130,15 +2130,15 @@ pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, AccessCell<State>) -> Inp
 ///
 /// impl FnPersistStore for MyApp { type Store = (); }
 ///
-/// impl FnPersist2<MyState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
+/// impl FnPersist2<&MyState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
 ///     fn init(&self) -> Self::Store { () }
 ///
-///     fn call(&mut self,  _: Self::Store,  _: MyState, _: ScopeID<'_>) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+///     fn call(&mut self,  _: Self::Store,  _: &MyState, _: ScopeID<'_>) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
 ///         ((), im::HashMap::new())
 ///     }
 /// }
 ///
-/// App::<MyState, MyApp, ()>::new(MyState { count: 0 }, vec![Box::new(onclick)], MyApp {}, |_| ());
+/// App::<MyState, MyApp, ()>::new(MyState { count: 0 }, vec![Box::new(onclick)], MyApp {}, None, None);
 /// ```
 pub trait WrapEventEx<State: 'static, Input: Dispatchable + 'static> {
     /// Wraps a lambda with the appropriate type signature. See [`WrapEventEx`] for examples.
@@ -2626,6 +2626,7 @@ pub struct App<AppData, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Out
     root: component::Root, // Root component node containing all windows
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
     handle_sync: mpsc::Receiver<EventPair<AppData>>,
+    #[allow(clippy::type_complexity)]
     user_events: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
 }
 
@@ -2688,8 +2689,9 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
     /// must by a persistent function that takes two arguments (and implements [`FnPersist2`]): a copy
     /// of the AppData, and a ScopeID. It must always return [`OutlineReturn`].
     ///
-    /// `driver_init` is an *optional* hook used to enable hotloading of resources. For most basic applications,
-    /// it can be set to the empty lambda: `|_| ()`.
+    /// `driver_init` is an *optional* hook used to enable hotloading of resources. `user_event` is also an
+    /// optional handler for any user events you generate via an event_loop proxy, which can be created with
+    /// [`EventLoop::create_proxy`]. This is often used to inject appdata changes outside of the input handler.
     ///
     /// This function returns 4 values - the [`App`] object itself, the [`EventLoop`] that you must call
     /// [`EventLoop::run_app`] on to actually start the application, a channel for sending dynamic `AppEvent`
@@ -2719,7 +2721,7 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
     ///     }
     /// }
     ///
-    /// let (mut app, event_loop, _, _) = App::<MyState, MyApp, ()>::new(MyState { count: 0 }, Vec::new(), MyApp {}, |_| ()).unwrap();
+    /// let (mut app, event_loop, _, _) = App::<MyState, MyApp, ()>::new(MyState { count: 0 }, Vec::new(), MyApp {}, None, None).unwrap();
     ///
     /// // You would then run the app like so (commented out because docs can't test UIs)
     /// // event_loop.run_app(&mut app).unwrap();
@@ -3133,7 +3135,7 @@ impl crate::persist::FnPersistStore for TestApp {
 }
 
 #[cfg(test)]
-impl FnPersist2<u8, ScopeID<'static>, OutlineReturn> for TestApp {
+impl FnPersist2<&u8, ScopeID<'static>, OutlineReturn> for TestApp {
     fn init(&self) -> Self::Store {
         (0, im::HashMap::new())
     }
@@ -3141,7 +3143,7 @@ impl FnPersist2<u8, ScopeID<'static>, OutlineReturn> for TestApp {
     fn call(
         &mut self,
         store: Self::Store,
-        _: u8,
+        _: &u8,
         mut id: ScopeID<'static>,
     ) -> (Self::Store, OutlineReturn) {
         use crate::color::sRGB;
@@ -3174,8 +3176,14 @@ impl FnPersist2<u8, ScopeID<'static>, OutlineReturn> for TestApp {
 
 #[test]
 fn test_basic() {
-    let (mut app, event_loop, _, _) =
-        App::<u8, TestApp, ()>::new(0u8, vec![], TestApp {}, |_| ()).unwrap();
+    let (mut app, event_loop, _, _) = App::<u8, TestApp, ()>::new(
+        0u8,
+        vec![],
+        TestApp {},
+        Some(Box::new(|_, evt: &ActiveEventLoop, _| evt.exit())),
+        None,
+    )
+    .unwrap();
 
     let proxy = event_loop.create_proxy();
     proxy.send_event(()).unwrap();
