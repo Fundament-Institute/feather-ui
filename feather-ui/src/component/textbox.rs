@@ -138,16 +138,17 @@ impl super::EventRouter for TextBoxState {
                                 let shift = (modifiers & ModifierKeys::Shift as u8) != 0;
                                 let font_system = &mut driver.font_system.write();
                                 if !shift {
+                                    let line_height = buffer.metrics().line_height;
                                     match (named_key, ctrl) {
                                         (NamedKey::ArrowUp, true) | (NamedKey::ArrowDown, true) => {
                                             this.editor.action(
                                                 font_system,
                                                 buffer,
                                                 Action::Scroll {
-                                                    lines: if named_key == NamedKey::ArrowUp {
-                                                        -1
+                                                    pixels: if named_key == NamedKey::ArrowUp {
+                                                        -line_height
                                                     } else {
-                                                        1
+                                                        line_height
                                                     },
                                                 },
                                                 align,
@@ -421,6 +422,7 @@ impl super::EventRouter for TextBoxState {
             }
             RawEvent::MouseScroll { delta, .. } => {
                 if let Some(d) = driver.upgrade() {
+                    let line_height = buffer.metrics().line_height;
                     match delta {
                         Ok(dist) => {
                             let mut scroll = buffer.scroll();
@@ -433,7 +435,7 @@ impl super::EventRouter for TextBoxState {
                                 &mut d.font_system.write(),
                                 buffer,
                                 Action::Scroll {
-                                    lines: -(dist.y.round() as i32),
+                                    pixels: -dist.y * line_height,
                                 },
                                 align,
                             );
