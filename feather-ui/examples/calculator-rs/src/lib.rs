@@ -166,14 +166,14 @@ impl FnPersistStore for CalcApp {
     type Store = (CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp {
+impl FnPersist2<&CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp {
     fn init(&self) -> Self::Store {
         (CalcFFI(self.init_calc.clone()), im::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: CalcFFI,
+        args: &CalcFFI,
         mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
@@ -305,7 +305,7 @@ pub fn register(calc: ::std::sync::Arc<dyn Calculator>) {
 
     let init_calc = calc.copy();
     let (mut app, event_loop, _, _) =
-        App::<CalcFFI, CalcApp>::new::<()>(CalcFFI(calc), inputs, CalcApp { init_calc }, |_| ())
+        App::<CalcFFI, CalcApp, ()>::new(CalcFFI(calc), inputs, CalcApp { init_calc }, None, None)
             .unwrap();
 
     event_loop.run_app(&mut app).unwrap();

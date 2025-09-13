@@ -94,7 +94,7 @@ impl flex::Prop for MinimalFlex {
 impl FnPersistStore for BasicApp {
     type Store = (Blocker, im::HashMap<Arc<SourceID>, Option<Window>>);
 }
-impl FnPersist2<Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersist2<&Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
         (
             Blocker {
@@ -106,10 +106,10 @@ impl FnPersist2<Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: Blocker,
+        args: &Blocker,
         mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != args {
+        if store.0 != *args {
             let flex = {
                 let rect = Shape::<MinimalFlexChild, { ShapeKind::RoundRect as u8 }>::new(
                     gen_id!(scope),
@@ -176,13 +176,14 @@ impl FnPersist2<Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>
 }
 
 fn main() {
-    let (mut app, event_loop, _, _) = App::<Blocker, BasicApp>::new::<()>(
+    let (mut app, event_loop, _, _) = App::<Blocker, BasicApp, ()>::new(
         Blocker {
             area: AbsRect::new(-1.0, -1.0, -1.0, -1.0),
         },
         vec![],
         BasicApp {},
-        |_| (),
+        None,
+        None,
     )
     .unwrap();
 

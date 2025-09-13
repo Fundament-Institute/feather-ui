@@ -77,8 +77,7 @@ fn main() {
     let lua = Lua::new();
 
     let (mut app, event_loop) =
-        LuaApp::<TimeState>::new::<()>(&lua, TimeState { count: 0.into() }, Vec::new(), LAYOUT)
-            .unwrap();
+        LuaApp::<TimeState>::new(&lua, TimeState { count: 0.into() }, Vec::new(), LAYOUT).unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }
