@@ -37,7 +37,7 @@ impl FnPersistStore for BasicApp {
     type Store = im::HashMap<Arc<SourceID>, Option<Window>>;
 }
 
-impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersist2<&i32, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
         im::HashMap::new()
     }
@@ -45,7 +45,7 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
     fn call(
         &mut self,
         _: Self::Store,
-        _: (),
+        _: &i32,
         mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
@@ -271,7 +271,7 @@ impl FnPersist2<(), ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for
 
 fn main() {
     let (mut app, event_loop, _, _) =
-        App::<(), BasicApp>::new::<()>((), Vec::new(), BasicApp {}, |_| ()).unwrap();
+        App::<i32, BasicApp, ()>::new(0, Vec::new(), BasicApp {}, None, None).unwrap();
 
     event_loop.run_app(&mut app).unwrap();
 }

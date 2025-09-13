@@ -184,20 +184,8 @@ where
                     .weight(self.weight)
                     .style(self.style),
                 cosmic_text::Shaping::Advanced,
+                self.align,
             );
-
-            if self.align.is_some() {
-                // Eat the cost of the double shape for now until https://github.com/pop-os/cosmic-text/pull/419 or similar is merged
-                // Luckily, the text component is usually used for small amounts of text.
-                for line in textstate.buffer.borrow_mut().lines.iter_mut() {
-                    line.set_align(self.align);
-                }
-
-                textstate
-                    .buffer
-                    .borrow_mut()
-                    .shape_until_scroll(&mut font_system, false);
-            }
 
             textstate.text = self.text.clone();
             textstate.align = self.align;

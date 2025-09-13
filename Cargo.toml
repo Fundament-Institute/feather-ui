@@ -35,4 +35,4 @@ cosmic-text = { version = "0.14.2" }
 
 [patch.crates-io]
 luajit-src = { git = "https://github.com/Fundament-Institute/luajit-src-rs" }
-cosmic-text = { git = "https://github.com/pop-os/cosmic-text", rev = "d15011fba547ae6bd2cbc7591991ff74424c6db7" }
+cosmic-text = { git = "https://github.com/pop-os/cosmic-text", rev = "355b7febb17ecb0522346fcc5aff6ea78e33e78a" }
