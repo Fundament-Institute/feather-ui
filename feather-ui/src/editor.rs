@@ -426,7 +426,7 @@ impl Editor {
                 Shaping::Advanced,
             );
             tmp.set_align(align);
-            line.append(tmp);
+            line.append(&tmp);
         } else {
             panic!("str::lines() did not yield any elements");
         }
@@ -441,11 +441,11 @@ impl Editor {
                 Shaping::Advanced,
             );
             tmp.set_align(after.align());
-            tmp.append(after);
+            tmp.append(&after);
             buffer.lines.insert(insert_line, tmp);
             cursor.line += 1;
         } else {
-            line.append(after);
+            line.append(&after);
         }
         for data_line in lines_iter.rev() {
             remaining_split_len -= data_line.len();
@@ -528,12 +528,12 @@ impl Editor {
 
                 // Re-add part of line after selection
                 if let Some(after) = after_opt {
-                    buffer.lines[start.line].append(after);
+                    buffer.lines[start.line].append(&after);
                 }
 
                 // Re-add valid parts of end line
                 if let Some(end_line) = end_line_opt {
-                    buffer.lines[start.line].append(end_line);
+                    buffer.lines[start.line].append(&end_line);
                 }
             }
 
@@ -938,10 +938,10 @@ impl Editor {
                 }
                 SmallVec::new()
             }
-            Action::Scroll { lines } => {
+            Action::Scroll { pixels } => {
                 let mut scroll = buffer.scroll();
                 //TODO: align to layout lines
-                scroll.vertical += lines as f32 * buffer.metrics().line_height + 0.0001; // temporary hack until cosmic-text deploys a new version with this fix: https://github.com/pop-os/cosmic-text/pull/401
+                scroll.vertical += pixels;
                 buffer.set_scroll(scroll);
                 SmallVec::new()
             }

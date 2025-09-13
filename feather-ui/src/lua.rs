@@ -724,7 +724,7 @@ impl<AppData: Clone> FnPersistStore for LuaPersist<AppData> {
 }
 
 impl<AppData: Clone + FromLua + IntoLua>
-    FnPersist2<AppData, ScopeID<'static>, im::HashMap<Arc<SourceID>, Option<Window>>>
+    FnPersist2<&AppData, ScopeID<'static>, im::HashMap<Arc<SourceID>, Option<Window>>>
     for LuaPersist<AppData>
 {
     fn init(&self) -> Self::Store {
@@ -742,7 +742,7 @@ impl<AppData: Clone + FromLua + IntoLua>
     fn call(
         &mut self,
         _: Self::Store,
-        appdata: AppData,
+        appdata: &AppData,
         mut id: ScopeID<'static>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         let mut h = im::HashMap::new();
@@ -1798,15 +1798,15 @@ end
     }
 }
 
-pub struct LuaApp<AppData: Clone + FromLua + IntoLua>(crate::App<AppData, LuaPersist<AppData>>);
+pub struct LuaApp<AppData: Clone + FromLua + IntoLua>(crate::App<AppData, LuaPersist<AppData>, ()>);
 
 impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
-    pub fn new<T>(
+    pub fn new(
         lua: &Lua,
         app_state: AppData,
         handlers: Vec<(String, crate::AppEvent<AppData>)>,
         layout: &[u8],
-    ) -> eyre::Result<(Self, crate::EventLoop<T>)> {
+    ) -> eyre::Result<(Self, crate::EventLoop<()>)> {
         let ctx = LuaContext::new(lua)?;
 
         let mut reserved = HashMap::new();
@@ -1829,7 +1829,8 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
                 },
                 phantom: PhantomData,
             },
-            |_| (),
+            None,
+            None,
         )?;
 
         // Change the add_handler to use the channel to send new handlers
@@ -1838,7 +1839,7 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
     }
 }
 
-impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static, T: 'static> ApplicationHandler<T>
+impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> ApplicationHandler<()>
     for LuaApp<AppData>
 {
     fn new_events(
@@ -1846,14 +1847,14 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static, T: 'static> Appli
         event_loop: &winit::event_loop::ActiveEventLoop,
         cause: winit::event::StartCause,
     ) {
-        <crate::App<AppData, LuaPersist<AppData>> as ApplicationHandler<T>>::new_events(
+        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::new_events(
             &mut self.0,
             event_loop,
             cause,
         );
     }
 
-    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: T) {
+    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: ()) {
         self.0.user_event(event_loop, event);
     }
 
@@ -1863,7 +1864,7 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static, T: 'static> Appli
         device_id: winit::event::DeviceId,
         event: winit::event::DeviceEvent,
     ) {
-        <crate::App<AppData, LuaPersist<AppData>> as ApplicationHandler<T>>::device_event(
+        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::device_event(
             &mut self.0,
             event_loop,
             device_id,
@@ -1872,35 +1873,35 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static, T: 'static> Appli
     }
 
     fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>> as ApplicationHandler<T>>::about_to_wait(
+        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::about_to_wait(
             &mut self.0,
             event_loop,
         );
     }
 
     fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>> as ApplicationHandler<T>>::suspended(
+        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::suspended(
             &mut self.0,
             event_loop,
         );
     }
 
     fn exiting(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>> as ApplicationHandler<T>>::exiting(
+        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::exiting(
             &mut self.0,
             event_loop,
         );
     }
 
     fn memory_warning(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>> as ApplicationHandler<T>>::memory_warning(
+        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::memory_warning(
             &mut self.0,
             event_loop,
         );
     }
 
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>> as ApplicationHandler<T>>::resumed(
+        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::resumed(
             &mut self.0,
             event_loop,
         );
@@ -1912,7 +1913,7 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static, T: 'static> Appli
         window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
-        <crate::App<AppData, LuaPersist<AppData>> as ApplicationHandler<T>>::window_event(
+        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::window_event(
             &mut self.0,
             event_loop,
             window_id,

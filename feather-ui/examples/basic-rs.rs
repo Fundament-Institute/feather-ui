@@ -44,7 +44,7 @@ impl FnPersistStore for BasicApp {
     type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
+impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
     for BasicApp
 {
     fn init(&self) -> Self::Store {
@@ -53,10 +53,10 @@ impl FnPersist2<CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Win
     fn call(
         &mut self,
         mut store: Self::Store,
-        app: CounterState,
+        app: &CounterState,
         mut id: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != app {
+        if store.0 != *app {
             let button = {
                 let text = Text::<FixedData> {
                     id: gen_id!(id),
@@ -195,11 +195,12 @@ fn main() {
         .wrap(),
     );
 
-    let (mut app, event_loop, _, _) = App::<CounterState, BasicApp>::new::<()>(
+    let (mut app, event_loop, _, _) = App::<CounterState, BasicApp, ()>::new(
         CounterState { count: 0 },
         vec![onclick],
         BasicApp {},
-        |_| (),
+        None,
+        None,
     )
     .unwrap();
 

@@ -58,7 +58,7 @@ impl FnPersistStore for BasicApp {
     type Store = (TextState, im::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<TextState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersist2<&TextState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
         (
             TextState {
@@ -70,10 +70,10 @@ impl FnPersist2<TextState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: TextState,
+        args: &TextState,
         mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != args {
+        if store.0 != *args {
             let textbox = TextBox::new(
                 gen_id!(scope),
                 MinimalText {
@@ -117,13 +117,14 @@ impl FnPersist2<TextState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window
 }
 
 fn main() {
-    let (mut app, event_loop, _, _) = App::<TextState, BasicApp>::new::<()>(
+    let (mut app, event_loop, _, _) = App::<TextState, BasicApp, ()>::new(
         TextState {
             text: EditBuffer::new("new text", (0, 0)).into(),
         },
         vec![],
         BasicApp {},
-        |_| (),
+        None,
+        None,
     )
     .unwrap();
 

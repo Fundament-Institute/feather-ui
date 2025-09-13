@@ -487,9 +487,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.36"
+version = "1.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5252b3d2648e5eedbc1a6f501e3c795e07025c1e93bbf8bbdd6eef7f447a6d54"
+checksum = "65193589c6404eb80b450d618eaf9a2cafaaafd57ecce47370519ef674a7bd44"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -659,19 +659,19 @@ dependencies = [
 [[package]]
 name = "cosmic-text"
 version = "0.14.2"
-source = "git+https://github.com/pop-os/cosmic-text?rev=d15011fba547ae6bd2cbc7591991ff74424c6db7#d15011fba547ae6bd2cbc7591991ff74424c6db7"
+source = "git+https://github.com/pop-os/cosmic-text?rev=355b7febb17ecb0522346fcc5aff6ea78e33e78a#355b7febb17ecb0522346fcc5aff6ea78e33e78a"
 dependencies = [
  "bitflags 2.9.4",
  "fontdb",
+ "harfrust",
  "log",
  "rangemap",
  "rustc-hash 1.1.0",
- "rustybuzz 0.14.1",
  "self_cell",
+ "skrifa 0.36.0",
  "smol_str",
  "swash",
  "sys-locale",
- "ttf-parser 0.21.1",
  "unicode-bidi",
  "unicode-linebreak",
  "unicode-script",
@@ -1019,7 +1019,7 @@ dependencies = [
  "vello_svg",
  "wgpu 26.0.1",
  "wide",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.0",
  "winit",
 ]
 
@@ -1087,7 +1087,7 @@ dependencies = [
  "memmap2",
  "slotmap",
  "tinyvec",
- "ttf-parser 0.25.1",
+ "ttf-parser",
 ]
 
 [[package]]
@@ -1333,6 +1333,19 @@ dependencies = [
  "cfg-if",
  "crunchy",
  "num-traits",
+]
+
+[[package]]
+name = "harfrust"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75a4c970f1a00edc1626f1e3cc039492b15b73df28b9fff70f95404a571b4fae"
+dependencies = [
+ "bitflags 2.9.4",
+ "bytemuck",
+ "core_maths",
+ "read-fonts 0.34.0",
+ "smallvec",
 ]
 
 [[package]]
@@ -2627,7 +2640,7 @@ version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36820e9051aca1014ddc75770aab4d68bc1e9e632f0f5627c4086bc216fb583b"
 dependencies = [
- "ttf-parser 0.25.1",
+ "ttf-parser",
 ]
 
 [[package]]
@@ -3061,6 +3074,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "read-fonts"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8941f8e9d5f8ad3aebea330d01ac68c0167600eb31a86ecd86e97be4d13b51f5"
+dependencies = [
+ "bytemuck",
+ "core_maths",
+ "font-types",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3165,23 +3189,6 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "rustybuzz"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfb9cf8877777222e4a3bc7eb247e398b56baba500c38c1c46842431adc8b55c"
-dependencies = [
- "bitflags 2.9.4",
- "bytemuck",
- "libm",
- "smallvec",
- "ttf-parser 0.21.1",
- "unicode-bidi-mirroring 0.2.0",
- "unicode-ccc 0.2.0",
- "unicode-properties",
- "unicode-script",
-]
-
-[[package]]
-name = "rustybuzz"
 version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3c7c96f8a08ee34eff8857b11b49b07d71d1c3f4e88f8a88d4c9e9f90b1702"
@@ -3191,9 +3198,9 @@ dependencies = [
  "core_maths",
  "log",
  "smallvec",
- "ttf-parser 0.25.1",
- "unicode-bidi-mirroring 0.4.0",
- "unicode-ccc 0.4.0",
+ "ttf-parser",
+ "unicode-bidi-mirroring",
+ "unicode-ccc",
  "unicode-properties",
  "unicode-script",
 ]
@@ -3393,6 +3400,16 @@ checksum = "576e60c7de4bb6a803a0312f9bef17e78cf1e8d25a80e1ade76770d7a0237955"
 dependencies = [
  "bytemuck",
  "read-fonts 0.33.1",
+]
+
+[[package]]
+name = "skrifa"
+version = "0.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37004372610e83ee2a4c69c7d896b41f33da6a3dc1a4fe07dd9b2629a549b1dc"
+dependencies = [
+ "bytemuck",
+ "read-fonts 0.34.0",
 ]
 
 [[package]]
@@ -3781,12 +3798,6 @@ dependencies = [
 
 [[package]]
 name = "ttf-parser"
-version = "0.21.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c591d83f69777866b9126b24c6dd9a18351f177e49d625920d19f989fd31cf8"
-
-[[package]]
-name = "ttf-parser"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
@@ -3814,21 +3825,9 @@ checksum = "5c1cb5db39152898a79168971543b1cb5020dff7fe43c8dc468b0885f5e29df5"
 
 [[package]]
 name = "unicode-bidi-mirroring"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23cb788ffebc92c5948d0e997106233eeb1d8b9512f93f41651f52b6c5f5af86"
-
-[[package]]
-name = "unicode-bidi-mirroring"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5dfa6e8c60bb66d49db113e0125ee8711b7647b5579dc7f5f19c42357ed039fe"
-
-[[package]]
-name = "unicode-ccc"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df77b101bcc4ea3d78dafc5ad7e4f58ceffe0b2b16bf446aeb50b6cb4157656"
 
 [[package]]
 name = "unicode-ccc"
@@ -4033,7 +4032,7 @@ dependencies = [
  "log",
  "pico-args",
  "roxmltree",
- "rustybuzz 0.20.1",
+ "rustybuzz",
  "simplecss",
  "siphasher 1.0.1",
  "strict-num",
