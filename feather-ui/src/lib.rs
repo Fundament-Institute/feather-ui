@@ -2138,15 +2138,14 @@ pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, AccessCell<State>) -> Inp
 ///     }
 /// }
 ///
-/// App::<MyState, MyApp>::new::<()>(MyState { count: 0 }, vec![Box::new(onclick)], MyApp {}, |_| ());
+/// App::<MyState, MyApp, ()>::new(MyState { count: 0 }, vec![Box::new(onclick)], MyApp {}, |_| ());
 /// ```
-pub trait WrapEventEx<State: 'static + PartialEq, Input: Dispatchable + 'static> {
+pub trait WrapEventEx<State: 'static, Input: Dispatchable + 'static> {
     /// Wraps a lambda with the appropriate type signature. See [`WrapEventEx`] for examples.
     fn wrap(self) -> impl FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>;
 }
 
-impl<AppData: 'static + PartialEq, Input: Dispatchable + 'static, T> WrapEventEx<AppData, Input>
-    for T
+impl<AppData: 'static, Input: Dispatchable + 'static, T> WrapEventEx<AppData, Input> for T
 where
     T: FnMut(Input, AccessCell<AppData>) -> InputResult<()>,
 {
@@ -2617,7 +2616,7 @@ pub type EventPair<AppData> = (u64, AppEvent<AppData>);
 ///
 /// An App creates all the top level structures needed for Feather to function. It stores all
 /// wgpu, winit, and any other global state needed. See [`App::new`] for examples.
-pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>> {
+pub struct App<AppData, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, OutlineReturn>, T> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
     pub state: StateManager,
@@ -2626,8 +2625,8 @@ pub struct App<AppData, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
     _parents: BTreeMap<DataID, DataID>,
     root: component::Root, // Root component node containing all windows
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
-    _phantom: PhantomData<AppData>,
     handle_sync: mpsc::Receiver<EventPair<AppData>>,
+    user_events: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
 }
 
 pub struct AppDataMachine<AppData> {
@@ -2636,7 +2635,7 @@ pub struct AppDataMachine<AppData> {
     changed: bool,
 }
 
-impl<AppData: 'static + PartialEq> StateMachineWrapper for AppDataMachine<AppData> {
+impl<AppData: 'static> StateMachineWrapper for AppDataMachine<AppData> {
     fn output_slot(&self, _: usize) -> eyre::Result<&Option<Slot>> {
         Ok(&None)
     }
@@ -2680,8 +2679,8 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>>
-    App<AppData, O>
+impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, OutlineReturn>, T>
+    App<AppData, O, T>
 {
     /// Creates a new feather application. `app_state` represents the initial state of the application, and
     /// will override any value returned by `<O as FnPersist2>::init()`. `inputs` must be an array of
@@ -2704,7 +2703,6 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
     /// use feather_ui::{ SourceID, ScopeID, App };
     /// use std::sync::Arc;
     ///
-    /// #[derive(Clone, PartialEq)]
     /// struct MyState {
     ///   count: i32
     /// }
@@ -2713,25 +2711,26 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
     ///
     /// impl FnPersistStore for MyApp { type Store = (); }
     ///
-    /// impl FnPersist2<MyState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
+    /// impl FnPersist2<&MyState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
     ///     fn init(&self) -> Self::Store { () }
     ///
-    ///     fn call(&mut self,  _: Self::Store,  _: MyState, _: ScopeID<'_>) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ///     fn call(&mut self,  _: Self::Store,  _: &MyState, _: ScopeID<'_>) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
     ///         ((), im::HashMap::new())
     ///     }
     /// }
     ///
-    /// let (mut app, event_loop, _, _) = App::<MyState, MyApp>::new::<()>(MyState { count: 0 }, Vec::new(), MyApp {}, |_| ()).unwrap();
+    /// let (mut app, event_loop, _, _) = App::<MyState, MyApp, ()>::new(MyState { count: 0 }, Vec::new(), MyApp {}, |_| ()).unwrap();
     ///
     /// // You would then run the app like so (commented out because docs can't test UIs)
     /// // event_loop.run_app(&mut app).unwrap();
     /// ```
     #[allow(clippy::type_complexity)]
-    pub fn new<T: 'static>(
-        app_state: AppData,
+    pub fn new(
+        appstate: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
-        driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
+        user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T) + 'static>>,
+        driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
     ) -> eyre::Result<(
         Self,
         EventLoop<T>,
@@ -2743,18 +2742,26 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
         #[cfg(not(test))]
         let any_thread = false;
 
-        Self::new_any_thread(app_state, inputs, outline, any_thread, driver_init)
+        Self::new_any_thread(
+            appstate,
+            inputs,
+            outline,
+            any_thread,
+            user_event,
+            driver_init,
+        )
     }
 
     /// This is the same as [`App::new`], but it allows overriding the main thread detection that winit uses. This is necessary
     /// for running tests, which don't run on the main thread.
     #[allow(clippy::type_complexity)]
-    pub fn new_any_thread<T: 'static>(
-        app_state: AppData,
+    pub fn new_any_thread(
+        appstate: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         any_thread: bool,
-        driver_init: impl FnOnce(std::sync::Weak<Driver>) + 'static,
+        user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T) + 'static>>,
+        driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
     ) -> eyre::Result<(
         Self,
         EventLoop<T>,
@@ -2767,7 +2774,7 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
             Arc::new(APP_SOURCE_ID),
             Box::new(AppDataMachine {
                 handlers: HashMap::from_iter(inputs.into_iter().enumerate()),
-                state: app_state,
+                state: appstate,
                 changed: true,
             }),
         );
@@ -2814,14 +2821,35 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
                 state: manager,
                 _parents: Default::default(),
                 root: component::Root::new(),
-                driver_init: Some(Box::new(driver_init)),
-                _phantom: PhantomData,
+                driver_init,
                 handle_sync: recv,
+                user_events: user_event,
             },
             event_loop,
             sender,
             count,
         ))
+    }
+
+    /// This allows modifying the appstate outside of feather's handling routines. It will be correctly
+    /// marked as changed if it is modified, and a new frame will be queued.
+    pub fn with_appstate<R>(&mut self, f: impl FnOnce(AccessCell<AppData>) -> R) -> R {
+        let app_state: &mut AppDataMachine<AppData> = self.state.get_mut(&APP_SOURCE_ID).unwrap();
+        let cell = AccessCell {
+            value: &mut app_state.state,
+            changed: &mut app_state.changed,
+        };
+
+        let r = f(cell);
+        if app_state.changed {
+            for (id, _) in &self.root.children {
+                let Ok(state) = self.state.get::<WindowStateMachine>(id) else {
+                    continue;
+                };
+                state.state.window.request_redraw();
+            }
+        }
+        r
     }
 
     #[allow(clippy::borrow_interior_mutable_const)]
@@ -2832,9 +2860,7 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
             app_state.handlers.insert(idx as usize, handler);
         }
 
-        let (store, windows) = self
-            .outline
-            .call(store, app_state.state.clone(), ScopeID::root());
+        let (store, windows) = self.outline.call(store, &app_state.state, ScopeID::root());
         debug_assert!(
             APP_SOURCE_ID.parent.is_none(),
             "Something set the APP_SOURCE parent! This should never happen!"
@@ -2861,10 +2887,10 @@ impl<AppData: Clone + PartialEq + 'static, O: FnPersist2<AppData, ScopeID<'stati
 }
 
 impl<
-    AppData: Clone + PartialEq + 'static,
+    AppData: 'static,
     T: 'static,
-    O: FnPersist2<AppData, ScopeID<'static>, OutlineReturn>,
-> winit::application::ApplicationHandler<T> for App<AppData, O>
+    O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, OutlineReturn>,
+> winit::application::ApplicationHandler<T> for App<AppData, O, T>
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // If this is our first resume, call the start function that can create the necessary graphics context
@@ -3086,8 +3112,11 @@ impl<
         let _ = (event_loop, device_id, event);
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, _: T) {
-        event_loop.exit();
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, evt: T) {
+        if let Some(mut f) = self.user_events.take() {
+            (f)(self, event_loop, evt);
+            self.user_events.replace(f);
+        }
     }
 
     fn suspended(&mut self, event_loop: &ActiveEventLoop) {
@@ -3146,7 +3175,7 @@ impl FnPersist2<u8, ScopeID<'static>, OutlineReturn> for TestApp {
 #[test]
 fn test_basic() {
     let (mut app, event_loop, _, _) =
-        App::<u8, TestApp>::new::<()>(0u8, vec![], TestApp {}, |_| ()).unwrap();
+        App::<u8, TestApp, ()>::new(0u8, vec![], TestApp {}, |_| ()).unwrap();
 
     let proxy = event_loop.create_proxy();
     proxy.send_event(()).unwrap();

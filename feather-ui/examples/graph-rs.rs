@@ -52,17 +52,17 @@ impl FnPersistStore for BasicApp {
     type Store = (GraphState, im::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
         (Default::default(), im::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
-        args: GraphState,
+        args: &GraphState,
         mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        if store.0 != args {
+        if store.0 != *args {
             let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
             let domain: Arc<CrossReferenceDomain> = Default::default();
 
@@ -227,7 +227,7 @@ fn main() {
         .wrap(),
     );
 
-    let (mut app, event_loop, _, _) = App::<GraphState, BasicApp>::new::<()>(
+    let (mut app, event_loop, _, _) = App::<GraphState, BasicApp, ()>::new(
         GraphState {
             nodes: vec![],
             edges: HashSet::new(),
@@ -236,7 +236,8 @@ fn main() {
         },
         vec![handle_input],
         BasicApp {},
-        |_| (),
+        None,
+        None,
     )
     .unwrap();
 
