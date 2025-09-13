@@ -98,7 +98,7 @@ mlua = { version = "0.11", features = [
   "vendored",
   "error-send",
 ], optional = true }
-image = { version = "0.25.6", optional = true, default-features = false }
+image = { version = "0.25.8", optional = true, default-features = false }
 resvg = { version = "0.45.1", optional = true, default-features = false, features = [
   "text",
   "system-fonts",
