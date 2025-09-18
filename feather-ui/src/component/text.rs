@@ -45,7 +45,9 @@ pub struct Text<T> {
     pub weight: cosmic_text::Weight,
     pub style: cosmic_text::Style,
     pub wrap: cosmic_text::Wrap,
-    pub align: Option<cosmic_text::Align>, // Alignment overrides whether text is LTR or RTL so we usually only want to set it if we're centering text
+    pub align: Option<cosmic_text::Align>, /* Alignment overrides whether text is LTR or RTL so
+                                            * we usually only want to set it if we're centering
+                                            * text */
 }
 
 impl<T: leaf::Padded + 'static> Text<T> {

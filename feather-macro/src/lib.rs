@@ -185,7 +185,8 @@ fn data_enum(ast: &DeriveInput) -> &DataEnum {
 }
 
 fn find_enum_module(attrs: &[syn::Attribute]) -> syn::Result<String> {
-    // Extract EnumVariantType's module, since this has to be used in conjunction with our derive
+    // Extract EnumVariantType's module, since this has to be used in conjunction
+    // with our derive
     for attr in attrs.iter() {
         if attr.path().is_ident("evt") {
             let nested = attr
@@ -210,7 +211,8 @@ fn find_enum_module(attrs: &[syn::Attribute]) -> syn::Result<String> {
                 }
             }
 
-            // This would be a lot easier but it doesn't seem to work for #[evt(derive(Clone), module = "mouse_area_event")]
+            // This would be a lot easier but it doesn't seem to work for
+            // #[evt(derive(Clone), module = "mouse_area_event")]
             /*let _ = attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("module") {
                     let value = meta.value()?;
@@ -223,7 +225,8 @@ fn find_enum_module(attrs: &[syn::Attribute]) -> syn::Result<String> {
         }
     }
 
-    // Error here doesn't matter, we transform it into another error message upon return
+    // Error here doesn't matter, we transform it into another error message upon
+    // return
     Err(syn::Error::new(Span::call_site(), ""))
 }
 

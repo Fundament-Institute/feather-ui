@@ -3,6 +3,8 @@
 
 local function rawdump(t, spaces)
 	if t == nil then return "nil" end
+	if type(t) ~= "table" then return tostring(t) end
+
 	local mt = getmetatable(t)
 	setmetatable(t, nil)
 	spaces = spaces or 0
@@ -653,6 +655,11 @@ coord_mt.__unm = negate_table
 ---@field x fun(v: number) : PxPoint
 ---@field y fun(v: number) : PxPoint
 ---@field size fun(v: number, v:number) : PxSize
+---@overload fun(l: number, t: number?, r: number?, b: number?) : PxRect | PxPoint
+---@operator add(Rect): Area
+---@operator add(Point): Area
+---@operator sub(Rect): Area
+---@operator sub(Point): Area
 
 ---@class UnifiedAbs
 ---@field left fun(v: number) : AbsRect
@@ -662,6 +669,11 @@ coord_mt.__unm = negate_table
 ---@field x fun(v: number) : AbsPoint
 ---@field y fun(v: number) : AbsPoint
 ---@field size fun(v: number, v:number) : AbsSize
+---@overload fun(l: number, t: number?, r: number?, b: number?) : AbsRect | AbsPoint
+---@operator add(Rect): Area
+---@operator add(Point): Area
+---@operator sub(Rect): Area
+---@operator sub(Point): Area
 
 ---@class UnifiedRel
 ---@field left fun(v: number) : RelRect
@@ -671,8 +683,14 @@ coord_mt.__unm = negate_table
 ---@field x fun(v: number) : RelPoint
 ---@field y fun(v: number) : RelPoint
 ---@field size fun(v: number, v:number) : RelSize
+---@overload fun(l: number, t: number?, r: number?, b: number?) : RelRect | RelPoint
+---@operator add(Rect): Area
+---@operator add(Point): Area
+---@operator sub(Rect): Area
+---@operator sub(Point): Area
 
 ---@param kind "px" | "dp" | "rel"
+---@return UnifiedPx | UnifiedAbs | UnifiedRel
 local function gen_unified(kind)
 	---@param lx number
 	---@param ty number?
@@ -794,6 +812,7 @@ end
 
 -- "required" marker table
 local required = setmetatable({}, {})
+local optional = setmetatable({}, {})
 
 --- Validates a set of attributes against a definition and returns the args replaced
 --- by default values if validation passes, or raises an error if a failure happens.
@@ -810,13 +829,17 @@ local function validate_def(args, def)
 	for k, v in pairs(def) do
 		if args[k] == nil then
 			if v == required then error("Missing required argument " .. tostring(k)) end
-			attrs[k] = v
+			if v ~= optional then attrs[k] = v end
 		else
 			attrs[k] = args[k]
 		end
 	end
 
-	return setmetatable(attrs, { __index = function(t, k) error("Tried to access invalid arg '" .. k .. "'") end })
+	return setmetatable(attrs, {
+		__index = function(t, k)
+			if def[k] ~= optional then error("Tried to access invalid arg '" .. k .. "'") end
+		end,
+	})
 end
 
 ---@alias attr_func fun(attrs: table):table
@@ -846,11 +869,6 @@ local function wrap_create(f, name)
 		return exit_wrapped_fun(name, f(ID.next(), body))
 	end
 end
-
----@generic T: table, K, V
----@param t T
----@return fun(table: table<K, V>, index?: K):K, V
----@return T
 
 local multicomponent_mt = { kind = "multicomponent_mt" }
 
@@ -946,15 +964,17 @@ local function cond(flag)
 end
 
 ---@generic T
----@param f fun(dispatch: integer, state: T) : T
-local function add_handler(f) error("called placeholder function!") end
+---@param name string
+---@param f fun(dispatch: integer, state: T) : T, boolean?
+local function add_handler(name, f) error("called placeholder function!") end
+
+---@cast px UnifiedPx
+---@cast dp UnifiedAbs
+---@cast rel UnifiedRel
 
 return {
-	---@type UnifiedPx
 	px = px,
-	---@type UnifiedAbs
 	abs = dp,
-	---@type UnifiedRel
 	rel = rel,
 	FILL = rel(0, 0, 1, 1),
 	NONE = 0 / 0,
@@ -979,7 +999,7 @@ return {
 	FontStyle = { Normal = 0, Italic = 1, Oblique = 2 },
 	component = component,
 	required = required,
-	optional = function(default) setmetatable({ default = default }, {}) end,
+	optional = optional,
 	button = wrap_create(create_button, "create_button"),
 	domain = {
 		line = wrap_create(create_domain_line, "create_domain_line"),

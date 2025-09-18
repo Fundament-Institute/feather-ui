@@ -13,9 +13,9 @@ crate::gen_from_to_dyn!(Prop);
 
 impl Prop for DRect {}
 
-// Actual leaves do not require padding, but a lot of raw elements do (text, shape, images, etc.)
-// This inherits Prop to allow elements to "extract" the padding for the rendering system for
-// when it doesn't affect layouts.
+// Actual leaves do not require padding, but a lot of raw elements do (text,
+// shape, images, etc.) This inherits Prop to allow elements to "extract" the
+// padding for the rendering system for when it doesn't affect layouts.
 pub trait Padded: Prop + base::Padding {}
 
 crate::gen_from_to_dyn!(Padded);
@@ -46,6 +46,7 @@ impl Desc for dyn Prop {
         let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;
 
+        debug_assert!(evaluated_area.v.is_finite().all());
         Box::new(Concrete {
             area: evaluated_area,
             renderable,
@@ -62,8 +63,9 @@ impl Desc for dyn Prop {
     }
 }
 
-/// A sized leaf is one with inherent size, like an image. This is used to preserve aspect ratio when
-/// encounting an unsized axis. This must be provided in pixels.
+/// A sized leaf is one with inherent size, like an image. This is used to
+/// preserve aspect ratio when encounting an unsized axis. This must be provided
+/// in pixels.
 
 #[derive_where::derive_where(Clone)]
 pub struct Sized<T> {
@@ -88,12 +90,13 @@ impl<T: Padded> Layout<T> for Sized<T> {
         let area = self.props.area().resolve(window.dpi);
         let aspect_ratio = self.size.width / self.size.height; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
 
-        // The way we handle unsized here is different from how we normally handle it. If both axes are unsized, we
-        // simply set the area to the internal size. If only one axis is unsized, we stretch it to maintain an aspect
+        // The way we handle unsized here is different from how we normally handle it.
+        // If both axes are unsized, we simply set the area to the internal
+        // size. If only one axis is unsized, we stretch it to maintain an aspect
         // ratio relative to the size of the other axis.
         let (unsized_x, unsized_y) = super::check_unsized(area);
         let outer_area = super::nuetralize_unsized(outer_area);
-        let mapped_area = match (unsized_x, unsized_y, aspect_ratio.is_nan()) {
+        let mapped_area = match (unsized_x, unsized_y, aspect_ratio.is_finite()) {
             (true, false, false) => {
                 let mut presize = map_unsized_area(area, PxDim::zero()) * outer_area;
                 let adjust = presize.dim().height * aspect_ratio;
@@ -120,6 +123,10 @@ impl<T: Padded> Layout<T> for Sized<T> {
         let anchor = self.props.anchor().resolve(window.dpi) * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;
 
+        if !evaluated_area.v.is_finite().all() {
+            println!("{evaluated_area:?}");
+        }
+        debug_assert!(evaluated_area.v.is_finite().all());
         Box::new(Concrete {
             area: evaluated_area,
             renderable: self.renderable.clone(),

@@ -10,7 +10,7 @@ use jxl_oxide::{EnumColourEncoding, JxlImage};
 use resvg::{tiny_skia, usvg};
 
 use crate::render::atlas;
-use crate::{DynHashEq, Error, Pixel, PxDim};
+use crate::{Error, Pixel, PxDim};
 use guillotiere::euclid::Size2D;
 use std::hash::Hash;
 
@@ -1020,22 +1020,98 @@ pub fn load_icon(location: &dyn Location) -> Result<winit::window::Icon, Error> 
         .map_err(|e| Error::ResourceError(Box::new(e)))
 }
 
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
 #[derive(Debug, Clone)]
 pub struct ImageRef(pub Arc<image::DynamicImage>);
 
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
 impl std::hash::Hash for ImageRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         Arc::as_ptr(&self.0).hash(state);
     }
 }
 
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
 impl PartialEq for ImageRef {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
 }
 
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
 impl Eq for ImageRef {}
+
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
 impl Location for ImageRef {
     fn fetch(&self) -> Result<Box<dyn Loader>, Error> {
         Ok(Box::new(image::DynamicImage::clone(&self.0)))
