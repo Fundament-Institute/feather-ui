@@ -39,7 +39,8 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             return Ok(());
         }
 
-        // If a rect has no corners and no outline, it's just a flat color box and we can draw it directly in the compositor
+        // If a rect has no corners and no outline, it's just a flat color box and we
+        // can draw it directly in the compositor
         if self.corners.iter().all(|x| x.is_zero()) && self.border.is_zero() {
             compositor.append_data(
                 area.topleft().add_size(&self.padding.topleft()),
@@ -62,9 +63,11 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             dim.width - self.corners[2] - self.corners[3],
         ];
 
-        // RoundRects have a specific optimization, but only if no edge length is less than 2 pixels
+        // RoundRects have a specific optimization, but only if no edge length is less
+        // than 2 pixels
         if KIND == ShapeKind::RoundRect as u8 && perimeter.iter().all(|x| *x >= 2.0) {
-            // If the border is larger than the corner itself, pretend the size of that corner is the border.
+            // If the border is larger than the corner itself, pretend the size of that
+            // corner is the border.
             let mut corners = self.corners.map(|x| x.max(self.border));
             let mut intcorners = corners.map(|x| x.ceil() as i32);
 
@@ -75,15 +78,17 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                 intcorners[2].max(intcorners[3]),
             ];
 
-            // Here we generate a rounded block equal to exactly left side + 3 pixels + right side
+            // Here we generate a rounded block equal to exactly left side + 3 pixels +
+            // right side
             let inner = atlas::Size::new(
                 intsides[0] + intsides[2] + 3, // left + right
                 intsides[1] + intsides[3] + 3, // top + bottom
             );
 
-            // We reserve an additional 2 pixel border around each side of our rect for sampling purposes. It
-            // must be 2 pixels because we have to inflate the rect by 1 pixel for fractional draws already,
-            // which means we need an additional transparent pixel of buffer to cover all possible sampling
+            // We reserve an additional 2 pixel border around each side of our rect for
+            // sampling purposes. It must be 2 pixels because we have to inflate
+            // the rect by 1 pixel for fractional draws already, which means we
+            // need an additional transparent pixel of buffer to cover all possible sampling
             // scenarios.
             let (region_uv, region_index) = driver
                 .with_pipeline::<Shape<KIND>, Result<(atlas::PxBox, u8), crate::Error>>(
@@ -97,7 +102,8 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                                 dim: inner.to_f32().to_array().into(),
                                 border: self.border,
                                 blur: self.blur,
-                                // We use corners raised to the nearest pixel so we can cut out the corners neatly
+                                // We use corners raised to the nearest pixel so we can cut out the
+                                // corners neatly
                                 corners: intcorners.map(|x| x as f32).into(),
                                 fill: self.fill.as_32bit().rgba,
                                 outline: self.outline.as_32bit().rgba,
@@ -107,15 +113,17 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                     },
                 )?;
 
-            // The only reason this works is because we set the uvdim here to 0 on the axis that is being
-            // extended, which ensures no interpolation of the UV coordinate happens along that axis
+            // The only reason this works is because we set the uvdim here to 0 on the axis
+            // that is being extended, which ensures no interpolation of the UV
+            // coordinate happens along that axis
 
-            // We add data here starting from the topleft corner and going clockwise around the rect:
-            // 1 6 2
+            // We add data here starting from the topleft corner and going clockwise around
+            // the rect: 1 6 2
             // 5 9 7
             // 4 8 3
 
-            // Pretend all corners are 1 pixel larger (this works because our buffer is 3 pixels)
+            // Pretend all corners are 1 pixel larger (this works because our buffer is 3
+            // pixels)
             corners = corners.map(|x| x + 1.0);
             intcorners = intcorners.map(|x| x + 1);
 
@@ -140,9 +148,11 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                 );
             };
 
-            // This is nontrivial, because this must be assembled in raw mode, which means we must do the directional inflation
-            // here ourselves. This amounts to changing every 0 into a -1, but *not* changing the non-zero positions and instead
-            // adding 1 to the dimensions, which on corners means adding yet another +1 to the corner size.
+            // This is nontrivial, because this must be assembled in raw mode, which means
+            // we must do the directional inflation here ourselves. This amounts
+            // to changing every 0 into a -1, but *not* changing the non-zero positions and
+            // instead adding 1 to the dimensions, which on corners means adding
+            // yet another +1 to the corner size.
             gen_corner(PxPoint::new(-1.0, -1.0), corners[0] + 1.0, -1, -1);
             gen_corner(
                 PxPoint::new(dim.width - corners[1], -1.0),
@@ -170,7 +180,8 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                 corners[2].max(corners[3]),
             );
 
-            // We can't just do sides.ceil() because the result is not the same as ceiling both corners and adding them.
+            // We can't just do sides.ceil() because the result is not the same as ceiling
+            // both corners and adding them.
             let intsides = [
                 intcorners[0].max(intcorners[3]),
                 intcorners[0].max(intcorners[1]),
@@ -196,8 +207,9 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             };
 
             // Left Top Right Bottom side order
-            // Once again, we must manually inflate the sides here, but these are more tricky. To make it
-            // a bit easier, we only inflate exactly the one pixel of the side that actually matters.
+            // Once again, we must manually inflate the sides here, but these are more
+            // tricky. To make it a bit easier, we only inflate exactly the one
+            // pixel of the side that actually matters.
             gen_side(
                 PxDim::new(sides.left() + 1.0, dim.height - corners[0] - corners[3]),
                 PxPoint::new(-1.0, corners[0]),
@@ -246,11 +258,15 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             return Ok(());
         }
 
-        // The region dimensions here can be wrong, because the region is rounded up to the nearest pixel.
-        // However, properly fixing this requires changing how the SDF shader works so it can properly
-        // emulate conservative rasterization. For now, we keep our original behavior of rounding up and
-        // then letting the compositor squish the result slightly, which is actually pretty accurate.
-        // TODO: Change this to be pixel-perfect by outputting the exact dimensions instead of rounded ones.
+        // The region dimensions here can be wrong, because the region is rounded up to
+        // the nearest pixel. However, properly fixing this requires changing
+        // how the SDF shader works so it can properly emulate conservative
+        // rasterization. For now, we keep our original behavior of rounding up and
+        // then letting the compositor squish the result slightly, which is actually
+        // pretty accurate. TODO: Change this to be pixel-perfect by outputting
+        // the exact dimensions instead of rounded ones.
+
+        println!("{:?}", dim);
 
         let (region_uv, region_index) = driver
             .with_pipeline::<Shape<KIND>, Result<(atlas::PxBox, u8), crate::Error>>(|pipeline| {
@@ -347,15 +363,17 @@ impl<const KIND: u8> Shape<KIND> {
     ) -> Result<(atlas::PxBox, u8), crate::Error> {
         // First we check our ID cache to see if there's an existing entry
         if let Some((cache, uv, layer)) = self.cache.get(&id) {
-            // If we already have data cached, see if it changed. If it didn't, just append the cached data.
+            // If we already have data cached, see if it changed. If it didn't, just append
+            // the cached data.
             if data == *cache && uvdim == uv.size() {
-                // To make the cache possible, the data only contains the offset, so we add the region position here.
+                // To make the cache possible, the data only contains the offset, so we add the
+                // region position here.
                 data.pos += uv.min.to_f32().to_array();
                 self.data.entry(*layer).or_default().push(data);
                 return Ok((*uv, *layer));
             } else if let Some((old, uv, _)) = self.cache.remove(&id) {
-                // Otherwise, we have to delete the cache and decrement the refcount. If the refcount reaches 0,
-                // we delete the region entirely.
+                // Otherwise, we have to delete the cache and decrement the refcount. If the
+                // refcount reaches 0, we delete the region entirely.
                 if let std::collections::hash_map::Entry::Occupied(mut v) =
                     self.refcount.entry((old, uv.size()))
                 {
@@ -369,8 +387,10 @@ impl<const KIND: u8> Shape<KIND> {
             }
         }
 
-        // If we get this far, either we didn't have something cached, or it had to be replaced. We check to see if the data key
-        // we have is already being used for something else, and increment the refcount if so. Otherwise, we allocate a new region.
+        // If we get this far, either we didn't have something cached, or it had to be
+        // replaced. We check to see if the data key we have is already being
+        // used for something else, and increment the refcount if so. Otherwise, we
+        // allocate a new region.
         let (region, _) = match self.refcount.entry((data, uvdim)) {
             std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
                 occupied_entry.get_mut().1 += 1;

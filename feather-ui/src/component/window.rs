@@ -46,8 +46,10 @@ pub struct WindowState {
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Arc<SourceID>, u8), DeviceId>,
     pub compositor: Compositor,
-    pub clipstack: Vec<crate::PxRect>, // Current clipping rectangle stack. These only get added to the GPU clip list if something is rotated
-    pub layers: Vec<std::sync::Weak<SourceID>>, // All layers that render directly to the final compositor
+    pub clipstack: Vec<crate::PxRect>, /* Current clipping rectangle stack. These only get added
+                                        * to the GPU clip list if something is rotated */
+    pub layers: Vec<std::sync::Weak<SourceID>>, /* All layers that render directly to the final
+                                                 * compositor */
 }
 
 impl super::EventRouter for WindowState {
@@ -200,10 +202,12 @@ impl PartialEq for WindowState {
 
 pub type WindowStateMachine = StateMachine<WindowState, 0>;
 
-/// Represents an OS window. All outline functions must return a set of windows as a result of their evaluation,
-/// which represents all the windows that are currently open as part of the application. The ID of the window that
-/// a particular component belongs to is propagated down the outline evaluation phase, because this is needed to
-/// acquire window-specific information that depends on which monitor the OS thinks the window belongs to, like DPI
+/// Represents an OS window. All outline functions must return a set of windows
+/// as a result of their evaluation, which represents all the windows that are
+/// currently open as part of the application. The ID of the window that
+/// a particular component belongs to is propagated down the outline evaluation
+/// phase, because this is needed to acquire window-specific information that
+/// depends on which monitor the OS thinks the window belongs to, like DPI
 /// or orientation.
 #[derive(Clone)]
 pub struct Window {
@@ -313,10 +317,10 @@ impl Window {
 
             Window::resize(size, &mut windowstate);
 
-            // This causes an unwanted flash, but makes it easier to capture the initial frame for debugging, so it's left here
-            // to be uncommented for debugging purposes
-            //let frame = windowstate.surface.get_current_texture()?;
-            //frame.present();
+            // This causes an unwanted flash, but makes it easier to capture the initial
+            // frame for debugging, so it's left here to be uncommented for
+            // debugging purposes let frame =
+            // windowstate.surface.get_current_texture()?; frame.present();
 
             manager.init(
                 self.id.clone(),
@@ -411,8 +415,9 @@ impl Window {
                 panic!("Don't process this with on_window_event");
             }
             WindowEvent::Focused(acquired) => {
-                // When the window loses or gains focus, we send a focus event to our children that had
-                // focus, but we don't forget or change which children have focus.
+                // When the window loses or gains focus, we send a focus event to our children
+                // that had focus, but we don't forget or change which children
+                // have focus.
                 let evt = RawEvent::Focus {
                     acquired,
                     window: window.window.clone(),
@@ -437,7 +442,8 @@ impl Window {
             _ => {
                 let e = match event {
                     WindowEvent::Ime(winit::event::Ime::Commit(s)) => RawEvent::Key {
-                        device_id: DeviceId::dummy(), // TODO: No way to derive originating keyboard from IME event????
+                        device_id: DeviceId::dummy(), /* TODO: No way to derive originating
+                                                       * keyboard from IME event???? */
                         physical_key: winit::keyboard::PhysicalKey::Unidentified(
                             winit::keyboard::NativeKeyCode::Unidentified,
                         ),
@@ -493,9 +499,11 @@ impl Window {
                                 PhysicalPosition::new(points.x as f32, points.y as f32);
                         }
 
-                        // If the cursor enters and no buttons are pressed, ensure any captured state is reset
+                        // If the cursor enters and no buttons are pressed, ensure any captured
+                        // state is reset
                         if window.all_buttons == 0 {
-                            // No need to inject a mousemove event here, as MouseOn is already being sent.
+                            // No need to inject a mousemove event here, as MouseOn is already being
+                            // sent.
                             window.remove(WindowNodeTrack::Capture, &device_id);
                         }
                         RawEvent::MouseOn {
@@ -605,8 +613,10 @@ impl Window {
                         // We have to collect this map so we aren't borrowing manager twice
                         let nodes: SmallVec<[Weak<Node>; 4]> = window.nodes(WindowNodeTrack::Focus);
 
-                        // Currently, we always duplicate key/joystick events to all focused elements. Later, we may map specific
-                        // keyboards to specific mouse input device IDs. We use a fold instead of any() to avoid short-circuiting.
+                        // Currently, we always duplicate key/joystick events to all focused
+                        // elements. Later, we may map specific keyboards to
+                        // specific mouse input device IDs. We use a fold instead of any() to avoid
+                        // short-circuiting.
                         if nodes.iter().fold(false, |ok, node| {
                             ok | node
                                 .upgrade()
@@ -633,7 +643,8 @@ impl Window {
                         // We have to collect this map so we aren't borrowing manager twice
                         let nodes: SmallVec<[Weak<Node>; 4]> = window.drain(WindowNodeTrack::Hover);
 
-                        // Send a mouseoff event to all captures, but don't drain the captures so we have a chance to recover.
+                        // Send a mouseoff event to all captures, but don't drain the captures so we
+                        // have a chance to recover.
                         let capture_nodes: SmallVec<[Weak<Node>; 4]> =
                             window.nodes(WindowNodeTrack::Capture);
 
@@ -649,7 +660,8 @@ impl Window {
                             );
                         }
 
-                        // While we could recover the offset here, we don't so we can be consistent about MouseOff not having offset.
+                        // While we could recover the offset here, we don't so we can be consistent
+                        // about MouseOff not having offset.
                         for node in capture_nodes.iter().filter_map(|x| x.upgrade()) {
                             let _ = node.inject_event(
                                 &e,
@@ -750,7 +762,8 @@ impl Window {
                                 all_buttons,
                             };
 
-                            // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
+                            // Drain() holds a reference, so we still have to collect these to avoid
+                            // borrowing manager twice
                             let nodes: SmallVec<[Weak<Node>; 4]> =
                                 state.state.drain(WindowNodeTrack::Hover);
 
@@ -792,7 +805,8 @@ impl Window {
                                 window: state.state.window.clone(),
                             };
 
-                            // Drain() holds a reference, so we still have to collect these to avoid borrowing manager twice
+                            // Drain() holds a reference, so we still have to collect these to avoid
+                            // borrowing manager twice
                             let nodes: SmallVec<[Weak<Node>; 4]> =
                                 state.state.drain(WindowNodeTrack::Focus);
 
@@ -812,7 +826,8 @@ impl Window {
                     }
                 }
 
-                // After finishing all processing, if we were processing a mousemove or mouseon event, update our cursor
+                // After finishing all processing, if we were processing a mousemove or mouseon
+                // event, update our cursor
                 match e {
                     RawEvent::MouseMove { .. } | RawEvent::MouseOn { .. } => {
                         if let Some(d) = driver.upgrade() {

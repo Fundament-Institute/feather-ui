@@ -8,10 +8,10 @@ use crate::{AccessCell, Dispatchable, InputResult, PxRect};
 pub trait EventRouter
 where
     // : zerocopy::Immutable
-    Self: std::marker::Sized,
+    Self: Sized,
 {
-    type Input: Dispatchable + 'static;
-    type Output: Dispatchable + 'static;
+    type Input: Dispatchable;
+    type Output: Dispatchable;
 
     #[allow(unused_variables)]
     #[allow(clippy::type_complexity)]

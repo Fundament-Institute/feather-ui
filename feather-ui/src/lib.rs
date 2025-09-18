@@ -3,14 +3,14 @@
 
 //! # Reactive Data-Driven UI
 //!
-//! Feather is a reactive data-driven UI framework that only mutates application state in
-//! response to user inputs or events, using event streams and reactive properties, and
-//! represents application state using persistent data structures, which then efficiently
-//! render only the parts of the UI that changed using either a standard GPU compositor
-//! or custom shaders.
+//! Feather is a reactive data-driven UI framework that only mutates application
+//! state in response to user inputs or events, using event streams and reactive
+//! properties, and represents application state using persistent data
+//! structures, which then efficiently render only the parts of the UI that
+//! changed using either a standard GPU compositor or custom shaders.
 //!
-//! Examples can be found in [feather-ui/examples](feather-ui/examples), and can be run
-//! via `cargo run --example <example_name>`.
+//! Examples can be found in [feather-ui/examples](feather-ui/examples), and can
+//! be run via `cargo run --example <example_name>`.
 
 extern crate alloc;
 
@@ -72,10 +72,10 @@ pub use mlua;
 
 const MAX_ALLOCA: usize = 1 << 20;
 
-/// While the ID scope provides a .next() method to generate a new, unique ID, this
-/// macro allows you to generate a unique ID with the file name and line embedded in
-/// it. This helps when debugging, because it'll tell you exactly what line of code
-/// generated the element causing the problem.
+/// While the ID scope provides a .next() method to generate a new, unique ID,
+/// this macro allows you to generate a unique ID with the file name and line
+/// embedded in it. This helps when debugging, because it'll tell you exactly
+/// what line of code generated the element causing the problem.
 ///
 /// # Examples:
 ///
@@ -139,20 +139,23 @@ impl From<std::io::Error> for Error {
     }
 }
 
-/// Represents an axis that is "unsized", which is roughly equivalent to CSS `auto`. It will
-/// set the size of the axis either to the size of the children, if the layout has any, or to
-/// the intrinsic size of the element, if one exists. Otherwise it will evaluate to 0.
+/// Represents an axis that is "unsized", which is roughly equivalent to CSS
+/// `auto`. It will set the size of the axis either to the size of the children,
+/// if the layout has any, or to the intrinsic size of the element, if one
+/// exists. Otherwise it will evaluate to 0.
 pub const UNSIZED_AXIS: f32 = f32::MAX;
 
-/// The standard base DPI, by convention, is 96, which corresponds to a scale factor of 1.0 -
-/// all other DPI values are divided by this to get the appropriate scale factor.
+/// The standard base DPI, by convention, is 96, which corresponds to a scale
+/// factor of 1.0 - all other DPI values are divided by this to get the
+/// appropriate scale factor.
 pub const BASE_DPI: RelDim = RelDim::new(96.0, 96.0);
 
 const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 
-/// This macro automates away some boilerplate necessary to make a vector of children that
-/// can be passed into a component. The first argument is the required layout of the parent,
-/// followed by a list of children to include (by value).
+/// This macro automates away some boilerplate necessary to make a vector of
+/// children that can be passed into a component. The first argument is the
+/// required layout of the parent, followed by a list of children to include (by
+/// value).
 ///
 /// # Examples
 ///
@@ -200,7 +203,8 @@ pub struct Relative {}
 /// Represents an actual pixel
 pub struct Pixel {}
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-/// Represents a combination of DIP and Pixels that have been resolved for the current DPI
+/// Represents a combination of DIP and Pixels that have been resolved for the
+/// current DPI
 pub struct Resolved {}
 
 /// A 2D point in logical units (display-independent pixels)
@@ -209,7 +213,8 @@ pub type AbsPoint = Point2D<f32, Logical>;
 pub type PxPoint = Point2D<f32, Pixel>;
 /// A 2D point in relative coordinates
 pub type RelPoint = Point2D<f32, Relative>;
-/// A 2D point in resolved physical pixels that hasn't yet been combined with it's paired relative coordinates.
+/// A 2D point in resolved physical pixels that hasn't yet been combined with
+/// it's paired relative coordinates.
 pub type ResPoint = Point2D<f32, Resolved>;
 
 /// A 2D vector in logical units (display-independent pixels)
@@ -218,7 +223,8 @@ pub type AbsVector = Vector2D<f32, Logical>;
 pub type PxVector = Vector2D<f32, Pixel>;
 /// A 2D vector in relative coordinates
 pub type RelVector = Vector2D<f32, Relative>;
-/// A 2D vector in resolved physical pixels that hasn't yet been combined with it's paired relative coordinates.
+/// A 2D vector in resolved physical pixels that hasn't yet been combined with
+/// it's paired relative coordinates.
 pub type ResVector = Vector2D<f32, Resolved>;
 
 /// A 2D dimension (or size) in logical units (display-independent pixels)
@@ -227,10 +233,12 @@ pub type AbsDim = Size2D<f32, Logical>;
 pub type PxDim = Size2D<f32, Pixel>;
 /// A 2D dimension (or size) in relative coordinates
 pub type RelDim = Size2D<f32, Relative>;
-/// A 2D dimension (or size) in resolved physical pixels that hasn't yet been combined with it's paired relative coordinates.
+/// A 2D dimension (or size) in resolved physical pixels that hasn't yet been
+/// combined with it's paired relative coordinates.
 pub type ResDim = Size2D<f32, Resolved>;
 
-/// Internal trait for "unresolving" a set of physical pixels into logical units.
+/// Internal trait for "unresolving" a set of physical pixels into logical
+/// units.
 trait UnResolve<U> {
     fn unresolve(self, dpi: RelDim) -> U;
 }
@@ -277,8 +285,9 @@ impl Convert<Point2D<f64, Pixel>> for winit::dpi::PhysicalPosition<f64> {
     }
 }
 
-/// Represents a 2D Rectangle, similar to the Euclid rectangle, but SSE optimized
-/// and uses a LTRB absolute representation, instead of a position and a size.
+/// Represents a 2D Rectangle, similar to the Euclid rectangle, but SSE
+/// optimized and uses a LTRB absolute representation, instead of a position and
+/// a size.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Rect<U> {
     pub v: f32x4,
@@ -286,9 +295,10 @@ pub struct Rect<U> {
     pub _unit: PhantomData<U>,
 }
 
-/// This trait is used to canonicalize floats into forms suitable for hashing. Because
-/// NaNs should never get this far in the pipeline, we only care about the +0.0 and -0.0
-/// problem, which can be solved because IEEE defines -0.0 plus +0.0 to equal +0.0.
+/// This trait is used to canonicalize floats into forms suitable for hashing.
+/// Because NaNs should never get this far in the pipeline, we only care about
+/// the +0.0 and -0.0 problem, which can be solved because IEEE defines -0.0
+/// plus +0.0 to equal +0.0.
 trait Canonicalize {
     type Bits;
 
@@ -319,7 +329,8 @@ pub type AbsRect = Rect<Logical>;
 pub type PxRect = Rect<Pixel>;
 /// A 2D rectangle in relative values
 pub type RelRect = Rect<Relative>;
-/// A 2D rectangle in resolved pixels that haven't been merged with their paired relative component
+/// A 2D rectangle in resolved pixels that haven't been merged with their paired
+/// relative component
 pub type ResRect = Rect<Resolved>;
 
 unsafe impl<U: Copy + 'static> NoUninit for Rect<U> {}
@@ -352,7 +363,8 @@ impl<U> Rect<U> {
 
     #[inline]
     pub fn contains(&self, p: Point2D<f32, U>) -> bool {
-        //let test: u32x4 = bytemuck::cast(f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.0));
+        //let test: u32x4 = bytemuck::cast(f32x4::new([p.x, p.y, p.x,
+        // p.y]).cmp_ge(self.0));
 
         f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.v).move_mask() == 0b0011
 
@@ -380,7 +392,8 @@ impl<U> Rect<U> {
         let rect =
             (self.v * MINUS_BOTTOMRIGHT).fast_max(rhs.v * MINUS_BOTTOMRIGHT) * MINUS_BOTTOMRIGHT;
 
-        // This rect is potentially degenerate, where topleft > bottomright, so we have to guard against this.
+        // This rect is potentially degenerate, where topleft > bottomright, so we have
+        // to guard against this.
         let a = rect.to_array();
         Self {
             v: rect.fast_max(f32x4::new([a[0], a[1], a[0], a[1]])),
@@ -601,8 +614,9 @@ impl<U> From<Size2D<f32, U>> for Rect<U> {
     }
 }
 
-/// A perimeter has the same top/left/right/bottom elements as a rectangle, but when
-/// used in calculations, the bottom and right elements are subtracted, not added.
+/// A perimeter has the same top/left/right/bottom elements as a rectangle, but
+/// when used in calculations, the bottom and right elements are subtracted, not
+/// added.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Perimeter<U> {
     pub v: f32x4,
@@ -669,7 +683,8 @@ impl<U> AddAssign<Perimeter<U>> for AbsRect {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// A rectangle with both pixel and display independent units, but no relative component.
+/// A rectangle with both pixel and display independent units, but no relative
+/// component.
 pub struct DAbsRect {
     dp: AbsRect,
     px: PxRect,
@@ -726,10 +741,11 @@ impl Neg for DAbsRect {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// A point with both pixel and display independent units, but no relative component. Must be
-/// constructed manually or from a [`PxPoint`] or [`AbsPoint`]. This is commonly used in DPI
-/// sensitive values that could theoretically have pixels, or logical units, or both, but where
-/// a relative value doesn't make any sense (such as the intrinsic size of a shape).
+/// A point with both pixel and display independent units, but no relative
+/// component. Must be constructed manually or from a [`PxPoint`] or
+/// [`AbsPoint`]. This is commonly used in DPI sensitive values that could
+/// theoretically have pixels, or logical units, or both, but where a relative
+/// value doesn't make any sense (such as the intrinsic size of a shape).
 ///
 /// # Examples
 /// ```
@@ -901,8 +917,9 @@ impl Neg for UPoint {
     }
 }
 
-/// Unified Display Point with both per-pixel and display-independent pixels. Unlike a Rect, must
-/// be constructed manually or from a [`PxPoint`], [`AbsPoint`] or [`RelPoint`].
+/// Unified Display Point with both per-pixel and display-independent pixels.
+/// Unlike a Rect, must be constructed manually or from a [`PxPoint`],
+/// [`AbsPoint`] or [`RelPoint`].
 ///
 /// # Examples
 /// ```
@@ -1111,8 +1128,9 @@ impl Neg for URect {
     }
 }
 
-/// Unified Display Rectangle with both per-pixel and display-independent pixels. Can be
-/// constructed by adding together any combination of [`PxRect`], [`AbsRect`] or [`RelRect`].
+/// Unified Display Rectangle with both per-pixel and display-independent
+/// pixels. Can be constructed by adding together any combination of [`PxRect`],
+/// [`AbsRect`] or [`RelRect`].
 ///
 /// # Examples
 /// ```
@@ -1153,8 +1171,8 @@ impl DRect {
         }
     }
 
-    /// Returns the top-left corner of the unified display rectangle as a unified
-    /// display point.
+    /// Returns the top-left corner of the unified display rectangle as a
+    /// unified display point.
     pub fn topleft(&self) -> DPoint {
         DPoint {
             dp: self.dp.topleft(),
@@ -1189,8 +1207,9 @@ impl DRect {
         }
     }
 
-    /// Returns a DRect with a relative component mapped to the entire available area. This
-    /// is often used for any element that should be the same size as it's parent container.
+    /// Returns a DRect with a relative component mapped to the entire available
+    /// area. This is often used for any element that should be the same
+    /// size as it's parent container.
     pub const fn fill() -> Self {
         DRect {
             px: PxRect::zero(),
@@ -1199,9 +1218,9 @@ impl DRect {
         }
     }
 
-    /// Returns a DRect with two [`UNSIZED_AXIS`], meaning they will be set to the size of the
-    /// children of the element, or the element's intrinsic size (or zero if it doesn't have
-    /// any).
+    /// Returns a DRect with two [`UNSIZED_AXIS`], meaning they will be set to
+    /// the size of the children of the element, or the element's intrinsic
+    /// size (or zero if it doesn't have any).
     pub const fn auto() -> Self {
         DRect {
             px: PxRect::zero(),
@@ -1299,10 +1318,12 @@ where
     }
 }
 
-/// The Limits type represents both a minimum size and a maximum size for a given unit. Adding limits
-/// together actually merges them, by taking the largest minimum size and the smallest maximum size of
-/// either. You aren't expected to construct this type manually, however - the Limits constructor takes
-/// a range parameter to make it easier to represent the minimum and maximum range of sizes you want.
+/// The Limits type represents both a minimum size and a maximum size for a
+/// given unit. Adding limits together actually merges them, by taking the
+/// largest minimum size and the smallest maximum size of either. You aren't
+/// expected to construct this type manually, however - the Limits constructor
+/// takes a range parameter to make it easier to represent the minimum and
+/// maximum range of sizes you want.
 ///
 /// # Examples
 /// ```
@@ -1326,7 +1347,7 @@ where
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Limits<U> {
-    pub v: f32x4,
+    v: f32x4,
     #[doc(hidden)]
     pub _unit: PhantomData<U>,
 }
@@ -1337,10 +1358,12 @@ pub type RelLimits = Limits<Relative>;
 pub type ResLimits = Limits<Resolved>;
 
 //pub const Unbounded: std::ops::Range<f32> = std::ops::Range
-// It would be cheaper to avoid using actual infinities here but we currently need them to make the math work
+// It would be cheaper to avoid using actual infinities here but we currently
+// need them to make the math work
 
-/// Represents the default limit values for any limit type. This simply represents a minimum size
-/// of [`f32::NEG_INFINITY`] and a maximum size of [`f32::INFINITY`]
+/// Represents the default limit values for any limit type. This simply
+/// represents a minimum size of [`f32::NEG_INFINITY`] and a maximum size of
+/// [`f32::INFINITY`]
 pub const DEFAULT_LIMITS: f32x4 = f32x4::new([
     f32::NEG_INFINITY,
     f32::NEG_INFINITY,
@@ -1348,15 +1371,15 @@ pub const DEFAULT_LIMITS: f32x4 = f32x4::new([
     f32::INFINITY,
 ]);
 
-/// Represents the default absolute value limit with a minimum size of [`f32::NEG_INFINITY`] and a
-/// maximum size of [`f32::INFINITY`]
+/// Represents the default absolute value limit with a minimum size of
+/// [`f32::NEG_INFINITY`] and a maximum size of [`f32::INFINITY`]
 pub const DEFAULT_ABSLIMITS: AbsLimits = AbsLimits {
     v: DEFAULT_LIMITS,
     _unit: PhantomData,
 };
 
-/// Represents the default relative value limit with a minimum size of [`f32::NEG_INFINITY`] and a
-/// maximum size of [`f32::INFINITY`]
+/// Represents the default relative value limit with a minimum size of
+/// [`f32::NEG_INFINITY`] and a maximum size of [`f32::INFINITY`]
 pub const DEFAULT_RLIMITS: RelLimits = RelLimits {
     v: DEFAULT_LIMITS,
     _unit: PhantomData,
@@ -1505,29 +1528,31 @@ impl Mul<PxDim> for RelLimits {
     fn mul(self, rhs: PxDim) -> Self::Output {
         let (unsized_x, unsized_y) = crate::layout::check_unsized_dim(rhs);
         let minmax = self.v.as_array_ref();
+        let v = f32x4::new([
+            if unsized_x {
+                minmax[0]
+            } else {
+                minmax[0] * rhs.width
+            },
+            if unsized_y {
+                minmax[1]
+            } else {
+                minmax[1] * rhs.height
+            },
+            if unsized_x {
+                minmax[2]
+            } else {
+                minmax[2] * rhs.width
+            },
+            if unsized_y {
+                minmax[3]
+            } else {
+                minmax[3] * rhs.height
+            },
+        ]);
+
         Self::Output {
-            v: f32x4::new([
-                if unsized_x {
-                    minmax[0]
-                } else {
-                    minmax[0] * rhs.width
-                },
-                if unsized_y {
-                    minmax[1]
-                } else {
-                    minmax[1] * rhs.height
-                },
-                if unsized_x {
-                    minmax[2]
-                } else {
-                    minmax[2] * rhs.width
-                },
-                if unsized_y {
-                    minmax[3]
-                } else {
-                    minmax[3] * rhs.height
-                },
-            ]),
+            v: self.v.is_finite().blend(v, self.v),
             _unit: PhantomData,
         }
     }
@@ -1590,13 +1615,14 @@ impl From<f32> for DValue {
     }
 }
 
-/// Represents a particular layout direction, which is used in several layout operations. Note
-/// that this is also used for a Grid's layout directions, but [`RowDirection::TopToBottom`]
-/// doesn't make sense for a grid and instead means a combination of
-/// [`RowDirection::RightToLeft`] and [`RowDirection::BottomToTop`]. While this is confusing,
-/// Rust does not allow us to create two variants with the same discriminator, so we can't make
-/// a `RowDirection::RightToLeftAndBottomToTop` option without duplicating the entire enum
-/// for Grid. [Tracking issue](https://github.com/Fundament-Institute/feather-ui/issues/159).
+/// Represents a particular layout direction, which is used in several layout
+/// operations. Note that this is also used for a Grid's layout directions, but
+/// [`RowDirection::TopToBottom`] doesn't make sense for a grid and instead
+/// means a combination of [`RowDirection::RightToLeft`] and
+/// [`RowDirection::BottomToTop`]. While this is confusing, Rust does not allow
+/// us to create two variants with the same discriminator, so we can't make
+/// a `RowDirection::RightToLeftAndBottomToTop` option without duplicating the
+/// entire enum for Grid. [Tracking issue](https://github.com/Fundament-Institute/feather-ui/issues/159).
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Default, derive_more::TryFrom, derive_more::Display,
 )]
@@ -1610,9 +1636,10 @@ pub enum RowDirection {
     TopToBottom = 3,
 }
 
-// If a component provides a CrossReferenceDomain, it's children can register themselves with it.
-// Registered children will write their fully resolved area to the mapping, which can then be
-// retrieved during the render step via a source ID.
+// If a component provides a CrossReferenceDomain, it's children can register
+// themselves with it. Registered children will write their fully resolved area
+// to the mapping, which can then be retrieved during the render step via a
+// source ID.
 #[derive(Default)]
 pub struct CrossReferenceDomain {
     mappings: RwLock<im::HashMap<Arc<SourceID>, PxRect>>,
@@ -1628,7 +1655,8 @@ impl CrossReferenceDomain {
     }
 
     pub fn remove_self(&self, target: &Arc<SourceID>) {
-        // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe the mapping for every new layout instead?
+        // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe
+        // the mapping for every new layout instead?
         self.mappings.write().remove(target);
     }
 }
@@ -1654,9 +1682,9 @@ impl<H: Hash + PartialEq + std::cmp::Eq + Clone + std::fmt::Debug + Any> DynHash
     }
 }
 
-/// Represents different kinds of IDs that can be used to populate a [`SourceID`]. Provides
-/// both static strings and owned strings, plus a way to create your own ID using a dynamic
-/// hash object.
+/// Represents different kinds of IDs that can be used to populate a
+/// [`SourceID`]. Provides both static strings and owned strings, plus a way to
+/// create your own ID using a dynamic hash object.
 ///
 /// Might be [replaced in the future](https://github.com/Fundament-Institute/feather-ui/issues/156) with pointer-based IDs instead.
 #[derive(Clone, Default, Debug)]
@@ -1720,11 +1748,12 @@ impl PartialEq for DataID {
     }
 }
 
-/// Represents a unique ID out of a linked list of [`DataID`]. Taken together, all the IDs in a program
-/// form a tree that doesn't just ensure uniqueness, but also allows tracking the structure of the data
-/// being used and how each piece of data depends on another piece of data. As a result, the tree structure
-/// of IDs generally diverges from the component tree of the actual UI, and may or may not actually resemble
-/// the storage structure of the data.
+/// Represents a unique ID out of a linked list of [`DataID`]. Taken together,
+/// all the IDs in a program form a tree that doesn't just ensure uniqueness,
+/// but also allows tracking the structure of the data being used and how each
+/// piece of data depends on another piece of data. As a result, the tree
+/// structure of IDs generally diverges from the component tree of the actual
+/// UI, and may or may not actually resemble the storage structure of the data.
 #[derive(Clone, Default, Debug)]
 pub struct SourceID {
     parent: Option<std::sync::Arc<SourceID>>,
@@ -1732,7 +1761,8 @@ pub struct SourceID {
 }
 
 impl SourceID {
-    /// Creates a new [`SourceID`] out of the given [`DataID`], with ourselves as its parent
+    /// Creates a new [`SourceID`] out of the given [`DataID`], with ourselves
+    /// as its parent
     pub fn child(self: &Arc<Self>, id: DataID) -> Arc<Self> {
         Self {
             parent: self.clone().into(),
@@ -1741,10 +1771,11 @@ impl SourceID {
         .into()
     }
 
-    /// Creates a new, unique duplicate ID using this as the parent and the strong count
-    /// of this Rc as the child [`DataID`]. This is used to enable cloning certain components,
-    /// like [`component::shape::Shape`], while automatically generating a new unique ID for
-    /// the cloned component.
+    /// Creates a new, unique duplicate ID using this as the parent and the
+    /// strong count of this Rc as the child [`DataID`]. This is used to
+    /// enable cloning certain components, like [`component::shape::Shape`],
+    /// while automatically generating a new unique ID for the cloned
+    /// component.
     pub fn duplicate(self: &Arc<Self>) -> Arc<Self> {
         self.child(DataID::Int(Arc::strong_count(self) as i64))
     }
@@ -1870,11 +1901,12 @@ where
     }
 }
 
-/// Represents a scope with a particular ID assigned to it. Used to generate new IDs for anything created
-/// inside this scope, with this scope's ID as parents, or to generate a new [`ScopeID`] with this scope as
-/// its parent. Includes [`ScopeID::iter`] and [`ScopeID::cond`] to make it easier to generate stable IDs
-/// across control flow boundaries. It can be used in conjunction with [`gen_id`] to generate child IDs with
-/// source and line numbers.
+/// Represents a scope with a particular ID assigned to it. Used to generate new
+/// IDs for anything created inside this scope, with this scope's ID as parents,
+/// or to generate a new [`ScopeID`] with this scope as its parent. Includes
+/// [`ScopeID::iter`] and [`ScopeID::cond`] to make it easier to generate stable
+/// IDs across control flow boundaries. It can be used in conjunction with
+/// [`gen_id`] to generate child IDs with source and line numbers.
 ///
 /// # Examples
 /// ```
@@ -1901,23 +1933,24 @@ where
 ///     children![fixed::Prop, rect],
 /// );
 /// }
-///
 /// ```
 pub struct ScopeID<'a> {
-    // This is only used to force a mutable borrow of the parent, which ensures you cannot fork ID scopes
+    // This is only used to force a mutable borrow of the parent, which ensures you cannot fork ID
+    // scopes
     _parent: PhantomData<&'a mut ()>,
     base: Arc<SourceID>,
     count: i64,
 }
 
 impl<'a> ScopeID<'a> {
-    /// Gets the underlying ID for this scope. This is sometimes useful when creating custom scopes that belong
-    /// to a specific component.
+    /// Gets the underlying ID for this scope. This is sometimes useful when
+    /// creating custom scopes that belong to a specific component.
     pub fn id(&mut self) -> &Arc<SourceID> {
         &self.base
     }
 
-    /// Creates a new unique [`SourceID`] using an internal counter with this scope as it's parent.
+    /// Creates a new unique [`SourceID`] using an internal counter with this
+    /// scope as it's parent.
     ///
     /// # Examples
     /// ```
@@ -1936,7 +1969,6 @@ impl<'a> ScopeID<'a> {
     ///     DAbsPoint::zero(),
     /// );
     /// }
-    ///
     /// ```
     pub fn create(&mut self) -> Arc<SourceID> {
         let node = self.base.child(crate::DataID::Int(self.count));
@@ -1944,7 +1976,8 @@ impl<'a> ScopeID<'a> {
         node
     }
 
-    /// Creates a new scoped ID with this scope as it's parent that can then be passed into a function.
+    /// Creates a new scoped ID with this scope as it's parent that can then be
+    /// passed into a function.
     pub fn scope(&mut self) -> ScopeID<'_> {
         ScopeID {
             base: self.create(),
@@ -1953,16 +1986,17 @@ impl<'a> ScopeID<'a> {
         }
     }
 
-    /// Creates a new unique SourceID using the provided DataID, which bypasses the internal counter.
-    /// This can be used to either manually create a new SourceID from a custom DataID by the user, or
-    /// by calling [`gen_id`], which calls this function internally.
+    /// Creates a new unique SourceID using the provided DataID, which bypasses
+    /// the internal counter. This can be used to either manually create a
+    /// new SourceID from a custom DataID by the user, or by calling
+    /// [`gen_id`], which calls this function internally.
     pub fn child(&mut self, id: DataID) -> Arc<SourceID> {
         self.base.child(id)
     }
 
-    /// Wraps another iterator and returns a pair of both a unique ID and the result of the iterator.
-    /// Required for outline functions that use a for loop when iterating through data.
-    ///  
+    /// Wraps another iterator and returns a pair of both a unique ID and the
+    /// result of the iterator. Required for outline functions that use a
+    /// for loop when iterating through data.  
     /// # Examples
     /// ```
     /// use feather_ui::component::shape;
@@ -1987,8 +2021,8 @@ impl<'a> ScopeID<'a> {
         ScopeIterID::new(self, other.into_iter())
     }
 
-    /// Wraps the true and false branches of a condition, ensuring the IDs for both are maintained separately
-    /// regardless of which branch is picked.
+    /// Wraps the true and false branches of a condition, ensuring the IDs for
+    /// both are maintained separately regardless of which branch is picked.
     ///
     /// # Examples
     /// ```
@@ -2042,7 +2076,8 @@ impl<'a> ScopeID<'a> {
         }
     }
 
-    // Used internally to generate the root scope encapsulating the hardcoded [`APP_SOURCE_ID`]
+    // Used internally to generate the root scope encapsulating the hardcoded
+    // [`APP_SOURCE_ID`]
     fn root() -> ScopeID<'a> {
         ScopeID {
             _parent: PhantomData,
@@ -2052,8 +2087,10 @@ impl<'a> ScopeID<'a> {
     }
 }
 
-/// This replaces [`Result`] and allows event handlers to consume an event with [`InputResult::Consume`] (preventing any further
-/// processing), forward an event with [`InputResult::Forward`] (allow other components to process the event), or return an error.
+/// This replaces [`Result`] and allows event handlers to consume an event with
+/// [`InputResult::Consume`] (preventing any further processing), forward an
+/// event with [`InputResult::Forward`] (allow other components to process the
+/// event), or return an error.
 pub enum InputResult<T> {
     Consume(T),
     Forward(T),
@@ -2070,7 +2107,8 @@ impl<T, E: std::error::Error + Send + Sync + 'static> From<Result<T, E>> for Inp
 }
 
 impl<T> InputResult<T> {
-    /// Maps the [`InputResult`] inner value to a different type, just like [`Result::map`].
+    /// Maps the [`InputResult`] inner value to a different type, just like
+    /// [`Result::map`].
     fn map<U>(self, f: impl FnOnce(T) -> U) -> InputResult<U> {
         match self {
             InputResult::Consume(v) => InputResult::Consume(f(v)),
@@ -2093,13 +2131,15 @@ impl<T> InputResult<T> {
 #[derive(Clone)]
 pub struct Slot(pub Arc<SourceID>, pub u64);
 
-/// Represents a wrapped lambda that can act as an top-level event handler using the AppState.
+/// Represents a wrapped lambda that can act as an top-level event handler using
+/// the AppState.
 pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>>;
 
-/// This trait is used to wrap rust lambdas into [`AppEvent<AppData>`] objects that can be boxed for
-/// use in [`App::new`]. These lambdas must always take the form of `|evt: AnEventEnum, state: AccessCell<AppData>| -> InputResult<()> {}`
-/// After implorting this extension trait, you will be able to call [`WrapEventEx::wrap`] on a
-/// qualifying lambda.
+/// This trait is used to wrap rust lambdas into [`AppEvent<AppData>`] objects
+/// that can be boxed for use in [`App::new`]. These lambdas must always take
+/// the form of `|evt: AnEventEnum, state: AccessCell<AppData>| ->
+/// InputResult<()> {}` After implorting this extension trait, you will be able
+/// to call [`WrapEventEx::wrap`] on a qualifying lambda.
 ///
 /// # Examples
 /// ```
@@ -2140,12 +2180,13 @@ pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, AccessCell<State>) -> Inp
 ///
 /// App::<MyState, MyApp, ()>::new(MyState { count: 0 }, vec![Box::new(onclick)], MyApp {}, None, None);
 /// ```
-pub trait WrapEventEx<State: 'static, Input: Dispatchable + 'static> {
-    /// Wraps a lambda with the appropriate type signature. See [`WrapEventEx`] for examples.
+pub trait WrapEventEx<State, Input: Dispatchable> {
+    /// Wraps a lambda with the appropriate type signature. See [`WrapEventEx`]
+    /// for examples.
     fn wrap(self) -> impl FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>;
 }
 
-impl<AppData: 'static, Input: Dispatchable + 'static, T> WrapEventEx<AppData, Input> for T
+impl<AppData, Input: Dispatchable, T> WrapEventEx<AppData, Input> for T
 where
     T: FnMut(Input, AccessCell<AppData>) -> InputResult<()>,
 {
@@ -2178,12 +2219,13 @@ impl Dispatchable for Infallible {
     }
 }
 
-/// Represents any potentially stateful component. All components must implement this trait
-/// because all components are tracked by the state manager even if they are stateless. A
-/// derive macro [`feather_macro::StateMachineChild`] is provided to make it easier for
-/// stateless components to correctly implement StateMachineChild and correctly propagate
-/// events to their children. It is important that this is done correctly, as a component
-/// can be stateless itself, but have stateful children.
+/// Represents any potentially stateful component. All components must implement
+/// this trait because all components are tracked by the state manager even if
+/// they are stateless. A derive macro [`feather_macro::StateMachineChild`] is
+/// provided to make it easier for stateless components to correctly implement
+/// StateMachineChild and correctly propagate events to their children. It is
+/// important that this is done correctly, as a component can be stateless
+/// itself, but have stateful children.
 ///
 /// # Examples
 /// ```
@@ -2231,8 +2273,9 @@ pub trait StateMachineChild {
     fn id(&self) -> Arc<SourceID>;
 }
 
-// This was originally supposed to use a pointer, but rust moves things all over the place, so a version that
-// doesn't store the ID would have to be pinned (which likely isn't even possible inside an appstate).
+// This was originally supposed to use a pointer, but rust moves things all over
+// the place, so a version that doesn't store the ID would have to be pinned
+// (which likely isn't even possible inside an appstate).
 /*pub struct StateCell<T> {
     value: T,
     id: Arc<SourceID>,
@@ -2264,14 +2307,15 @@ impl<T> std::ops::Deref for StateCell<T> {
     }
 }*/
 
-/// `AccessCell` allows feather to track when a value passed into a function has actually been
-/// changed, by tracking if a mutable borrow has been requested. Like [`std::cell::RefCell`], it
-/// implements [`std::borrow::Borrow`] and [`std::borrow::BorrowMut`], but also implements the
-/// [`std::ops::Deref`] and [`std::ops::DerefMut`] operators so it can be used more like a smart
+/// `AccessCell` allows feather to track when a value passed into a function has
+/// actually been changed, by tracking if a mutable borrow has been requested.
+/// Like [`std::cell::RefCell`], it implements [`std::borrow::Borrow`] and
+/// [`std::borrow::BorrowMut`], but also implements the [`std::ops::Deref`] and
+/// [`std::ops::DerefMut`] operators so it can be used more like a smart
 /// pointer.
 ///
-/// Generally speaking, **this type should never be constructed** - it is used at Feather's API
-/// boundaries where appropriate.
+/// Generally speaking, **this type should never be constructed** - it is used
+/// at Feather's API boundaries where appropriate.
 ///
 /// # Examples
 ///
@@ -2288,16 +2332,16 @@ impl<T> std::ops::Deref for StateCell<T> {
 ///         v.i = 4;
 ///     }
 /// }
-///
 /// ```
 ///
 /// # Future-proofing
-/// Currently, `AccessCell` does not attempt to determine if the new value is actually *different*
-/// than what was previously stored, because this would be a very expensive comparison. However,
-/// in the future, a specialization of AccessCell for Persistent data structures that only marks
-/// the value as changed if it is actually different when the AccessCell is dropped might be
-/// implemented. As a result, you should assume that AccessCell implements [`Drop`] even if it
-/// technically doesn't right now.
+/// Currently, `AccessCell` does not attempt to determine if the new value is
+/// actually *different* than what was previously stored, because this would be
+/// a very expensive comparison. However, in the future, a specialization of
+/// AccessCell for Persistent data structures that only marks the value as
+/// changed if it is actually different when the AccessCell is dropped might be
+/// implemented. As a result, you should assume that AccessCell implements
+/// [`Drop`] even if it technically doesn't right now.
 pub struct AccessCell<'a, 'b, T> {
     value: &'a mut T,
     changed: &'b mut bool,
@@ -2306,9 +2350,10 @@ pub struct AccessCell<'a, 'b, T> {
 impl<'a, 'b, T> std::borrow::BorrowMut<T> for AccessCell<'a, 'b, T> {
     #[inline]
     fn borrow_mut(&mut self) -> &mut T {
-        // TODO: Later, this can be optimized for persistent data structures by cloning the state here,
-        // then comparing the resulting value with the original value when this cell is dropped and only
-        // setting changed to true if it was actually modified.
+        // TODO: Later, this can be optimized for persistent data structures by cloning
+        // the state here, then comparing the resulting value with the original
+        // value when this cell is dropped and only setting changed to true if
+        // it was actually modified.
         *self.changed = true;
         self.value
     }
@@ -2368,18 +2413,21 @@ fn test_access_cell() {
     assert_eq!(tracker, true);
 }
 
-/// `StateManager` is used to manage the mutable state associated with a particular component's ID.
-/// Because components technically only exist while a layout tree is being calculated, this is
-/// where a component is expected to store all it's durable state that must survive through the
-/// next layout pass. The StateManager also requires that all components implement
-/// [`StateMachineChild`], even if they are stateless. A derive macro is provided for this case.
-/// Likewise, the internal state object must implement [`event::EventRouter`], even if it doesn't process
-/// any events, in which case it can simply set Input and Output to [`std::convert::Infallible`]
+/// `StateManager` is used to manage the mutable state associated with a
+/// particular component's ID. Because components technically only exist while a
+/// layout tree is being calculated, this is where a component is expected to
+/// store all it's durable state that must survive through the next layout pass.
+/// The StateManager also requires that all components implement
+/// [`StateMachineChild`], even if they are stateless. A derive macro is
+/// provided for this case. Likewise, the internal state object must implement
+/// [`event::EventRouter`], even if it doesn't process any events, in which case
+/// it can simply set Input and Output to [`std::convert::Infallible`]
 ///
 ///
-/// All components can access their own state by calling [`StateManager::get`] with their ID and
-/// the [`component::StateMachine`] wrapper type around their internal state object, which should have been
-/// created earlier by feather automatically calling [`StateMachineChild::init`].
+/// All components can access their own state by calling [`StateManager::get`]
+/// with their ID and the [`component::StateMachine`] wrapper type around their
+/// internal state object, which should have been created earlier by feather
+/// automatically calling [`StateMachineChild::init`].
 ///
 /// # Examples
 ///
@@ -2404,9 +2452,9 @@ fn test_access_cell() {
 /// }
 /// ```
 ///
-/// A component can even retrieve a *different* component's internal state as long as it has the
-/// ID and knows the type of the inner state. This is how most feather components get the DPI
-/// for the current window.
+/// A component can even retrieve a *different* component's internal state as
+/// long as it has the ID and knows the type of the inner state. This is how
+/// most feather components get the DPI for the current window.
 ///
 /// ```
 /// use feather_ui::{SourceID, StateManager, component::StateMachine, event::EventRouter};
@@ -2464,7 +2512,7 @@ impl StateManager {
         self.mutate_id(&id);
     }
 
-    fn mutate_id(&mut self, id: &Arc<SourceID>) {
+    pub fn mutate_id(&mut self, id: &Arc<SourceID>) {
         if let Some(state) = self.states.get_mut(id) {
             state.set_changed(true);
             self.propagate_change(id);
@@ -2472,7 +2520,7 @@ impl StateManager {
     }
 
     #[allow(dead_code)]
-    fn init_default<State: 'static + component::StateMachineWrapper + Default>(
+    fn init_default<State: component::StateMachineWrapper + Default>(
         &mut self,
         id: Arc<SourceID>,
     ) -> eyre::Result<&mut State> {
@@ -2492,9 +2540,9 @@ impl StateManager {
         }
     }
 
-    /// Gets a reference to a state for the given `id`. Returns an error if the state doesn't
-    /// exist or if the requested type doesn't match.
-    pub fn get<'a, State: 'static + component::StateMachineWrapper>(
+    /// Gets a reference to a state for the given `id`. Returns an error if the
+    /// state doesn't exist or if the requested type doesn't match.
+    pub fn get<'a, State: component::StateMachineWrapper>(
         &'a self,
         id: &SourceID,
     ) -> eyre::Result<&'a State> {
@@ -2506,9 +2554,10 @@ impl StateManager {
         v.downcast_ref().ok_or(Error::RuntimeTypeMismatch.into())
     }
 
-    /// Gets a **mutable** reference to a state for the given `id`. Returns an error if the
-    /// state doesn't exist or if the requested type doesn't match.
-    pub fn get_mut<'a, State: 'static + component::StateMachineWrapper>(
+    /// Gets a **mutable** reference to a state for the given `id`. Returns an
+    /// error if the state doesn't exist or if the requested type doesn't
+    /// match.
+    pub fn get_mut<'a, State: component::StateMachineWrapper>(
         &'a mut self,
         id: &SourceID,
     ) -> eyre::Result<&'a mut State> {
@@ -2526,10 +2575,12 @@ impl StateManager {
     }
 
     fn propagate_change(&mut self, mut id: &Arc<SourceID>) {
+        self.changed = true;
         while let Some(parent) = id.parent.as_ref() {
             if let Some(state) = self.states.get_mut(parent) {
                 if state.changed() {
-                    // If this state is marked change, then this change must have already propagated upwards and we have no more work to do.
+                    // If this state is marked change, then this change must have already propagated
+                    // upwards and we have no more work to do.
                     return;
                 }
                 state.set_changed(true);
@@ -2549,7 +2600,8 @@ impl StateManager {
     ) -> eyre::Result<bool> {
         type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
 
-        // We use smallvec here so we can satisfy the borrow checker without making yet another heap allocation in most cases
+        // We use smallvec here so we can satisfy the borrow checker without making yet
+        // another heap allocation in most cases
         let mut handled = false;
         let iter: SmallVec<[IterTuple; 2]> = {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
@@ -2562,7 +2614,6 @@ impl StateManager {
                 InputResult::Error(error) => return Err(error),
             };
             if state.changed() {
-                self.changed = true;
                 self.propagate_change(&slot.0);
             }
 
@@ -2599,8 +2650,9 @@ impl StateManager {
     }
 }
 
-/// This is the root ID for the application itself, representing the user's AppState. All IDs are derived
-/// from this root ID, and this is the only ID that is allowed to have a parent of [`None`]
+/// This is the root ID for the application itself, representing the user's
+/// AppState. All IDs are derived from this root ID, and this is the only ID
+/// that is allowed to have a parent of [`None`]
 #[allow(clippy::declare_interior_mutable_const)]
 pub const APP_SOURCE_ID: SourceID = SourceID {
     parent: None,
@@ -2610,12 +2662,14 @@ pub const APP_SOURCE_ID: SourceID = SourceID {
 type OutlineReturn = im::HashMap<Arc<SourceID>, Option<Window>>;
 pub type EventPair<AppData> = (u64, AppEvent<AppData>);
 
-/// Represents a feather application with a given `AppData` and persistent outline function `O`.
-/// The outline function must always be a persistent function that takes two parameters, a copy
-/// of the AppData, and a ScopeID. It must always return [`OutlineReturn`].
+/// Represents a feather application with a given `AppData` and persistent
+/// outline function `O`. The outline function must always be a persistent
+/// function that takes two parameters, a copy of the AppData, and a ScopeID. It
+/// must always return [`OutlineReturn`].
 ///
-/// An App creates all the top level structures needed for Feather to function. It stores all
-/// wgpu, winit, and any other global state needed. See [`App::new`] for examples.
+/// An App creates all the top level structures needed for Feather to function.
+/// It stores all wgpu, winit, and any other global state needed. See
+/// [`App::new`] for examples.
 pub struct App<AppData, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, OutlineReturn>, T> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
@@ -2624,7 +2678,7 @@ pub struct App<AppData, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Out
     outline: O,
     _parents: BTreeMap<DataID, DataID>,
     root: component::Root, // Root component node containing all windows
-    driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
+    driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
     handle_sync: mpsc::Receiver<EventPair<AppData>>,
     #[allow(clippy::type_complexity)]
     user_events: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
@@ -2676,27 +2730,34 @@ impl<AppData: 'static> StateMachineWrapper for AppDataMachine<AppData> {
 #[cfg(target_os = "windows")]
 use winit::platform::windows::EventLoopBuilderExtWindows;
 
-//  This logic is the same for both X11 and Wayland because the any_thread variable is the same on both
+//  This logic is the same for both X11 and Wayland because the any_thread
+// variable is the same on both
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
 impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, OutlineReturn>, T>
     App<AppData, O, T>
 {
-    /// Creates a new feather application. `app_state` represents the initial state of the application, and
-    /// will override any value returned by `<O as FnPersist2>::init()`. `inputs` must be an array of
-    /// [`AppEvent`], which can be acquired by boxing and wrapping lambdas using [`WrapEventEx`]. The `outline`
-    /// must by a persistent function that takes two arguments (and implements [`FnPersist2`]): a copy
+    /// Creates a new feather application. `app_state` represents the initial
+    /// state of the application, and will override any value returned by
+    /// `<O as FnPersist2>::init()`. `inputs` must be an array of
+    /// [`AppEvent`], which can be acquired by boxing and wrapping lambdas using
+    /// [`WrapEventEx`]. The `outline` must by a persistent function that
+    /// takes two arguments (and implements [`FnPersist2`]): a copy
     /// of the AppData, and a ScopeID. It must always return [`OutlineReturn`].
     ///
-    /// `driver_init` is an *optional* hook used to enable hotloading of resources. `user_event` is also an
-    /// optional handler for any user events you generate via an event_loop proxy, which can be created with
-    /// [`EventLoop::create_proxy`]. This is often used to inject appdata changes outside of the input handler.
+    /// `driver_init` is an *optional* hook used to enable hotloading of
+    /// resources. `user_event` is also an optional handler for any user
+    /// events you generate via an event_loop proxy, which can be created with
+    /// [`EventLoop::create_proxy`]. This is often used to inject appdata
+    /// changes outside of the input handler.
     ///
-    /// This function returns 4 values - the [`App`] object itself, the [`EventLoop`] that you must call
-    /// [`EventLoop::run_app`] on to actually start the application, a channel for sending dynamic `AppEvent`
-    /// handlers, and an atomic integer representing the current dynamic slot for any additional events. If
-    /// your handlers are not going to change after the app has been created, you can ignore the last 2 returns.
+    /// This function returns 4 values - the [`App`] object itself, the
+    /// [`EventLoop`] that you must call [`EventLoop::run_app`] on to
+    /// actually start the application, a channel for sending dynamic `AppEvent`
+    /// handlers, and an atomic integer representing the current dynamic slot
+    /// for any additional events. If your handlers are not going to change
+    /// after the app has been created, you can ignore the last 2 returns.
     ///
     /// # Examples
     /// ```
@@ -2731,8 +2792,8 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
         appstate: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
-        user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T) + 'static>>,
-        driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
+        user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
+        driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
     ) -> eyre::Result<(
         Self,
         EventLoop<T>,
@@ -2754,16 +2815,17 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
         )
     }
 
-    /// This is the same as [`App::new`], but it allows overriding the main thread detection that winit uses. This is necessary
-    /// for running tests, which don't run on the main thread.
+    /// This is the same as [`App::new`], but it allows overriding the main
+    /// thread detection that winit uses. This is necessary for running
+    /// tests, which don't run on the main thread.
     #[allow(clippy::type_complexity)]
     pub fn new_any_thread(
         appstate: AppData,
         inputs: Vec<AppEvent<AppData>>,
         outline: O,
         any_thread: bool,
-        user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T) + 'static>>,
-        driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
+        user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
+        driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
     ) -> eyre::Result<(
         Self,
         EventLoop<T>,
@@ -2833,8 +2895,9 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
         ))
     }
 
-    /// This allows modifying the appstate outside of feather's handling routines. It will be correctly
-    /// marked as changed if it is modified, and a new frame will be queued.
+    /// This allows modifying the appstate outside of feather's handling
+    /// routines. It will be correctly marked as changed if it is modified,
+    /// and a new frame will be queued.
     pub fn with_appstate<R>(&mut self, f: impl FnOnce(AccessCell<AppData>) -> R) -> R {
         let app_state: &mut AppDataMachine<AppData> = self.state.get_mut(&APP_SOURCE_ID).unwrap();
         let cell = AccessCell {
@@ -2895,7 +2958,8 @@ impl<
 > winit::application::ApplicationHandler<T> for App<AppData, O, T>
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // If this is our first resume, call the start function that can create the necessary graphics context
+        // If this is our first resume, call the start function that can create the
+        // necessary graphics context
         let store = self.store.take();
         self.update_outline(event_loop, store.unwrap_or_else(|| O::init(&self.outline)));
     }
@@ -2961,7 +3025,9 @@ impl<
                                     ) {
                                         match e {
                                             Error::ResizeTextureAtlas(layers, kind) => {
-                                                // Resize the texture atlas with the requested number of layers (the extent has already been changed)
+                                                // Resize the texture atlas with the requested
+                                                // number of layers (the extent has already been
+                                                // changed)
                                                 match kind {
                                                     AtlasKind::Primary => driver.atlas.write(),
                                                     AtlasKind::Layer0 => {
@@ -3012,9 +3078,11 @@ impl<
                                 );
                             }
 
-                            // A depth of "zero" means the window compositor, so we only go down to 1.
+                            // A depth of "zero" means the window compositor, so we only go down to
+                            // 1.
                             for i in (1..max_depth).rev() {
-                                // Odd is layer0, even is layer1, so we add one before modulo to reverse the result
+                                // Odd is layer0, even is layer1, so we add one before modulo to
+                                // reverse the result
                                 let idx: usize = (i + 1) % 2;
                                 let mut compositor = driver.layer_composite[idx].write();
                                 let atlas = driver.layer_atlas[idx].read();
@@ -3270,7 +3338,8 @@ fn test_absrect_collide() {
 
     assert!(!target.collides(&AbsRect::new(1.0, 4.0, 5.0, 5.0)));
 
-    // Because our rectangles are technically supposed to be inclusive-exclusive, they should not collide if the bottomright is coincident with the topleft.
+    // Because our rectangles are technically supposed to be inclusive-exclusive,
+    // they should not collide if the bottomright is coincident with the topleft.
     assert!(!target.collides(&AbsRect::new(4.0, 4.0, 5.0, 5.0)));
     assert!(!target.collides(&AbsRect::new(4.0, 0.0, 5.0, 4.0)));
     assert!(!target.collides(&AbsRect::new(0.0, 4.0, 4.0, 5.0)));

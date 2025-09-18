@@ -33,31 +33,43 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        // If we have an unsized outer_area, any sized object with relative dimensions must evaluate to 0 (or to the minimum limited size). An
-        // unsized object can never have relative dimensions, as that creates a logic loop - instead it can only have a single relative anchor.
-        // If both axes are sized, then all limits are applied as if outer_area was unsized, and children calculations are skipped.
+        // If we have an unsized outer_area, any sized object with relative dimensions
+        // must evaluate to 0 (or to the minimum limited size). An
+        // unsized object can never have relative dimensions, as that creates a logic
+        // loop - instead it can only have a single relative anchor.
+        // If both axes are sized, then all limits are applied as if outer_area was
+        // unsized, and children calculations are skipped.
         //
-        // If we have an unsized outer_area and an unsized myarea.rel, then limits are applied as if outer_area was unsized, and furthermore,
-        // they are reduced by myarea.abs.bottomright(), because that will be added on to the total area later, which will still be subject to size
-        // limits, so we must anticipate this when calculating how much size the children will have available to them. This forces limits to be
-        // true infinite numbers, so we can subtract finite amounts and still have infinity. We can't use infinity anywhere else, because infinity
-        // times zero is NaN, so we cap certain calculations at f32::MAX
+        // If we have an unsized outer_area and an unsized myarea.rel, then limits are
+        // applied as if outer_area was unsized, and furthermore,
+        // they are reduced by myarea.abs.bottomright(), because that will be added on
+        // to the total area later, which will still be subject to size
+        // limits, so we must anticipate this when calculating how much size the
+        // children will have available to them. This forces limits to be
+        // true infinite numbers, so we can subtract finite amounts and still have
+        // infinity. We can't use infinity anywhere else, because infinity times
+        // zero is NaN, so we cap certain calculations at f32::MAX
         //
-        // If outer_area is sized and myarea.rel is zero or nonzero, all limits are applied normally and child calculations are skipped.
-        // If outer_area is sized and myarea.rel is unsized, limits are applied normally, but are once again reduced by myarea.abs.bottomright() to
-        // account for how the area calculations will interact with the limits later on.
+        // If outer_area is sized and myarea.rel is zero or nonzero, all limits are
+        // applied normally and child calculations are skipped. If outer_area is
+        // sized and myarea.rel is unsized, limits are applied normally, but are once
+        // again reduced by myarea.abs.bottomright() to account for how the area
+        // calculations will interact with the limits later on.
 
         let limits = outer_limits + props.limits().resolve(window.dpi);
         let myarea = props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
 
-        // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
+        // Check if any axis is unsized in a way that requires us to calculate baseline
+        // child sizes
         let evaluated_area = if unsized_x || unsized_y {
-            // When an axis is unsized, we don't apply any limits to it, so we don't have to worry about
-            // cases where the full evaluated area would invalidate the limit.
+            // When an axis is unsized, we don't apply any limits to it, so we don't have to
+            // worry about cases where the full evaluated area would invalidate
+            // the limit.
             let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
             let inner_area = PxRect::from(inner_dim);
-            // The area we pass to children must be independent of our own area, so it starts at 0,0
+            // The area we pass to children must be independent of our own area, so it
+            // starts at 0,0
             let mut bottomright = PxDim::zero();
 
             for child in children.iter() {
@@ -76,7 +88,8 @@ impl Desc for dyn Prop {
             // No need to cap this because unsized axis have now been resolved
             super::limit_area(area * crate::layout::nuetralize_unsized(outer_area), limits)
         } else {
-            // If outer_area is unsized here, we nuetralize it when evaluating the relative coordinates.
+            // If outer_area is unsized here, we nuetralize it when evaluating the relative
+            // coordinates.
             super::limit_area(
                 myarea * crate::layout::nuetralize_unsized(outer_area),
                 limits,
@@ -86,7 +99,8 @@ impl Desc for dyn Prop {
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
-        // If our parent just wants a size estimate, no need to layout children or render anything
+        // If our parent just wants a size estimate, no need to layout children or
+        // render anything
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
         if unsized_x || unsized_y {
             return Box::new(Concrete::new(
@@ -103,8 +117,9 @@ impl Desc for dyn Prop {
             ));
         }
 
-        // We had to evaluate the full area first because our final area calculation can change the dimensions in
-        // unsized cases. Thus, we calculate the final inner_area for the children from this evaluated area.
+        // We had to evaluate the full area first because our final area calculation can
+        // change the dimensions in unsized cases. Thus, we calculate the final
+        // inner_area for the children from this evaluated area.
         let evaluated_dim = evaluated_area.dim();
 
         let inner_area = PxRect::from(evaluated_dim);
@@ -123,13 +138,16 @@ impl Desc for dyn Prop {
             staging.push_back(Some(stage));
         }
 
-        // TODO: It isn't clear if the simple layout should attempt to handle children changing their estimated
-        // sizes after the initial estimate. If we were to handle this, we would need to recalculate the unsized
-        // axis with the new child results here, and repeat until it stops changing (we find the fixed point).
-        // Because the performance implications are unclear, this might need to be relagated to a special layout.
+        // TODO: It isn't clear if the simple layout should attempt to handle children
+        // changing their estimated sizes after the initial estimate. If we were
+        // to handle this, we would need to recalculate the unsized
+        // axis with the new child results here, and repeat until it stops changing (we
+        // find the fixed point). Because the performance implications are
+        // unclear, this might need to be relagated to a special layout.
 
-        // Calculate the anchor using the final evaluated dimensions, after all unsized axis and limits are
-        // calculated. However, we can only apply the anchor if the parent isn't unsized on that axis.
+        // Calculate the anchor using the final evaluated dimensions, after all unsized
+        // axis and limits are calculated. However, we can only apply the anchor
+        // if the parent isn't unsized on that axis.
         let mut anchor = props.anchor().resolve(window.dpi) * evaluated_dim;
         let (unsized_outer_x, unsized_outer_y) =
             crate::layout::check_unsized_abs(outer_area.bottomright());

@@ -103,8 +103,9 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
                 ltrb[3] = ltrb[1] + h + allpadding.height;
             }
 
-            // If we are centered or right aligned, we have to set the size again now that we know how big it really is.
-            // This is true even if all the text was originally marked as RTL - the layout will still be wrong because
+            // If we are centered or right aligned, we have to set the size again now that
+            // we know how big it really is. This is true even if all the text
+            // was originally marked as RTL - the layout will still be wrong because
             // it didn't know how big the text would be.
             if realign {
                 text_buffer.set_size(&mut driver.font_system.write(), Some(w), Some(h))

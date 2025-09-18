@@ -19,7 +19,8 @@ crate::gen_from_to_dyn!(Child);
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    // TODO: Make a sorted im::Vector that uses base::Order to order inserted children.
+    // TODO: Make a sorted im::Vector that uses base::Order to order inserted
+    // children.
     type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
 
     fn stage<'a>(
@@ -32,22 +33,26 @@ impl Desc for dyn Prop {
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         use super::Swappable;
-        // TODO: make insertion efficient by creating a RRB tree of list layout subnodes, in a similar manner to the r-tree nodes.
+        // TODO: make insertion efficient by creating a RRB tree of list layout
+        // subnodes, in a similar manner to the r-tree nodes.
 
         let limits = outer_limits + props.limits().resolve(window.dpi);
         let myarea = props.area().resolve(window.dpi);
         //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
         let dir = props.direction();
-        // For the purpose of calculating size, we only care about which axis we're distributing along
+        // For the purpose of calculating size, we only care about which axis we're
+        // distributing along
         let xaxis = match dir {
             RowDirection::LeftToRight | RowDirection::RightToLeft => true,
             RowDirection::TopToBottom | RowDirection::BottomToTop => false,
         };
 
-        // Even if both axis are sized, we have to precalculate the areas and margins anyway.
+        // Even if both axis are sized, we have to precalculate the areas and margins
+        // anyway.
         let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
         let outer_safe = nuetralize_unsized(outer_area);
-        // The inner_dim must preserve whether an axis is unsized, but the actual limits must be respected regardless.
+        // The inner_dim must preserve whether an axis is unsized, but the actual limits
+        // must be respected regardless.
         let (main_limit, _) = inner_dim.min(limits.max()).swap_axis(xaxis);
 
         // This should eventually be a persistent fold
@@ -121,10 +126,12 @@ impl Desc for dyn Prop {
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
-        // If our parent is asking for a size estimation along the expansion axis, no need to layout the children
-        // TODO: Double check this assumption is true
+        // If our parent is asking for a size estimation along the expansion axis, no
+        // need to layout the children TODO: Double check this assumption is
+        // true
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
+            debug_assert!(evaluated_area.v.is_finite().all());
             return Box::new(Concrete {
                 area: evaluated_area,
                 renderable: None,
@@ -211,6 +218,7 @@ impl Desc for dyn Prop {
             staging.push_back(Some(stage));
         }
 
+        debug_assert!(evaluated_area.v.is_finite().all());
         Box::new(Concrete {
             area: evaluated_area,
             renderable,

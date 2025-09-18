@@ -8,7 +8,8 @@ use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
-// This draws a line between two points that were previously stored in a Cross-reference Domain
+// This draws a line between two points that were previously stored in a
+// Cross-reference Domain
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct DomainLine<T> {
