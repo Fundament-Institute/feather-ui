@@ -130,16 +130,16 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
 }*/
 
 /// The trait representing an arbitrary UI component. The Props associated type
-/// must be used to expose the concrete property type that was used to instantiate
-/// the component. This is expect to be different, so it is assumed that almost
-/// all components are generic over the property type, so long as the property
-/// type satisfies the requirements of the chosen layout.
+/// must be used to expose the concrete property type that was used to
+/// instantiate the component. This is expect to be different, so it is assumed
+/// that almost all components are generic over the property type, so long as
+/// the property type satisfies the requirements of the chosen layout.
 ///
-/// All components must implement [`StateMachineChild`] even if they are stateless,
-/// a derive macro is provided to implement an empty version of the trait for you.
-/// In addition, the component must enforce some rather specific constraints due to
-/// limitations of the rust type system to properly capture them. See the example
-/// for what the simplest possible component looks like.
+/// All components must implement [`StateMachineChild`] even if they are
+/// stateless, a derive macro is provided to implement an empty version of the
+/// trait for you. In addition, the component must enforce some rather specific
+/// constraints due to limitations of the rust type system to properly capture
+/// them. See the example for what the simplest possible component looks like.
 ///
 /// # Examples
 /// ```
@@ -186,14 +186,14 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
 /// }
 /// ```
 pub trait Component: crate::StateMachineChild + DynClone {
-    type Props: 'static;
+    type Props;
 
     fn layout(
         &self,
         state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<Self::Props> + 'static>;
+    ) -> Box<dyn Layout<Self::Props>>;
 }
 
 dyn_clone::clone_trait_object!(<Parent> Component<Props = Parent> where Parent:?Sized);
@@ -206,7 +206,7 @@ pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
         state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T> + 'static>;
+    ) -> Box<dyn Layout<T>>;
 }
 
 dyn_clone::clone_trait_object!(<T> ComponentWrap<T> where T:?Sized);
@@ -214,14 +214,14 @@ dyn_clone::clone_trait_object!(<T> ComponentWrap<T> where T:?Sized);
 impl<U: ?Sized, C: Component> ComponentWrap<U> for C
 where
     for<'a> &'a U: From<&'a <C as Component>::Props>,
-    <C as Component>::Props: Sized,
+    <C as Component>::Props: Sized + 'static,
 {
     fn layout(
         &self,
         state: &mut StateManager,
         driver: &graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<U> + 'static> {
+    ) -> Box<dyn Layout<U>> {
         Box::new(Component::layout(self, state, driver, window))
     }
 }
@@ -229,7 +229,7 @@ where
 impl<T: Component + 'static, U> From<Box<T>> for Box<dyn ComponentWrap<U>>
 where
     for<'a> &'a U: std::convert::From<&'a <T as Component>::Props>,
-    <T as Component>::Props: std::marker::Sized,
+    <T as Component>::Props: Sized,
 {
     fn from(value: Box<T>) -> Self {
         value
@@ -258,7 +258,8 @@ impl RootState {
 
 pub struct Root {
     pub(crate) states: HashMap<winit::window::WindowId, RootState>,
-    // We currently rely on window-specific functions, so there's no point trying to make this more general right now.
+    // We currently rely on window-specific functions, so there's no point trying to make this more
+    // general right now.
     pub(crate) children: im::HashMap<Arc<SourceID>, Option<Window>>,
 }
 
@@ -280,12 +281,13 @@ impl Root {
         &mut self,
         manager: &mut StateManager,
         driver: &mut std::sync::Weak<graphics::Driver>,
-        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) + 'static>>,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>)>>,
         instance: &wgpu::Instance,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> eyre::Result<()> {
-        // Initialize any states that need to be initialized before calling the layout function
-        // TODO: make this actually efficient by performing the initialization when a new component is initialized
+        // Initialize any states that need to be initialized before calling the layout
+        // function TODO: make this actually efficient by performing the
+        // initialization when a new component is initialized
         for (_, window) in self.children.iter() {
             let window = window.as_ref().unwrap();
             window.init_custom(manager, driver, instance, event_loop, on_driver)?;

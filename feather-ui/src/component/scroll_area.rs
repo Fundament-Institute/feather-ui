@@ -68,8 +68,9 @@ impl ScrollAreaState {
         let mut scroll = self.scroll + change;
         let max = (bounds - extent.dim()).min(crate::PxDim::zero());
 
-        // We should never scroll by a positive amount (this would scroll past topleft corner), and we should
-        // never scroll by an amount that would put us past the bottomright corner.
+        // We should never scroll by a positive amount (this would scroll past topleft
+        // corner), and we should never scroll by an amount that would put us
+        // past the bottomright corner.
         scroll = scroll.max(max.to_vector().cast_unit());
         scroll = scroll.min(PxVector::zero());
 
@@ -310,7 +311,8 @@ where
             })
             .unwrap();
 
-        // To create a scroll area, we create an intermediate layout node to hold the children, which is always unsized, which we then move around to scroll.
+        // To create a scroll area, we create an intermediate layout node to hold the
+        // children, which is always unsized, which we then move around to scroll.
         let mut map = VectorMap::new(crate::persist::Persist::new(
             |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
                 Some(child.as_ref()?.layout(manager, driver, window))

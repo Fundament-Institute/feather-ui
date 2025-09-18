@@ -194,8 +194,9 @@ impl Shared {
         rotation: f32,
         force: bool,
     ) -> Option<Layer> {
-        // Snap the layer area to the nearest pixel. This is necessary because the layer is treated
-        // as a compositing target, which is always assumed to be on a pixel grid.
+        // Snap the layer area to the nearest pixel. This is necessary because the layer
+        // is treated as a compositing target, which is always assumed to be on
+        // a pixel grid.
         let array = area.v.as_array_mut();
         array[0] = array[0].floor();
         array[1] = array[1].floor();
@@ -231,17 +232,21 @@ impl Shared {
     }
 }
 
-// This holds the information for rendering to a layer, which can only be done if the layer is texture-backed.
+// This holds the information for rendering to a layer, which can only be done
+// if the layer is texture-backed.
 #[derive(Debug)]
 pub struct LayerTarget {
-    pub dependents: Vec<std::sync::Weak<SourceID>>, // Layers that draw on to this one (does not include fake layers)
+    pub dependents: Vec<std::sync::Weak<SourceID>>, /* Layers that draw on to this one (does not
+                                                     * include fake layers) */
 }
 
 #[derive(Debug)]
 pub struct Layer {
-    // Renderable area representing what children draw onto. This corresponds to this layer's compositor viewport, if it has one.
+    // Renderable area representing what children draw onto. This corresponds to this layer's
+    // compositor viewport, if it has one.
     pub area: PxRect,
-    // destination area that the layer is composited onto. Usually this is the same as area, but can be different when scaling down
+    // destination area that the layer is composited onto. Usually this is the same as area, but
+    // can be different when scaling down
     dest: PxRect,
     color: sRGB32,
     rotation: f32,
@@ -261,18 +266,25 @@ impl PartialEq for Layer {
 type DeferFn = dyn FnOnce(&Driver, &mut Data) + Send + Sync;
 type CustomDrawFn = dyn FnMut(&Driver, &mut wgpu::RenderPass<'_>, PxVector) + Send + Sync;
 
-/// Fundamentally, the compositor works on a massive set of pre-allocated vertices that it assembles into quads in the vertex
-/// shader, which then moves them into position and assigns them UV coordinates. Then the pixel shader checks if it must do
-/// per-pixel clipping and discards the pixel if it's out of bounds, then samples a texture from the provided texture bank,
-/// does color modulation if applicable, then draws the final pixel to the screen using pre-multiplied alpha blending. This
-/// allows the compositor to avoid allocating a vertex buffer, instead using a SSBO (or webgpu storage buffer) to store the
-/// per-quad data, which it then accesses from the built-in vertex index.
+/// Fundamentally, the compositor works on a massive set of pre-allocated
+/// vertices that it assembles into quads in the vertex shader, which then moves
+/// them into position and assigns them UV coordinates. Then the pixel shader
+/// checks if it must do per-pixel clipping and discards the pixel if it's out
+/// of bounds, then samples a texture from the provided texture bank, does color
+/// modulation if applicable, then draws the final pixel to the screen using
+/// pre-multiplied alpha blending. This allows the compositor to avoid
+/// allocating a vertex buffer, instead using a SSBO (or webgpu storage buffer)
+/// to store the per-quad data, which it then accesses from the built-in vertex
+/// index.
 ///
-/// The compositor can accept GPU generated instructions written directly into it's buffer using a compute shader, if desired.
+/// The compositor can accept GPU generated instructions written directly into
+/// it's buffer using a compute shader, if desired.
 ///
-/// The compositor can also accept custom draw calls that break up the batched compositor instructions, which is intended for
-/// situations where rendering to the texture atlas is either impractical, or a different blending operation is required (such
-/// as subpixel blended text, which requires the SRC1 dual-source blending mode, instead of standard pre-multiplied alpha).
+/// The compositor can also accept custom draw calls that break up the batched
+/// compositor instructions, which is intended for situations where rendering to
+/// the texture atlas is either impractical, or a different blending operation
+/// is required (such as subpixel blended text, which requires the SRC1
+/// dual-source blending mode, instead of standard pre-multiplied alpha).
 #[derive(Debug)]
 pub struct Compositor {
     pipeline: wgpu::RenderPipeline,
@@ -285,10 +297,13 @@ pub struct Compositor {
     layer: bool, // Tells us which layer atlas to use (the first or second)
 }
 
-/// This stores the compositing data for a single render pass. The window compositor only ever has one segment, but the
-/// compositors for the layer caches can have many different segments for each dependency layer and each target slice in
-/// the layer atlas for that dependency layer. Each segment contains a set of CPU-side copy-regions to enable GPU
-/// generation of compositing data, it's own deferred rendering queue, and its own list of custom draw commands.
+/// This stores the compositing data for a single render pass. The window
+/// compositor only ever has one segment, but the compositors for the layer
+/// caches can have many different segments for each dependency layer and each
+/// target slice in the layer atlas for that dependency layer. Each segment
+/// contains a set of CPU-side copy-regions to enable GPU generation of
+/// compositing data, it's own deferred rendering queue, and its own list of
+/// custom draw commands.
 #[derive_where(Debug)]
 pub struct Segment {
     group: wgpu::BindGroup,
@@ -381,7 +396,8 @@ impl Compositor {
         })
     }
 
-    // This cannot take a Driver because we have to create two Compositors before the Driver object is made
+    // This cannot take a Driver because we have to create two Compositors before
+    // the Driver object is made
     pub fn new(
         device: &wgpu::Device,
         shared: &Shared,
@@ -446,7 +462,8 @@ impl Compositor {
         }
     }
 
-    /// Should be called when any external or internal buffer gets invalidated (such as atlas views)
+    /// Should be called when any external or internal buffer gets invalidated
+    /// (such as atlas views)
     fn rebind(&mut self, shared: &Shared, device: &wgpu::Device, atlas: &Atlas, layers: &Atlas) {
         self.view = Arc::downgrade(&atlas.view);
         self.layer_view = Arc::downgrade(&layers.view);
@@ -544,14 +561,16 @@ impl Compositor {
 
                     // If the whole rect is outside the cliprect, don't render it at all.
                     if !clip.collides(&PxRect::new(x, y, x + w, y + h)) {
-                        // TODO: When we start reserving slots, this will need to instead insert a special zero size rect.
+                        // TODO: When we start reserving slots, this will need to instead insert a
+                        // special zero size rect.
                         return None;
                     }
 
                     let (mut u, mut v, mut uw, mut vh) =
                         (data.uv.0[0], data.uv.0[1], data.uvdim.0[0], data.uvdim.0[1]);
 
-                    // If rotation is zero, we don't need to do per-pixel clipping, we can just modify the rect itself.
+                    // If rotation is zero, we don't need to do per-pixel clipping, we can just
+                    // modify the rect itself.
                     let bounds = clip.v.as_array_ref();
                     let (min_x, min_y, max_x, max_y) = (bounds[0], bounds[1], bounds[2], bounds[3]);
 
@@ -603,7 +622,8 @@ impl Compositor {
                         _padding: data._padding,
                     })
                 } else {
-                    // TODO: Beyond some size, like 32, skip all elements except the last N clipping rects and only check those
+                    // TODO: Beyond some size, like 32, skip all elements except the last N clipping
+                    // rects and only check those
                     let idx = if let Some((idx, _)) =
                         clipdata.iter().enumerate().find(|(_, r)| **r == clip)
                     {
@@ -623,12 +643,14 @@ impl Compositor {
                 }
             }
             Err(clip) => {
-                // If the current cliprect is just the scissor rect, we do NOT add a custom clipping rect or do further clipping, but we do
-                // check to see if we need to bother rendering this at all.
+                // If the current cliprect is just the scissor rect, we do NOT add a custom
+                // clipping rect or do further clipping, but we do check to see
+                // if we need to bother rendering this at all.
                 if data.rotation.is_zero() {
                     let (x, y, w, h) = (data.pos.0[0], data.pos.0[1], data.dim.0[0], data.dim.0[1]);
                     if !clip.collides(&PxRect::new(x, y, x + w, y + h)) {
-                        // TODO: When we start reserving slots, this will need to instead insert a special zero size rect.
+                        // TODO: When we start reserving slots, this will need to instead insert a
+                        // special zero size rect.
                         return None;
                     }
                 }
@@ -711,7 +733,8 @@ impl Compositor {
             ),
         );
 
-        // Very important that we do this AFTER resolving all defers, since those can add cliprects
+        // Very important that we do this AFTER resolving all defers, since those can
+        // add cliprects
         if !self.clipdata.is_empty() {
             self.check_clip(
                 &driver.shared,
@@ -821,12 +844,16 @@ impl Compositor {
     }
 }
 
-/// A Compositor is associated with a render target, which is usually a window, but can also be an intermediate buffer, used
-/// for Layers. As a result, a compositor does not control the clipping rect stack, the window itself does. This associates
-/// a compositor with a clipstack and any other information it might need to properly append data during a render, such as
-/// the offset. Because of this auxillairy information, you cannot append directly to a compositor, only to a CompositorView.
+/// A Compositor is associated with a render target, which is usually a window,
+/// but can also be an intermediate buffer, used for Layers. As a result, a
+/// compositor does not control the clipping rect stack, the window itself does.
+/// This associates a compositor with a clipstack and any other information it
+/// might need to properly append data during a render, such as the offset.
+/// Because of this auxillairy information, you cannot append directly to a
+/// compositor, only to a CompositorView.
 pub struct CompositorView<'a> {
-    pub index: u8, // While we carry mutable references of all 3 possible compositors, this tells us which we're currently using
+    pub index: u8, /* While we carry mutable references of all 3 possible compositors, this
+                    * tells us which we're currently using */
     pub window: &'a mut Compositor, // index 0
     pub layer0: &'a mut Compositor, // index 1
     pub layer1: &'a mut Compositor, // index 2
@@ -986,9 +1013,11 @@ impl<'a> CompositorView<'a> {
         self.segment().custom.push((index, Box::new(f), offset));
     }
 
-    /// Returns the GPU buffer and the current offset, which allows a compute shader to accumulate commands
-    /// in the GPU buffer directly, provided it calls set_compute_buffer afterwards with the command count.
-    /// Attempting to insert a non-GPU command before calling set_compute_buffer will panic.
+    /// Returns the GPU buffer and the current offset, which allows a compute
+    /// shader to accumulate commands in the GPU buffer directly, provided
+    /// it calls set_compute_buffer afterwards with the command count.
+    /// Attempting to insert a non-GPU command before calling set_compute_buffer
+    /// will panic.
     pub fn get_compute_buffer(&mut self) -> (&Buffer, u32) {
         let offset = self.segment().regions.last().unwrap().end;
         if offset == u32::MAX {
@@ -1000,8 +1029,9 @@ impl<'a> CompositorView<'a> {
         (&self.segment().buffer, offset)
     }
 
-    /// After executing a compute shader that added a series of compositor commands to the command buffer,
-    /// this must be called with the number of commands that were contiguously inserted into the buffer.
+    /// After executing a compute shader that added a series of compositor
+    /// commands to the command buffer, this must be called with the number
+    /// of commands that were contiguously inserted into the buffer.
     pub fn set_compute_buffer(&mut self, count: u32) {
         let region = self.segment().regions.last_mut().unwrap();
         region.start += count;

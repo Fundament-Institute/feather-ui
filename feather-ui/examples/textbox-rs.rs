@@ -79,7 +79,8 @@ impl FnPersist2<&TextState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Windo
                 MinimalText {
                     area: FILL_DRECT,
                     padding: AbsRect::splat(12.0).into(),
-                    textedit: args.text.clone(), // Be careful to take the value from args, not store.0, which is stale.
+                    textedit: args.text.clone(), /* Be careful to take the value from args, not
+                                                  * store.0, which is stale. */
                 },
                 40.0,
                 56.0,

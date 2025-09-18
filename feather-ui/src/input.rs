@@ -150,7 +150,8 @@ impl RawEvent {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u64)]
 pub enum RawEventKind {
-    Drag = (1 << 0), // This must start from 1 and perfectly match RawEvent to ensure the dispatch works correctly
+    Drag = (1 << 0), /* This must start from 1 and perfectly match RawEvent to ensure the
+                      * dispatch works correctly */
     Drop = (1 << 1),
     Focus = (1 << 2),
     JoyAxis = (1 << 3),

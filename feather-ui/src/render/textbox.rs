@@ -33,9 +33,11 @@ impl Instance {
         bounds: crate::PxRect,
         color: sRGB,
     ) -> compositor::Data {
-        // When we are drawing boxes that need to line up with each other, this is a worst-case scenario for
-        // the compositor's antialiasing. The only way to antialias arbitrary selection boxes correctly is
-        // to use a texture cache or a custom shader. Instead of doing that, we just pixel-snap everything.
+        // When we are drawing boxes that need to line up with each other, this is a
+        // worst-case scenario for the compositor's antialiasing. The only way
+        // to antialias arbitrary selection boxes correctly is to use a texture
+        // cache or a custom shader. Instead of doing that, we just pixel-snap
+        // everything.
         w = w.min((bounds.bottomright().x - x).max(0.0));
         h = h.min((bounds.bottomright().y - y).max(0.0));
         let bx = x.max(bounds.topleft().x);
@@ -63,9 +65,9 @@ impl crate::render::Renderable for Instance {
         compositor: &mut compositor::CompositorView<'_>,
     ) -> Result<(), Error> {
         let buffer = self.text_buffer.borrow();
-        // Padding works differently in a textbox than in a static text field, because a textbox
-        // cannot having non-clipping regions outside the text area, or you'll get rendering errors
-        // when scrolling.
+        // Padding works differently in a textbox than in a static text field, because a
+        // textbox cannot having non-clipping regions outside the text area, or
+        // you'll get rendering errors when scrolling.
         let area = area + self.padding;
         let pos = area.topleft();
 

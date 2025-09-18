@@ -20,7 +20,7 @@ pub struct Button<T> {
     children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
 }
 
-impl<T: fixed::Prop + 'static> Button<T> {
+impl<T: fixed::Prop> Button<T> {
     pub fn new(
         id: Arc<SourceID>,
         props: T,
@@ -41,7 +41,7 @@ impl<T: fixed::Prop + 'static> Button<T> {
     }
 }
 
-impl<T: fixed::Prop + 'static> crate::StateMachineChild for Button<T> {
+impl<T: fixed::Prop> crate::StateMachineChild for Button<T> {
     fn id(&self) -> Arc<SourceID> {
         self.id.clone()
     }

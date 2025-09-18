@@ -536,7 +536,8 @@ impl FromLua for LimitPoint {
             value.type_name()
         )))?;
 
-        // We can't use the default .into() method here because all unassigned values must be NaN
+        // We can't use the default .into() method here because all unassigned values
+        // must be NaN
         let name = get_name(v)?;
         if name == "pxpoint_mt" {
             Ok(LimitPoint(DPoint {
@@ -638,7 +639,7 @@ where
         manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn crate::layout::Layout<U> + 'static> {
+    ) -> Box<dyn crate::layout::Layout<U>> {
         use std::ops::Deref;
         Box::new(Box::deref(self).layout(manager, driver, window))
     }
@@ -709,9 +710,9 @@ gen_from_lua!(Slot);
 impl UserData for ComponentBag {}
 gen_from_lua!(ComponentBag);
 
-/// This defines the "lua" app that knows how to handle a lua value that contains the
-/// expected rust objects, and hand them off for processing. This is analogous to the
-/// pure-rust [App] struct defined in lib.rs
+/// This defines the "lua" app that knows how to handle a lua value that
+/// contains the expected rust objects, and hand them off for processing. This
+/// is analogous to the pure-rust [App] struct defined in lib.rs
 pub struct LuaPersist<AppData> {
     pub window: LuaFunction, // takes a Store and an appstate and returns a Window
     pub id_enter: LuaFunction,
@@ -1271,9 +1272,11 @@ fn create_circle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Co
     )))
 }
 
-// In CSS, 1.2 is usually used as the "reasonable" default line-height for a given font.
+// In CSS, 1.2 is usually used as the "reasonable" default line-height for a
+// given font.
 const DEFAULT_LINE_HEIGHT: f32 = 1.2;
-// CSS defaults to 16 pixels, which is 12.8 points. We round up to 14 points as the next highest even number.
+// CSS defaults to 16 pixels, which is 12.8 points. We round up to 14 points as
+// the next highest even number.
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 fn to_style(style: u8) -> LuaResult<cosmic_text::Style> {
@@ -1602,12 +1605,14 @@ impl LuaContext {
             lua.create_function(move |_, (name, func): (LuaString, LuaFunction)| {
                 let count = handler_count_clone.fetch_add(1, Ordering::Relaxed);
                 handlers.set(&name, func)?;
-                slot_clone.set(name, Slot(APP_SOURCE_ID.into(), count))?;
-                Ok(LuaNil)
+                let slot = Slot(APP_SOURCE_ID.into(), count);
+                slot_clone.set(name, slot.clone())?;
+                Ok(slot)
             })?,
         )?;
 
         let modules = lua.create_table()?;
+        modules.set("feather", feather.clone())?;
         preload.set("injected_dep", &modules)?;
 
         lua.load(NamedChunk(SANDBOX, "sandbox")).exec()?;
@@ -1671,7 +1676,6 @@ end
 
     pub fn add_module(&self, lua: &Lua, name: &str, module: &[u8]) -> LuaResult<()> {
         let interface = lua.create_table()?;
-        interface.set("f", self.feather.clone())?;
         interface.set("require", self.require.clone())?;
 
         self.modules.set(
@@ -1698,7 +1702,6 @@ end
     fn load_layout<R: FromLuaMulti>(&self, lua: &Lua, layout: &[u8]) -> LuaResult<R> {
         let interface = lua.create_table()?;
         interface.set("handlers", self.handler_slots.clone())?;
-        interface.set("f", self.feather.clone())?;
         interface.set("require", self.require.clone())?;
 
         self.load_in_sandbox
@@ -1798,15 +1801,17 @@ end
     }
 }
 
-pub struct LuaApp<AppData: Clone + FromLua + IntoLua>(crate::App<AppData, LuaPersist<AppData>, ()>);
+pub struct LuaApp<AppData: Clone + FromLua + IntoLua, T: 'static>(
+    crate::App<AppData, LuaPersist<AppData>, T>,
+);
 
-impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
+impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static, T: 'static> LuaApp<AppData, T> {
     pub fn new(
         lua: &Lua,
         app_state: AppData,
         handlers: Vec<(String, crate::AppEvent<AppData>)>,
         layout: &[u8],
-    ) -> eyre::Result<(Self, crate::EventLoop<()>)> {
+    ) -> eyre::Result<(Self, crate::EventLoop<T>)> {
         let ctx = LuaContext::new(lua)?;
 
         let mut reserved = HashMap::new();
@@ -1839,22 +1844,22 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> LuaApp<AppData> {
     }
 }
 
-impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> ApplicationHandler<()>
-    for LuaApp<AppData>
+impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static, T: 'static> ApplicationHandler<T>
+    for LuaApp<AppData, T>
 {
     fn new_events(
         &mut self,
         event_loop: &winit::event_loop::ActiveEventLoop,
         cause: winit::event::StartCause,
     ) {
-        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::new_events(
+        <crate::App<AppData, LuaPersist<AppData>, T> as ApplicationHandler<T>>::new_events(
             &mut self.0,
             event_loop,
             cause,
         );
     }
 
-    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: ()) {
+    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: T) {
         self.0.user_event(event_loop, event);
     }
 
@@ -1864,7 +1869,7 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> ApplicationHandle
         device_id: winit::event::DeviceId,
         event: winit::event::DeviceEvent,
     ) {
-        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::device_event(
+        <crate::App<AppData, LuaPersist<AppData>, T> as ApplicationHandler<T>>::device_event(
             &mut self.0,
             event_loop,
             device_id,
@@ -1873,35 +1878,35 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> ApplicationHandle
     }
 
     fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::about_to_wait(
+        <crate::App<AppData, LuaPersist<AppData>, T> as ApplicationHandler<T>>::about_to_wait(
             &mut self.0,
             event_loop,
         );
     }
 
     fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::suspended(
+        <crate::App<AppData, LuaPersist<AppData>, T> as ApplicationHandler<T>>::suspended(
             &mut self.0,
             event_loop,
         );
     }
 
     fn exiting(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::exiting(
+        <crate::App<AppData, LuaPersist<AppData>, T> as ApplicationHandler<T>>::exiting(
             &mut self.0,
             event_loop,
         );
     }
 
     fn memory_warning(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::memory_warning(
+        <crate::App<AppData, LuaPersist<AppData>, T> as ApplicationHandler<T>>::memory_warning(
             &mut self.0,
             event_loop,
         );
     }
 
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::resumed(
+        <crate::App<AppData, LuaPersist<AppData>, T> as ApplicationHandler<T>>::resumed(
             &mut self.0,
             event_loop,
         );
@@ -1913,7 +1918,7 @@ impl<AppData: Clone + FromLua + IntoLua + PartialEq + 'static> ApplicationHandle
         window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
-        <crate::App<AppData, LuaPersist<AppData>, ()> as ApplicationHandler<()>>::window_event(
+        <crate::App<AppData, LuaPersist<AppData>, T> as ApplicationHandler<T>>::window_event(
             &mut self.0,
             event_loop,
             window_id,
