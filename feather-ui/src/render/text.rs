@@ -113,7 +113,8 @@ impl Instance {
                         .flat_map(|x| sRGB32::new(255, 255, 255, *x).as_f32().srgb_pre().as_bgra())
                         .collect();
                 }
-                // This is in sRGB RGBA format but our texture atlas is in pre-multiplied sRGB BGRA format, so swap it
+                // This is in sRGB RGBA format but our texture atlas is in pre-multiplied sRGB BGRA
+                // format, so swap it
                 Content::Color => {
                     for c in image.data.as_mut_slice().chunks_exact_mut(4) {
                         // Pre-multiply color, then extract in BGRA form.
@@ -126,7 +127,8 @@ impl Instance {
                     }
                 }
                 Content::SubpixelMask => {
-                    // TODO: wide doesn't implement SSE shuffle instructions yet, which could potentially be faster here
+                    // TODO: wide doesn't implement SSE shuffle instructions yet, which could
+                    // potentially be faster here
                     let len = image.data.len() / 4;
                     let slice = image.data.as_mut_slice();
                     for i in 0..len {

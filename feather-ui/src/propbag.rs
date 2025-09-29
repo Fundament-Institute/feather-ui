@@ -152,7 +152,8 @@ gen_prop_bag_value_clone!(
 
 impl crate::layout::base::Obstacles for PropBag {
     fn obstacles(&self) -> &[crate::DAbsRect] {
-        // We have to be careful here because the actual stored type is a Vec<>, not a slice.
+        // We have to be careful here because the actual stored type is a Vec<>, not a
+        // slice.
         self.props
             .get(&PropBagElement::obstacles)
             .expect("PropBag didn't have obstacles")
@@ -273,7 +274,8 @@ gen_prop_bag_setter_clone!(spacing, set_spacing, crate::DPoint);
 
 impl crate::layout::grid::Prop for PropBag {
     fn rows(&self) -> &[crate::DValue] {
-        // We have to be careful here because the actual stored type is a Vec<>, not a slice.
+        // We have to be careful here because the actual stored type is a Vec<>, not a
+        // slice.
         self.props
             .get(&PropBagElement::rows)
             .expect("PropBag didn't have rows")
@@ -282,7 +284,8 @@ impl crate::layout::grid::Prop for PropBag {
     }
 
     fn columns(&self) -> &[crate::DValue] {
-        // We have to be careful here because the actual stored type is a Vec<>, not a slice.
+        // We have to be careful here because the actual stored type is a Vec<>, not a
+        // slice.
         self.props
             .get(&PropBagElement::columns)
             .expect("PropBag didn't have columns")

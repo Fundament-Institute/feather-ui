@@ -63,7 +63,8 @@ where
 
         let size = self.size.resolve(dpi);
 
-        // TODO: Layout cannot easily return an error because this messes up the persistent functions
+        // TODO: Layout cannot easily return an error because this messes up the
+        // persistent functions
         let uvsize = driver
             .load_and_resize(
                 self.resource.as_ref(),

@@ -8,7 +8,8 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 
-// A DomainWrite layout spawns a renderable that writes it's area to the target cross-reference domain
+// A DomainWrite layout spawns a renderable that writes it's area to the target
+// cross-reference domain
 pub trait Prop {
     fn domain(&self) -> Arc<CrossReferenceDomain>;
 }
@@ -42,6 +43,7 @@ impl Desc for dyn Prop {
         outer_area = super::nuetralize_unsized(outer_area);
         outer_area = super::limit_area(outer_area, outer_limits);
 
+        debug_assert!(outer_area.v.is_finite().all());
         Box::new(Concrete {
             area: outer_area,
             renderable: Some(Rc::new(render::domain::Write {

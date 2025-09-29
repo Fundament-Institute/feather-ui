@@ -30,12 +30,15 @@ impl<Arg1, Arg2, Output, T: FnMut(Arg1, Arg2) -> Output> Persist2<Arg1, Arg2, Ou
     }
 }
 
-/// This represents the storage of a persistent function. This trait is shared between all [`FnPersist`]
-/// traits for each distinct number of arguments. The storage type must satisfy [`Clone`] and should ideally
-/// be built using persistent data structures. In order to allow a persistent function to work correctly,
-/// Store should have space to store both the *input arguments* and the *output result* of a persistent
-/// function. This is essential to allowing a persistent function to detect that it's arguments are the same
-/// as the previous invocation and return the previous output without any additional computation.
+/// This represents the storage of a persistent function. This trait is shared
+/// between all [`FnPersist`] traits for each distinct number of arguments. The
+/// storage type must satisfy [`Clone`] and should ideally be built using
+/// persistent data structures. In order to allow a persistent function to work
+/// correctly, Store should have space to store both the *input arguments* and
+/// the *output result* of a persistent function. This is essential to allowing
+/// a persistent function to detect that it's arguments are the same
+/// as the previous invocation and return the previous output without any
+/// additional computation.
 ///
 /// # Examples
 ///
@@ -74,23 +77,28 @@ pub trait FnPersistStore {
     type Store: Clone;
 }
 
-/// This represents a persistent function that takes one argument. This includes the main Feather outline function
-/// and the [`MapPersist`] operation. A persistent function stores it's own previous internal state and output,
-/// which allows it to return it's previous output if the arguments match. This essentially `memoizes` the function
-/// with an LRU of size 1, meaning it will only memoize if the current function call is exactly the same as the
-/// previous call. These functions harmonize nicely with persistent data structures that allow these comparisons
-/// to be done quickly.
+/// This represents a persistent function that takes one argument. This includes
+/// the main Feather outline function and the [`MapPersist`] operation. A
+/// persistent function stores it's own previous internal state and output,
+/// which allows it to return it's previous output if the arguments match. This
+/// essentially `memoizes` the function with an LRU of size 1, meaning it will
+/// only memoize if the current function call is exactly the same as the
+/// previous call. These functions harmonize nicely with persistent data
+/// structures that allow these comparisons to be done quickly.
 ///
 /// Unfortunately, Rust [does not allow implementing Fn traits](https://github.com/rust-lang/rust/issues/29625), so
-/// this implementation is a bit annoying to use. [`FnPersist::init`] is called when Self::Store doesn't exist,
-/// and is meant to return a minimal empty store state that won't ever conflict with a real result from calling
-/// the function. [`FnPersist::call`] then represents calling the persistent function with both it's additional
-/// storage parameter and both arguments. It must then return both the `Output` of evaluating the function, and
-/// the new storage object. Note that the storage object is constrained by [`FnPersistStore`].
+/// this implementation is a bit annoying to use. [`FnPersist::init`] is called
+/// when Self::Store doesn't exist, and is meant to return a minimal empty store
+/// state that won't ever conflict with a real result from calling the function.
+/// [`FnPersist::call`] then represents calling the persistent function with
+/// both it's additional storage parameter and both arguments. It must then
+/// return both the `Output` of evaluating the function, and the new storage
+/// object. Note that the storage object is constrained by [`FnPersistStore`].
 ///
-/// **IMPORTANT:** Due to missing features in the [`im`] crate, Feather currently cannot properly support all the
-/// intended features of persistent functions. As a result, many operations such as `VectorFold` are not actually
-/// persistent or optimized correctly. This will be [addressed in a future update](https://github.com/Fundament-Institute/feather-ui/issues/124).
+/// **IMPORTANT:** Due to missing features in the [`im`] crate, Feather
+/// currently cannot properly support all the intended features of persistent
+/// functions. As a result, many operations such as `VectorFold` are not
+/// actually persistent or optimized correctly. This will be [addressed in a future update](https://github.com/Fundament-Institute/feather-ui/issues/124).
 ///
 /// # Examples
 ///
@@ -111,23 +119,28 @@ impl<Args, Output, T: FnMut(&Args) -> Output> FnPersistStore for Persist<Args, O
     type Store = ();
 }
 
-/// This represents a persistent function that takes 2 arguments. This includes the main Feather outline function
-/// and the [`FoldPersist`] operation. A persistent function stores it's own previous internal state and output,
-/// which allows it to return it's previous output if the arguments match. This essentially `memoizes` the function
-/// with an LRU of size 1, meaning it will only memoize if the current function call is exactly the same as the
-/// previous call. These functions harmonize nicely with persistent data structures that allow these comparisons
-/// to be done quickly.
+/// This represents a persistent function that takes 2 arguments. This includes
+/// the main Feather outline function and the [`FoldPersist`] operation. A
+/// persistent function stores it's own previous internal state and output,
+/// which allows it to return it's previous output if the arguments match. This
+/// essentially `memoizes` the function with an LRU of size 1, meaning it will
+/// only memoize if the current function call is exactly the same as the
+/// previous call. These functions harmonize nicely with persistent data
+/// structures that allow these comparisons to be done quickly.
 ///
 /// Unfortunately, Rust [does not allow implementing Fn traits](https://github.com/rust-lang/rust/issues/29625), so
-/// this implementation is a bit annoying to use. [`FnPersist2::init`] is called when Self::Store doesn't exist,
-/// and is meant to return a minimal empty store state that won't ever conflict with a real result from calling
-/// the function. [`FnPersist2::call`] then represents calling the persistent function with both it's additional
-/// storage parameter and both arguments. It must then return both the `Output` of evaluating the function, and
-/// the new storage object. Note that the storage object is constrained by [`FnPersistStore`].
+/// this implementation is a bit annoying to use. [`FnPersist2::init`] is called
+/// when Self::Store doesn't exist, and is meant to return a minimal empty store
+/// state that won't ever conflict with a real result from calling the function.
+/// [`FnPersist2::call`] then represents calling the persistent function with
+/// both it's additional storage parameter and both arguments. It must then
+/// return both the `Output` of evaluating the function, and the new storage
+/// object. Note that the storage object is constrained by [`FnPersistStore`].
 ///
-/// **IMPORTANT:** Due to missing features in the [`im`] crate, Feather currently cannot properly support all the
-/// intended features of persistent functions. As a result, many operations such as `VectorFold` are not actually
-/// persistent or optimized correctly. This will be [addressed in a future update](https://github.com/Fundament-Institute/feather-ui/issues/124).
+/// **IMPORTANT:** Due to missing features in the [`im`] crate, Feather
+/// currently cannot properly support all the intended features of persistent
+/// functions. As a result, many operations such as `VectorFold` are not
+/// actually persistent or optimized correctly. This will be [addressed in a future update](https://github.com/Fundament-Institute/feather-ui/issues/124).
 ///
 /// # Examples
 ///
@@ -314,7 +327,8 @@ impl<T: Ord + Clone, U: Ord + Clone, F: FnPersist<T, U>> FnPersist<im::OrdSet<T>
     fn call(&mut self, cache: Self::Store, input: &im::OrdSet<T>) -> (Self::Store, im::OrdSet<U>) {
         let mut internal = cache.store.clone();
         let mut output = cache.result.clone();
-        // Get the difference between the items passed in and the cache of what we passed in last
+        // Get the difference between the items passed in and the cache of what we
+        // passed in last
         for item in cache.arg.diff(input) {
             match item {
                 im::ordset::DiffItem::Add(x) => {
@@ -409,7 +423,8 @@ where
     ) -> (Self::Store, im::OrdMap<K, U>) {
         let mut internal = cache.store.clone();
         let mut output = cache.result.clone();
-        // Get the difference between the items passed in and the cache of what we passed in last
+        // Get the difference between the items passed in and the cache of what we
+        // passed in last
         for item in cache.arg.diff(input) {
             match item {
                 im::ordmap::DiffItem::Add(x, v) => {
@@ -495,8 +510,9 @@ impl<V: Clone, U: Clone, F: FnPersist<V, U>> FnPersist<im::Vector<V>, im::Vector
         mut store: Self::Store,
         args: &im::Vector<V>,
     ) -> (Self::Store, im::Vector<U>) {
-        // TODO: We can't implement this properly because tracking the storage requires access to im::Vector internals, and we can't even compare the two vectors either
-        //if store.arg != *args {
+        // TODO: We can't implement this properly because tracking the storage requires
+        // access to im::Vector internals, and we can't even compare the two vectors
+        // either if store.arg != *args {
         store.result.clear();
         for v in args.iter() {
             let (_, item) = self.f.call(self.f.init(), v);

@@ -67,7 +67,8 @@ fn next_obstacle(
             start = total_main - start;
         }
 
-        // If we've reached an obstacle whose top/left is past the (current known) bottom of this line, we won't match anything.
+        // If we've reached an obstacle whose top/left is past the (current known)
+        // bottom of this line, we won't match anything.
         if aux_start > aux + max_aux {
             break;
         }
@@ -78,14 +79,16 @@ fn next_obstacle(
             end = total_main - end;
         }
 
-        // If aux is past past the bottom/right, we can skip this obstacle for all future lines in this wrap attempt.
+        // If aux is past past the bottom/right, we can skip this obstacle for all
+        // future lines in this wrap attempt.
         if aux_end < aux {
             i += 1;
             *min = i;
             continue;
         }
 
-        // If our main axis has gone past this obstacles starting edge, we already passed it, so skip forward
+        // If our main axis has gone past this obstacles starting edge, we already
+        // passed it, so skip forward
         if main > start {
             i += 1;
             continue;
@@ -188,13 +191,15 @@ fn wrap_line(
             continue;
         };
 
-        // This is a bit unintuitive, but this is adding the margin for the previous element, not this one.
+        // This is a bit unintuitive, but this is adding the margin for the previous
+        // element, not this one.
         if !prev_margin.is_nan() {
             main += prev_margin.max(b.margin.topleft().width);
         }
 
-        // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward. We ignore margins here, because
-        // obstacles are not items, they are edges.
+        // If we hit an obstacle, mark it as an obstacle breakpoint, then jump forward.
+        // We ignore margins here, because obstacles are not items, they are
+        // edges.
         if main + b.basis > obstacle.0 {
             breaks.push(Linebreak::new(i, obstacle.1, obstacle.0, f32::NAN));
             main = obstacle.1; // Set the axis to the end of the obstacle
@@ -211,20 +216,24 @@ fn wrap_line(
                 dpi,
             );
 
-            // We DO NOT update any other values here, nor do we increment i, because we might hit another obstacle
-            // or the end of the line, so we immediately loop around to try again.
+            // We DO NOT update any other values here, nor do we increment i, because we
+            // might hit another obstacle or the end of the line, so we
+            // immediately loop around to try again.
             continue;
         }
 
         // Once we hit the end of the line we mark the true breakpoint.
         if main + b.basis > total_main {
-            // If our line was empty, then nothing could fit on it. Because we don't have line-height information, we simply
-            // have to use the height of the element we are pushing to the next line.
+            // If our line was empty, then nothing could fit on it. Because we don't have
+            // line-height information, we simply have to use the height of the
+            // element we are pushing to the next line.
             let emptyline = if max_aux == 0.0 {
                 max_aux = b.aux;
 
-                // Normally, if an obstacle is present on a line, we want to skip it entirely. However, if we can't fit an item on
-                // a line that has no obstacle, we have to give up and put it there anyway to prevent an infinite loop.
+                // Normally, if an obstacle is present on a line, we want to skip it entirely.
+                // However, if we can't fit an item on a line that has no
+                // obstacle, we have to give up and put it there anyway to prevent an infinite
+                // loop.
                 if let Some(b) = breaks.last() {
                     b.lineheight >= 0.0
                 } else {
@@ -316,7 +325,8 @@ impl Desc for dyn Prop {
         let (dpi_main, _) = window.dpi.swap_axis(xaxis);
         let (outer_main, _) = outer_safe.dim().swap_axis(xaxis);
 
-        // We re-use a lot of concepts from flexbox in this calculation. First we acquire the natural size of all child elements.
+        // We re-use a lot of concepts from flexbox in this calculation. First we
+        // acquire the natural size of all child elements.
         for child in children.iter() {
             let imposed = child.as_ref().unwrap().get_props();
 
@@ -369,11 +379,12 @@ impl Desc for dyn Prop {
             childareas.push_back(Some(cache));
         }
 
-        // This fold calculates the maximum size of the main axis, followed by the off-axis, followed
-        // by carrying the previous margin amount from the main axis so it can be collapsed properly.
-        // Note that margins only ever apply between elements, not edges, so we completely ignore the
-        // off-axis margin, as this calculation assumes there is only 1 line of items, and the off-axis
-        // margin doesn't apply until there are linebreaks.
+        // This fold calculates the maximum size of the main axis, followed by the
+        // off-axis, followed by carrying the previous margin amount from the
+        // main axis so it can be collapsed properly. Note that margins only
+        // ever apply between elements, not edges, so we completely ignore the
+        // off-axis margin, as this calculation assumes there is only 1 line of items,
+        // and the off-axis margin doesn't apply until there are linebreaks.
         let mut fold = VectorFold::new(Persist2::new(&|prev: (f32, f32, f32),
                                                        n: &Option<ChildCache>|
          -> (f32, f32, f32) {
@@ -396,13 +407,20 @@ impl Desc for dyn Prop {
             super::limit_area(area * outer_safe, limits)
         };
 
+        debug_assert!(
+            evaluated_area.v.is_finite().all(),
+            "non-finite evaluated area!"
+        );
+
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
 
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
-            // If we are evaluating our staged area along the main axis, no further calculations can be done
+            // If we are evaluating our staged area along the main axis, no further
+            // calculations can be done
+            debug_assert!(evaluated_area.v.is_finite().all());
             return Box::new(Concrete {
                 area: evaluated_area,
                 renderable: None,
@@ -419,10 +437,13 @@ impl Desc for dyn Prop {
         }
 
         let (total_main, total_aux) = inner_dim.swap_axis(xaxis);
-        // If we need to do wrapping, we do this first, before calculating anything else.
+        // If we need to do wrapping, we do this first, before calculating anything
+        // else.
         let (breaks, linecount, used_aux) = if props.wrap() {
-            // Anything other than `start` for main-axis justification causes problems if there are any obstacles we need to
-            // flow around. To make our first wrapping guess, we simply assume there is only one line when choosing our starting location.
+            // Anything other than `start` for main-axis justification causes problems if
+            // there are any obstacles we need to flow around. To make our first
+            // wrapping guess, we simply assume there is only one line when choosing our
+            // starting location.
 
             let r = wrap_line(
                 &childareas,
@@ -439,12 +460,14 @@ impl Desc for dyn Prop {
             );
 
             if !props.obstacles().is_empty() && props.align() != FlexJustify::Start {
-                // If there were obstacles and multiple rows, our initial guess was probably wrong, so rewrap until we converge
+                // If there were obstacles and multiple rows, our initial guess was probably
+                // wrong, so rewrap until we converge
                 let mut used_aux = used_aux;
                 let mut prev = (SmallVec::new(), 1, used_aux);
                 let mut linecount = 0;
 
-                // Given the linecount and how we are arranging the rows, figure out the correct initial height
+                // Given the linecount and how we are arranging the rows, figure out the correct
+                // initial height
                 while linecount != prev.1 || (used_aux - prev.2) > 0.001 {
                     linecount = prev.1;
                     used_aux = prev.2;
@@ -478,7 +501,8 @@ impl Desc for dyn Prop {
             (breaks, 1, used_aux)
         };
 
-        // Now we calculate the outer spacing (at the start and end) vs the inner spacing.
+        // Now we calculate the outer spacing (at the start and end) vs the inner
+        // spacing.
         let (mut aux, inner_aux) =
             justify_inner_outer(props.align(), total_aux, used_aux, linecount);
 
@@ -503,7 +527,8 @@ impl Desc for dyn Prop {
                 used += a.basis;
             }
 
-            // Get the total length of this span, and if necessary, find the line height by scanning ahead.
+            // Get the total length of this span, and if necessary, find the line height by
+            // scanning ahead.
             let (total_span, max_aux) = if b.skip.is_finite() {
                 let mut max_aux = breaks.last().unwrap().lineheight;
                 for j in indice..breaks.len() {
@@ -557,7 +582,8 @@ impl Desc for dyn Prop {
                 }
                 prev_margin = c.margin.bottomright().width;
 
-                // If we're growing backwards, we flip along the main axis (but not the aux axis)
+                // If we're growing backwards, we flip along the main axis (but not the aux
+                // axis)
                 let mut area = if props.direction() == RowDirection::RightToLeft
                     || props.direction() == RowDirection::BottomToTop
                 {
@@ -606,6 +632,7 @@ impl Desc for dyn Prop {
             curindex = b.index;
         }
 
+        debug_assert!(evaluated_area.v.is_finite().all());
         Box::new(Concrete {
             area: evaluated_area,
             renderable,

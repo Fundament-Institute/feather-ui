@@ -195,7 +195,8 @@ fn main() {
 
                         appdata.selected = None;
                     } else {
-                        // Check to see if we're anywhere near a node (yes this is inefficient but we don't care right now)
+                        // Check to see if we're anywhere near a node (yes this is inefficient but
+                        // we don't care right now)
                         for i in 0..appdata.nodes.len() {
                             let diff = appdata.nodes[i] - pos + appdata.offset;
                             if diff.dot(diff) < NODE_RADIUS * NODE_RADIUS {
