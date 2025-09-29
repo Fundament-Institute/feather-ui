@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use cosmic_text::{Affinity, AttrsList, Cursor, Metrics};
 use smallvec::SmallVec;
 
+use crate::BASE_DPI;
 use crate::graphics::point_to_pixel;
 
 /// Represents a single change, recording the (`start`,`end`) range of the new
@@ -31,6 +32,7 @@ pub struct EditBuffer {
     cursor: AtomicUsize,
     select: AtomicUsize, /* If there's a selection, this is different from cursor and points at
                           * the end. Can be less than cursor. */
+    dpi: RefCell<crate::RelDim>,
 }
 
 impl Default for EditBuffer {
@@ -43,6 +45,7 @@ impl Default for EditBuffer {
             reflow: Default::default(),
             cursor: Default::default(),
             select: Default::default(),
+            dpi: RefCell::new(BASE_DPI),
         }
     }
 }
@@ -54,6 +57,7 @@ impl Clone for EditBuffer {
             reflow: self.reflow.load(Ordering::Relaxed).into(),
             cursor: self.cursor.load(Ordering::Relaxed).into(),
             select: self.select.load(Ordering::Relaxed).into(),
+            dpi: self.dpi.clone(),
         }
     }
 }
@@ -69,6 +73,7 @@ impl EditBuffer {
             reflow: true.into(),
             cursor: cursor.0.into(),
             select: cursor.1.into(),
+            dpi: RefCell::new(BASE_DPI),
         };
         this.set_content(text);
         this
@@ -238,6 +243,8 @@ impl EditBuffer {
         if text_buffer.metrics() != metrics {
             text_buffer.set_metrics(font_system, metrics);
         }
+        *self.dpi.borrow_mut() = dpi;
+
         if text_buffer.wrap() != wrap {
             text_buffer.set_wrap(font_system, wrap);
         }
@@ -255,6 +262,7 @@ pub struct EditView {
     pub(crate) obj: Rc<EditBuffer>,
     count: usize,
     reflow: bool,
+    pub(crate) dpi: crate::RelDim,
 }
 
 impl EditView {
@@ -270,6 +278,7 @@ impl Clone for EditView {
             obj: self.obj.clone(),
             count: self.obj.count.load(Ordering::Acquire),
             reflow: self.obj.reflow.load(Ordering::Acquire),
+            dpi: self.dpi,
         }
     }
 }
@@ -289,6 +298,7 @@ impl From<Rc<EditBuffer>> for EditView {
             obj: value.clone(),
             count: value.count.load(Ordering::Acquire),
             reflow: value.reflow.load(Ordering::Acquire),
+            dpi: *value.dpi.borrow(),
         }
     }
 }
@@ -300,6 +310,7 @@ impl From<EditBuffer> for EditView {
             obj: value.clone(),
             count: value.count.load(Ordering::Acquire),
             reflow: value.reflow.load(Ordering::Acquire),
+            dpi: *value.dpi.borrow(),
         }
     }
 }

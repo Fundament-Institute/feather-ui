@@ -2607,7 +2607,7 @@ impl StateManager {
             let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
             let v = match state.process(event, slot.1, dpi, area, extent, driver) {
                 InputResult::Consume(v) => {
-                    handled |= v.is_empty();
+                    handled = true;
                     v
                 }
                 InputResult::Forward(v) => v,
