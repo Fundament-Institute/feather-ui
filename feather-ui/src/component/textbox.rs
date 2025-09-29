@@ -624,7 +624,9 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
         textstate.props = self.props.clone();
         textstate.align = self.align;
 
-        if self.props.textedit().obj.reflow.load(Ordering::Acquire) {
+        if self.props.textedit().obj.reflow.load(Ordering::Acquire)
+            || self.props.textedit().dpi != dpi
+        {
             let attrs = cosmic_text::Attrs::new()
                 .family(self.font.as_family())
                 .color(self.color.into())
