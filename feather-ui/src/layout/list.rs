@@ -8,7 +8,7 @@ use super::{
 use crate::{PxDim, PxPoint, PxRect, RowDirection, SourceID, rtree};
 use std::rc::Rc;
 
-pub trait Prop: base::Area + base::Limits + base::Direction {}
+pub trait Prop: base::Area + base::Limits + base::Direction + base::Anchor {}
 
 crate::gen_from_to_dyn!(Prop);
 
@@ -122,6 +122,9 @@ impl Desc for dyn Prop {
 
         // No need to cap this because unsized axis have now been resolved
         let evaluated_area = super::limit_area(area * outer_safe, limits);
+
+        let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
+        let evaluated_area = evaluated_area - anchor;
 
         let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
         let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
