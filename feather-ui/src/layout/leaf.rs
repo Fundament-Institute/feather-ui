@@ -123,9 +123,10 @@ impl<T: Padded> Layout<T> for Sized<T> {
         let anchor = self.props.anchor().resolve(window.dpi) * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;
 
-        if !evaluated_area.v.is_finite().all() {
-            println!("{evaluated_area:?}");
-        }
+        debug_assert!(
+            evaluated_area.v.is_finite().all(),
+            "non-finite evaluated area!"
+        );
         debug_assert!(evaluated_area.v.is_finite().all());
         Box::new(Concrete {
             area: evaluated_area,

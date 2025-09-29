@@ -266,8 +266,6 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
         // pretty accurate. TODO: Change this to be pixel-perfect by outputting
         // the exact dimensions instead of rounded ones.
 
-        println!("{:?}", dim);
-
         let (region_uv, region_index) = driver
             .with_pipeline::<Shape<KIND>, Result<(atlas::PxBox, u8), crate::Error>>(|pipeline| {
                 pipeline.reserve(
