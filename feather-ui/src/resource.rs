@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::any::Any;
+use std::sync::Arc;
 
 #[cfg(feature = "jxl")]
 use jxl_oxide::{EnumColourEncoding, JxlImage};
@@ -21,8 +22,9 @@ pub(crate) fn within_variance(l: i32, r: i32, range: f32) -> bool {
     diff > (1.0 - range) && diff < (1.0 + range)
 }
 
-/// An empty size request equates to requesting the native size of the image. One axis being zero equates to requesting the
-/// equivalent aspect ratio from the native aspect ratio.
+/// An empty size request equates to requesting the native size of the image.
+/// One axis being zero equates to requesting the equivalent aspect ratio from
+/// the native aspect ratio.
 #[inline]
 pub fn fill_size(size: atlas::Size, native: atlas::Size) -> atlas::Size {
     match (size.width, size.height) {
@@ -56,10 +58,12 @@ pub trait Location: crate::DynHashEq + Any + Send + Sync {
 dyn_clone::clone_trait_object!(Location);
 
 pub trait Loader: std::fmt::Debug + Send + Sync {
-    /// The preload function does most of the work, loading the image into a byte buffer of a given width and height
+    /// The preload function does most of the work, loading the image into a
+    /// byte buffer of a given width and height
     fn preload(&self, size: atlas::Size, dpi: f32) -> Result<(Vec<u8>, Size2D<u32, Pixel>), Error>;
 
-    /// The load function simply consumes the byte buffer and loads it into the atlas.
+    /// The load function simply consumes the byte buffer and loads it into the
+    /// atlas.
     fn load(
         &self,
         driver: &crate::graphics::Driver,
@@ -84,7 +88,8 @@ impl Eq for dyn Location {}
 
 #[cfg(feature = "svg")]
 #[derive(Debug)]
-// resvg requires the DPI when it parses the XML, and we can't store the XML tree directly, so we store the string instead.
+// resvg requires the DPI when it parses the XML, and we can't store the XML
+// tree directly, so we store the string instead.
 struct SvgXml(String);
 
 impl Location for std::path::PathBuf {
@@ -143,7 +148,8 @@ impl Location for std::path::PathBuf {
             return Ok(Box::new(img));
         }
 
-        // We start by guessing the format from ImageReader, because it only reads a maximum of 16 bytes from the file.
+        // We start by guessing the format from ImageReader, because it only reads a
+        // maximum of 16 bytes from the file.
         #[cfg(any(
             feature = "avif",
             feature = "bmp",
@@ -174,8 +180,9 @@ impl Location for std::path::PathBuf {
             }
         }
 
-        // If we get here, it's a PNG or JPEG, (or an unsupported format) so we drop the image to close the file handle,
-        // then load it with load_image instead to correctly convert it to sRGB color space using the embedded color profile.
+        // If we get here, it's a PNG or JPEG, (or an unsupported format) so we drop the
+        // image to close the file handle, then load it with load_image instead
+        // to correctly convert it to sRGB color space using the embedded color profile.
         #[cfg(any(feature = "png", feature = "jpeg"))]
         return Ok(Box::new(load_image::load_path(self).map_err(
             |e| match e {
@@ -312,7 +319,8 @@ impl Loader for JxlImage {
             .map_err(|e| Error::ResourceError(Box::new(e)))?;
         let mut frame = render.image_all_channels();
 
-        // If we're too close to the native size of the image, skip resizing it and simply store the native size to the atlas.
+        // If we're too close to the native size of the image, skip resizing it and
+        // simply store the native size to the atlas.
         let force_native = within_variance(size.height, self.height() as i32, 0.05)
             && within_variance(size.width, self.width() as i32, 0.05);
         let (raw, w, h) = if !(force_native
@@ -502,7 +510,8 @@ impl Loader for SvgXml {
             .map_err(|e| Error::ResourceError(Box::new(e)))
             .map(Box::new)?;
 
-        // TODO: This rounds, which might not give accurate results. It might instead need to use ceiling.
+        // TODO: This rounds, which might not give accurate results. It might instead
+        // need to use ceiling.
         let svg_size = svg.size();
         let native_size = PxDim::new(svg_size.width(), svg_size.height());
         let sizevec = fill_dim(
@@ -785,7 +794,8 @@ impl Loader for load_image::Image {
             atlas::Size::new(self.width as i32, self.height as i32),
         );
 
-        // If we're too close to the native size of the image, skip resizing it and simply store the native size to the atlas.
+        // If we're too close to the native size of the image, skip resizing it and
+        // simply store the native size to the atlas.
         let force_native = within_variance(size.height, self.height as i32, 0.05)
             && within_variance(size.width, self.width as i32, 0.05);
         let (raw, w, h) = if !(force_native
@@ -917,7 +927,8 @@ impl Loader for image::DynamicImage {
         let native = atlas::Size::new(self.width() as i32, self.height() as i32);
         size = fill_size(size, native);
 
-        // If we're too close to the native size of the image, skip resizing it and simply store the native size to the atlas.
+        // If we're too close to the native size of the image, skip resizing it and
+        // simply store the native size to the atlas.
         let force_native = within_variance(size.height, self.height() as i32, 0.05)
             && within_variance(size.width, self.width() as i32, 0.05);
 
@@ -999,12 +1010,110 @@ pub fn load_icon(location: &dyn Location) -> Result<winit::window::Icon, Error> 
 
     let (mut data, dim) = loader.preload(sz, crate::BASE_DPI.width)?;
 
-    // This data is in BGRA format, but this wants RGBA, so we swap it (again). Not very efficient, but icons
-    // shouldn't be very large anyway.
+    // This data is in BGRA format, but this wants RGBA, so we swap it (again). Not
+    // very efficient, but icons shouldn't be very large anyway.
     for c in data.as_chunks_mut::<4>().0 {
         c.swap(0, 2);
     }
 
     winit::window::Icon::from_rgba(data, dim.width, dim.height)
         .map_err(|e| Error::ResourceError(Box::new(e)))
+}
+
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
+#[derive(Debug, Clone)]
+pub struct ImageRef(pub Arc<image::DynamicImage>);
+
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
+impl std::hash::Hash for ImageRef {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.0).hash(state);
+    }
+}
+
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
+impl PartialEq for ImageRef {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
+impl Eq for ImageRef {}
+
+#[cfg(any(
+    feature = "avif",
+    feature = "bmp",
+    feature = "dds",
+    feature = "exr",
+    feature = "ff",
+    feature = "gif",
+    feature = "hdr",
+    feature = "ico",
+    feature = "pnm",
+    feature = "qoi",
+    feature = "tga",
+    feature = "tiff",
+    feature = "webp"
+))]
+impl Location for ImageRef {
+    fn fetch(&self) -> Result<Box<dyn Loader>, Error> {
+        Ok(Box::new(image::DynamicImage::clone(&self.0)))
+    }
 }

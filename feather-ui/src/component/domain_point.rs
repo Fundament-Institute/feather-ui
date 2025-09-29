@@ -7,7 +7,8 @@ use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
-// This simply writes it's area to the given cross-reference domain during the layout phase
+// This simply writes it's area to the given cross-reference domain during the
+// layout phase
 #[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct DomainPoint<T> {

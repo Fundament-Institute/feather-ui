@@ -1,7 +1,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 -- SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
---local f = require("feather")
+local f = require("feather")
 local abs, rel, px, NONE = f.abs, f.rel, f.px, f.NONE
 
 local function app(appstate)

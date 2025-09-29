@@ -248,8 +248,8 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
                         DAbsPoint::zero(),
                     );
 
-                    // We include a "useless" region around the rectangle because this catches some edge cases
-                    // in the layout logic.
+                    // We include a "useless" region around the rectangle because this catches some
+                    // edge cases in the layout logic.
                     let reg = Region::<FlexChild>::new(
                         id,
                         FlexChild {
