@@ -48,6 +48,7 @@ struct ListData {
 }
 
 impl base::Limits for ListData {}
+impl base::Anchor for ListData {}
 impl list::Prop for ListData {}
 impl fixed::Child for ListData {}
 
