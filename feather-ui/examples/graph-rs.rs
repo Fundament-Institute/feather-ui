@@ -2,15 +2,19 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use feather_ui::color::sRGB;
-use feather_ui::{AbsPoint, AbsVector, DAbsPoint, InputResult, ScopeID, gen_id};
+use feather_ui::component::button::Button;
+use feather_ui::component::text::Text;
+use feather_ui::{
+    AbsPoint, AbsVector, DAbsPoint, InputResult, RelRect, ScopeID, UNSIZED_AXIS, gen_id,
+};
 
+use feather_macro as fm;
 use feather_ui::component::domain_line::DomainLine;
 use feather_ui::component::domain_point::DomainPoint;
 use feather_ui::component::mouse_area::MouseArea;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::window::Window;
-use feather_ui::component::{ChildOf, mouse_area};
+use feather_ui::component::{ChildOf, mouse_area, shape};
 use feather_ui::input::MouseButton;
 use feather_ui::layout::{base, fixed, leaf};
 use feather_ui::persist::{FnPersist2, FnPersistStore};
@@ -19,7 +23,23 @@ use feather_ui::{
 };
 use std::collections::HashSet;
 use std::f32;
+use std::rc::Rc;
 use std::sync::Arc;
+
+#[derive(Default, fm::Empty, fm::Area, fm::Anchor, fm::ZIndex)]
+struct FixedData {
+    area: DRect,
+    anchor: feather_ui::DPoint,
+    zindex: i32,
+}
+
+impl base::Padding for FixedData {}
+impl base::Limits for FixedData {}
+impl base::RLimits for FixedData {}
+impl fixed::Prop for FixedData {}
+impl fixed::Child for FixedData {}
+impl leaf::Prop for FixedData {}
+impl leaf::Padded for FixedData {}
 
 #[derive(PartialEq, Clone, Debug, Default)]
 struct GraphState {
@@ -68,6 +88,48 @@ impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wind
 
             let mut node_ids: Vec<Arc<SourceID>> = Vec::new();
 
+            let button = {
+                let text = Text::<FixedData> {
+                    id: gen_id!(scope),
+                    props: Rc::new(FixedData {
+                        area: AbsRect::new(8.0, 0.0, 8.0, 0.0)
+                            + RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS),
+                        anchor: feather_ui::RelPoint::new(0.0, 0.5).into(),
+                        ..Default::default()
+                    }),
+                    color: sRGB::new(1.0, 1.0, 0.0, 1.0),
+                    text: "Reset".into(),
+                    font_size: 40.0,
+                    line_height: 56.0,
+                    align: Some(cosmic_text::Align::Center),
+                    ..Default::default()
+                };
+
+                let rect = shape::round_rect::<DRect>(
+                    gen_id!(scope),
+                    feather_ui::FILL_DRECT,
+                    0.0,
+                    0.0,
+                    wide::f32x4::splat(10.0),
+                    sRGB::new(0.2, 0.7, 0.4, 1.0),
+                    sRGB::transparent(),
+                    DAbsPoint::zero(),
+                );
+
+                Button::<FixedData>::new(
+                    gen_id!(scope),
+                    FixedData {
+                        area: AbsRect::new(0.0, 20.0, 0.0, 0.0)
+                            + RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
+
+                        anchor: feather_ui::RelPoint::new(0.5, 0.0).into(),
+                        zindex: 0,
+                    },
+                    Slot(feather_ui::APP_SOURCE_ID.into(), 1),
+                    feather_ui::children![fixed::Prop, rect, text],
+                )
+            };
+
             for (i, id) in scope.iter(0..args.nodes.len()) {
                 let node = args.nodes[i];
                 const BASE: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
@@ -75,7 +137,7 @@ impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wind
                 let point = DomainPoint::new(id, domain.clone());
                 node_ids.push(point.id.clone());
 
-                let circle = Shape::<DRect, { ShapeKind::Circle as u8 }>::new(
+                let circle = shape::circle(
                     gen_id!(point.id),
                     FILL_DRECT,
                     0.0,
@@ -151,7 +213,7 @@ impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wind
             let region = Region::new(
                 gen_id!(scope),
                 MinimalArea { area: FILL_DRECT },
-                feather_ui::children![fixed::Prop, subregion, mousearea],
+                feather_ui::children![fixed::Prop, subregion, mousearea, button],
             );
 
             let window = Window::new(
@@ -228,6 +290,19 @@ fn main() {
         .wrap(),
     );
 
+    let reset_button = Box::new(
+        |_: mouse_area::MouseAreaEvent,
+         mut appdata: feather_ui::AccessCell<GraphState>|
+         -> feather_ui::InputResult<()> {
+            {
+                appdata.nodes.clear();
+                appdata.edges.clear();
+                feather_ui::InputResult::Consume(())
+            }
+        }
+        .wrap(),
+    );
+
     let (mut app, event_loop, _, _) = App::<GraphState, BasicApp, ()>::new(
         GraphState {
             nodes: vec![],
@@ -235,7 +310,7 @@ fn main() {
             offset: AbsVector::new(-5000.0, -5000.0),
             selected: None,
         },
-        vec![handle_input],
+        vec![handle_input, reset_button],
         BasicApp {},
         None,
         None,
