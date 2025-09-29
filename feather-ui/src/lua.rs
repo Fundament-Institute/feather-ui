@@ -1685,6 +1685,24 @@ end
         )
     }
 
+    pub fn add_function<A: FromLuaMulti, R: IntoLuaMulti>(
+        &self,
+        lua: &Lua,
+        name: &str,
+        f: impl Fn(&Lua, A) -> LuaResult<R> + mlua::MaybeSend + 'static,
+    ) -> LuaResult<()> {
+        self.modules.set(name, lua.create_function(f)?)
+    }
+
+    pub fn add_function_mut<F, A: FromLuaMulti, R: IntoLuaMulti>(
+        &self,
+        lua: &Lua,
+        name: &str,
+        f: impl FnMut(&Lua, A) -> LuaResult<R> + mlua::MaybeSend + 'static,
+    ) -> LuaResult<()> {
+        self.modules.set(name, lua.create_function_mut(f)?)
+    }
+
     pub fn get_module(&self, name: &str) -> Option<LuaValue> {
         self.modules.get(name).ok().and_then(|x| match x {
             Some(LuaNil) => None,

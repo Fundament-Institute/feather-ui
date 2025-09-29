@@ -407,9 +407,10 @@ impl Desc for dyn Prop {
             super::limit_area(area * outer_safe, limits)
         };
 
-        if !(evaluated_area.v.is_finite().all()) {
-            println!("{:?}", evaluated_area);
-        }
+        debug_assert!(
+            evaluated_area.v.is_finite().all(),
+            "non-finite evaluated area!"
+        );
 
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
 
