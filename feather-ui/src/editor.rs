@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
-// This file is a modified version of editor.rs from cosmic-text and falls under their license terms.
+// This file is a modified version of editor.rs from cosmic-text and falls under
+// their license terms.
 
 use core::iter::once;
 use core::panic;
@@ -181,8 +182,8 @@ fn hit_fixed(buffer: &Buffer, x: f32, y: f32) -> Option<Cursor> {
     new_cursor_opt
 }
 
-/// A wrapper of [`Buffer`] for easy editing. Modified to use an external Rc<RefCell<Buffer>> reference
-/// to work better with our immutable framework
+/// A wrapper of [`Buffer`] for easy editing. Modified to use an external
+/// Rc<RefCell<Buffer>> reference to work better with our immutable framework
 #[derive(Debug, Clone)]
 pub struct Editor {
     cursor: Cursor,
@@ -925,7 +926,8 @@ impl Editor {
             }
             Action::Drag { x, y } => {
                 if let Some(new_cursor) = hit_fixed(buffer, x as f32, y as f32) {
-                    // We do not trigger a selection if only the affinity changes, because it's not visible and ends up being confusing.
+                    // We do not trigger a selection if only the affinity changes, because it's not
+                    // visible and ends up being confusing.
                     if new_cursor.index != self.cursor.index || new_cursor.line != self.cursor.line
                     {
                         if self.selection == Selection::None {
@@ -1022,8 +1024,9 @@ impl Editor {
         }
     }
 
-    /// Insert a string at the current cursor or replacing the current selection with the given
-    /// attributes, or with the previous character's attributes if None is given.
+    /// Insert a string at the current cursor or replacing the current selection
+    /// with the given attributes, or with the previous character's
+    /// attributes if None is given.
     #[must_use]
     pub fn insert_string(
         &mut self,

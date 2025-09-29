@@ -13,7 +13,7 @@ resolver = "2"
 default-members = ["feather-ui", "feather-macro"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.88.0"
 license = "Apache-2.0"
@@ -28,7 +28,7 @@ winit = "0.30"
 eyre = "0.6"
 feather-ui = { path = "feather-ui" }
 alicorn = "0.1.2"
-feather-macro = { version = "0.3", path = "feather-macro" }
+feather-macro = { version = "0.4", path = "feather-macro" }
 cosmic-text = { version = "0.14.2" }
 
 [workspace.lints]

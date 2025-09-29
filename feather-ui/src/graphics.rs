@@ -18,8 +18,8 @@ use swash::scale::ScaleContext;
 use wgpu::{PipelineLayout, ShaderModule};
 use winit::window::CursorIcon;
 
-// Points are specified as 72 per inch, and a scale factor of 1.0 corresponds to 96 DPI, so we multiply by the
-// ratio times the scaling factor.
+// Points are specified as 72 per inch, and a scale factor of 1.0 corresponds to
+// 96 DPI, so we multiply by the ratio times the scaling factor.
 #[inline]
 pub fn point_to_pixel(pt: f32, scale_factor: f32) -> f32 {
     pt * (72.0 / 96.0) * scale_factor // * text_scale_factor
@@ -46,18 +46,20 @@ pub struct GlyphRegion {
 
 pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, GlyphRegion>;
 
-/// Represents a particular realized instance of a resource on the GPU. This includes the target size, DPI, and
-/// whether mipmaps have been generated.
+/// Represents a particular realized instance of a resource on the GPU. This
+/// includes the target size, DPI, and whether mipmaps have been generated.
 #[derive(Debug)]
 pub struct ResourceInstance<'a> {
     location: Result<Box<dyn Location>, &'a dyn Location>,
-    /// If finite, this is used for vector resources, which must care about DPI beyond simply changing their size.
+    /// If finite, this is used for vector resources, which must care about DPI
+    /// beyond simply changing their size.
     dpi: f32,
-    /// If true, mipmaps should be generated for this resource because the user expects to resize it in realtime.
+    /// If true, mipmaps should be generated for this resource because the user
+    /// expects to resize it in realtime.
     resizable: bool,
 }
 
-impl Clone for ResourceInstance<'static> {
+impl Clone for ResourceInstance<'_> {
     fn clone(&self) -> Self {
         Self {
             location: self.location.clone(),
@@ -98,8 +100,9 @@ impl PartialEq for ResourceInstance<'_> {
 // We don't put NaNs in our DPI float so this is fine.
 impl Eq for ResourceInstance<'_> {}
 
-// We want to share our device/adapter state across windows, but can't create it until we have at least one window,
-// so we store a weak reference to it in App and if all windows are dropped it'll also drop these, which is usually
+// We want to share our device/adapter state across windows, but can't create it
+// until we have at least one window, so we store a weak reference to it in App
+// and if all windows are dropped it'll also drop these, which is usually
 // sensible behavior.
 #[allow(clippy::type_complexity)]
 #[derive_where::derive_where(Debug)]
@@ -119,7 +122,8 @@ pub struct Driver {
     pub(crate) queue: wgpu::Queue,
     pub(crate) device: wgpu::Device,
     pub(crate) adapter: wgpu::Adapter,
-    pub(crate) cursor: RwLock<CursorIcon>, // This is a convenient place to track our global expected cursor
+    pub(crate) cursor: RwLock<CursorIcon>, /* This is a convenient place to track our global
+                                            * expected cursor */
     #[derive_where(skip)]
     pub(crate) swash_cache: RwLock<ScaleContext>,
     pub(crate) font_system: RwLock<cosmic_text::FontSystem>,
@@ -309,8 +313,9 @@ impl Driver {
         Ok(())
     }
 
-    /// This function is called during layout, outside of a render pass, which allows the texture atlas to be
-    /// immediately resized to accommodate the new resource. As a result, it assumes you don't need the region,
+    /// This function is called during layout, outside of a render pass, which
+    /// allows the texture atlas to be immediately resized to accommodate
+    /// the new resource. As a result, it assumes you don't need the region,
     /// only the final intrinsic size.
     pub fn load_and_resize(
         &self,
@@ -325,7 +330,8 @@ impl Driver {
             Ok(())
         }) {
             Err(Error::ResizeTextureAtlas(layers, kind)) => {
-                // Resize the texture atlas with the requested number of layers (the extent has already been changed)
+                // Resize the texture atlas with the requested number of layers (the extent has
+                // already been changed)
                 match kind {
                     AtlasKind::Primary => self.atlas.write(),
                     AtlasKind::Layer0 => self.layer_atlas[0].write(),
@@ -356,8 +362,9 @@ impl Driver {
         }) {
             size = resource::fill_size(size, *native_size);
 
-            // Check if our requested size is within reasonable resize range - slightly bigger or smaller is fine, and
-            // much smaller is fine if we have access to mipmaps.
+            // Check if our requested size is within reasonable resize range - slightly
+            // bigger or smaller is fine, and much smaller is fine if we have
+            // access to mipmaps.
             for r in regions {
                 if r.uv.size() == size
                     || (r.uv.area() >= resource::MIN_AREA
@@ -410,7 +417,8 @@ impl Driver {
         }
     }
 
-    /// Removes all loaded instances of a particular resource location. Generally used for hotloading resources that changed on disk.
+    /// Removes all loaded instances of a particular resource location.
+    /// Generally used for hotloading resources that changed on disk.
     pub fn evict(&self, location: &dyn Location) {
         if let Some(instances) = self.locations.read().get(location) {
             for instance in instances {
@@ -428,8 +436,8 @@ static_assertions::assert_impl_all!(Driver: Send, Sync);
 
 static_assertions::const_assert!(size_of::<Mat4x4>() == size_of::<[f32; 16]>());
 
-// This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1], and sets
-// output_w = input_z for perspective. Requires input_w = 1
+// This maps x and y to the viewpoint size, maps input_z from [n,f] to [0,1],
+// and sets output_w = input_z for perspective. Requires input_w = 1
 pub fn mat4_proj(x: f32, y: f32, w: f32, h: f32, n: f32, f: f32) -> Mat4x4 {
     Mat4x4::from_arrays([
         [2.0 / w, 0.0, 0.0, 0.0],

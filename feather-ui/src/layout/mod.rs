@@ -26,10 +26,11 @@ use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
-/// Represents an arbitrary layout node that hasn't been staged yet. The vast majority of
-/// the time, components should simply use the standard [`Node`] implementation of this
-/// trait, which handles most common layout cases. However, some components, like the text
-/// component, have complex layout logic or special cases that [`Node`] can't cover.
+/// Represents an arbitrary layout node that hasn't been staged yet. The vast
+/// majority of the time, components should simply use the standard [`Node`]
+/// implementation of this trait, which handles most common layout cases.
+/// However, some components, like the text component, have complex layout logic
+/// or special cases that [`Node`] can't cover.
 pub trait Layout<Props: ?Sized>: DynClone {
     fn get_props(&self) -> &Props;
     fn stage<'a>(
@@ -85,7 +86,8 @@ pub trait Desc {
     type Child: ?Sized;
     type Children: Clone;
 
-    /// Resolves a pending layout into a resolved node, which contains a pointer to the R-tree
+    /// Resolves a pending layout into a resolved node, which contains a pointer
+    /// to the R-tree
     fn stage<'a>(
         props: &Self::Props,
         outer_area: PxRect,
@@ -97,10 +99,11 @@ pub trait Desc {
     ) -> Box<dyn Staged + 'a>;
 }
 
-/// The standard layout node. Expects the layout properties, which must be compatible with the
-/// layout description `D` provided, which also determines the type that contains the children.
-/// A unique ID must be provided, and a renderable is optional - it will be passed to staging
-/// if provided. The layer, if provided will create a new layer operation with the given color
+/// The standard layout node. Expects the layout properties, which must be
+/// compatible with the layout description `D` provided, which also determines
+/// the type that contains the children. A unique ID must be provided, and a
+/// renderable is optional - it will be passed to staging if provided. The
+/// layer, if provided will create a new layer operation with the given color
 /// and rotation. This is normally used to do correct transparency.
 ///
 /// # Examples
@@ -185,6 +188,7 @@ impl Concrete {
         rtree: Rc<rtree::Node>,
         children: im::Vector<Option<Box<dyn Staged>>>,
     ) -> Self {
+        debug_assert!(area.v.is_finite().all());
         let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright());
         assert!(
             !unsized_x && !unsized_y,
@@ -205,6 +209,7 @@ impl Concrete {
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {
+        debug_assert!(self.area.v.is_finite().all());
         if let Some(r) = &self.renderable {
             r.render((self.area + parent_pos).to_untyped(), driver, compositor)?;
         }
@@ -219,7 +224,8 @@ impl Concrete {
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error> {
         for child in (&self.children).into_iter().flatten() {
-            // TODO: If we assign z-indexes to children, ones with negative z-indexes should be rendered before the parent
+            // TODO: If we assign z-indexes to children, ones with negative z-indexes should
+            // be rendered before the parent
             child.render(
                 parent_pos + self.area.topleft().to_vector(),
                 driver,
@@ -246,11 +252,14 @@ impl Staged for Concrete {
             let mut region_uv = None;
 
             let (mut view, depview) = if layer.target.is_some() {
-                // If this is a "real" layer with a texture target, mark it as a dependency of our parent
+                // If this is a "real" layer with a texture target, mark it as a dependency of
+                // our parent
                 dependents.push(Arc::downgrade(&id));
 
-                // Acquire a region if we don't have one already. This is done carefully so that the layer can be moved to a different
-                // dependency layer and therefore switched to a different atlas without the user render functions needing to care.
+                // Acquire a region if we don't have one already. This is done carefully so that
+                // the layer can be moved to a different dependency layer and
+                // therefore switched to a different atlas without the user render functions
+                // needing to care.
                 let index = match compositor.index {
                     0 => 1,
                     1 => 2,
@@ -288,8 +297,8 @@ impl Staged for Concrete {
                 // And return a reference to a new dependency vector
                 (v, &mut deps)
             } else {
-                // Otherwise, we don't create a new compositor view, instead copying our previous one, and passing in
-                // the parent's dependency tracker.
+                // Otherwise, we don't create a new compositor view, instead copying our
+                // previous one, and passing in the parent's dependency tracker.
                 (
                     CompositorView {
                         index: compositor.index,
@@ -306,15 +315,17 @@ impl Staged for Concrete {
                 )
             };
 
-            // Always push a new clipping area, but remember that a layer can only store it's relative area.
+            // Always push a new clipping area, but remember that a layer can only store
+            // it's relative area.
             view.with_clip(layer.area + parent_pos, |refview| {
                 self.render_self(parent_pos, driver, refview)?;
                 self.render_children(parent_pos, driver, refview, depview)
             })?;
 
             if let Some(target) = layer.target.as_ref() {
-                // If this was a real layer, now we need to actually assign the result of our dependencies, and
-                // append ourselves to the parent layer. We must be very careful not to use the wrong view here.
+                // If this was a real layer, now we need to actually assign the result of our
+                // dependencies, and append ourselves to the parent layer. We
+                // must be very careful not to use the wrong view here.
                 target.write().dependents = deps;
                 compositor.append_layer(layer, parent_pos, region_uv.unwrap());
             }
@@ -345,10 +356,12 @@ pub(crate) fn map_unsized_area(mut area: URect, adjust: PxDim) -> URect {
     let (unsized_x, unsized_y) = check_unsized(area);
     let abs = area.abs.v.as_array_mut();
     let rel = area.rel.v.as_array_mut();
-    // Unsized objects must always have a single anchor point to make sense, so we copy over from topleft.
+    // Unsized objects must always have a single anchor point to make sense, so we
+    // copy over from topleft.
     if unsized_x {
         rel[2] = rel[0];
-        // Fix the bottomright abs area in unsized scenarios, because it was relative to the topleft instead of being independent.
+        // Fix the bottomright abs area in unsized scenarios, because it was relative to
+        // the topleft instead of being independent.
         abs[2] += abs[0] + adjust.width;
     }
     if unsized_y {
@@ -377,8 +390,8 @@ pub(crate) fn nuetralize_unsized(v: PxRect) -> PxRect {
 #[must_use]
 #[inline]
 pub(crate) fn limit_area(mut v: PxRect, limits: PxLimits) -> PxRect {
-    // We do this by checking clamp(topleft + limit) instead of clamp(bottomright - topleft)
-    // because this avoids floating point precision issues.
+    // We do this by checking clamp(topleft + limit) instead of clamp(bottomright -
+    // topleft) because this avoids floating point precision issues.
     v.set_bottomright(
         v.bottomright()
             .max(v.topleft() + limits.min())
@@ -432,35 +445,38 @@ pub(crate) fn eval_dim(area: URect, dim: PxDim) -> PxDim {
 pub(crate) fn apply_limit(dim: PxDim, limits: PxLimits, rlimits: RelLimits) -> PxLimits {
     let (unsized_x, unsized_y) = check_unsized_dim(dim);
     let sign = limits.v.sign_bit() | rlimits.v.sign_bit();
+
+    let px = f32x4::new([
+        if unsized_x {
+            limits.min().width
+        } else {
+            limits.min().width.max(dim.width)
+        },
+        if unsized_y {
+            limits.min().height
+        } else {
+            limits.min().height.max(dim.height)
+        },
+        if unsized_x {
+            limits.max().width
+        } else {
+            limits.max().width.min(dim.width)
+        },
+        if unsized_y {
+            limits.max().height
+        } else {
+            limits.max().height.min(dim.height)
+        },
+    ]);
+
     PxLimits {
-        v: (f32x4::new([
-            if unsized_x {
-                limits.min().width
-            } else {
-                limits.min().width.max(dim.width)
-            },
-            if unsized_y {
-                limits.min().height
-            } else {
-                limits.min().height.max(dim.height)
-            },
-            if unsized_x {
-                limits.max().width
-            } else {
-                limits.max().width.min(dim.width)
-            },
-            if unsized_y {
-                limits.max().height
-            } else {
-                limits.max().height.min(dim.height)
-            },
-        ]) * rlimits.v)
-            .copysign(sign),
+        v: (rlimits.v.is_finite().blend(px, f32x4::ONE) * rlimits.v).copysign(sign),
         _unit: PhantomData,
     }
 }
 
-// Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
+// Returns true if an axis is unsized, which means it is defined as the size of
+// it's children's maximum extent.
 #[must_use]
 #[inline]
 pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
@@ -470,14 +486,16 @@ pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
     )
 }
 
-// Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
+// Returns true if an axis is unsized, which means it is defined as the size of
+// it's children's maximum extent.
 #[must_use]
 #[inline]
 pub(crate) fn check_unsized_abs<U>(bottomright: Point2D<f32, U>) -> (bool, bool) {
     (bottomright.x == UNSIZED_AXIS, bottomright.y == UNSIZED_AXIS)
 }
 
-// Returns true if an axis is unsized, which means it is defined as the size of it's children's maximum extent.
+// Returns true if an axis is unsized, which means it is defined as the size of
+// it's children's maximum extent.
 #[must_use]
 #[inline]
 pub(crate) fn check_unsized_dim(dim: PxDim) -> (bool, bool) {
@@ -553,7 +571,8 @@ impl<T, U> Swappable<T> for Vector2D<T, U> {
     }
 }
 
-/// If prev is NAN, always returns zero, which is the correct action for margin edges.
+/// If prev is NAN, always returns zero, which is the correct action for margin
+/// edges.
 #[must_use]
 #[inline]
 fn merge_margin(prev: f32, margin: f32) -> f32 {

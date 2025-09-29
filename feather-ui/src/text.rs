@@ -11,9 +11,10 @@ use smallvec::SmallVec;
 
 use crate::graphics::point_to_pixel;
 
-/// Represents a single change, recording the (`start`,`end`) range of the new string, and the old string
-/// that used to be contained in that range. `start` and `end` might be equal, which represents a deletion.
-/// Likewise, old might be empty, which represents an insertion.
+/// Represents a single change, recording the (`start`,`end`) range of the new
+/// string, and the old string that used to be contained in that range. `start`
+/// and `end` might be equal, which represents a deletion. Likewise, old might
+/// be empty, which represents an insertion.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Change {
     pub start: Cursor,
@@ -28,7 +29,8 @@ pub struct EditBuffer {
     pub(crate) count: AtomicUsize,
     pub(crate) reflow: AtomicBool,
     cursor: AtomicUsize,
-    select: AtomicUsize, // If there's a selection, this is different from cursor and points at the end. Can be less than cursor.
+    select: AtomicUsize, /* If there's a selection, this is different from cursor and points at
+                          * the end. Can be less than cursor. */
 }
 
 impl Default for EditBuffer {
@@ -122,7 +124,8 @@ impl EditBuffer {
             self.set_content(&text);
             [(range.start..replace.len(), old)].into()
         } else {
-            // To preserve the validity of the ranges, we have to assemble the string piecewise
+            // To preserve the validity of the ranges, we have to assemble the string
+            // piecewise
             let mut undo = SmallVec::new();
             let mut last = 0;
             let mut s = String::new();

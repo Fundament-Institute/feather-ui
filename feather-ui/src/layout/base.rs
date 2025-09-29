@@ -74,7 +74,8 @@ pub trait ZIndex {
 
 impl ZIndex for DRect {}
 
-// Padding is used so an element's actual area can be larger than the area it draws children inside (like text).
+// Padding is used so an element's actual area can be larger than the area it
+// draws children inside (like text).
 pub trait Padding {
     fn padding(&self) -> &DAbsRect {
         &crate::ZERO_DABSRECT
@@ -83,7 +84,8 @@ pub trait Padding {
 
 impl Padding for DRect {}
 
-// Relative to parent's area, but only ever used to determine spacing between child elements.
+// Relative to parent's area, but only ever used to determine spacing between
+// child elements.
 pub trait Margin {
     fn margin(&self) -> &DRect {
         &ZERO_DRECT

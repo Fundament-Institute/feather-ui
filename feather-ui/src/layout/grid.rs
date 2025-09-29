@@ -8,7 +8,8 @@ use super::{
 use crate::{DPoint, DValue, PxDim, PxRect, RowDirection, SourceID, UNSIZED_AXIS, rtree};
 use std::rc::Rc;
 
-// TODO: use sparse vectors here? Does that even make sense if rows require a default size of some kind?
+// TODO: use sparse vectors here? Does that even make sense if rows require a
+// default size of some kind?
 pub trait Prop: base::Area + base::Limits + base::Anchor + base::Padding + base::Direction {
     fn rows(&self) -> &[DValue];
     fn columns(&self) -> &[DValue];
@@ -20,8 +21,9 @@ crate::gen_from_to_dyn!(Prop);
 pub trait Child: base::RLimits {
     /// (Column, Row) coordinate of the item
     fn coord(&self) -> (usize, usize);
-    /// (Column, Row) span of the item, lets items span across multiple rows or columns.
-    /// Minimum is (1,1), and the layout won't save you if you tell it to overlap items.
+    /// (Column, Row) span of the item, lets items span across multiple rows or
+    /// columns. Minimum is (1,1), and the layout won't save you if you tell
+    /// it to overlap items.
     fn span(&self) -> (usize, usize);
 }
 
@@ -32,7 +34,10 @@ fn swap_coord((x, y): (usize, usize), (w, h): (usize, usize), dir: RowDirection)
         RowDirection::LeftToRight => (x, y),
         RowDirection::RightToLeft => (w - 1 - x, y),
         RowDirection::BottomToTop => (x, h - 1 - y),
-        RowDirection::TopToBottom => (w - 1 - x, h - 1 - y), // TODO: This is confusing, but it's not clear how to handle this without being verbose or confusing.
+        RowDirection::TopToBottom => (w - 1 - x, h - 1 - y), /* TODO: This is confusing, but it's
+                                                              * not clear how to handle this
+                                                              * without being verbose or
+                                                              * confusing. */
     }
 }
 
@@ -85,12 +90,14 @@ impl Desc for dyn Prop {
                 {
                     let (rows, columns) = resolved.split_at_mut(nrows);
 
-                    // Fill our max calculation rows with NANs (this ensures max()/min() behave properly)
+                    // Fill our max calculation rows with NANs (this ensures max()/min() behave
+                    // properly)
                     sizes.fill(f32::NAN);
 
                     let (maxrows, maxcolumns) = sizes.split_at_mut(nrows);
 
-                    // First we precalculate all row/column sizes that we can (if an outer axis is unsized, relative sizes are set to 0)
+                    // First we precalculate all row/column sizes that we can (if an outer axis is
+                    // unsized, relative sizes are set to 0)
                     for (i, row) in props.rows().iter().enumerate() {
                         rows[i] = row.resolve(window.dpi.height).resolve(inner_dim.height);
                     }
@@ -98,7 +105,8 @@ impl Desc for dyn Prop {
                         columns[i] = column.resolve(window.dpi.width).resolve(inner_dim.width);
                     }
 
-                    // Then we go through all child elements so we can precalculate the maximum area of all rows and columns
+                    // Then we go through all child elements so we can precalculate the maximum area
+                    // of all rows and columns
                     for child in children.iter() {
                         let child_props = child.as_ref().unwrap().get_props();
                         let child_limit =
@@ -137,7 +145,8 @@ impl Desc for dyn Prop {
                 );
                 let area = map_unsized_area(myarea, PxDim::new(x_used, y_used));
 
-                // Calculate the offset to each row or column, without overwriting the size we stored in resolved
+                // Calculate the offset to each row or column, without overwriting the size we
+                // stored in resolved
                 let (row_offsets, column_offsets) = sizes.split_at_mut(nrows);
                 let mut offset = 0.0;
 
@@ -179,6 +188,7 @@ impl Desc for dyn Prop {
                 evaluated_area - anchor
             });
 
+        debug_assert!(evaluated_area.v.is_finite().all());
         Box::new(Concrete {
             area: evaluated_area,
             renderable,

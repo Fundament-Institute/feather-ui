@@ -72,9 +72,10 @@ impl dyn Calculator {
     #[inline]
     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
         if self.is::<T>() {
-            // SAFETY: just checked whether we are pointing to the correct type, and we can rely on
-            // that check for memory safety because we have implemented Any for all types; no other
-            // impls can exist as they would conflict with our impl.
+            // SAFETY: just checked whether we are pointing to the correct type, and we can
+            // rely on that check for memory safety because we have implemented
+            // Any for all types; no other impls can exist as they would
+            // conflict with our impl.
             unsafe { Some(self.downcast_ref_unchecked()) }
         } else {
             None
@@ -82,7 +83,8 @@ impl dyn Calculator {
     }
 }
 
-// Doesn't include instant actions that take no argument, like clear, backspace, pi, square, root, etc.
+// Doesn't include instant actions that take no argument, like clear, backspace,
+// pi, square, root, etc.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum CalcOp {
     #[default]
@@ -294,7 +296,8 @@ pub fn register(calc: ::std::sync::Arc<dyn Calculator>) {
         inputs.push(Box::new(
             |_: mouse_area::MouseAreaEvent, mut appdata: AccessCell<CalcFFI>| -> InputResult<()> {
                 {
-                    // This needs to be a mutable reference purely so feather knows something actually changed
+                    // This needs to be a mutable reference purely so feather knows something
+                    // actually changed
                     f(&mut appdata.0);
                     InputResult::Consume(())
                 }

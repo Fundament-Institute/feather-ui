@@ -16,9 +16,12 @@ use std::rc::Rc;
 use winit::dpi::PhysicalPosition;
 
 pub struct Node {
-    pub area: PxRect, // This is the calculated area of the node from the layout relative to the topleft corner of the parent.
-    pub extent: PxRect, // This is the minimal bounding rectangle of the children's extent relative to OUR topleft corner.
-    pub top: i32, // 2D R-tree nodes are actually 3 dimensional, but the z-axis can never overlap (because layout rects have no depth).
+    pub area: PxRect, /* This is the calculated area of the node from the layout relative to the
+                       * topleft corner of the parent. */
+    pub extent: PxRect, /* This is the minimal bounding rectangle of the children's extent
+                         * relative to OUR topleft corner. */
+    pub top: i32, /* 2D R-tree nodes are actually 3 dimensional, but the z-axis can never
+                   * overlap (because layout rects have no depth). */
     pub bottom: i32,
     pub mask: AtomicU64,
     pub id: std::sync::Weak<SourceID>,
@@ -26,9 +29,10 @@ pub struct Node {
     pub parent: std::cell::OnceCell<std::rc::Weak<Node>>,
 }
 
-// A tuple like this is necessary to build a chain of parent nodes down the recursive process call, but we currently don't need it.
-// This is left here as reference.
-//pub struct ParentTuple<'a>(&'a Rc<Node>, Option<&'a ParentTuple<'a>>);
+// A tuple like this is necessary to build a chain of parent nodes down the
+// recursive process call, but we currently don't need it. This is left here as
+// reference. pub struct ParentTuple<'a>(&'a Rc<Node>, Option<&'a
+// ParentTuple<'a>>);
 
 impl Node {
     pub fn new(
@@ -48,13 +52,16 @@ impl Node {
                 },
             ));
 
-            // TODO: This is inefficient for large trees, but the alternative is to somehow maintain a "capture" pointer on each rtree node,
-            // which requires cooperation from the persistent data structure to maintain, which we don't have right now.
+            // TODO: This is inefficient for large trees, but the alternative is to somehow
+            // maintain a "capture" pointer on each rtree node, which requires
+            // cooperation from the persistent data structure to maintain, which we don't
+            // have right now.
             for child in &children {
                 child.as_ref().unwrap().parent.get_or_init(|| this.clone());
             }
 
-            // If no z index is provided for this node, try to use a zindex from the first child. If there is no first child, default to 0
+            // If no z index is provided for this node, try to use a zindex from the first
+            // child. If there is no first child, default to 0
             let z = z.unwrap_or_else(|| {
                 children
                     .front()
@@ -83,7 +90,8 @@ impl Node {
         this
     }
 
-    // This handles event postprocessing that must always happen, even for directly injected events
+    // This handles event postprocessing that must always happen, even for directly
+    // injected events
     pub(crate) fn postprocess(
         self: &Rc<Self>,
         event: &RawEvent,
@@ -107,7 +115,8 @@ impl Node {
 
                 let window = &mut state.state;
 
-                // Either replace the old node, or simply remove it if this is not a valid focus target
+                // Either replace the old node, or simply remove it if this is not a valid focus
+                // target
                 let (old, valid) = if let Some(id) = self.id.upgrade() {
                     (
                         window.set(WindowNodeTrack::Hover, *device_id, id, Rc::downgrade(self)),
@@ -139,7 +148,8 @@ impl Node {
                     );
                 }
 
-                // We delay injecting MouseOn until after an old node gets MouseOff to present events in a sensible order
+                // We delay injecting MouseOn until after an old node gets MouseOff to present
+                // events in a sensible order
                 if valid {
                     let evt = RawEvent::MouseOn {
                         device_id: *device_id,
@@ -216,7 +226,8 @@ impl Node {
             if (kind as u64 & mask) != 0 {
                 match manager.process(
                     event.clone().extract(),
-                    &crate::Slot(id.clone(), 0), // TODO: We currently don't use the slot index here, but we might need to later
+                    &crate::Slot(id.clone(), 0), /* TODO: We currently don't use the slot index
+                                                  * here, but we might need to later */
                     dpi,
                     self.area + offset,
                     self.extent,
@@ -236,8 +247,9 @@ impl Node {
         InputResult::Forward(u64::MAX)
     }
 
-    // We allow this to return an invalid weak pointer because returning an *invalid* root is a more obvious problem than returning
-    // the *wrong* node as if it were the root (which can be very confusing).
+    // We allow this to return an invalid weak pointer because returning an
+    // *invalid* root is a more obvious problem than returning the *wrong* node
+    // as if it were the root (which can be very confusing).
     fn find_root(mut node: Rc<Node>) -> std::rc::Weak<Node> {
         while let Some(parent) = node.parent.get() {
             if let Some(n) = parent.upgrade() {
@@ -277,7 +289,8 @@ impl Node {
             let mut mask = 0;
             // Children should be sorted from top to bottom
             for child in self.children.iter().rev() {
-                // TODO: Split these iterations into positive and negative z indexes, then call this node after processing index 0 but before negative indices.
+                // TODO: Split these iterations into positive and negative z indexes, then call
+                // this node after processing index 0 but before negative indices.
                 let child = child.as_ref().unwrap();
                 let r = child.process(
                     event,
@@ -290,7 +303,8 @@ impl Node {
                     window_id.clone(),
                 );
                 if !r.is_reject() {
-                    // At this point, we should've already set focus, and are simply walking back up the stack
+                    // At this point, we should've already set focus, and are simply walking back up
+                    // the stack
                     return r;
                 }
 
@@ -303,13 +317,15 @@ impl Node {
                 _ => (),
             };
 
-            // This is only ever stored when a message has been rejected by all children and this node. It's mostly used
-            // as an optimization for large sets of non-interactive nodes, but it could be made more aggressive.
+            // This is only ever stored when a message has been rejected by all children and
+            // this node. It's mostly used as an optimization for large sets of
+            // non-interactive nodes, but it could be made more aggressive.
             self.mask.store(mask, Ordering::Release);
 
             if e.is_accept() {
                 match event {
-                    // If we successfully process a mouse event, this node gains focus in it's parent window
+                    // If we successfully process a mouse event, this node gains focus in it's
+                    // parent window
                     RawEvent::Mouse {
                         device_id,
                         state: MouseState::Down,
@@ -332,9 +348,11 @@ impl Node {
                         let window = &mut state.state;
                         let inner = window.window.clone();
 
-                        // Either replace the old node, or simply remove it if this is not a valid focus target
+                        // Either replace the old node, or simply remove it if this is not a valid
+                        // focus target
                         let (old, valid) = if let Some(id) = self.id.upgrade() {
-                            // On any mousedown event, capture the cursor if it wasn't captured already
+                            // On any mousedown event, capture the cursor if it wasn't captured
+                            // already
                             window.set(
                                 WindowNodeTrack::Capture,
                                 *device_id,
@@ -374,7 +392,8 @@ impl Node {
                             );
                         }
 
-                        // We delay injecting Focus until after the old node gets it's own Focus event to preserve a sensible ordering
+                        // We delay injecting Focus until after the old node gets it's own Focus
+                        // event to preserve a sensible ordering
                         if valid {
                             let evt = RawEvent::Focus {
                                 acquired: true,
@@ -390,7 +409,8 @@ impl Node {
                                 manager,
                             );
                         } else {
-                            // If this wasn't a valid node, we removed capture but didn't replace it, so we have to inject a mousemove event
+                            // If this wasn't a valid node, we removed capture but didn't replace
+                            // it, so we have to inject a mousemove event
                             let _ = crate::component::window::Window::on_window_event(
                                 window_id.clone(),
                                 Self::find_root(self.clone()),

@@ -21,18 +21,22 @@ pub enum AtlasKind {
     Layer1,
 }
 
-/// Array of 2D textures, along with an array of guillotine allocators to go along with them. We use an array of mid-size
-/// textures so we don't have to resize the atlas allocator or adjust any UV coordinates that way.
+/// Array of 2D textures, along with an array of guillotine allocators to go
+/// along with them. We use an array of mid-size textures so we don't have to
+/// resize the atlas allocator or adjust any UV coordinates that way.
 #[derive_where::derive_where(Debug)]
 pub struct Atlas {
     extent: u32,
     pub extent_buf: wgpu::Buffer,
-    pub mvp: wgpu::Buffer, // Matrix for rendering *onto* the texture atlas (the compositor has it's own for rendering to the screen)
+    pub mvp: wgpu::Buffer, /* Matrix for rendering *onto* the texture atlas (the compositor has
+                            * it's own for rendering to the screen) */
     pub(crate) texture: wgpu::Texture,
     #[derive_where(skip)]
     allocators: Vec<AtlasAllocator>,
     cache: HashMap<Arc<crate::SourceID>, Region>,
-    pub view: Arc<wgpu::TextureView>, // Stores a view into the atlas texture. Compositors take a weak reference to this that is invalidated when they need to rebind
+    pub view: Arc<wgpu::TextureView>, /* Stores a view into the atlas texture. Compositors take
+                                       * a weak reference to this that is invalidated when they
+                                       * need to rebind */
     pub targets: Vec<wgpu::TextureView>,
     kind: AtlasKind,
     mipgen: HashMap<u8, (wgpu::Buffer, usize)>,
@@ -85,8 +89,9 @@ impl Atlas {
         })
     }
 
-    /// Creates an encoder that resizes the texture atlas, submits this to the work queue. Does not wait until
-    /// queue finishes processing as this shouldn't be necessary.
+    /// Creates an encoder that resizes the texture atlas, submits this to the
+    /// work queue. Does not wait until queue finishes processing as this
+    /// shouldn't be necessary.
     pub fn resize(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, layers: u32) {
         let mut texture = Self::create_texture(device, self.extent, layers);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -128,7 +133,8 @@ impl Atlas {
 
         queue.write_buffer(&self.extent_buf, 0, &self.extent.to_ne_bytes());
         queue.submit(Some(encoder.finish()));
-        // device.poll(PollType::Wait); // shouldn't be needed as long as queues after this refer to the correct texture
+        // device.poll(PollType::Wait); // shouldn't be needed as long as queues after
+        // this refer to the correct texture
         texture.destroy();
         assert_eq!(Arc::strong_count(&view), 1); // This MUST be dropped because we rely on this to signal the compositors to rebind
 
@@ -143,7 +149,8 @@ impl Atlas {
         }
     }
 
-    /// Create a standard projection matrix suitable for compositing for a texture.
+    /// Create a standard projection matrix suitable for compositing for a
+    /// texture.
     pub fn create_mvp_from_texture(
         device: &wgpu::Device,
         texture: &wgpu::Texture,
@@ -432,11 +439,13 @@ impl Atlas {
             );
         }
     }
-    /// Allocates a new region in the texture atlas with an associated ID. If the ID already
-    /// exists, returns the existing region, provided it is the same size as before,
-    /// otherwise allocates a new one and releases the old one, if it exists. If `clear` is
-    /// set, also queues a texture write command to clear the region. Clearing a region is
-    /// rarely needed, since most pipelines will overwrite the entire region anyway.
+    /// Allocates a new region in the texture atlas with an associated ID. If
+    /// the ID already exists, returns the existing region, provided it is
+    /// the same size as before, otherwise allocates a new one and releases
+    /// the old one, if it exists. If `clear` is set, also queues a texture
+    /// write command to clear the region. Clearing a region is
+    /// rarely needed, since most pipelines will overwrite the entire region
+    /// anyway.
     ///
     /// If mipmap is set, queues a set of mipmaps for the region.
     pub fn cache_region(
@@ -444,7 +453,8 @@ impl Atlas {
         device: &wgpu::Device,
         id: &Arc<crate::SourceID>,
         dim: Size,
-        mipmap: Option<&wgpu::Queue>, // This is a little silly but works because we can have two immutable references at once
+        mipmap: Option<&wgpu::Queue>, /* This is a little silly but works because we can have
+                                       * two immutable references at once */
         clear: Option<&wgpu::Queue>,
     ) -> Result<&Region, Error> {
         let uv = self.cache.get(id).map(|x| x.uv);
@@ -500,7 +510,8 @@ impl Atlas {
         region.id = AllocId::deserialize(u32::MAX);
     }
 
-    // This always triggers a resize error telling us to abort the current frame render
+    // This always triggers a resize error telling us to abort the current frame
+    // render
     fn grow(&mut self, device: &wgpu::Device) -> Error {
         if (self.extent * 2) <= device.limits().max_texture_dimension_2d {
             self.extent *= 2;
@@ -520,8 +531,9 @@ impl Atlas {
     }
 
     fn queue_mip(&mut self, region: &Region, device: &wgpu::Device, queue: &wgpu::Queue) {
-        // TODO: In order for this to actual work reliably, the allocated region must be a multiple
-        // of 2^8 (for 8 miplevels), or 256, but our current region allocator can't do this.
+        // TODO: In order for this to actual work reliably, the allocated region must be
+        // a multiple of 2^8 (for 8 miplevels), or 256, but our current region
+        // allocator can't do this.
         let uv = region.uv.to_f32();
         let rect = [uv.min.x, uv.min.y, uv.max.x, uv.max.y];
         self.mipgen.entry(region.index).or_insert_with(|| {
@@ -664,16 +676,19 @@ impl Atlas {
 }
 
 #[derive(Debug)]
-/// A single allocated region on a particular texture atlas. We store the pixel coordinates, not the normalized UV coordinates.
+/// A single allocated region on a particular texture atlas. We store the pixel
+/// coordinates, not the normalized UV coordinates.
 pub struct Region {
     pub id: AllocId,
     pub uv: PxBox,
     pub index: u8,
 }
 
-// Technically, this should implement !Forget (or !Leak), because it should never be put in an Rc<>. If rust ever stabilizes
-// that trait, it would be good to add it here. However, using a stale Region will simply render incorrect data, it won't
-// access invalid memory, so there is no safety or soundness problem here, only a correctness issue.
+// Technically, this should implement !Forget (or !Leak), because it should
+// never be put in an Rc<>. If rust ever stabilizes that trait, it would be good
+// to add it here. However, using a stale Region will simply render incorrect
+// data, it won't access invalid memory, so there is no safety or soundness
+// problem here, only a correctness issue.
 impl Drop for Region {
     fn drop(&mut self) {
         if self.id != AllocId::deserialize(u32::MAX) {

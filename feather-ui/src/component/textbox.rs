@@ -25,7 +25,8 @@ pub enum TextBoxEvent {
 }
 
 struct TextBoxState {
-    last_x_offset: Option<f32>, // Last cursor x offset when something other than up or down navigation happened
+    last_x_offset: Option<f32>, /* Last cursor x offset when something other than up or down
+                                 * navigation happened */
     history: Vec<SmallVec<[Change; 1]>>,
     undo_index: usize,
     insert_mode: bool,
@@ -282,7 +283,8 @@ impl super::EventRouter for TextBoxState {
                                     && named_key == NamedKey::Cut
                                 {
                                     let font_system = &mut driver.font_system.write();
-                                    // Only delete the text for a cut command if the operation succeeds
+                                    // Only delete the text for a cut command if the operation
+                                    // succeeds
                                     if let Some(c) =
                                         this.editor.delete_selection(font_system, buffer)
                                     {
@@ -337,7 +339,8 @@ impl super::EventRouter for TextBoxState {
                         );
                         return InputResult::Consume(SmallVec::new());
                     }
-                    // Always capture the key event if we recognize it even if we don't do anything with it
+                    // Always capture the key event if we recognize it even if we don't do anything
+                    // with it
                     return InputResult::Consume(SmallVec::new());
                 }
                 Key::Character(c) => {
@@ -500,7 +503,8 @@ pub struct TextBox<T> {
 
 impl TextBoxState {
     fn redo(&mut self, font_system: &mut cosmic_text::FontSystem, buffer: &mut Buffer) -> usize {
-        // Redo the current Edit event (or execute cursor events until we find one) then run all Cursor events after it until the next Edit event
+        // Redo the current Edit event (or execute cursor events until we find one) then
+        // run all Cursor events after it until the next Edit event
         if self.undo_index < self.history.len() {
             self.history[self.undo_index] = self.editor.apply_change(
                 font_system,

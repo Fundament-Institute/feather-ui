@@ -64,15 +64,17 @@ pub fn linear_to_srgb<T: num_traits::Float>(c: T) -> T {
     }
 }
 
-/// Applies a function to all color channels, leaving the alpha channel untouched
+/// Applies a function to all color channels, leaving the alpha channel
+/// untouched
 pub fn map_color(c: f32x4, f: impl Fn(f32) -> f32) -> f32x4 {
     let v = c.to_array();
     f32x4::new([f(v[0]), f(v[1]), f(v[2]), v[3]])
 }
 
 pub trait ColorSpace: Premultiplied {
-    /// Everything must provide a way to translate into standard XYZ space. The 4th component
-    /// is alpha, which is left unchanged in all color space transforms
+    /// Everything must provide a way to translate into standard XYZ space. The
+    /// 4th component is alpha, which is left unchanged in all color space
+    /// transforms
     fn xyz(&self) -> XYZ;
 
     /// This uses the standard formulation to transform into OkLab from XYZ
@@ -92,8 +94,9 @@ pub trait ColorSpace: Premultiplied {
         }
     }
 
-    /// This pathway goes through the linear Raw_sRGB pathway first, because only linear Raw_sRGB to XYZ
-    /// and vice-versa is defined, but a color space can override this with a faster pathway.
+    /// This pathway goes through the linear Raw_sRGB pathway first, because
+    /// only linear Raw_sRGB to XYZ and vice-versa is defined, but a color
+    /// space can override this with a faster pathway.
     fn srgb(&self) -> Raw_sRGB<false, false> {
         let srgb = self.linear_srgb();
 
@@ -102,7 +105,8 @@ pub trait ColorSpace: Premultiplied {
         }
     }
 
-    /// This automatically converts from XYZ, but can be overridden if there's a faster pathway
+    /// This automatically converts from XYZ, but can be overridden if there's a
+    /// faster pathway
     fn linear_srgb(&self) -> Raw_sRGB<true, false> {
         let xyz = self.xyz();
 
@@ -111,12 +115,13 @@ pub trait ColorSpace: Premultiplied {
     }
 }
 
-/// Represents a color space that is premultiplied. You cannot un-premultiply a colorspace, so
-/// this is a one-way transformation.
+/// Represents a color space that is premultiplied. You cannot un-premultiply a
+/// colorspace, so this is a one-way transformation.
 pub trait Premultiplied {
-    /// Transforms this colorspace into premultiplied non-linear sRGB. This should always
-    /// linearize the colorspace before performing the premultiplication, which will then be
-    /// delinearized back into sRGB after the premultiplication has happened.
+    /// Transforms this colorspace into premultiplied non-linear sRGB. This
+    /// should always linearize the colorspace before performing the
+    /// premultiplication, which will then be delinearized back into sRGB
+    /// after the premultiplication has happened.
     fn srgb_pre(&self) -> Raw_sRGB<false, true> {
         let srgb = self.linear_srgb_pre();
 
@@ -275,17 +280,17 @@ impl<const LINEAR: bool, const PREMULTIPLY: bool> Raw_sRGB<LINEAR, PREMULTIPLY> 
 }
 
 impl Raw_sRGB<false, false> {
-    /// Returns this color as an array of 8-bit channels. This is only implemented
-    /// on nonlinear sRGB that hasn't been premultiplied, because otherwise you'll
-    /// lose precision when sending the color to a shader, unless you are writing
-    /// directly to the texture atlas, in which case you want `as_bgra` implemented
-    /// on premultiplied sRGB.
+    /// Returns this color as an array of 8-bit channels. This is only
+    /// implemented on nonlinear sRGB that hasn't been premultiplied,
+    /// because otherwise you'll lose precision when sending the color to a
+    /// shader, unless you are writing directly to the texture atlas, in
+    /// which case you want `as_bgra` implemented on premultiplied sRGB.
     pub fn as_8bit(&self) -> [u8; 4] {
         self.as_array().map(|x| (x * 255.0).round() as u8)
     }
 
-    /// Returns this color in a 32-bit integer. This is only valid for nonlinear sRGB
-    /// that isn't premultiplied to avoid precision loss.
+    /// Returns this color in a 32-bit integer. This is only valid for nonlinear
+    /// sRGB that isn't premultiplied to avoid precision loss.
     pub fn as_32bit(&self) -> sRGB32 {
         sRGB32 {
             rgba: u32::from_be_bytes(self.as_8bit()),
@@ -294,9 +299,9 @@ impl Raw_sRGB<false, false> {
 }
 
 impl Raw_sRGB<false, true> {
-    /// Returns this color as an array of 8-bit channels, with the red and blue channels
-    /// swapped. This is used exclusively to write values directly to a premultiplied
-    /// sRGB texture like the texture atlas.
+    /// Returns this color as an array of 8-bit channels, with the red and blue
+    /// channels swapped. This is used exclusively to write values directly
+    /// to a premultiplied sRGB texture like the texture atlas.
     pub fn as_bgra(&self) -> [u8; 4] {
         let mut rgba = self.as_array().map(|x| (x * 255.0).round() as u8);
         rgba.swap(0, 2);
@@ -336,7 +341,8 @@ impl Premultiplied for Raw_sRGB<false, false> {
 
 impl ColorSpace for Raw_sRGB<true, false> {
     fn xyz(&self) -> XYZ {
-        // We can't really un-premultiply the alpha here, and XYZ can be premultiplied, so we just leave it
+        // We can't really un-premultiply the alpha here, and XYZ can be premultiplied,
+        // so we just leave it
         XYZ {
             xyza: mat4_x_vec4(self.rgba, SRGB_XYZ),
         }
@@ -414,7 +420,8 @@ pub type Pre_sRGB = Raw_sRGB<false, true>;
 #[allow(non_camel_case_types)]
 pub type PreLinear_sRGB = Raw_sRGB<true, true>;
 
-// We only implement this conversion for sRGB because cosmic_text expects sRGB colors.
+// We only implement this conversion for sRGB because cosmic_text expects sRGB
+// colors.
 impl From<sRGB> for cosmic_text::Color {
     fn from(val: sRGB) -> Self {
         let v = val.as_8bit();
@@ -486,7 +493,8 @@ impl sRGB32 {
     }
 }
 
-/// Represents an sRGB color (not premultiplied) as a 64-bit signed integer, 16-bits per channel
+/// Represents an sRGB color (not premultiplied) as a 64-bit signed integer,
+/// 16-bits per channel
 #[allow(non_camel_case_types)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct sRGB64 {
@@ -554,7 +562,8 @@ impl sRGB64 {
         }
     }
 
-    /// 16-bit precision has a potentially arbitrary 1.0 point, since it can potentially store HDR data from different formats.
+    /// 16-bit precision has a potentially arbitrary 1.0 point, since it can
+    /// potentially store HDR data from different formats.
     pub fn as_f32_scaled(&self, scale: f32) -> sRGB {
         sRGB {
             rgba: f32x4::new(self.as_array().map(|x| x as f32 / (65535.0 / scale))),
