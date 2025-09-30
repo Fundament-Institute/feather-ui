@@ -21,7 +21,7 @@ impl Desc for dyn Prop {
     type Child = dyn Child;
     // TODO: Make a sorted im::Vector that uses base::Order to order inserted
     // children.
-    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
+    type Children = im::Vector<Box<dyn Layout<Self::Child>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -57,7 +57,7 @@ impl Desc for dyn Prop {
 
         // This should eventually be a persistent fold
         let mut aux_margins: im::Vector<f32> = im::Vector::new();
-        let mut areas: im::Vector<Option<(PxRect, f32)>> = im::Vector::new();
+        let mut areas: im::Vector<(PxRect, f32)> = im::Vector::new();
 
         let area = {
             let mut cur = PxPoint::zero();
@@ -70,24 +70,21 @@ impl Desc for dyn Prop {
             let inner_area = PxRect::from(inner_dim);
 
             for child in children.iter() {
-                let child_props = child.as_ref().unwrap().get_props();
+                let child_props = child.as_ref().get_props();
                 let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
                 let child_margin = child_props
                     .margin()
                     .resolve(window.dpi)
                     .to_perimeter(outer_safe);
 
-                let stage = child
-                    .as_ref()
-                    .unwrap()
-                    .stage(inner_area, child_limit, window);
+                let stage = child.as_ref().stage(inner_area, child_limit, window);
                 let area = stage.get_area();
 
                 let (margin_main, child_margin_aux) = child_margin.topleft().swap_axis(xaxis);
                 let (main, aux) = area.dim().swap_axis(xaxis);
                 let mut margin = super::merge_margin(prev_margin, margin_main);
                 // Have to add the margin here before we zero it
-                areas.push_back(Some((area, margin)));
+                areas.push_back((area, margin));
 
                 if !prev_margin.is_nan() && cur.x + main + margin > main_limit {
                     max_main = cur.x.max(max_main);
@@ -126,8 +123,8 @@ impl Desc for dyn Prop {
         let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
         let evaluated_area = evaluated_area - anchor;
 
-        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
-        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
+        let mut staging: im::Vector<Box<dyn Staged>> = im::Vector::new();
+        let mut nodes: im::Vector<Rc<rtree::Node>> = im::Vector::new();
 
         // If our parent is asking for a size estimation along the expansion axis, no
         // need to layout the children TODO: Double check this assumption is
@@ -155,8 +152,8 @@ impl Desc for dyn Prop {
         let mut aux_margin = aux_margins.pop_front().unwrap_or_default();
 
         for (i, child) in children.iter().enumerate() {
-            let child = child.as_ref().unwrap();
-            let (area, margin) = areas[i].unwrap();
+            let child = child.as_ref();
+            let (area, margin) = areas[i];
             let dim = area.dim();
             let (_, aux) = dim.swap_axis(xaxis);
 
@@ -216,9 +213,9 @@ impl Desc for dyn Prop {
 
             let stage = child.stage(child_area, child_limit, window);
             if let Some(node) = stage.get_rtree().upgrade() {
-                nodes.push_back(Some(node));
+                nodes.push_back(node);
             }
-            staging.push_back(Some(stage));
+            staging.push_back(stage);
         }
 
         debug_assert!(evaluated_area.v.is_finite().all());

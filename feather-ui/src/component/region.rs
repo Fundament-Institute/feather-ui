@@ -17,14 +17,14 @@ pub struct Region<T: Default> {
     pub color: Option<sRGB32>,
     pub rotation: Option<f32>,
     props: Rc<T>,
-    children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+    children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
 }
 
 impl<T: fixed::Prop + Default + 'static> Region<T> {
     pub fn new(
         id: Arc<SourceID>,
         props: T,
-        children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+        children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
     ) -> Self {
         Self {
             id,
@@ -39,7 +39,7 @@ impl<T: fixed::Prop + Default + 'static> Region<T> {
         props: T,
         color: sRGB32,
         rotation: f32,
-        children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+        children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
     ) -> Self {
         Self {
             id,
@@ -63,9 +63,10 @@ where
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
+        #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref()?.layout(manager, driver, window))
+            |child: &Box<ChildOf<dyn fixed::Prop>>| -> Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>> {
+                child.layout(manager, driver, window)
             }));
 
         let layer = if self.color.is_some() || self.rotation.is_some() {

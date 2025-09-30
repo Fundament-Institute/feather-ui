@@ -365,7 +365,7 @@ pub fn state_machine_child(input: TokenStream) -> TokenStream {
                 ) -> eyre::Result<()> {
                     self.children
                         .iter()
-                        .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
+                        .try_for_each(|x| f(x.as_ref()))
                 }
         }
     } else {

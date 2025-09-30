@@ -180,31 +180,29 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
             };
 
             let rectlist = {
-                let mut children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>> =
-                    im::Vector::new();
+                let mut children: im::Vector<Box<ChildOf<dyn list::Prop>>> = im::Vector::new();
 
                 for (i, id) in scope.iter(0..args.count) {
-                    children.push_back(Some(Box::new(Shape::<
-                        ListChild,
-                        { ShapeKind::RoundRect as u8 },
-                    >::new(
-                        id,
-                        ListChild {
-                            area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
-                            margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
-                        },
-                        0.0,
-                        0.0,
-                        wide::f32x4::splat(8.0),
-                        sRGB::new(
-                            (0.1 * i as f32) % 1.0,
-                            (0.65 * i as f32) % 1.0,
-                            (0.2 * i as f32) % 1.0,
-                            1.0,
+                    children.push_back(Box::new(
+                        Shape::<ListChild, { ShapeKind::RoundRect as u8 }>::new(
+                            id,
+                            ListChild {
+                                area: AbsRect::new(0.0, 0.0, 40.0, 40.0).into(),
+                                margin: AbsRect::new(8.0, 8.0, 4.0, 4.0).into(),
+                            },
+                            0.0,
+                            0.0,
+                            wide::f32x4::splat(8.0),
+                            sRGB::new(
+                                (0.1 * i as f32) % 1.0,
+                                (0.65 * i as f32) % 1.0,
+                                (0.2 * i as f32) % 1.0,
+                                1.0,
+                            ),
+                            sRGB::transparent(),
+                            DAbsPoint::zero(),
                         ),
-                        sRGB::transparent(),
-                        DAbsPoint::zero(),
-                    ))));
+                    ));
                 }
 
                 ListBox::<ListData>::new(
@@ -221,8 +219,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
             };
 
             let flexlist = {
-                let mut children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>> =
-                    im::Vector::new();
+                let mut children: im::Vector<Box<ChildOf<dyn flex::Prop>>> = im::Vector::new();
 
                 for (i, id) in scope.iter(0..args.count) {
                     let rect = Shape::<FlexChild, { ShapeKind::RoundRect as u8 }>::new(
@@ -265,7 +262,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
                         feather_ui::children![fixed::Prop, rect],
                     );
 
-                    children.push_back(Some(Box::new(reg)));
+                    children.push_back(Box::new(reg));
                 }
 
                 FlexBox::<MinimalFlex>::new(

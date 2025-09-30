@@ -157,11 +157,10 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
 
             const NUM_COLUMNS: usize = 5;
             let rectgrid = {
-                let mut children: im::Vector<Option<Box<ChildOf<dyn grid::Prop>>>> =
-                    im::Vector::new();
+                let mut children: im::Vector<Box<ChildOf<dyn grid::Prop>>> = im::Vector::new();
                 {
                     for (i, id) in scope.iter(0..args.count) {
-                        children.push_back(Some(Box::new(Shape::<
+                        children.push_back(Box::new(Shape::<
                             GridChild,
                             { ShapeKind::RoundRect as u8 },
                         >::new(
@@ -182,7 +181,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
                             ),
                             sRGB::transparent(),
                             DAbsPoint::zero(),
-                        ))));
+                        )));
                     }
                 }
 

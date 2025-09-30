@@ -17,7 +17,7 @@ use std::sync::Arc;
 pub struct Paragraph<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,
+    children: im::Vector<Box<ChildOf<dyn flex::Prop>>>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, PartialOrd)]
@@ -68,11 +68,11 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
     }
 
     pub fn append(&mut self, child: Box<ChildOf<dyn flex::Prop>>) {
-        self.children.push_back(Some(child));
+        self.children.push_back(child);
     }
 
     pub fn prepend(&mut self, child: Box<ChildOf<dyn flex::Prop>>) {
-        self.children.push_front(Some(child));
+        self.children.push_front(child);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -104,7 +104,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
                 cosmic_text::Wrap::None,
                 None, // paragraph does it's own alignment so we don't set any here
             );
-            self.children.push_back(Some(Box::new(text)));
+            self.children.push_back(Box::new(text));
         }
     }
 }
@@ -118,9 +118,10 @@ impl<T: flex::Prop + 'static> super::Component for Paragraph<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
+        #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Option<Box<ChildOf<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
-                Some(child.as_ref()?.layout(manager, driver, window))
+            |child: &Box<ChildOf<dyn flex::Prop>>| -> Box<dyn Layout<<dyn flex::Prop as Desc>::Child>> {
+                child.layout(manager, driver, window)
             })
         );
 

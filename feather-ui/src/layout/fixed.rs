@@ -22,7 +22,7 @@ impl Child for crate::DRect {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
+    type Children = im::Vector<Box<dyn Layout<Self::Child>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -73,13 +73,10 @@ impl Desc for dyn Prop {
             let mut bottomright = PxDim::zero();
 
             for child in children.iter() {
-                let child_props = child.as_ref().unwrap().get_props();
+                let child_props = child.as_ref().get_props();
                 let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
 
-                let stage = child
-                    .as_ref()
-                    .unwrap()
-                    .stage(inner_area, child_limit, window);
+                let stage = child.as_ref().stage(inner_area, child_limit, window);
                 bottomright = bottomright.max(stage.get_area().bottomright().to_vector().to_size());
             }
 
@@ -96,8 +93,8 @@ impl Desc for dyn Prop {
             )
         };
 
-        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
-        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
+        let mut staging: im::Vector<Box<dyn Staged>> = im::Vector::new();
+        let mut nodes: im::Vector<Rc<rtree::Node>> = im::Vector::new();
 
         // If our parent just wants a size estimate, no need to layout children or
         // render anything
@@ -125,17 +122,14 @@ impl Desc for dyn Prop {
         let inner_area = PxRect::from(evaluated_dim);
 
         for child in children.iter() {
-            let child_props = child.as_ref().unwrap().get_props();
+            let child_props = child.as_ref().get_props();
             let child_limit = *child_props.rlimits() * evaluated_dim;
 
-            let stage = child
-                .as_ref()
-                .unwrap()
-                .stage(inner_area, child_limit, window);
+            let stage = child.as_ref().stage(inner_area, child_limit, window);
             if let Some(node) = stage.get_rtree().upgrade() {
-                nodes.push_back(Some(node));
+                nodes.push_back(node);
             }
-            staging.push_back(Some(stage));
+            staging.push_back(stage);
         }
 
         // TODO: It isn't clear if the simple layout should attempt to handle children

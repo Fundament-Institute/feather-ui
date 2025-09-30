@@ -59,9 +59,9 @@ impl FnPersist2<&i32, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> f
             feather_ui::DAbsPoint::zero(),
         );
 
-        let mut children: im::Vector<Option<Box<feather_ui::component::ChildOf<dyn fixed::Prop>>>> =
+        let mut children: im::Vector<Box<feather_ui::component::ChildOf<dyn fixed::Prop>>> =
             im::Vector::new();
-        children.push_back(Some(Box::new(pixel)));
+        children.push_back(Box::new(pixel));
 
         let mut genimage = |pos: AbsPoint,
                             w: Option<f32>,
@@ -91,148 +91,148 @@ impl FnPersist2<&i32, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> f
         {
             let testimage = PathBuf::from("./premul_test.png");
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(0.0, 0.0),
                 Some(100.0),
                 Some(100.0),
                 &testimage,
                 None,
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(100.0, 0.0),
                 None,
                 Some(100.0),
                 &testimage,
                 None,
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(0.0, 100.0),
                 None,
                 None,
                 &testimage,
                 Some(AbsPoint::new(100.0, 100.0)),
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(100.0, 100.0),
                 None,
                 None,
                 &testimage,
                 None,
-            ))));
+            )));
         }
 
         #[cfg(feature = "svg")]
         {
             let testsvg = PathBuf::from("./FRI_logo.svg");
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(200.0, 0.0),
                 Some(100.0),
                 Some(100.0),
                 &testsvg,
                 None,
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(300.0, 0.0),
                 None,
                 Some(100.0),
                 &testsvg,
                 None,
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(200.0, 100.0),
                 None,
                 None,
                 &testsvg,
                 Some(AbsPoint::new(100.0, 100.0)),
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(300.0, 100.0),
                 None,
                 None,
                 &testsvg,
                 None,
-            ))));
+            )));
         }
 
         #[cfg(feature = "png")]
         {
             let testimage = PathBuf::from("./test_color.png");
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(0.0, 200.0),
                 Some(100.0),
                 Some(100.0),
                 &testimage,
                 None,
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(100.0, 200.0),
                 Some(100.0),
                 None,
                 &testimage,
                 None,
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(0.0, 300.0),
                 None,
                 None,
                 &testimage,
                 Some(AbsPoint::new(100.0, 100.0)),
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(100.0, 300.0),
                 None,
                 None,
                 &testimage,
                 None,
-            ))));
+            )));
         }
 
         #[cfg(feature = "jxl")]
         {
             let testimage = PathBuf::from("./dice.jxl");
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(200.0, 200.0),
                 Some(100.0),
                 Some(100.0),
                 &testimage,
                 None,
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(300.0, 200.0),
                 Some(100.0),
                 None,
                 &testimage,
                 None,
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(200.0, 300.0),
                 None,
                 None,
                 &testimage,
                 Some(AbsPoint::new(100.0, 100.0)),
-            ))));
+            )));
 
-            children.push_back(Some(Box::new(genimage(
+            children.push_back(Box::new(genimage(
                 AbsPoint::new(300.0, 300.0),
                 None,
                 None,
                 &testimage,
                 None,
-            ))));
+            )));
         }
 
         let region = Region::new(
