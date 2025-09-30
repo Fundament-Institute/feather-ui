@@ -296,7 +296,7 @@ fn wrap_line(
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
+    type Children = im::Vector<Box<dyn Layout<Self::Child>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -328,7 +328,7 @@ impl Desc for dyn Prop {
         // We re-use a lot of concepts from flexbox in this calculation. First we
         // acquire the natural size of all child elements.
         for child in children.iter() {
-            let imposed = child.as_ref().unwrap().get_props();
+            let imposed = child.as_ref().get_props();
 
             let child_limit = super::apply_limit(inner_dim, limits, *imposed.rlimits());
             let basis = imposed.basis().resolve(dpi_main).resolve(outer_main);
@@ -347,10 +347,7 @@ impl Desc for dyn Prop {
                 },
             );
 
-            let stage = child
-                .as_ref()
-                .unwrap()
-                .stage(inner_area, child_limit, window);
+            let stage = child.as_ref().stage(inner_area, child_limit, window);
 
             let (main, aux) = stage.get_area().dim().swap_axis(xaxis);
 
@@ -414,8 +411,8 @@ impl Desc for dyn Prop {
 
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
 
-        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
-        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
+        let mut staging: im::Vector<Box<dyn Staged>> = im::Vector::new();
+        let mut nodes: im::Vector<Rc<rtree::Node>> = im::Vector::new();
 
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
             // If we are evaluating our staged area along the main axis, no further
@@ -606,14 +603,11 @@ impl Desc for dyn Prop {
                     ltrb.swap(2, 3);
                 }
 
-                let stage = children[i]
-                    .as_ref()
-                    .unwrap()
-                    .stage(area, c.limits + limits, window);
+                let stage = children[i].as_ref().stage(area, c.limits + limits, window);
                 if let Some(node) = stage.get_rtree().upgrade() {
-                    nodes.push_back(Some(node));
+                    nodes.push_back(node);
                 }
-                staging.push_back(Some(stage));
+                staging.push_back(stage);
 
                 main += c.basis + inner;
             }

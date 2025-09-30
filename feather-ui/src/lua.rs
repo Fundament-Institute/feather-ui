@@ -957,7 +957,7 @@ fn prop_no_children(t: &LuaTable) -> LuaResult<PropBag> {
 fn push_child<D: crate::layout::Desc + ?Sized>(
     t: &LuaTable,
     i: i64,
-    children: &mut im::Vector<Option<Box<ChildOf<D>>>>,
+    children: &mut im::Vector<Box<ChildOf<D>>>,
 ) -> LuaResult<()>
 where
     std::boxed::Box<dyn crate::component::Component<Props = PropBag>>:
@@ -976,7 +976,7 @@ where
         }
     } else {
         let component: ComponentBag = t.get(i)?;
-        children.push_back(Some(Box::new(component)));
+        children.push_back(Box::new(component));
     }
 
     Ok(())
@@ -985,12 +985,12 @@ where
 #[allow(clippy::type_complexity)]
 fn prop_children<D: crate::layout::Desc + ?Sized>(
     t: &LuaTable,
-) -> LuaResult<(im::Vector<Option<Box<ChildOf<D>>>>, PropBag)>
+) -> LuaResult<(im::Vector<Box<ChildOf<D>>>, PropBag)>
 where
     std::boxed::Box<dyn crate::component::Component<Props = PropBag>>:
         crate::component::ComponentWrap<<D as crate::layout::Desc>::Child>,
 {
-    let mut children: im::Vector<Option<Box<ChildOf<D>>>> = im::Vector::new();
+    let mut children: im::Vector<Box<ChildOf<D>>> = im::Vector::new();
 
     for i in 1..=t.len()? {
         push_child::<D>(t, i, &mut children)?;

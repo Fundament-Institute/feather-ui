@@ -177,7 +177,7 @@ pub(crate) struct Concrete {
     renderable: Option<Rc<dyn Renderable>>,
     area: PxRect,
     rtree: Rc<rtree::Node>,
-    children: im::Vector<Option<Box<dyn Staged>>>,
+    children: im::Vector<Box<dyn Staged>>,
     layer: Option<std::sync::Weak<SourceID>>,
 }
 
@@ -186,7 +186,7 @@ impl Concrete {
         renderable: Option<Rc<dyn Renderable>>,
         area: PxRect,
         rtree: Rc<rtree::Node>,
-        children: im::Vector<Option<Box<dyn Staged>>>,
+        children: im::Vector<Box<dyn Staged>>,
     ) -> Self {
         debug_assert!(area.v.is_finite().all());
         let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright());
@@ -223,7 +223,7 @@ impl Concrete {
         compositor: &mut CompositorView<'_>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error> {
-        for child in (&self.children).into_iter().flatten() {
+        for child in self.children.iter() {
             // TODO: If we assign z-indexes to children, ones with negative z-indexes should
             // be rendered before the parent
             child.render(

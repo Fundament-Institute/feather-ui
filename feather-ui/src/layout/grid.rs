@@ -44,7 +44,7 @@ fn swap_coord((x, y): (usize, usize), (w, h): (usize, usize), dir: RowDirection)
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Option<Box<dyn Layout<Self::Child>>>>;
+    type Children = im::Vector<Box<dyn Layout<Self::Child>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -81,8 +81,8 @@ impl Desc for dyn Prop {
         let nrows = props.rows().len();
         let ncolumns = props.columns().len();
 
-        let mut staging: im::Vector<Option<Box<dyn Staged>>> = im::Vector::new();
-        let mut nodes: im::Vector<Option<Rc<rtree::Node>>> = im::Vector::new();
+        let mut staging: im::Vector<Box<dyn Staged>> = im::Vector::new();
+        let mut nodes: im::Vector<Rc<rtree::Node>> = im::Vector::new();
 
         let evaluated_area =
             crate::util::alloca_array::<f32, PxRect>((nrows + ncolumns) * 2, |x| {
@@ -108,7 +108,7 @@ impl Desc for dyn Prop {
                     // Then we go through all child elements so we can precalculate the maximum area
                     // of all rows and columns
                     for child in children.iter() {
-                        let child_props = child.as_ref().unwrap().get_props();
+                        let child_props = child.as_ref().get_props();
                         let child_limit =
                             super::apply_limit(inner_dim, limits, *child_props.rlimits());
                         let (column, row) =
@@ -118,11 +118,7 @@ impl Desc for dyn Prop {
                             let (w, h) = (columns[column], rows[row]);
                             let child_area = PxRect::new(0.0, 0.0, w, h);
 
-                            let stage =
-                                child
-                                    .as_ref()
-                                    .unwrap()
-                                    .stage(child_area, child_limit, window);
+                            let stage = child.as_ref().stage(child_area, child_limit, window);
                             let area = stage.get_area();
                             maxrows[row] = maxrows[row].max(area.dim().height);
                             maxcolumns[column] = maxcolumns[column].max(area.dim().width);
@@ -162,7 +158,7 @@ impl Desc for dyn Prop {
                 }
 
                 for child in children.iter() {
-                    let child_props = child.as_ref().unwrap().get_props();
+                    let child_props = child.as_ref().get_props();
                     let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
                     let (column, row) =
                         swap_coord(child_props.coord(), (ncolumns, nrows), props.direction());
@@ -171,14 +167,11 @@ impl Desc for dyn Prop {
                     let (w, h) = (columns[column], rows[row]);
                     let child_area = PxRect::new(x, y, x + w, y + h);
 
-                    let stage = child
-                        .as_ref()
-                        .unwrap()
-                        .stage(child_area, child_limit, window);
+                    let stage = child.as_ref().stage(child_area, child_limit, window);
                     if let Some(node) = stage.get_rtree().upgrade() {
-                        nodes.push_back(Some(node));
+                        nodes.push_back(node);
                     }
-                    staging.push_back(Some(stage));
+                    staging.push_back(stage);
                 }
 
                 // No need to cap this because unsized axis have now been resolved

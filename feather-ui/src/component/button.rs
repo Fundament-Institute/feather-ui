@@ -17,7 +17,7 @@ pub struct Button<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     marea: MouseArea<DRect>,
-    children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+    children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
 }
 
 impl<T: fixed::Prop> Button<T> {
@@ -25,7 +25,7 @@ impl<T: fixed::Prop> Button<T> {
         id: Arc<SourceID>,
         props: T,
         onclick: Slot,
-        children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+        children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
     ) -> Self {
         Self {
             id: id.clone(),
@@ -50,9 +50,7 @@ impl<T: fixed::Prop> crate::StateMachineChild for Button<T> {
         &self,
         f: &mut dyn FnMut(&dyn crate::StateMachineChild) -> eyre::Result<()>,
     ) -> eyre::Result<()> {
-        self.children
-            .iter()
-            .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))?;
+        self.children.iter().try_for_each(|x| f(x.as_ref()))?;
         f(&self.marea)
     }
 }
@@ -69,14 +67,15 @@ where
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
+        #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref()?.layout(manager, driver, window))
+            |child: &Box<ChildOf<dyn fixed::Prop>>| -> Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>> {
+                child.layout(manager, driver, window)
             })
         );
 
         let (_, mut children) = map.call(Default::default(), &self.children);
-        children.push_back(Some(Box::new(self.marea.layout(manager, driver, window))));
+        children.push_back(Box::new(self.marea.layout(manager, driver, window)));
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),

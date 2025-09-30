@@ -25,7 +25,7 @@ pub struct Node {
     pub bottom: i32,
     pub mask: AtomicU64,
     pub id: std::sync::Weak<SourceID>,
-    pub children: im::Vector<Option<Rc<Node>>>,
+    pub children: im::Vector<Rc<Node>>,
     pub parent: std::cell::OnceCell<std::rc::Weak<Node>>,
 }
 
@@ -38,16 +38,14 @@ impl Node {
     pub fn new(
         area: PxRect,
         z: Option<i32>,
-        children: im::Vector<Option<Rc<Node>>>,
+        children: im::Vector<Rc<Node>>,
         id: std::sync::Weak<SourceID>,
         window: &mut crate::component::window::WindowState,
     ) -> Rc<Self> {
         let this = Rc::new_cyclic(|this| {
             let mut fold = VectorFold::new(Persist2::new(
-                |(rect, top, bottom): (PxRect, i32, i32),
-                 n: &Option<Rc<Node>>|
-                 -> (PxRect, i32, i32) {
-                    let n = n.as_ref().unwrap();
+                |(rect, top, bottom): (PxRect, i32, i32), n: &Rc<Node>| -> (PxRect, i32, i32) {
+                    let n = n.as_ref();
                     (rect.extend(n.area), top.max(n.top), bottom.min(n.bottom))
                 },
             ));
@@ -57,17 +55,12 @@ impl Node {
             // cooperation from the persistent data structure to maintain, which we don't
             // have right now.
             for child in &children {
-                child.as_ref().unwrap().parent.get_or_init(|| this.clone());
+                child.as_ref().parent.get_or_init(|| this.clone());
             }
 
             // If no z index is provided for this node, try to use a zindex from the first
             // child. If there is no first child, default to 0
-            let z = z.unwrap_or_else(|| {
-                children
-                    .front()
-                    .map(|x| x.as_ref().unwrap().top)
-                    .unwrap_or(0)
-            });
+            let z = z.unwrap_or_else(|| children.front().map(|x| x.as_ref().top).unwrap_or(0));
             let (_, (extent, top, bottom)) =
                 fold.call(fold.init(), (Default::default(), z, z), &children);
 
@@ -291,7 +284,6 @@ impl Node {
             for child in self.children.iter().rev() {
                 // TODO: Split these iterations into positive and negative z indexes, then call
                 // this node after processing index 0 but before negative indices.
-                let child = child.as_ref().unwrap();
                 let r = child.process(
                     event,
                     kind,
@@ -440,7 +432,7 @@ struct Node25 {
     pub z: f32, // there is only one z coordinate because the contained area must be flat.
     pub transform: Rotor3,
     pub id: std::sync::Weak<SourceID>,
-    pub children: im::Vector<Option<Rc<Node>>>,
+    pub children: im::Vector<Rc<Node>>>,
 }
 
 // 3D node capable of arbitrary translation (though it's AABB must still be fully contained within it's parent node)[]

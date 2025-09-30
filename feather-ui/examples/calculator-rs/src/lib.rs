@@ -179,7 +179,7 @@ impl FnPersist2<&CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>
         mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
-        let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
+        let mut children: im::Vector<Box<ChildOf<dyn fixed::Prop>>> = im::Vector::new();
 
         for ((i, (txt, _, color)), id) in scope.iter(BUTTONS.iter().enumerate()) {
             let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
@@ -223,7 +223,7 @@ impl FnPersist2<&CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>
                 feather_ui::children![fixed::Prop, rect, text],
             );
 
-            children.push_back(Some(Box::new(btn)));
+            children.push_back(Box::new(btn));
         }
 
         let display = Text::<DRect> {
@@ -246,8 +246,8 @@ impl FnPersist2<&CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>
             DAbsPoint::zero(),
         );
 
-        children.push_back(Some(Box::new(text_bg)));
-        children.push_back(Some(Box::new(display)));
+        children.push_back(Box::new(text_bg));
+        children.push_back(Box::new(display));
 
         let region = Region::<FixedData>::new(
             gen_id!(scope),

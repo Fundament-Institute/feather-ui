@@ -15,14 +15,14 @@ use super::ChildOf;
 pub struct FlexBox<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,
+    children: im::Vector<Box<ChildOf<dyn flex::Prop>>>,
 }
 
 impl<T: flex::Prop + 'static> FlexBox<T> {
     pub fn new(
         id: Arc<SourceID>,
         props: T,
-        children: im::Vector<Option<Box<ChildOf<dyn flex::Prop>>>>,
+        children: im::Vector<Box<ChildOf<dyn flex::Prop>>>,
     ) -> Self {
         Self {
             id,
@@ -41,9 +41,10 @@ impl<T: flex::Prop + 'static> super::Component for FlexBox<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
+        #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Option<Box<ChildOf<dyn flex::Prop>>>| -> Option<Box<dyn Layout<<dyn flex::Prop as Desc>::Child>>> {
-                Some(child.as_ref()?.layout(manager, driver,window))
+            |child: &Box<ChildOf<dyn flex::Prop>>| -> Box<dyn Layout<<dyn flex::Prop as Desc>::Child>> {
+                child.layout(manager, driver,window)
             })
         );
 

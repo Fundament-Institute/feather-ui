@@ -83,7 +83,7 @@ impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wind
         mut scope: ScopeID<'_>,
     ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> = im::Vector::new();
+            let mut children: im::Vector<Box<ChildOf<dyn fixed::Prop>>> = im::Vector::new();
             let domain: Arc<CrossReferenceDomain> = Default::default();
 
             let mut node_ids: Vec<Arc<SourceID>> = Vec::new();
@@ -166,7 +166,7 @@ impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wind
                     feather_ui::children![fixed::Prop, point, circle],
                 );
 
-                children.push_back(Some(Box::new(bag)));
+                children.push_back(Box::new(bag));
             }
 
             for ((a, b), id) in scope.iter(&args.edges) {
@@ -179,7 +179,7 @@ impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wind
                     props: ().into(),
                 };
 
-                children.push_back(Some(Box::new(line)));
+                children.push_back(Box::new(line));
             }
 
             let subregion = Region::new(

@@ -15,14 +15,14 @@ use super::ChildOf;
 pub struct ListBox<T: list::Prop + 'static> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>>,
+    children: im::Vector<Box<ChildOf<dyn list::Prop>>>,
 }
 
 impl<T: list::Prop + 'static> ListBox<T> {
     pub fn new(
         id: Arc<SourceID>,
         props: T,
-        children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>>,
+        children: im::Vector<Box<ChildOf<dyn list::Prop>>>,
     ) -> Self {
         Self {
             id,
@@ -41,9 +41,10 @@ impl<T: list::Prop + 'static> super::Component for ListBox<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Box<dyn Layout<T>> {
+        #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Option<Box<ChildOf<dyn list::Prop>>>| -> Option<Box<dyn Layout<<dyn list::Prop as Desc>::Child>>> {
-                Some(child.as_ref().unwrap().layout(manager, driver,window))
+            |child: &Box<ChildOf<dyn list::Prop>>| -> Box<dyn Layout<<dyn list::Prop as Desc>::Child>> {
+                child.layout(manager, driver,window)
             })
         );
 

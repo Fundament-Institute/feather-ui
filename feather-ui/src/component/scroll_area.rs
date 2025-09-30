@@ -235,7 +235,7 @@ pub struct ScrollArea<T> {
     props: Rc<T>,
     stepsize: (Option<f32>, Option<f32>),
     extension: crate::DAbsRect,
-    children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+    children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
     slots: [Option<Slot>; ScrollAreaEvent::SIZE],
 }
 
@@ -245,7 +245,7 @@ impl<T: fixed::Prop + 'static> ScrollArea<T> {
         props: T,
         stepsize: (Option<f32>, Option<f32>),
         extension: crate::DAbsRect,
-        children: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>>,
+        children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
         slots: [Option<Slot>; ScrollAreaEvent::SIZE],
     ) -> Self {
         Self {
@@ -284,9 +284,7 @@ impl<T: fixed::Prop + 'static> crate::StateMachineChild for ScrollArea<T> {
         &self,
         f: &mut dyn FnMut(&dyn crate::StateMachineChild) -> eyre::Result<()>,
     ) -> eyre::Result<()> {
-        self.children
-            .iter()
-            .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
+        self.children.iter().try_for_each(|x| f(x.as_ref()))
     }
 }
 
@@ -313,9 +311,10 @@ where
 
         // To create a scroll area, we create an intermediate layout node to hold the
         // children, which is always unsized, which we then move around to scroll.
+        #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
-                Some(child.as_ref()?.layout(manager, driver, window))
+            |child: &Box<ChildOf<dyn fixed::Prop>>| -> Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>> {
+                child.layout(manager, driver, window)
             })
         );
 
@@ -352,7 +351,7 @@ where
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
-            children: im::vector![Some(inner)],
+            children: im::vector![inner],
             id: Arc::downgrade(&self.id),
             renderable: None,
             layer: Some((crate::color::sRGB32::white(), 0.0)),
