@@ -104,7 +104,7 @@ resvg = { version = "0.45.1", optional = true, default-features = false, feature
   "system-fonts",
   "memmap-fonts",
 ] }
-vello = { version = "0.5.0", optional = true }
+vello = { version = "0.6.0", optional = true }
 vello_svg = { version = "0.7.1", optional = true }
 load_image = { version = "3.3.0", optional = true, default-features = false, features = [
   "lcms2-static",
