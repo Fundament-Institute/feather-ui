@@ -85,4 +85,4 @@ jobs:
       # This is pinned to a specific version because the typos dictionary can
       # be updated between patch versions, and a new dictionary can find new
       # typos in the repo thus suddenly breaking CI unless we pin the version.
-      - uses: crate-ci/typos@v1.36.2
+      - uses: crate-ci/typos@v1.37.3
