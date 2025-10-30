@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::layout::{Desc, Layout, flex};
+use crate::component::ChildOf;
+use crate::layout::{Desc, Layout, fixed};
 use crate::persist::{FnPersist, VectorMap};
 use crate::{SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use super::ChildOf;
-
 #[derive(feather_macro::StateMachineChild)]
-#[derive_where(Clone)]
-pub struct FlexBox<T> {
+#[derive_where(Clone, Default)]
+pub struct Tabs<T: Default> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
-    children: imbl::Vector<Rc<ChildOf<dyn flex::Prop>>>,
+    children: imbl::Vector<Option<(Box<ChildOf<dyn fixed::Prop>>, Box<ChildOf<dyn fixed::Prop>>)>>,
 }
 
-impl<T: flex::Prop + 'static> FlexBox<T> {
+impl<T: fixed::Prop + Default + 'static> Region<T> {
     pub fn new(
         id: Arc<SourceID>,
         props: T,
-        children: imbl::Vector<Rc<ChildOf<dyn flex::Prop>>>,
+        children: imbl::Vector<
+            Option<(Box<ChildOf<dyn fixed::Prop>>, Box<ChildOf<dyn fixed::Prop>>)>,
+        >,
     ) -> Self {
         Self {
             id,
@@ -32,7 +33,10 @@ impl<T: flex::Prop + 'static> FlexBox<T> {
     }
 }
 
-impl<T: flex::Prop + 'static> super::Component for FlexBox<T> {
+impl<T: fixed::Prop + Default + 'static> super::Component for Region<T>
+where
+    for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
+{
     type Props = T;
 
     fn layout(
@@ -41,15 +45,13 @@ impl<T: flex::Prop + 'static> super::Component for FlexBox<T> {
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
     ) -> Rc<dyn Layout<T>> {
-        #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Box<ChildOf<dyn flex::Prop>>| -> Rc<dyn Layout<<dyn flex::Prop as Desc>::Child>> {
-                child.layout(manager, driver,window)
-            })
-        );
+            |child: &Option<Box<ChildOf<dyn fixed::Prop>>>| -> Option<Rc<dyn Layout<<dyn fixed::Prop as Desc>::Child>>> {
+                Some(child.as_ref().unwrap().layout(manager, driver, window))
+            }));
 
         let (_, children) = map.call(Default::default(), &self.children);
-        Box::new(layout::Node::<T, dyn flex::Prop> {
+        Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
             children,
             id: Arc::downgrade(&self.id),

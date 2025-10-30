@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::{DAbsRect, DPoint, DRect, ZERO_DRECT};
+use crate::{
+    DAbsRect, DPoint, DRect, ZERO_DRECT,
+    reactive::{AsSignal, DynSignal, MutableSignal, SignalMap, SignalTupleZip, zip_pair},
+};
 use std::rc::Rc;
 
 #[macro_export]
-macro_rules! gen_from_to_dyn {
+macro_rules! gen_dyn_prop {
     ($idx:ident) => {
         impl<'a, T: $idx + 'static> From<&'a T> for &'a (dyn $idx + 'static) {
             fn from(value: &'a T) -> Self {
@@ -22,13 +25,13 @@ impl RLimits for () {}
 impl Margin for () {}
 impl Order for () {}
 impl crate::layout::fixed::Child for () {}
-impl crate::layout::list::Child for () {}
+//impl crate::layout::list::Child for () {}
 
 impl<T: Empty> Empty for Rc<T> {}
 
 impl Empty for DRect {}
 
-gen_from_to_dyn!(Empty);
+gen_dyn_prop!(Empty);
 
 impl crate::layout::Desc for dyn Empty {
     type Props = dyn Empty;
@@ -37,38 +40,51 @@ impl crate::layout::Desc for dyn Empty {
 
     fn stage<'a>(
         _: &Self::Props,
-        mut outer_area: crate::PxRect,
-        outer_limits: crate::PxLimits,
-        _: &Self::Children,
-        id: std::sync::Weak<crate::SourceID>,
+        predim: DynSignal<crate::UnsizedDim>,
+        prelimits: DynSignal<crate::PxLimits>,
+        _: DynSignal<Self::Children>,
         renderable: Option<Rc<dyn crate::render::Renderable>>,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn super::Staged + 'a> {
-        outer_area = super::nuetralize_unsized(outer_area);
-        outer_area = super::limit_area(outer_area, outer_limits);
+        _: MutableSignal<crate::RelDim>,
+    ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
+        let area = zip_pair(predim, prelimits, move |dim, limits| {
+            crate::PxRect::from(super::limit_dim(
+                super::zero_unsized(dim).cast_unit(),
+                limits,
+            ))
+        })
+        .into();
 
-        Box::new(crate::layout::Concrete::new(
-            renderable,
-            outer_area,
-            crate::rtree::Node::new(
-                outer_area.to_untyped(),
-                None,
-                Default::default(),
-                id,
-                window,
-            ),
-            Default::default(),
-        ))
+        (
+            area,
+            Box::new(move |offset, final_dim, final_limits| {
+                let final_area = (offset, final_dim, final_limits)
+                    .zip::<(crate::PxPoint, crate::PxDim, crate::PxLimits)>()
+                    .map(|(o, dim, limits)| {
+                        crate::Rect::offsetdim(*o, super::limit_dim(dim.cast_unit(), *limits))
+                    })
+                    .into_dyn_signal();
+
+                crate::rtree::Node::new(
+                    final_area,
+                    None,
+                    None,
+                    Some(Box::new(crate::layout::Concrete::new(
+                        renderable.as_ref().map(|x| x.clone()),
+                    ))),
+                    None,
+                )
+            }),
+        )
     }
 }
 
 pub trait Obstacles {
-    fn obstacles(&self) -> &[DAbsRect];
+    fn obstacles(&self) -> DynSignal<&[DAbsRect]>;
 }
 
 pub trait ZIndex {
-    fn zindex(&self) -> i32 {
-        0
+    fn zindex(&self) -> DynSignal<i32> {
+        0.to_signal().into()
     }
 }
 
@@ -77,8 +93,8 @@ impl ZIndex for DRect {}
 // Padding is used so an element's actual area can be larger than the area it
 // draws children inside (like text).
 pub trait Padding {
-    fn padding(&self) -> &DAbsRect {
-        &crate::ZERO_DABSRECT
+    fn padding(&self) -> DynSignal<DAbsRect> {
+        crate::ZERO_DABSRECT.to_signal().into()
     }
 }
 
@@ -87,55 +103,55 @@ impl Padding for DRect {}
 // Relative to parent's area, but only ever used to determine spacing between
 // child elements.
 pub trait Margin {
-    fn margin(&self) -> &DRect {
-        &ZERO_DRECT
+    fn margin(&self) -> DynSignal<DRect> {
+        ZERO_DRECT.to_signal().into()
     }
 }
 
 // Relative to child's assigned area (outer area)
 pub trait Area {
-    fn area(&self) -> &DRect;
+    fn area(&self) -> DynSignal<DRect>;
 }
 
 impl Area for DRect {
-    fn area(&self) -> &DRect {
-        self
+    fn area(&self) -> DynSignal<DRect> {
+        self.clone().to_signal().into() // TODO: This doesn't make sense
     }
 }
 
-gen_from_to_dyn!(Area);
+gen_dyn_prop!(Area);
 
 // Relative to child's evaluated area (inner area)
 pub trait Anchor {
-    fn anchor(&self) -> &DPoint {
-        &crate::ZERO_DPOINT
+    fn anchor(&self) -> DynSignal<DPoint> {
+        crate::ZERO_DPOINT.to_signal().into()
     }
 }
 
 impl Anchor for DRect {}
 
 pub trait Limits {
-    fn limits(&self) -> &crate::DLimits {
-        &crate::DEFAULT_DLIMITS
+    fn limits(&self) -> DynSignal<crate::DLimits> {
+        crate::DEFAULT_DLIMITS.to_signal().into()
     }
 }
 
 // Relative to parent's area
 pub trait RLimits {
-    fn rlimits(&self) -> &crate::RelLimits {
-        &crate::DEFAULT_RLIMITS
+    fn rlimits(&self) -> DynSignal<crate::RelLimits> {
+        crate::DEFAULT_RLIMITS.to_signal().into()
     }
 }
 
 pub trait Order {
-    fn order(&self) -> i64 {
-        0
+    fn order(&self) -> DynSignal<i64> {
+        0.to_signal().into()
     }
 }
 
 pub trait Direction {
-    fn direction(&self) -> crate::RowDirection {
-        crate::RowDirection::LeftToRight
+    fn direction(&self) -> DynSignal<crate::RowDirection> {
+        crate::RowDirection::LeftToRight.to_signal().into()
     }
 }
 

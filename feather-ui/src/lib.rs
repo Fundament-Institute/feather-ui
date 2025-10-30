@@ -12,6 +12,8 @@
 //! Examples can be found in [feather-ui/examples](feather-ui/examples), and can
 //! be run via `cargo run --example <example_name>`.
 
+#![warn(unreachable_pub, missing_docs)]
+
 extern crate alloc;
 
 pub mod color;
@@ -24,7 +26,9 @@ pub mod layout;
 #[cfg(feature = "lua")]
 pub mod lua;
 pub mod persist;
-mod propbag;
+//mod propbag;
+mod pool;
+pub mod reactive;
 pub mod render;
 pub mod resource;
 mod rtree;
@@ -32,38 +36,42 @@ mod shaders;
 pub mod text;
 pub mod util;
 
-use crate::component::window::Window;
+use crate::component::window::{Window, WindowState};
 use crate::graphics::Driver;
+use crate::reactive::{
+    AsSignal, DynSignal, Identity, MutableSignal, MutableSignalProvider, Sampler, map_vec, sample,
+};
 use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
 use bytemuck::NoUninit;
-use component::window::WindowStateMachine;
-use component::{Component, StateMachineWrapper};
+use component::StateMachineWrapper;
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
 use parking_lot::RwLock;
-use persist::FnPersist2;
 use smallvec::SmallVec;
 use std::any::Any;
+use std::cell::RefCell;
 use std::cmp::PartialEq;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::ffi::c_void;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
-use std::sync::atomic::AtomicU64;
-use std::sync::{Arc, mpsc};
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64};
+use wgpu::wgc::id::Id;
 use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::{CmpGe, CmpGt, f32x4};
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::window::WindowId;
-pub use {cosmic_text, eyre, im, notify, wgpu, wide, winit};
+use winit::window::{WindowAttributes, WindowId};
+pub use {cosmic_text, eyre, imbl, notify, wgpu, wide, winit};
 
 type Mat4x4 = euclid::default::Transform3D<f32>;
 
@@ -184,7 +192,7 @@ const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 #[macro_export]
 macro_rules! children {
     () => { [] };
-    ($prop:path, $($param:expr),+ $(,)?) => { $crate::im::Vector::from_iter([$(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>),+]) };
+    ($prop:path, $($param:expr),+ $(,)?) => { $crate::imbl::Vector::from_iter([$(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>),+]) };
 }
 
 #[macro_export]
@@ -206,6 +214,9 @@ pub struct Pixel {}
 /// Represents a combination of DIP and Pixels that have been resolved for the
 /// current DPI
 pub struct Resolved {}
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+/// Represents potentially unsized pixels, only used in intermediate layout calculations.
+pub struct Unsized {}
 
 /// A 2D point in logical units (display-independent pixels)
 pub type AbsPoint = Point2D<f32, Logical>;
@@ -233,9 +244,8 @@ pub type AbsDim = Size2D<f32, Logical>;
 pub type PxDim = Size2D<f32, Pixel>;
 /// A 2D dimension (or size) in relative coordinates
 pub type RelDim = Size2D<f32, Relative>;
-/// A 2D dimension (or size) in resolved physical pixels that hasn't yet been
-/// combined with it's paired relative coordinates.
-pub type ResDim = Size2D<f32, Resolved>;
+/// A 2D dimension (or size) in physical pixels that could potentially be unsized.
+pub type UnsizedDim = Size2D<f32, Unsized>;
 
 /// Internal trait for "unresolving" a set of physical pixels into logical
 /// units.
@@ -346,6 +356,7 @@ impl<U> Rect<U> {
         }
     }
 
+    #[inline]
     pub const fn splat(x: f32) -> Self {
         Self {
             v: f32x4::new([x, x, x, x]), // f32x4::splat isn't a constant function (for some reason)
@@ -357,6 +368,19 @@ impl<U> Rect<U> {
     pub const fn corners(topleft: Point2D<f32, U>, bottomright: Point2D<f32, U>) -> Self {
         Self {
             v: f32x4::new([topleft.x, topleft.y, bottomright.x, bottomright.y]),
+            _unit: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub const fn offsetdim(offset: Point2D<f32, U>, dim: Size2D<f32, U>) -> Self {
+        Self {
+            v: f32x4::new([
+                offset.x,
+                offset.y,
+                offset.x + dim.width,
+                offset.y + dim.height,
+            ]),
             _unit: PhantomData,
         }
     }
@@ -1521,11 +1545,11 @@ impl From<PxLimits> for DLimits {
     }
 }
 
-impl Mul<PxDim> for RelLimits {
+impl Mul<UnsizedDim> for RelLimits {
     type Output = PxLimits;
 
     #[inline]
-    fn mul(self, rhs: PxDim) -> Self::Output {
+    fn mul(self, rhs: UnsizedDim) -> Self::Output {
         let (unsized_x, unsized_y) = crate::layout::check_unsized_dim(rhs);
         let minmax = self.v.as_array_ref();
         let v = f32x4::new([
@@ -1642,7 +1666,7 @@ pub enum RowDirection {
 // source ID.
 #[derive(Default)]
 pub struct CrossReferenceDomain {
-    mappings: RwLock<im::HashMap<Arc<SourceID>, PxRect>>,
+    mappings: RwLock<imbl::HashMap<Arc<SourceID>, PxRect>>,
 }
 
 impl CrossReferenceDomain {
@@ -2026,10 +2050,10 @@ impl<'a> ScopeID<'a> {
     ///
     /// # Examples
     /// ```
-    /// use feather_ui::component::{shape, ComponentWrap, text::Text};
+    /// use feather_ui::component::{shape, DynComponent, text::Text};
     /// use feather_ui::{ScopeID, DRect, DAbsPoint, color::sRGB, FILL_DRECT };
     /// fn foobar(cond: bool, mut scope: ScopeID<'_>) {
-    /// let _ = scope.cond::<Box<dyn ComponentWrap<dyn feather_ui::layout::base::Empty>>>(
+    /// let _ = scope.cond::<Box<dyn DynComponent<dyn feather_ui::layout::base::Empty>>>(
     ///     cond,
     ///     |mut id: ScopeID<'_>| Box::new(shape::round_rect::<DRect>(
     ///         id.create(),
@@ -2170,11 +2194,11 @@ pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, AccessCell<State>) -> Inp
 ///
 /// impl FnPersistStore for MyApp { type Store = (); }
 ///
-/// impl FnPersist2<&MyState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
+/// impl FnPersist2<&MyState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
 ///     fn init(&self) -> Self::Store { () }
 ///
-///     fn call(&mut self,  _: Self::Store,  _: &MyState, _: ScopeID<'_>) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-///         ((), im::HashMap::new())
+///     fn call(&mut self,  _: Self::Store,  _: &MyState, _: ScopeID<'_>) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
+///         ((), imbl::HashMap::new())
 ///     }
 /// }
 ///
@@ -2238,7 +2262,7 @@ impl Dispatchable for Infallible {
 /// pub struct MyComponent<T> {
 ///     pub id: Arc<SourceID>,
 ///     pub props: Rc<T>,
-///     pub children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
+///     pub children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>,
 /// }
 ///
 /// impl<T: Default> StateMachineChild for MyComponent<T> {
@@ -2659,7 +2683,7 @@ pub const APP_SOURCE_ID: SourceID = SourceID {
     id: DataID::Named("__fg_AppData_ID__"),
 };
 
-type OutlineReturn = im::HashMap<Arc<SourceID>, Option<Window>>;
+type OutlineReturn = imbl::HashMap<Arc<SourceID>, Option<Window>>;
 pub type EventPair<AppData> = (u64, AppEvent<AppData>);
 
 /// Represents a feather application with a given `AppData` and persistent
@@ -2670,18 +2694,29 @@ pub type EventPair<AppData> = (u64, AppEvent<AppData>);
 /// An App creates all the top level structures needed for Feather to function.
 /// It stores all wgpu, winit, and any other global state needed. See
 /// [`App::new`] for examples.
-pub struct App<AppData, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, OutlineReturn>, T> {
+pub struct App<AppData: Clone, T: 'static> {
+    pub state: DynSignal<AppData>,
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
-    pub state: StateManager,
-    store: Option<O::Store>,
-    outline: O,
-    _parents: BTreeMap<DataID, DataID>,
-    root: component::Root, // Root component node containing all windows
+    pub ready: AtomicBool,
+    trees: DynSignal<HashMap<Identity<Rc<Window>>, Rc<rtree::Node>>>,
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
-    handle_sync: mpsc::Receiver<EventPair<AppData>>,
     #[allow(clippy::type_complexity)]
     user_events: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
+    window_map: HashMap<WindowId, Rc<Window>>, // We can't use WindowId everywhere because windows don't exist until we create them.
+    windows: Rc<
+        RefCell<
+            HashMap<
+                Identity<Rc<Window>>,
+                (
+                    WindowState,
+                    reactive::Sampler<WindowAttributes, MutableSignalProvider<WindowAttributes>>,
+                ),
+            >,
+        >,
+    >,
+    sampler: reactive::Sampler<component::UI, dyn reactive::SignalProvider<component::UI>>,
+    proxy: winit::event_loop::EventLoopProxy<FeatherEvent<T>>,
 }
 
 pub struct AppDataMachine<AppData> {
@@ -2735,9 +2770,25 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, OutlineReturn>, T>
-    App<AppData, O, T>
-{
+enum FeatherEvent<T> {
+    ChangeUI,
+    ChangeWindow(Rc<Window>),
+    UserEvent(T),
+}
+
+impl<T> std::fmt::Debug for FeatherEvent<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ChangeUI => f.debug_tuple("ChangeUI").finish(),
+            Self::ChangeWindow(arg0) => f.debug_tuple("SpawnWindow").field(arg0).finish(),
+            Self::UserEvent(_) => f.debug_tuple("UserEvent").finish(),
+        }
+    }
+}
+
+type WindowRef = Identity<Rc<Window>>;
+
+impl<AppData: 'static + Clone, T> App<AppData, T> {
     /// Creates a new feather application. `app_state` represents the initial
     /// state of the application, and will override any value returned by
     /// `<O as FnPersist2>::init()`. `inputs` must be an array of
@@ -2774,11 +2825,11 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
     ///
     /// impl FnPersistStore for MyApp { type Store = (); }
     ///
-    /// impl FnPersist2<&MyState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
+    /// impl FnPersist2<&MyState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
     ///     fn init(&self) -> Self::Store { () }
     ///
-    ///     fn call(&mut self,  _: Self::Store,  _: &MyState, _: ScopeID<'_>) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-    ///         ((), im::HashMap::new())
+    ///     fn call(&mut self,  _: Self::Store,  _: &MyState, _: ScopeID<'_>) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
+    ///         ((), imbl::HashMap::new())
     ///     }
     /// }
     ///
@@ -2789,17 +2840,12 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
     /// ```
     #[allow(clippy::type_complexity)]
     pub fn new(
-        appstate: AppData,
+        appstate: DynSignal<AppData>,
         inputs: Vec<AppEvent<AppData>>,
-        outline: O,
+        outline: impl Fn(&AppData) -> component::UI,
         user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
         driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
-    ) -> eyre::Result<(
-        Self,
-        EventLoop<T>,
-        mpsc::Sender<EventPair<AppData>>,
-        AtomicU64,
-    )> {
+    ) -> eyre::Result<(Self, EventLoop<FeatherEvent<T>>)> {
         #[cfg(test)]
         let any_thread = true;
         #[cfg(not(test))]
@@ -2815,33 +2861,54 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
         )
     }
 
+    fn empty_layout_root()
+    -> layout::Node<DynSignal<Size2D<u32, crate::Pixel>>, dyn layout::root::Prop> {
+        let empty_child: Rc<dyn crate::layout::DynLayout<dyn layout::base::Empty>> =
+            Rc::new(layout::Node::<(), dyn layout::base::Empty> {
+                props: Rc::new(()),
+                children: ().to_signal().into(),
+                renderable: None,
+                layer: None,
+            });
+
+        layout::Node {
+            props: Rc::new(Size2D::zero().to_signal().into_dyn_signal()),
+            children: empty_child.to_signal().into_dyn_signal(),
+            renderable: None,
+            layer: None,
+        }
+    }
+
     /// This is the same as [`App::new`], but it allows overriding the main
     /// thread detection that winit uses. This is necessary for running
     /// tests, which don't run on the main thread.
     #[allow(clippy::type_complexity)]
     pub fn new_any_thread(
-        appstate: AppData,
+        appstate: DynSignal<AppData>,
         inputs: Vec<AppEvent<AppData>>,
-        outline: O,
+        outline: impl Fn(&AppData) -> component::UI,
         any_thread: bool,
         user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
         driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
-    ) -> eyre::Result<(
-        Self,
-        EventLoop<T>,
-        mpsc::Sender<EventPair<AppData>>,
-        AtomicU64,
-    )> {
+    ) -> eyre::Result<(Self, EventLoop<FeatherEvent<T>>)> {
+        use reactive::SignalMap;
         let count = AtomicU64::new(inputs.len() as u64);
-        let mut manager: StateManager = Default::default();
-        manager.init(
-            Arc::new(APP_SOURCE_ID),
-            Box::new(AppDataMachine {
-                handlers: HashMap::from_iter(inputs.into_iter().enumerate()),
-                state: appstate,
-                changed: true,
-            }),
-        );
+
+        #[cfg(debug_assertions)]
+        let desc = InstanceDescriptor {
+            flags: InstanceFlags::debugging(),
+            ..Default::default()
+        };
+        #[cfg(not(debug_assertions))]
+        let desc = InstanceDescriptor {
+            flags: InstanceFlags::DISCARD_HAL_LABELS,
+            ..Default::default()
+        };
+
+        let outline_tree = appstate.map(outline);
+        let instance = wgpu::Instance::new(&desc);
+        let on_driver = Rc::new(driver_init);
+        let driver = std::sync::Weak::<graphics::Driver>::new();
 
         #[cfg(target_os = "windows")]
         let event_loop = EventLoop::with_user_event()
@@ -2857,111 +2924,166 @@ impl<AppData: 'static, O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, Outl
                     .eq_ignore_ascii_case("Could not find wayland compositor")
                 {
                     eyre::eyre!(
-                        "Wayland initialization failed! winit cannot automatically fall back to X11 (). Try running the program with `WAYLAND_DISPLAY=\"\"`"
+                        "Wayland initialization failed! winit cannot automatically fall back to X11 (https://github.com/rust-windowing/winit/issues/4267). Try running the program with `WAYLAND_DISPLAY=\"\"`"
                     )
                 } else {
                     e.into()
                 }
             })?;
 
-        #[cfg(debug_assertions)]
-        let desc = InstanceDescriptor {
-            flags: InstanceFlags::debugging(),
-            ..Default::default()
-        };
-        #[cfg(not(debug_assertions))]
-        let desc = InstanceDescriptor {
-            flags: InstanceFlags::DISCARD_HAL_LABELS,
-            ..Default::default()
-        };
+        let proxy = event_loop.create_proxy();
 
-        let (sender, recv) = mpsc::channel();
-        Ok((
-            Self {
-                instance: wgpu::Instance::new(&desc),
-                driver: std::sync::Weak::<graphics::Driver>::new(),
-                store: None,
-                outline,
-                state: manager,
-                _parents: Default::default(),
-                root: component::Root::new(),
-                driver_init,
-                handle_sync: recv,
-                user_events: user_event,
+        let mut sampler = reactive::Sampler::new(outline_tree.clone().into());
+        sampler.notify(|| {
+            proxy
+                .send_event(FeatherEvent::ChangeUI)
+                .expect("Failed to send internal changeUI message!");
+        });
+
+        let windows = Rc::new(RefCell::new(HashMap::new()));
+        let windows2 = windows.clone();
+
+        let layouts = outline_tree.map(move |outline| {
+            map_vec(
+                |w| {
+                    (
+                        Rc::from(
+                            if let Some((state, _)) = windows2.borrow().get(&Identity(w.clone())) {
+                                w.as_ref().layout(state)
+                            } else {
+                                Box::new(Self::empty_layout_root())
+                            },
+                        ),
+                        w,
+                    )
+                },
+                |w| Identity(w),
+                &outline.children,
+            )
+        });
+
+        let nodes = map_vec(
+            |(v, w): &(
+                Rc<dyn layout::Layout<Props = DynSignal<Size2D<u32, crate::Pixel>>>>,
+                Rc<Window>,
+            )| {
+                if let Some((state, _)) = windows2.borrow().get(&Identity(w.clone())) {
+                    let (_, mut f) = v.stage(
+                        state
+                            .surface_dim
+                            .map(|x| x.to_f32().cast_unit())
+                            .into_dyn_signal(),
+                        PxLimits::default().to_signal().into_dyn_signal(),
+                        state.dpi.clone(),
+                    );
+
+                    (
+                        Rc::new(f(
+                            PxPoint::zero().to_signal().into_dyn_signal(),
+                            state.surface_dim.map(|x| x.to_f32()).into_dyn_signal(),
+                            PxLimits::default().to_signal().into_dyn_signal(),
+                        )),
+                        w.clone(),
+                    )
+                } else {
+                    todo!()
+                }
             },
-            event_loop,
-            sender,
-            count,
-        ))
-    }
+            |w| Identity(w),
+            layouts,
+        );
 
-    /// This allows modifying the appstate outside of feather's handling
-    /// routines. It will be correctly marked as changed if it is modified,
-    /// and a new frame will be queued.
-    pub fn with_appstate<R>(&mut self, f: impl FnOnce(AccessCell<AppData>) -> R) -> R {
-        let app_state: &mut AppDataMachine<AppData> = self.state.get_mut(&APP_SOURCE_ID).unwrap();
-        let cell = AccessCell {
-            value: &mut app_state.state,
-            changed: &mut app_state.changed,
+        let trees = nodes.map_mut::<HashMap<Identity<Rc<Window>>, Rc<rtree::Node>>>(|v, old| {
+            let mut old = old.unwrap_or_default();
+
+            // TODO: Replace with a smolset. Can be made even more efficient if made aware of the underlying persistent vector, because
+            // then it can compare each chunk and use petitset because the maximum number of elements is known
+            let mut exist = std::collections::HashSet::new();
+
+            for (n, w) in v.iter() {
+                old.entry(Identity(w.clone())).or_insert(n.clone());
+                exist.insert(Identity(w.clone()));
+            }
+
+            old.retain(|k, _| exist.contains(k));
+
+            old
+        });
+
+        let app = Self {
+            instance,
+            driver,
+            trees: trees.into(),
+            driver_init,
+            user_events: user_event,
+            state: appstate,
+            ready: AtomicBool::new(false),
+            window_map: HashMap::new(),
+            windows,
+            sampler,
+            proxy: event_loop.create_proxy(),
         };
 
-        let r = f(cell);
-        if app_state.changed {
-            for (id, _) in &self.root.children {
-                let Ok(state) = self.state.get::<WindowStateMachine>(id) else {
-                    continue;
-                };
-                state.state.window.request_redraw();
-            }
-        }
-        r
+        Ok((app, event_loop))
     }
 
-    #[allow(clippy::borrow_interior_mutable_const)]
-    fn update_outline(&mut self, event_loop: &ActiveEventLoop, store: O::Store) {
-        let app_state: &mut AppDataMachine<AppData> = self.state.get_mut(&APP_SOURCE_ID).unwrap();
-
-        for (idx, handler) in self.handle_sync.try_iter() {
-            app_state.handlers.insert(idx as usize, handler);
+    fn update_window(&mut self, window: Rc<Window>, event_loop: &ActiveEventLoop) {
+        if !self.ready.load(std::sync::atomic::Ordering::Acquire) {
+            return;
         }
 
-        let (store, windows) = self.outline.call(store, &app_state.state, ScopeID::root());
-        debug_assert!(
-            APP_SOURCE_ID.parent.is_none(),
-            "Something set the APP_SOURCE parent! This should never happen!"
-        );
+        let binding = window.attributes.clone().to_signal();
+        let attributes = sample(&binding);
+        let mut windows = self.windows.borrow_mut();
+        let (w, sampler) = windows.entry(Identity(window)).or_insert_with_key(|r| {
+            let state = WindowState::new(
+                &attributes,
+                &mut self.driver,
+                &self.instance,
+                event_loop,
+                &mut self.driver_init,
+            )
+            .expect("failed to create window");
+            self.window_map.insert(state.window.id(), r.0.clone());
+            let mut sampler = Sampler::new(r.0.attributes.clone().to_signal());
+            let proxy = self.proxy.clone();
+            let w = r.0.clone();
+            sampler.notify(move || {
+                proxy
+                    .send_event(FeatherEvent::ChangeWindow(w.clone()))
+                    .expect("Failed to send change window message!")
+            });
+            (state, sampler)
+        });
 
-        self.store.replace(store);
-        self.root.children = windows;
-        #[cfg(debug_assertions)]
-        self.root.validate_ids().unwrap();
-
-        let (root, manager, graphics, instance, driver_init) = (
-            &mut self.root,
-            &mut self.state,
-            &mut self.driver,
-            &mut self.instance,
-            &mut self.driver_init,
-        );
-
-        root.layout_all(manager, graphics, driver_init, instance, event_loop)
-            .unwrap();
-
-        root.stage_all(manager).unwrap();
+        if let Some(attributes) = sampler.sample() {
+            w.window.set_blur(attributes.blur);
+            w.window.set_content_protected(attributes.content_protected);
+            w.window.set_cursor(attributes.cursor.clone());
+            w.window.set_decorations(attributes.decorations);
+            w.window.set_enabled_buttons(attributes.enabled_buttons);
+            w.window.set_fullscreen(attributes.fullscreen.clone());
+            w.window.set_max_inner_size(attributes.max_inner_size);
+            w.window.set_maximized(attributes.maximized);
+            w.window.set_min_inner_size(attributes.min_inner_size);
+            //w.window.set_minimized(attributes.minimized);
+            w.window.set_resizable(attributes.resizable);
+            w.window.set_resize_increments(attributes.resize_increments);
+            w.window.set_title(&attributes.title);
+            w.window.set_transparent(attributes.transparent);
+            w.window.set_visible(attributes.visible);
+            w.window.set_window_level(attributes.window_level);
+        }
     }
 }
 
-impl<
-    AppData: 'static,
-    T: 'static,
-    O: for<'a> FnPersist2<&'a AppData, ScopeID<'static>, OutlineReturn>,
-> winit::application::ApplicationHandler<T> for App<AppData, O, T>
+impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandler<FeatherEvent<T>>
+    for App<AppData, T>
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // If this is our first resume, call the start function that can create the
-        // necessary graphics context
-        let store = self.store.take();
-        self.update_outline(event_loop, store.unwrap_or_else(|| O::init(&self.outline)));
+        // When we resume, we treat this as a ChangeUI event
+        self.ready.store(true, std::sync::atomic::Ordering::Release);
+        self.user_event(event_loop, FeatherEvent::ChangeUI);
     }
     fn window_event(
         &mut self,
@@ -2969,206 +3091,179 @@ impl<
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let mut delete = None;
-        if let Some(root) = self.root.states.get_mut(&window_id) {
-            let Some(rtree) = root.staging.as_ref().map(|x| x.get_rtree()) else {
-                panic!("Got root state without valid staging!");
-            };
+        let trees = sample(&self.trees);
+        if let Some(id) = self.window_map.get(&window_id)
+            && let Some(root) = trees.get_mut(&Identity(id.clone()))
+            && let Some((state, _)) = self.windows.borrow_mut().get_mut(&Identity(id.clone()))
+        {
+            let mut resized = false;
+            let _ = match event {
+                WindowEvent::CloseRequested => Window::on_window_event(
+                    state,
+                    root.clone(),
+                    event,
+                    self.driver.clone(),
+                    &mut self.manager,
+                ),
+                WindowEvent::RedrawRequested => {
+                    // TODO: this doesn't properly update all window aspects
+                    if let Some(driver) = self.driver.upgrade() {
+                        let surface_dim = sample(&state.surface_dim).to_f32();
 
-            if let Some(window) = self.root.children.get(&root.id) {
-                let window = window.as_ref().unwrap();
-                let mut resized = false;
-                let _ = match event {
-                    WindowEvent::CloseRequested => {
-                        let v = Window::on_window_event(
-                            window.id(),
-                            rtree,
-                            event,
-                            &mut self.state,
-                            self.driver.clone(),
-                        );
-                        if v.is_accept() {
-                            delete = Some(window.id());
-                        }
-                        v
-                    }
-                    WindowEvent::RedrawRequested => {
-                        if let Ok(state) = self.state.get_mut::<WindowStateMachine>(&window.id())
-                            && let Some(driver) = self.driver.upgrade()
-                        {
-                            if let Some(staging) = root.staging.as_ref() {
-                                let inner = &mut state.state;
-                                let surface_dim = inner.surface_dim().to_f32();
+                        loop {
+                            // Construct a default compositor view with no offset.
+                            let mut viewer = CompositorView {
+                                index: 0,
+                                window: &mut state.compositor,
+                                layer0: &mut driver.layer_composite[0].write(),
+                                layer1: &mut driver.layer_composite[1].write(),
+                                clipstack: &mut state.clipstack,
+                                offset: PxVector::zero(),
+                                surface_dim,
+                                pass: 0,
+                                slice: 0,
+                            };
 
-                                loop {
-                                    // Construct a default compositor view with no offset.
-                                    let mut viewer = CompositorView {
-                                        index: 0,
-                                        window: &mut inner.compositor,
-                                        layer0: &mut driver.layer_composite[0].write(),
-                                        layer1: &mut driver.layer_composite[1].write(),
-                                        clipstack: &mut inner.clipstack,
-                                        offset: PxVector::zero(),
-                                        surface_dim,
-                                        pass: 0,
-                                        slice: 0,
-                                    };
-
-                                    // Reset our layer tracker before beginning a render
-                                    inner.layers.clear();
-                                    viewer.clipstack.clear();
-                                    if let Err(e) = staging.render(
-                                        PxPoint::zero(),
-                                        &driver,
-                                        &mut viewer,
-                                        &mut inner.layers,
-                                    ) {
-                                        match e {
-                                            Error::ResizeTextureAtlas(layers, kind) => {
-                                                // Resize the texture atlas with the requested
-                                                // number of layers (the extent has already been
-                                                // changed)
-                                                match kind {
-                                                    AtlasKind::Primary => driver.atlas.write(),
-                                                    AtlasKind::Layer0 => {
-                                                        driver.layer_atlas[0].write()
-                                                    }
-                                                    AtlasKind::Layer1 => {
-                                                        driver.layer_atlas[1].write()
-                                                    }
-                                                }
-                                                .resize(&driver.device, &driver.queue, layers);
-                                                viewer.window.cleanup();
-                                                viewer.layer0.cleanup();
-                                                viewer.layer1.cleanup();
-                                                continue; // Retry frame
-                                            }
-                                            e => panic!("Fatal draw error: {e}"),
+                            // Reset our layer tracker before beginning a render
+                            state.layers.clear();
+                            viewer.clipstack.clear();
+                            if let Err(e) = root.render(
+                                PxPoint::zero(),
+                                &driver,
+                                &mut viewer,
+                                &mut state.layers,
+                            ) {
+                                match e {
+                                    Error::ResizeTextureAtlas(layers, kind) => {
+                                        // Resize the texture atlas with the requested
+                                        // number of layers (the extent has already been
+                                        // changed)
+                                        match kind {
+                                            AtlasKind::Primary => driver.atlas.write(),
+                                            AtlasKind::Layer0 => driver.layer_atlas[0].write(),
+                                            AtlasKind::Layer1 => driver.layer_atlas[1].write(),
                                         }
+                                        .resize(
+                                            &driver.device,
+                                            &driver.queue,
+                                            layers,
+                                        );
+                                        viewer.window.cleanup();
+                                        viewer.layer0.cleanup();
+                                        viewer.layer1.cleanup();
+                                        continue; // Retry frame
                                     }
-                                    break;
+                                    e => panic!("Fatal draw error: {e}"),
                                 }
                             }
-
-                            let mut encoder = driver.device.create_command_encoder(
-                                &wgpu::CommandEncoderDescriptor {
-                                    label: Some("Root Encoder"),
-                                },
-                            );
-
-                            driver.atlas.write().process_mipmaps(&driver, &mut encoder);
-                            driver.atlas.read().draw(&driver, &mut encoder);
-
-                            let max_depth = driver.layer_composite[0]
-                                .read()
-                                .segments
-                                .len()
-                                .max(driver.layer_composite[1].read().segments.len());
-
-                            for i in 0..2 {
-                                let surface_dim = driver.layer_atlas[i].read().texture.size();
-                                driver.layer_composite[i].write().prepare(
-                                    &driver,
-                                    &mut encoder,
-                                    Size2D::<u32, Pixel>::new(
-                                        surface_dim.width,
-                                        surface_dim.height,
-                                    )
-                                    .to_f32(),
-                                );
-                            }
-
-                            // A depth of "zero" means the window compositor, so we only go down to
-                            // 1.
-                            for i in (1..max_depth).rev() {
-                                // Odd is layer0, even is layer1, so we add one before modulo to
-                                // reverse the result
-                                let idx: usize = (i + 1) % 2;
-                                let mut compositor = driver.layer_composite[idx].write();
-                                let atlas = driver.layer_atlas[idx].read();
-
-                                // We create one render pass for each slice of the layer atlas
-                                for slice in 0..atlas.texture.depth_or_array_layers() {
-                                    let name = format!(
-                                        "Layer {idx} (depth {i}) Atlas (slice {slice}) Pass"
-                                    );
-                                    let mut pass =
-                                        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                                            label: Some(&name),
-                                            color_attachments: &[Some(
-                                                wgpu::RenderPassColorAttachment {
-                                                    view: &atlas.targets[slice as usize],
-                                                    resolve_target: None,
-                                                    depth_slice: None,
-                                                    ops: wgpu::Operations {
-                                                        load: if true {
-                                                            wgpu::LoadOp::Clear(
-                                                                wgpu::Color::TRANSPARENT,
-                                                            )
-                                                        } else {
-                                                            wgpu::LoadOp::Load
-                                                        },
-                                                        store: wgpu::StoreOp::Store,
-                                                    },
-                                                },
-                                            )],
-                                            depth_stencil_attachment: None,
-                                            timestamp_writes: None,
-                                            occlusion_query_set: None,
-                                        });
-
-                                    pass.set_viewport(
-                                        0.0,
-                                        0.0,
-                                        atlas.texture.width() as f32,
-                                        atlas.texture.height() as f32,
-                                        0.0,
-                                        1.0,
-                                    );
-
-                                    compositor.draw(&driver, &mut pass, i as u8, slice as u8);
-                                }
-                            }
-
-                            state.state.draw(encoder);
-                            driver.layer_composite[0].write().cleanup();
-                            driver.layer_composite[1].write().cleanup();
+                            break;
                         }
 
-                        InputResult::Consume(())
-                    }
-                    WindowEvent::Resized(_) => {
-                        resized = true;
-                        Window::on_window_event(
-                            window.id(),
-                            rtree,
-                            event,
-                            &mut self.state,
-                            self.driver.clone(),
-                        )
-                    }
-                    _ => Window::on_window_event(
-                        window.id(),
-                        rtree,
-                        event,
-                        &mut self.state,
-                        self.driver.clone(),
-                    ),
-                };
+                        let mut encoder =
+                            driver
+                                .device
+                                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                                    label: Some("Root Encoder"),
+                                });
 
-                if self.state.changed || resized {
-                    self.state.changed = false;
-                    let store = self.store.take().unwrap();
-                    self.update_outline(event_loop, store);
+                        driver.atlas.write().process_mipmaps(&driver, &mut encoder);
+                        driver.atlas.read().draw(&driver, &mut encoder);
+
+                        let max_depth = driver.layer_composite[0]
+                            .read()
+                            .segments
+                            .len()
+                            .max(driver.layer_composite[1].read().segments.len());
+
+                        for i in 0..2 {
+                            let surface_dim = driver.layer_atlas[i].read().texture.size();
+                            driver.layer_composite[i].write().prepare(
+                                &driver,
+                                &mut encoder,
+                                Size2D::<u32, Pixel>::new(surface_dim.width, surface_dim.height)
+                                    .to_f32(),
+                            );
+                        }
+
+                        // A depth of "zero" means the window compositor, so we only go down to
+                        // 1.
+                        for i in (1..max_depth).rev() {
+                            // Odd is layer0, even is layer1, so we add one before modulo to
+                            // reverse the result
+                            let idx: usize = (i + 1) % 2;
+                            let mut compositor = driver.layer_composite[idx].write();
+                            let atlas = driver.layer_atlas[idx].read();
+
+                            // We create one render pass for each slice of the layer atlas
+                            for slice in 0..atlas.texture.depth_or_array_layers() {
+                                let name =
+                                    format!("Layer {idx} (depth {i}) Atlas (slice {slice}) Pass");
+                                let mut pass =
+                                    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                                        label: Some(&name),
+                                        color_attachments: &[Some(
+                                            wgpu::RenderPassColorAttachment {
+                                                view: &atlas.targets[slice as usize],
+                                                resolve_target: None,
+                                                depth_slice: None,
+                                                ops: wgpu::Operations {
+                                                    load: if true {
+                                                        wgpu::LoadOp::Clear(
+                                                            wgpu::Color::TRANSPARENT,
+                                                        )
+                                                    } else {
+                                                        wgpu::LoadOp::Load
+                                                    },
+                                                    store: wgpu::StoreOp::Store,
+                                                },
+                                            },
+                                        )],
+                                        depth_stencil_attachment: None,
+                                        timestamp_writes: None,
+                                        occlusion_query_set: None,
+                                    });
+
+                                pass.set_viewport(
+                                    0.0,
+                                    0.0,
+                                    atlas.texture.width() as f32,
+                                    atlas.texture.height() as f32,
+                                    0.0,
+                                    1.0,
+                                );
+
+                                compositor.draw(&driver, &mut pass, i as u8, slice as u8);
+                            }
+                        }
+
+                        state.draw(encoder);
+                        driver.layer_composite[0].write().cleanup();
+                        driver.layer_composite[1].write().cleanup();
+                    }
+
+                    InputResult::Consume(())
                 }
-            }
+                WindowEvent::Resized(_) => {
+                    resized = true;
+                    Window::on_window_event(
+                        state,
+                        root.clone(),
+                        event,
+                        self.driver.clone(),
+                        &mut self.manager,
+                    )
+                }
+                _ => Window::on_window_event(
+                    state,
+                    root.clone(),
+                    event,
+                    self.driver.clone(),
+                    &mut self.manager,
+                ),
+            };
         }
 
-        if let Some(id) = delete {
-            self.root.children.remove(&id);
-        }
-
-        if self.root.children.is_empty() {
+        if sample(&self.sampler.inspect().children).is_empty() {
             event_loop.exit();
         }
     }
@@ -3182,10 +3277,33 @@ impl<
         let _ = (event_loop, device_id, event);
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, evt: T) {
-        if let Some(mut f) = self.user_events.take() {
-            (f)(self, event_loop, evt);
-            self.user_events.replace(f);
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, evt: FeatherEvent<T>) {
+        match evt {
+            FeatherEvent::ChangeUI => {
+                // TODO: There are much more efficient ways to perform this check that can be done using purely stack-allocated storage, but we don't bother right now
+                let mut exist = std::collections::HashSet::new();
+
+                let ui = self.sampler.inspect();
+                for w in ui.children.iter() {
+                    if !self.windows.borrow().contains_key(&Identity(w.clone())) {
+                        self.update_window(w.clone(), event_loop);
+                    }
+                    exist.insert(Identity(w.clone()));
+                }
+
+                self.windows.borrow_mut().retain(|k, _| exist.contains(k));
+                self.window_map
+                    .retain(|_, v| exist.contains(&Identity(v.clone())));
+            }
+            FeatherEvent::ChangeWindow(window) => {
+                self.update_window(window, event_loop);
+            }
+            FeatherEvent::UserEvent(evt) => {
+                if let Some(mut f) = self.user_events.take() {
+                    (f)(self, event_loop, evt);
+                    self.user_events.replace(f);
+                }
+            }
         }
     }
 
@@ -3205,7 +3323,7 @@ impl crate::persist::FnPersistStore for TestApp {
 #[cfg(test)]
 impl FnPersist2<&u8, ScopeID<'static>, OutlineReturn> for TestApp {
     fn init(&self) -> Self::Store {
-        (0, im::HashMap::new())
+        (0, imbl::HashMap::new())
     }
 
     fn call(
@@ -3228,14 +3346,13 @@ impl FnPersist2<&u8, ScopeID<'static>, OutlineReturn> for TestApp {
             DAbsPoint::zero(),
         );
         let window = Window::new(
-            gen_id!(id),
             winit::window::Window::default_attributes()
                 .with_title("test_blank")
                 .with_resizable(true),
             Box::new(rect),
         );
 
-        let mut windows = im::HashMap::new();
+        let mut windows = imbl::HashMap::new();
         windows.insert(window.id().clone(), Some(window));
 
         (store, windows)

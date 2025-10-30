@@ -211,7 +211,7 @@ impl crate::layout::fixed::Child for PropBag {}
 impl crate::layout::list::Child for PropBag {}
 impl crate::layout::list::Prop for PropBag {}
 impl crate::layout::leaf::Padded for PropBag {}
-impl crate::component::textbox::Prop for PropBag {}
+//impl crate::component::textbox::Prop for PropBag {}
 
 impl crate::layout::flex::Prop for PropBag {
     fn wrap(&self) -> bool {

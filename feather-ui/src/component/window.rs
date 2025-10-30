@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::{Component, StateMachine};
-use crate::component::ComponentWrap;
+use crate::component::{ChildOf, DynComponent};
 use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
+use crate::reactive::{AsSignal, MutableSignal, sample};
+use crate::reactive::{DynSignal, SignalMap};
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
 use crate::{
@@ -37,11 +39,12 @@ pub(crate) enum WindowNodeTrack {
 pub struct WindowState {
     pub surface: wgpu::Surface<'static>, // Ensure surface get dropped before window
     pub window: Arc<winit::window::Window>,
-    pub config: wgpu::SurfaceConfiguration,
+    pub dpi: MutableSignal<crate::RelDim>,
+    pub config: MutableSignal<wgpu::SurfaceConfiguration>,
+    pub surface_dim: DynSignal<Size2D<u32, crate::Pixel>>,
     all_buttons: u16,
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
-    pub dpi: crate::RelDim,
     pub driver: Arc<graphics::Driver>,
     trackers: [HashMap<DeviceId, RcNode>; 3],
     lookup: HashMap<(Arc<SourceID>, u8), DeviceId>,
@@ -65,6 +68,81 @@ const BACKCOLOR: wgpu::Color = wgpu::Color {
 };
 
 impl WindowState {
+    pub(crate) fn new(
+        attributes: &WindowAttributes,
+        driver_ref: &mut std::sync::Weak<graphics::Driver>,
+        instance: &wgpu::Instance,
+        event_loop: &ActiveEventLoop,
+        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) + 'static>>,
+    ) -> Result<Self> {
+        let window = Arc::new(event_loop.create_window(attributes.clone())?);
+
+        let surface: wgpu::Surface<'static> = instance.create_surface(window.clone())?;
+
+        let driver = futures_lite::future::block_on(crate::graphics::Driver::new(
+            driver_ref, instance, &surface, on_driver,
+        ))?;
+
+        let size = window.inner_size();
+        let mut config = surface
+            .get_default_config(&driver.adapter, size.width, size.height)
+            .ok_or_eyre("Failed to find a default configuration")?;
+        let view_format = config.format.add_srgb_suffix();
+        //let view_format = config.format.remove_srgb_suffix();
+        config.format = view_format;
+        config.view_formats.push(view_format);
+        surface.configure(&driver.device, &config);
+
+        let compositor = Compositor::new(
+            &driver.device,
+            &driver.shared,
+            &driver.atlas.read().view,
+            &driver.layer_atlas[0].read().view,
+            config.view_formats[0],
+            false,
+        );
+
+        let config = MutableSignal::new(config);
+        let mut windowstate = Self {
+            modifiers: 0,
+            all_buttons: 0,
+            last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
+            config: config.clone(),
+            dpi: MutableSignal::new(RelDim::splat(window.scale_factor() as f32)),
+            surface_dim: config
+                .map(|c| Size2D::<u32, crate::Pixel>::new(c.width, c.height))
+                .into(),
+            surface,
+            window,
+            driver: driver.clone(),
+            trackers: Default::default(),
+            lookup: Default::default(),
+            compositor,
+            clipstack: Vec::new(),
+            layers: Vec::new(),
+        };
+
+        windowstate.resize(size);
+
+        // This causes an unwanted flash, but makes it easier to capture the initial
+        // frame for debugging, so it's left here to be uncommented for
+        // debugging purposes let frame =
+        // windowstate.surface.get_current_texture()?; frame.present();
+
+        Ok(windowstate)
+    }
+
+    fn resize(&mut self, size: PhysicalSize<u32>) {
+        self.config.set_with(|config| {
+            config.width = size.width;
+            config.height = size.height;
+        });
+        self.surface.configure(
+            &self.driver.device,
+            &sample(&self.config.clone().to_signal()),
+        );
+    }
+
     pub(crate) fn nodes(&self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
         self.trackers[tracker as usize]
             .values()
@@ -135,8 +213,9 @@ impl WindowState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
+        let surface_dim = sample(&self.surface_dim);
         self.compositor
-            .prepare(&self.driver, &mut encoder, self.surface_dim().to_f32());
+            .prepare(&self.driver, &mut encoder, surface_dim.to_f32());
 
         {
             let mut backcolor = BACKCOLOR;
@@ -162,7 +241,7 @@ impl WindowState {
                 occlusion_query_set: None,
             });
 
-            let viewport_dim = self.surface_dim().to_f32();
+            let viewport_dim = surface_dim.to_f32();
             pass.set_viewport(0.0, 0.0, viewport_dim.width, viewport_dim.height, 0.0, 1.0);
 
             self.compositor.draw(&self.driver, &mut pass, 0, 0);
@@ -171,10 +250,6 @@ impl WindowState {
 
         self.driver.queue.submit(Some(encoder.finish()));
         frame.present();
-    }
-
-    pub fn surface_dim(&self) -> Size2D<u32, crate::Pixel> {
-        Size2D::<u32, crate::Pixel>::new(self.config.width, self.config.height)
     }
 }
 
@@ -186,22 +261,6 @@ impl PartialEq for RcNode {
     }
 }
 
-impl PartialEq for WindowState {
-    fn eq(&self, other: &Self) -> bool {
-        self.surface == other.surface
-            && Arc::ptr_eq(&self.window, &other.window)
-            && self.config == other.config
-            && self.all_buttons == other.all_buttons
-            && self.modifiers == other.modifiers
-            && self.last_mouse == other.last_mouse
-            && self.dpi == other.dpi
-            && Arc::ptr_eq(&self.driver, &other.driver)
-            && self.trackers == other.trackers
-    }
-}
-
-pub type WindowStateMachine = StateMachine<WindowState, 0>;
-
 /// Represents an OS window. All outline functions must return a set of windows
 /// as a result of their evaluation, which represents all the windows that are
 /// currently open as part of the application. The ID of the window that
@@ -209,172 +268,70 @@ pub type WindowStateMachine = StateMachine<WindowState, 0>;
 /// phase, because this is needed to acquire window-specific information that
 /// depends on which monitor the OS thinks the window belongs to, like DPI
 /// or orientation.
-#[derive(Clone)]
 pub struct Window {
-    pub id: Arc<SourceID>,
-    attributes: WindowAttributes,
-    child: Box<dyn ComponentWrap<<dyn root::Prop as crate::component::Desc>::Child>>,
+    pub attributes: MutableSignal<WindowAttributes>,
+    pub child: MutableSignal<Rc<ChildOf<dyn root::Prop>>>,
 }
 
-impl Component for Window {
-    type Props = PxDim;
-
-    fn layout(
-        &self,
-        manager: &mut crate::StateManager,
-        _: &graphics::Driver,
-        _: &Arc<SourceID>,
-    ) -> Box<dyn crate::layout::Layout<PxDim>> {
-        use crate::Convert;
-
-        let inner = &manager.get::<WindowStateMachine>(&self.id).unwrap().state;
-        let size = inner.window.inner_size();
-        let driver = inner.driver.clone();
-        Box::new(layout::Node::<PxDim, dyn root::Prop> {
-            props: Rc::new(size.to().to_f32()),
-            children: self.child.layout(manager, &driver, &self.id),
-            id: Arc::downgrade(&self.id),
-            renderable: None,
-            layer: None,
-        })
-    }
-}
-
-impl StateMachineChild for Window {
-    fn init(
-        &self,
-        _: &std::sync::Weak<graphics::Driver>,
-    ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
-        Err(crate::Error::UnhandledEvent)
-    }
-
-    fn apply_children(
-        &self,
-        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        f(self.child.as_ref())
-    }
-
-    fn id(&self) -> Arc<SourceID> {
-        self.id.clone()
+impl std::fmt::Debug for Window {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Window")
+            .field("attributes", &self.attributes)
+            .finish()
     }
 }
 
 impl Window {
-    pub(crate) fn init_custom(
+    pub(crate) fn layout(
         &self,
-        manager: &mut StateManager,
-        driver_ref: &mut std::sync::Weak<graphics::Driver>,
-        instance: &wgpu::Instance,
-        event_loop: &ActiveEventLoop,
-        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>) + 'static>>,
-    ) -> Result<()> {
-        if manager.get::<WindowStateMachine>(&self.id).is_err() {
-            let attributes = self.attributes.clone();
+        state: &WindowState,
+    ) -> Box<dyn crate::layout::Layout<Props = DynSignal<Size2D<u32, crate::Pixel>>>> {
+        let driver = state.driver.clone();
+        let size = state.surface_dim.clone();
+        let dpi = state.dpi.clone();
 
-            let window = Arc::new(event_loop.create_window(attributes)?);
+        let children = self
+            .child
+            .clone()
+            .map(move |child| child.layout(driver.clone(), dpi.clone()));
 
-            let surface: wgpu::Surface<'static> = instance.create_surface(window.clone())?;
-
-            let driver = futures_lite::future::block_on(crate::graphics::Driver::new(
-                driver_ref, instance, &surface, on_driver,
-            ))?;
-
-            let size = window.inner_size();
-            let mut config = surface
-                .get_default_config(&driver.adapter, size.width, size.height)
-                .ok_or_eyre("Failed to find a default configuration")?;
-            let view_format = config.format.add_srgb_suffix();
-            //let view_format = config.format.remove_srgb_suffix();
-            config.format = view_format;
-            config.view_formats.push(view_format);
-            surface.configure(&driver.device, &config);
-
-            let compositor = Compositor::new(
-                &driver.device,
-                &driver.shared,
-                &driver.atlas.read().view,
-                &driver.layer_atlas[0].read().view,
-                config.view_formats[0],
-                false,
-            );
-
-            let mut windowstate = WindowState {
-                modifiers: 0,
-                all_buttons: 0,
-                last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
-                config,
-                dpi: RelDim::splat(window.scale_factor() as f32),
-                surface,
-                window,
-                driver: driver.clone(),
-                trackers: Default::default(),
-                lookup: Default::default(),
-                compositor,
-                clipstack: Vec::new(),
-                layers: Vec::new(),
-            };
-
-            Window::resize(size, &mut windowstate);
-
-            // This causes an unwanted flash, but makes it easier to capture the initial
-            // frame for debugging, so it's left here to be uncommented for
-            // debugging purposes let frame =
-            // windowstate.surface.get_current_texture()?; frame.present();
-
-            manager.init(
-                self.id.clone(),
-                Box::new(StateMachine::<WindowState, 0> {
-                    state: windowstate,
-                    output: [],
-                    input_mask: 0,
-                    changed: false,
-                }),
-            );
-        }
-
-        manager.init_child(self.child.as_ref(), driver_ref)?;
-        Ok(())
+        Box::new(
+            layout::Node::<DynSignal<Size2D<u32, crate::Pixel>>, dyn root::Prop> {
+                props: Rc::new(size),
+                children: children.into(),
+                renderable: None,
+                layer: None,
+            },
+        )
     }
+}
 
+impl Window {
     pub fn new(
-        id: Arc<SourceID>,
         attributes: WindowAttributes,
-        child: Box<dyn ComponentWrap<dyn crate::layout::base::Empty>>,
+        child: Box<dyn DynComponent<dyn crate::layout::base::Empty>>,
     ) -> Self {
         Self {
-            id,
-            attributes,
-            child,
+            attributes: MutableSignal::new(attributes),
+            child: MutableSignal::new(Rc::from(child)),
         }
-    }
-
-    fn resize(size: PhysicalSize<u32>, state: &mut WindowState) {
-        state.config.width = size.width;
-        state.config.height = size.height;
-        state.surface.configure(&state.driver.device, &state.config);
     }
 
     #[allow(clippy::result_unit_err)]
     pub fn on_window_event(
-        id: Arc<SourceID>,
-        rtree: Weak<rtree::Node>,
-        event: WindowEvent,
-        manager: &mut StateManager,
+        window: &mut WindowState,
+        rt: Rc<rtree::Node>,
+        event: WindowEvent, // EventStream<WindowEvent>
         driver: std::sync::Weak<graphics::Driver>,
+        manager: &mut StateManager,
     ) -> InputResult<()> {
         use crate::Convert;
 
-        let state = match manager.get_mut::<WindowStateMachine>(&id) {
-            Ok(s) => s,
-            Err(e) => return InputResult::Error(e),
-        };
-        let window = &mut state.state;
         let dpi = window.dpi;
         let inner = window.window.clone();
         match event {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                window.dpi = RelDim::splat(scale_factor as f32);
+                window.dpi.replace(RelDim::splat(scale_factor as f32));
                 window.window.request_redraw();
                 InputResult::Consume(())
             }
@@ -401,7 +358,7 @@ impl Window {
             WindowEvent::Resized(new_size) => {
                 // Resize events can sometimes give empty sizes if the window is minimized
                 if new_size.height > 0 && new_size.width > 0 {
-                    Self::resize(new_size, window);
+                    window.resize(new_size);
                 }
                 // On macos the window needs to be redrawn manually after resizing
                 window.window.request_redraw();
@@ -430,9 +387,9 @@ impl Window {
                     let _ = node.inject_event(
                         &evt,
                         evt.kind(),
-                        dpi,
+                        &dpi,
                         PxVector::zero(),
-                        id.clone(),
+                        window,
                         &driver,
                         manager,
                     );
@@ -624,9 +581,9 @@ impl Window {
                                     n.inject_event(
                                         &e,
                                         e.kind(),
-                                        dpi,
+                                        &dpi,
                                         PxVector::zero(),
-                                        id.clone(),
+                                        window,
                                         &driver,
                                         manager,
                                     )
@@ -652,9 +609,9 @@ impl Window {
                             let _ = node.inject_event(
                                 &e,
                                 e.kind(),
-                                dpi,
+                                &dpi,
                                 PxVector::zero(),
-                                id.clone(),
+                                window,
                                 &driver,
                                 manager,
                             );
@@ -666,9 +623,9 @@ impl Window {
                             let _ = node.inject_event(
                                 &e,
                                 e.kind(),
-                                dpi,
+                                &dpi,
                                 PxVector::zero(),
-                                id.clone(),
+                                window,
                                 &driver,
                                 manager,
                             );
@@ -713,32 +670,20 @@ impl Window {
                             let offset = Node::offset(node.clone());
                             return node
                                 .clone()
-                                .inject_event(
-                                    &e,
-                                    e.kind(),
-                                    dpi,
-                                    offset,
-                                    id.clone(),
-                                    &driver,
-                                    manager,
-                                )
+                                .inject_event(&e, e.kind(), &dpi, offset, window, &driver, manager)
                                 .map(|_| ());
                         }
 
-                        if let Some(rt) = rtree.upgrade() {
-                            rt.process(
-                                &e,
-                                e.kind(),
-                                PxPoint::new(x, y),
-                                PxVector::zero(),
-                                dpi,
-                                &driver,
-                                manager,
-                                id.clone(),
-                            )
-                        } else {
-                            InputResult::Forward(())
-                        }
+                        rt.process(
+                            &e,
+                            e.kind(),
+                            PxPoint::new(x, y),
+                            PxVector::zero(),
+                            &dpi,
+                            &driver,
+                            manager,
+                            window,
+                        )
                     }
                 };
 
@@ -751,11 +696,6 @@ impl Window {
                             all_buttons,
                             ..
                         } => {
-                            // We reborrow everything here or rust gets upset
-                            let state = match manager.get_mut::<WindowStateMachine>(&id) {
-                                Ok(s) => s,
-                                Err(e) => return InputResult::Error(e),
-                            };
                             let evt = RawEvent::MouseOff {
                                 device_id,
                                 modifiers,
@@ -765,15 +705,15 @@ impl Window {
                             // Drain() holds a reference, so we still have to collect these to avoid
                             // borrowing manager twice
                             let nodes: SmallVec<[Weak<Node>; 4]> =
-                                state.state.drain(WindowNodeTrack::Hover);
+                                window.drain(WindowNodeTrack::Hover);
 
                             for node in nodes.iter().filter_map(|x| x.upgrade()) {
                                 let _ = node.inject_event(
                                     &evt,
                                     evt.kind(),
-                                    dpi,
+                                    &dpi,
                                     PxVector::zero(),
-                                    id.clone(),
+                                    window,
                                     &driver,
                                     manager,
                                 );
@@ -795,28 +735,23 @@ impl Window {
                             button: crate::input::MouseButton::Right,
                             ..
                         } => {
-                            // We reborrow everything here or rust gets upset
-                            let state = match manager.get_mut::<WindowStateMachine>(&id) {
-                                Ok(s) => s,
-                                Err(e) => return InputResult::Error(e),
-                            };
                             let evt = RawEvent::Focus {
                                 acquired: false,
-                                window: state.state.window.clone(),
+                                window: window.window.clone(),
                             };
 
                             // Drain() holds a reference, so we still have to collect these to avoid
                             // borrowing manager twice
                             let nodes: SmallVec<[Weak<Node>; 4]> =
-                                state.state.drain(WindowNodeTrack::Focus);
+                                window.drain(WindowNodeTrack::Focus);
 
                             for node in nodes.iter().filter_map(|x| x.upgrade()) {
                                 let _ = node.inject_event(
                                     &evt,
                                     evt.kind(),
-                                    dpi,
+                                    &dpi,
                                     PxVector::zero(),
-                                    id.clone(),
+                                    window,
                                     &driver,
                                     manager,
                                 );

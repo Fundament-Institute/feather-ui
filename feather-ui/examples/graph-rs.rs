@@ -69,21 +69,23 @@ impl leaf::Prop for MinimalArea {}
 const NODE_RADIUS: f32 = 25.0;
 
 impl FnPersistStore for BasicApp {
-    type Store = (GraphState, im::HashMap<Arc<SourceID>, Option<Window>>);
+    type Store = (GraphState, imbl::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>>
+    for BasicApp
+{
     fn init(&self) -> Self::Store {
-        (Default::default(), im::HashMap::new())
+        (Default::default(), imbl::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
         args: &GraphState,
         mut scope: ScopeID<'_>,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Box<ChildOf<dyn fixed::Prop>>> = im::Vector::new();
+            let mut children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>> = imbl::Vector::new();
             let domain: Arc<CrossReferenceDomain> = Default::default();
 
             let mut node_ids: Vec<Arc<SourceID>> = Vec::new();
@@ -224,7 +226,7 @@ impl FnPersist2<&GraphState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wind
                 Box::new(region),
             );
 
-            store.1 = im::HashMap::new();
+            store.1 = imbl::HashMap::new();
             store.1.insert(window.id.clone(), Some(window));
             store.0 = args.clone();
         }

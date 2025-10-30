@@ -165,21 +165,21 @@ static BUTTONS: LazyLock<[(&str, BoxedAction, sRGB); 24]> = LazyLock::new(|| {
 });
 
 impl FnPersistStore for CalcApp {
-    type Store = (CalcFFI, im::HashMap<Arc<SourceID>, Option<Window>>);
+    type Store = (CalcFFI, imbl::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<&CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp {
+impl FnPersist2<&CalcFFI, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>> for CalcApp {
     fn init(&self) -> Self::Store {
-        (CalcFFI(self.init_calc.clone()), im::HashMap::new())
+        (CalcFFI(self.init_calc.clone()), imbl::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
         args: &CalcFFI,
         mut scope: ScopeID<'_>,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
         //if store.0.eq(args) {
-        let mut children: im::Vector<Box<ChildOf<dyn fixed::Prop>>> = im::Vector::new();
+        let mut children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>> = imbl::Vector::new();
 
         for ((i, (txt, _, color)), id) in scope.iter(BUTTONS.iter().enumerate()) {
             let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
@@ -277,7 +277,7 @@ impl FnPersist2<&CalcFFI, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>
             Box::new(region),
         );
 
-        store.1 = im::HashMap::new();
+        store.1 = imbl::HashMap::new();
         store.1.insert(window.id.clone(), Some(window));
         store.0 = args.clone();
         //}

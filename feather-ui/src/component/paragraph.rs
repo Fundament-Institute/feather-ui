@@ -17,7 +17,7 @@ use std::sync::Arc;
 pub struct Paragraph<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Box<ChildOf<dyn flex::Prop>>>,
+    children: imbl::Vector<Rc<ChildOf<dyn flex::Prop>>>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, PartialOrd)]
@@ -63,7 +63,7 @@ impl<T: flex::Prop + 'static> Paragraph<T> {
         Self {
             id,
             props: props.into(),
-            children: im::Vector::new(),
+            children: imbl::Vector::new(),
         }
     }
 
@@ -117,10 +117,10 @@ impl<T: flex::Prop + 'static> super::Component for Paragraph<T> {
         manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Rc<dyn Layout<T>> {
         #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Box<ChildOf<dyn flex::Prop>>| -> Box<dyn Layout<<dyn flex::Prop as Desc>::Child>> {
+            |child: &Box<ChildOf<dyn flex::Prop>>| -> Rc<dyn Layout<<dyn flex::Prop as Desc>::Child>> {
                 child.layout(manager, driver, window)
             })
         );

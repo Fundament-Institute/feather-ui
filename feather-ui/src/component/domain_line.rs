@@ -32,7 +32,7 @@ where
         _: &mut crate::StateManager,
         _: &crate::graphics::Driver,
         _: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Rc<dyn Layout<T>> {
         Box::new(layout::Node::<T, dyn base::Empty> {
             props: self.props.clone(),
             children: Default::default(),

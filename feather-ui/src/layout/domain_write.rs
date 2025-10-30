@@ -40,7 +40,7 @@ impl Desc for dyn Prop {
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
-        outer_area = super::nuetralize_unsized(outer_area);
+        outer_area = super::zero_unsized(outer_area);
         outer_area = super::limit_area(outer_area, outer_limits);
 
         debug_assert!(outer_area.v.is_finite().all());

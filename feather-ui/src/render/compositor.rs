@@ -756,33 +756,10 @@ impl Compositor {
         clipstack: &[PxRect],
         surface_dim: PxDim,
         layer_offset: PxVector,
-        pos: PxPoint,
-        dim: PxDim,
-        uv: PxPoint,
-        uvdim: PxDim,
-        color: u32,
-        rotation: f32,
-        tex: u8,
+        data: Data,
         pass: u8,
         slice: u8,
-        raw: bool,
-        layer: bool,
     ) -> u32 {
-        let data = Data {
-            pos: pos.to_array().into(),
-            dim: dim.to_array().into(),
-            uv: uv.to_array().into(),
-            uvdim: uvdim.to_array().into(),
-            color,
-            rotation,
-            flags: DataFlags::new()
-                .with_tex(tex)
-                .with_raw(raw)
-                .with_layer(layer)
-                .into(),
-            ..Default::default()
-        };
-
         if let Some(d) = Self::clip_data(
             &mut self.clipdata,
             clipstack.last().ok_or(surface_dim.into()).copied(),
@@ -908,17 +885,7 @@ impl<'a> CompositorView<'a> {
     }
 
     #[inline]
-    pub fn append_data(
-        &mut self,
-        pos: PxPoint,
-        dim: PxDim,
-        uv: PxPoint,
-        uvdim: PxDim,
-        color: u32,
-        rotation: f32,
-        tex: u8,
-        raw: bool,
-    ) -> u32 {
+    pub fn append_data(&mut self, data: Data) -> u32 {
         // I really wish rust had partial borrows
         let compositor = match self.index {
             0 => &mut self.window,
@@ -930,17 +897,9 @@ impl<'a> CompositorView<'a> {
             self.clipstack,
             self.surface_dim,
             self.offset,
-            pos,
-            dim,
-            uv,
-            uvdim,
-            color,
-            rotation,
-            tex,
+            data,
             self.pass,
             self.slice,
-            raw,
-            false,
         )
     }
 
@@ -953,10 +912,7 @@ impl<'a> CompositorView<'a> {
             2 => &mut self.layer1,
             _ => panic!("Illegal compositor index!"),
         };
-        compositor.append_internal(
-            self.clipstack,
-            self.surface_dim,
-            self.offset,
+        let data = Data::new(
             layer.dest.topleft() + parent_pos.to_vector(),
             layer.dest.dim(),
             uv.min.to_f32().to_array().into(),
@@ -964,10 +920,16 @@ impl<'a> CompositorView<'a> {
             layer.color.rgba,
             layer.rotation,
             0,
-            self.pass,
-            self.slice,
             false,
             true,
+        );
+        compositor.append_internal(
+            self.clipstack,
+            self.surface_dim,
+            self.offset,
+            data,
+            self.pass,
+            self.slice,
         )
     }
 
@@ -1081,6 +1043,35 @@ pub struct Data {
     pub rotation: f32,
     pub flags: u32,
     pub _padding: [u8; 4], // We have to manually specify this to satisfy bytemuck
+}
+
+impl Data {
+    pub fn new(
+        pos: PxPoint,
+        dim: PxDim,
+        uv: PxPoint,
+        uvdim: PxDim,
+        color: u32,
+        rotation: f32,
+        tex: u8,
+        raw: bool,
+        layer: bool,
+    ) -> Self {
+        Self {
+            pos: pos.to_array().into(),
+            dim: dim.to_array().into(),
+            uv: uv.to_array().into(),
+            uvdim: uvdim.to_array().into(),
+            color,
+            rotation,
+            flags: DataFlags::new()
+                .with_tex(tex)
+                .with_raw(raw)
+                .with_layer(layer)
+                .into(),
+            ..Default::default()
+        }
+    }
 }
 
 static_assertions::const_assert_eq!(std::mem::size_of::<Data>(), 48);

@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::{
-    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, check_unsized_abs,
-    map_unsized_area,
+use super::{Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, map_unsized_area};
+use crate::{
+    PxDim, PxLimits, PxRect, RelDim, UnsizedDim,
+    layout::{DynLayout, base::RLimits, check_unsized_dim, zero_unsized},
+    reactive::{self, AsSignal, DynSignal, Identity, SignalMap, SignalTupleZip, cond, zip_pair},
+    rtree,
 };
-use crate::{PxDim, PxRect, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Anchor + base::Limits + base::ZIndex {}
 
-crate::gen_from_to_dyn!(Prop);
+crate::gen_dyn_prop!(Prop);
 
 pub trait Child: base::RLimits {}
 
-crate::gen_from_to_dyn!(Child);
+crate::gen_dyn_prop!(Child);
 
 impl Prop for crate::DRect {}
 impl Child for crate::DRect {}
@@ -22,17 +24,16 @@ impl Child for crate::DRect {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Box<dyn Layout<Self::Child>>>;
+    type Children = imbl::Vector<Rc<dyn DynLayout<Self::Child>>>;
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: PxRect,
-        outer_limits: crate::PxLimits,
-        children: &Self::Children,
-        id: std::sync::Weak<crate::SourceID>,
+        predim: DynSignal<crate::UnsizedDim>,
+        outer_limits: DynSignal<PxLimits>,
+        children: DynSignal<Self::Children>,
         renderable: Option<Rc<dyn Renderable>>,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a> {
+        dpi: reactive::MutableSignal<RelDim>,
+    ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
         // If we have an unsized outer_area, any sized object with relative dimensions
         // must evaluate to 0 (or to the minimum limited size). An
         // unsized object can never have relative dimensions, as that creates a logic
@@ -56,114 +57,112 @@ impl Desc for dyn Prop {
         // again reduced by myarea.abs.bottomright() to account for how the area
         // calculations will interact with the limits later on.
 
-        let limits = outer_limits + props.limits().resolve(window.dpi);
-        let myarea = props.area().resolve(window.dpi);
-        let (unsized_x, unsized_y) = check_unsized(myarea);
+        let limits = (outer_limits, props.limits(), dpi)
+            .zip::<(PxLimits, crate::DLimits, RelDim)>()
+            .map(|(outer, limits, dpi)| *outer + limits.resolve(*dpi));
 
-        // Check if any axis is unsized in a way that requires us to calculate baseline
-        // child sizes
-        let evaluated_area = if unsized_x || unsized_y {
-            // When an axis is unsized, we don't apply any limits to it, so we don't have to
-            // worry about cases where the full evaluated area would invalidate
-            // the limit.
-            let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
-            let inner_area = PxRect::from(inner_dim);
-            // The area we pass to children must be independent of our own area, so it
-            // starts at 0,0
-            let mut bottomright = PxDim::zero();
+        let myarea =
+            zip_pair::<crate::DRect, RelDim, _, _>(props.area(), dpi, |p, dpi| p.resolve(dpi));
 
-            for child in children.iter() {
-                let child_props = child.as_ref().get_props();
-                let child_limit = super::apply_limit(inner_dim, limits, *child_props.rlimits());
+        let inner_dim = (myarea, predim, limits)
+            .zip::<(crate::URect, crate::UnsizedDim, PxLimits)>()
+            .map(|(a, o, l)| super::eval_dim(*a, zero_unsized(*o), *l));
 
-                let stage = child.as_ref().stage(inner_area, child_limit, window);
-                bottomright = bottomright.max(stage.get_area().bottomright().to_vector().to_size());
-            }
+        let child_presize = reactive::map_vec(
+            move |child| {
+                let child_limit = (
+                    inner_dim.clone(),
+                    limits,
+                    child.as_ref().get_props().rlimits(),
+                )
+                    .zip::<(crate::UnsizedDim, PxLimits, crate::RelLimits)>()
+                    .map(|(inner, l, rlimits)| super::apply_limit(*inner, *l, *rlimits));
 
-            let area = map_unsized_area(myarea, bottomright);
+                let (stage, _) =
+                    child
+                        .as_ref()
+                        .stage(inner_dim.clone().into(), child_limit.into(), dpi);
+                stage
+            },
+            reactive::Identity,
+            children,
+        );
 
-            // No need to cap this because unsized axis have now been resolved
-            super::limit_area(area * crate::layout::nuetralize_unsized(outer_area), limits)
-        } else {
-            // If outer_area is unsized here, we nuetralize it when evaluating the relative
-            // coordinates.
-            super::limit_area(
-                myarea * crate::layout::nuetralize_unsized(outer_area),
-                limits,
-            )
-        };
+        let presize: reactive::Signal<PxRect, reactive::SignalJoinProvider<_, _, _>> =
+            reactive::join(reactive::fold_vec(
+                |l, r| zip_pair(&l, &r, |u: PxRect, v: PxRect| u.extend(v)).into(),
+                child_presize,
+                PxRect::zero().to_signal().into(),
+            ));
 
-        let mut staging: im::Vector<Box<dyn Staged>> = im::Vector::new();
-        let mut nodes: im::Vector<Rc<rtree::Node>> = im::Vector::new();
+        let presize = presize.map(|x| x.extend(PxRect::zero()));
 
-        // If our parent just wants a size estimate, no need to layout children or
-        // render anything
-        let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
-        if unsized_x || unsized_y {
-            return Box::new(Concrete::new(
-                None,
-                evaluated_area,
+        // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
+        let is_unsized = myarea.map(|x| {
+            let (l, r) = check_unsized(*x);
+            l || r
+        });
+
+        let unsized_area = (myarea, presize, predim, limits)
+            .zip::<(crate::URect, PxRect, UnsizedDim, PxLimits)>()
+            .map(|(a, p, o, l)| {
+                super::limit_area(map_unsized_area(*a, p.dim()) * zero_unsized(*o), *l)
+            });
+
+        let sized_area = (myarea, predim, limits)
+            .zip::<(crate::URect, UnsizedDim, PxLimits)>()
+            .map(|(a, o, l)| super::limit_area(*a * zero_unsized(*o), *l));
+
+        // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
+        let evaluated_area = reactive::cond(is_unsized, unsized_area.into(), sized_area.into());
+
+        (
+            evaluated_area.clone().into(),
+            Box::new(move |offset, final_dim, final_limits| {
+                // We had to evaluate the full area first because our final area calculation can
+                // change the dimensions in unsized cases. Thus, we calculate the final
+                // inner_area for the children from this evaluated area.
+                let inner_dim = evaluated_area.map(|x| x.dim()).into();
+                let inner_offset = evaluated_area.map(|x| x.topleft()).into();
+
+                let nodes = reactive::map_vec(
+                    |child| {
+                        let child_props = child.as_ref().get_props();
+                        let child_limit =
+                            zip_pair(child_props.rlimits(), inner_dim.clone(), |l, a| {
+                                *l * a.dim()
+                            });
+
+                        let (_, mut f) = child.as_ref().stage(inner_dim.clone(), child_limit, dpi);
+
+                        Rc::new(f(inner_offset, inner_dim, child_limit))
+                    },
+                    reactive::Identity,
+                    children,
+                )
+                .into_dyn_signal();
+
+                // TODO: It isn't clear if the simple layout should attempt to handle children
+                // changing their estimated sizes after the initial estimate. If we were
+                // to handle this, we would need to recalculate the unsized
+                // axis with the new child results here, and repeat until it stops changing (we
+                // find the fixed point). Because the performance implications are
+                // unclear, this might need to be relagated to a special layout.
+
+                // Calculate the anchor using the final evaluated dimensions, after all unsized
+                // axis and limits are calculated.
+                let anchored_area = (evaluated_area, props.anchor(), dpi)
+                    .zip::<(PxRect, crate::DPoint, RelDim)>()
+                    .map(|(e, a, d)| *e - (a.resolve(*d) * e.dim()));
+
                 rtree::Node::new(
-                    evaluated_area.to_untyped(),
+                    anchored_area.into(),
                     Some(props.zindex()),
                     nodes,
-                    id,
-                    window,
-                ),
-                staging,
-            ));
-        }
-
-        // We had to evaluate the full area first because our final area calculation can
-        // change the dimensions in unsized cases. Thus, we calculate the final
-        // inner_area for the children from this evaluated area.
-        let evaluated_dim = evaluated_area.dim();
-
-        let inner_area = PxRect::from(evaluated_dim);
-
-        for child in children.iter() {
-            let child_props = child.as_ref().get_props();
-            let child_limit = *child_props.rlimits() * evaluated_dim;
-
-            let stage = child.as_ref().stage(inner_area, child_limit, window);
-            if let Some(node) = stage.get_rtree().upgrade() {
-                nodes.push_back(node);
-            }
-            staging.push_back(stage);
-        }
-
-        // TODO: It isn't clear if the simple layout should attempt to handle children
-        // changing their estimated sizes after the initial estimate. If we were
-        // to handle this, we would need to recalculate the unsized
-        // axis with the new child results here, and repeat until it stops changing (we
-        // find the fixed point). Because the performance implications are
-        // unclear, this might need to be relagated to a special layout.
-
-        // Calculate the anchor using the final evaluated dimensions, after all unsized
-        // axis and limits are calculated. However, we can only apply the anchor
-        // if the parent isn't unsized on that axis.
-        let mut anchor = props.anchor().resolve(window.dpi) * evaluated_dim;
-        let (unsized_outer_x, unsized_outer_y) =
-            crate::layout::check_unsized_abs(outer_area.bottomright());
-        if unsized_outer_x {
-            anchor.x = 0.0;
-        }
-        if unsized_outer_y {
-            anchor.y = 0.0;
-        }
-        let evaluated_area = evaluated_area - anchor;
-
-        Box::new(Concrete::new(
-            renderable,
-            evaluated_area,
-            rtree::Node::new(
-                evaluated_area.to_untyped(),
-                Some(props.zindex()),
-                nodes,
-                id,
-                window,
-            ),
-            staging,
-        ))
+                    Some(Box::new(Concrete::new(renderable))),
+                    None,
+                )
+            }),
+        )
     }
 }
