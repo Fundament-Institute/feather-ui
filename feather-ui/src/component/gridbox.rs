@@ -15,14 +15,14 @@ use super::ChildOf;
 pub struct GridBox<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Box<ChildOf<dyn grid::Prop>>>,
+    children: imbl::Vector<Rc<ChildOf<dyn grid::Prop>>>,
 }
 
 impl<T: grid::Prop + 'static> GridBox<T> {
     pub fn new(
         id: Arc<SourceID>,
         props: T,
-        children: im::Vector<Box<ChildOf<dyn grid::Prop>>>,
+        children: imbl::Vector<Rc<ChildOf<dyn grid::Prop>>>,
     ) -> Self {
         Self {
             id,
@@ -40,10 +40,10 @@ impl<T: grid::Prop + 'static> super::Component for GridBox<T> {
         manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Rc<dyn Layout<T>> {
         #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Box<ChildOf<dyn grid::Prop>>| -> Box<dyn Layout<<dyn grid::Prop as Desc>::Child>> {
+            |child: &Box<ChildOf<dyn grid::Prop>>| -> Rc<dyn Layout<<dyn grid::Prop as Desc>::Child>> {
                 child.layout(manager, driver,window)
             })
         );

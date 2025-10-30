@@ -22,7 +22,7 @@ repository = "https://github.com/Fundament-Software/feathergui/"
 readme = "README.md"
 
 [workspace.dependencies]
-im = "15.1"
+imbl = "6.1"
 wgpu = "26"
 winit = "0.30"
 eyre = "0.6"
@@ -36,3 +36,5 @@ cosmic-text = { version = "0.14.2" }
 [patch.crates-io]
 luajit-src = { git = "https://github.com/Fundament-Institute/luajit-src-rs" }
 cosmic-text = { git = "https://github.com/pop-os/cosmic-text", rev = "355b7febb17ecb0522346fcc5aff6ea78e33e78a" }
+#imbl = { git = "https://github.com/Fundament-Institute/imbl" }
+imbl = { path = "../imbl" }

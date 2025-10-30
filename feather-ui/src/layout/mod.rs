@@ -2,101 +2,90 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 pub mod base;
-pub mod domain_write;
+//pub mod domain_write;
 pub mod fixed;
-pub mod flex;
-pub mod grid;
-pub mod leaf;
-pub mod list;
+//pub mod flex;
+//pub mod grid;
+//pub mod leaf;
+//pub mod list;
 pub mod root;
-pub mod text;
+//pub mod text;
 
-use dyn_clone::DynClone;
 use guillotiere::euclid::{Point2D, Vector2D};
 use wide::f32x4;
 
 use crate::color::sRGB32;
+use crate::reactive::sample;
 use crate::render::Renderable;
 use crate::render::compositor::CompositorView;
 use crate::{
-    Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, SourceID, UNSIZED_AXIS, URect, rtree,
+    DynSignal, Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, SourceID, UNSIZED_AXIS, URect,
+    UnsizedDim, rtree,
 };
-use derive_where::derive_where;
 use std::marker::PhantomData;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::sync::Arc;
+
+type StageThunk<'a> =
+    Box<dyn FnMut(DynSignal<PxPoint>, DynSignal<PxDim>, DynSignal<PxLimits>) -> rtree::Node>;
 
 /// Represents an arbitrary layout node that hasn't been staged yet. The vast
 /// majority of the time, components should simply use the standard [`Node`]
 /// implementation of this trait, which handles most common layout cases.
 /// However, some components, like the text component, have complex layout logic
 /// or special cases that [`Node`] can't cover.
-pub trait Layout<Props: ?Sized>: DynClone {
-    fn get_props(&self) -> &Props;
+pub trait Layout {
+    type Props: ?Sized;
+
+    fn get_props(&self) -> &Self::Props;
     fn stage<'a>(
         &self,
-        area: PxRect,
-        limits: PxLimits,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a>;
+        dim: DynSignal<crate::UnsizedDim>,
+        limits: DynSignal<PxLimits>,
+        dpi: crate::reactive::MutableSignal<crate::RelDim>,
+    ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
 
-dyn_clone::clone_trait_object!(<Imposed> Layout<Imposed> where Imposed:?Sized);
-
-impl<U: ?Sized, T> Layout<U> for Box<dyn Layout<T>>
-where
-    for<'a> &'a T: Into<&'a U>,
-{
-    fn get_props(&self) -> &U {
-        use std::ops::Deref;
-        Box::deref(self).get_props().into()
-    }
-
+pub trait DynLayout<DynProps: ?Sized> {
+    fn get_props(&self) -> &DynProps;
     fn stage<'a>(
         &self,
-        area: PxRect,
-        limits: PxLimits,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a> {
-        use std::ops::Deref;
-        Box::deref(self).stage(area, limits, window)
-    }
+        dim: DynSignal<crate::UnsizedDim>,
+        limits: DynSignal<PxLimits>,
+        dpi: crate::reactive::MutableSignal<crate::RelDim>,
+    ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
 
-impl<U: ?Sized, T> Layout<U> for &dyn Layout<T>
+impl<T: ?Sized + 'static, U: Layout<Props = T>, P: ?Sized> DynLayout<P> for U
 where
-    for<'a> &'a T: Into<&'a U>,
+    for<'a> &'a T: Into<&'a P>,
 {
-    fn get_props(&self) -> &U {
-        (*self).get_props().into()
+    fn get_props(&self) -> &P {
+        &Layout::get_props(self).into()
     }
-
     fn stage<'a>(
         &self,
-        area: PxRect,
-        limits: PxLimits,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a> {
-        (*self).stage(area, limits, window)
+        dim: DynSignal<crate::UnsizedDim>,
+        limits: DynSignal<PxLimits>,
+        dpi: crate::reactive::MutableSignal<crate::RelDim>,
+    ) -> (DynSignal<PxRect>, StageThunk<'a>) {
+        Layout::stage(self, dim, limits, dpi)
     }
 }
 
 pub trait Desc {
     type Props: ?Sized;
     type Child: ?Sized;
-    type Children: Clone;
+    type Children;
 
-    /// Resolves a pending layout into a resolved node, which contains a pointer
-    /// to the R-tree
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: PxRect,
-        limits: PxLimits,
-        children: &Self::Children,
-        id: std::sync::Weak<SourceID>,
+        outer: DynSignal<crate::UnsizedDim>,
+        limits: DynSignal<PxLimits>,
+        children: DynSignal<Self::Children>,
         renderable: Option<Rc<dyn Renderable>>,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a>;
+        dpi: crate::reactive::MutableSignal<crate::RelDim>,
+    ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
 
 /// The standard layout node. Expects the layout properties, which must be
@@ -108,38 +97,37 @@ pub trait Desc {
 ///
 /// # Examples
 /// See [`super::component::Component`]
-#[derive_where(Clone)]
 pub struct Node<T, D: Desc + ?Sized> {
     pub props: Rc<T>,
-    pub id: std::sync::Weak<SourceID>,
-    pub children: D::Children,
+    pub children: DynSignal<D::Children>,
     pub renderable: Option<Rc<dyn Renderable>>,
     pub layer: Option<(sRGB32, f32)>,
 }
 
-impl<T, D: Desc + ?Sized> Layout<T> for Node<T, D>
+impl<T, D: Desc + ?Sized> Layout for Node<T, D>
 where
     for<'a> &'a T: Into<&'a D::Props>,
 {
+    type Props = T;
+
     fn get_props(&self) -> &T {
         self.props.as_ref()
     }
     fn stage<'a>(
         &self,
-        area: PxRect,
-        limits: PxLimits,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a> {
+        dim: DynSignal<crate::UnsizedDim>,
+        limits: DynSignal<PxLimits>,
+        dpi: crate::reactive::MutableSignal<crate::RelDim>,
+    ) -> (DynSignal<PxRect>, StageThunk<'a>) {
         let mut staged = D::stage(
             self.props.as_ref().into(),
-            area,
+            dim,
             limits,
-            &self.children,
-            self.id.clone(),
+            self.children.clone(),
             self.renderable.as_ref().map(|x| x.clone()),
-            window,
+            dpi,
         );
-        if let Some((color, rotation)) = self.layer {
+        /*if let Some((color, rotation)) = self.layer {
             window.driver.shared.create_layer(
                 &window.driver.device,
                 self.id.upgrade().unwrap(),
@@ -150,68 +138,47 @@ where
                 false,
             );
             staged.set_layer(self.id.clone());
-        }
+        }*/
         staged
     }
 }
 
-pub trait Staged: DynClone {
+pub trait Staged {
     fn render(
         &self,
         parent_pos: PxPoint,
+        area: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
+        children: Option<&imbl::Vector<Rc<rtree::Node>>>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error>;
-    fn get_rtree(&self) -> Weak<rtree::Node>;
-    fn get_area(&self) -> PxRect;
     fn set_layer(&mut self, _id: std::sync::Weak<SourceID>) {
         panic!("This staged object doesn't support layers!");
     }
 }
 
-dyn_clone::clone_trait_object!(Staged);
-
-#[derive(Clone)]
 pub(crate) struct Concrete {
     renderable: Option<Rc<dyn Renderable>>,
-    area: PxRect,
-    rtree: Rc<rtree::Node>,
-    children: im::Vector<Box<dyn Staged>>,
     layer: Option<std::sync::Weak<SourceID>>,
 }
 
 impl Concrete {
-    pub fn new(
-        renderable: Option<Rc<dyn Renderable>>,
-        area: PxRect,
-        rtree: Rc<rtree::Node>,
-        children: im::Vector<Box<dyn Staged>>,
-    ) -> Self {
-        debug_assert!(area.v.is_finite().all());
-        let (unsized_x, unsized_y) = check_unsized_abs(area.bottomright());
-        assert!(
-            !unsized_x && !unsized_y,
-            "concrete area must always be sized!: {area:?}",
-        );
+    pub fn new(renderable: Option<Rc<dyn Renderable>>) -> Self {
         Self {
             renderable,
-            area,
-            rtree,
-            children,
             layer: None,
         }
     }
 
     fn render_self(
         &self,
-        parent_pos: PxPoint,
+        area: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {
-        debug_assert!(self.area.v.is_finite().all());
         if let Some(r) = &self.renderable {
-            r.render((self.area + parent_pos).to_untyped(), driver, compositor)?;
+            r.render(area.to_untyped(), driver, compositor)?;
         }
         Ok(())
     }
@@ -221,17 +188,12 @@ impl Concrete {
         parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
+        children: &imbl::Vector<Rc<rtree::Node>>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error> {
-        for child in self.children.iter() {
-            // TODO: If we assign z-indexes to children, ones with negative z-indexes should
-            // be rendered before the parent
-            child.render(
-                parent_pos + self.area.topleft().to_vector(),
-                driver,
-                compositor,
-                dependents,
-            )?;
+        for child in children {
+            // The r-tree node will determine whether it should be culled in its render function
+            child.render(parent_pos, driver, compositor, dependents)?;
         }
         Ok(())
     }
@@ -241,8 +203,10 @@ impl Staged for Concrete {
     fn render(
         &self,
         parent_pos: PxPoint,
+        area: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
+        children: Option<&imbl::Vector<Rc<rtree::Node>>>,
         dependents: &mut Vec<std::sync::Weak<SourceID>>,
     ) -> Result<(), Error> {
         if let Some(id) = self.layer.as_ref().and_then(|x| x.upgrade()) {
@@ -318,8 +282,17 @@ impl Staged for Concrete {
             // Always push a new clipping area, but remember that a layer can only store
             // it's relative area.
             view.with_clip(layer.area + parent_pos, |refview| {
-                self.render_self(parent_pos, driver, refview)?;
-                self.render_children(parent_pos, driver, refview, depview)
+                self.render_self(area + parent_pos, driver, refview)?;
+                if let Some(c) = children {
+                    self.render_children(
+                        parent_pos + area.topleft().to_vector(),
+                        driver,
+                        refview,
+                        c,
+                        depview,
+                    )?;
+                }
+                Ok(())
             })?;
 
             if let Some(target) = layer.target.as_ref() {
@@ -330,19 +303,19 @@ impl Staged for Concrete {
                 compositor.append_layer(layer, parent_pos, region_uv.unwrap());
             }
         } else {
-            self.render_self(parent_pos, driver, compositor)?;
-            self.render_children(parent_pos, driver, compositor, dependents)?;
+            self.render_self(area + parent_pos, driver, compositor)?;
+            if let Some(c) = children {
+                self.render_children(
+                    parent_pos + area.topleft().to_vector(),
+                    driver,
+                    compositor,
+                    c,
+                    dependents,
+                )?;
+            }
         };
 
         Ok(())
-    }
-
-    fn get_rtree(&self) -> Weak<rtree::Node> {
-        Rc::downgrade(&self.rtree)
-    }
-
-    fn get_area(&self) -> PxRect {
-        self.area
     }
 
     fn set_layer(&mut self, id: std::sync::Weak<SourceID>) {
@@ -373,16 +346,11 @@ pub(crate) fn map_unsized_area(mut area: URect, adjust: PxDim) -> URect {
 
 #[must_use]
 #[inline]
-pub(crate) fn nuetralize_unsized(v: PxRect) -> PxRect {
-    let (unsized_x, unsized_y) = check_unsized_abs(v.bottomright());
-    let ltrb = v.v.to_array();
-    PxRect {
-        v: f32x4::new([
-            ltrb[0],
-            ltrb[1],
-            if unsized_x { ltrb[0] } else { ltrb[2] },
-            if unsized_y { ltrb[1] } else { ltrb[3] },
-        ]),
+pub(crate) fn zero_unsized(v: UnsizedDim) -> PxDim {
+    let (unsized_x, unsized_y) = check_unsized_dim(v);
+    PxDim {
+        width: if unsized_x { 0.0 } else { v.width },
+        height: if unsized_y { 0.0 } else { v.height },
         _unit: PhantomData,
     }
 }
@@ -402,7 +370,7 @@ pub(crate) fn limit_area(mut v: PxRect, limits: PxLimits) -> PxRect {
 
 #[must_use]
 #[inline]
-pub(crate) fn limit_dim(v: PxDim, limits: PxLimits) -> PxDim {
+pub(crate) fn limit_dim(v: crate::UnsizedDim, limits: PxLimits) -> PxDim {
     let (unsized_x, unsized_y) = check_unsized_dim(v);
     PxDim::new(
         if unsized_x {
@@ -420,29 +388,33 @@ pub(crate) fn limit_dim(v: PxDim, limits: PxLimits) -> PxDim {
 
 #[must_use]
 #[inline]
-pub(crate) fn eval_dim(area: URect, dim: PxDim) -> PxDim {
+pub(crate) fn eval_dim(area: URect, dim: PxDim, limits: PxLimits) -> UnsizedDim {
     let (unsized_x, unsized_y) = check_unsized(area);
-    PxDim::new(
+    UnsizedDim::new(
         if unsized_x {
             area.bottomright().rel().x
         } else {
-            let top = area.topleft().abs().x + (area.topleft().rel().x * dim.width);
-            let bottom = area.bottomright().abs().x + (area.bottomright().rel().x * dim.width);
-            bottom - top
+            let left = area.topleft().abs().x + (area.topleft().rel().x * dim.width);
+            let right = area.bottomright().abs().x + (area.bottomright().rel().x * dim.width);
+            (right - left)
+                .max(limits.min().width)
+                .min(limits.max().width)
         },
         if unsized_y {
             area.bottomright().rel().y
         } else {
             let top = area.topleft().abs().y + (area.topleft().rel().y * dim.height);
             let bottom = area.bottomright().abs().y + (area.bottomright().rel().y * dim.height);
-            bottom - top
+            (bottom - top)
+                .max(limits.min().height)
+                .min(limits.max().height)
         },
     )
 }
 
 #[must_use]
 #[inline]
-pub(crate) fn apply_limit(dim: PxDim, limits: PxLimits, rlimits: RelLimits) -> PxLimits {
+pub(crate) fn apply_limit(dim: UnsizedDim, limits: PxLimits, rlimits: RelLimits) -> PxLimits {
     let (unsized_x, unsized_y) = check_unsized_dim(dim);
     let sign = limits.v.sign_bit() | rlimits.v.sign_bit();
 
@@ -490,16 +462,8 @@ pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
 // it's children's maximum extent.
 #[must_use]
 #[inline]
-pub(crate) fn check_unsized_abs<U>(bottomright: Point2D<f32, U>) -> (bool, bool) {
-    (bottomright.x == UNSIZED_AXIS, bottomright.y == UNSIZED_AXIS)
-}
-
-// Returns true if an axis is unsized, which means it is defined as the size of
-// it's children's maximum extent.
-#[must_use]
-#[inline]
-pub(crate) fn check_unsized_dim(dim: PxDim) -> (bool, bool) {
-    check_unsized_abs(dim.to_vector().to_point())
+pub(crate) fn check_unsized_dim(dim: UnsizedDim) -> (bool, bool) {
+    (dim.width == UNSIZED_AXIS, dim.height == UNSIZED_AXIS)
 }
 
 pub(crate) fn assert_sized(area: PxRect) {
@@ -525,19 +489,6 @@ pub(crate) fn cap_unsized(area: PxRect) -> PxRect {
         })),
         _unit: PhantomData,
     }
-}
-
-#[must_use]
-#[inline]
-pub(crate) fn apply_anchor(area: PxRect, outer_area: PxRect, mut anchor: PxPoint) -> PxRect {
-    let (unsized_outer_x, unsized_outer_y) = check_unsized_abs(outer_area.bottomright());
-    if unsized_outer_x {
-        anchor.x = 0.0;
-    }
-    if unsized_outer_y {
-        anchor.y = 0.0;
-    }
-    area - anchor
 }
 
 #[must_use]

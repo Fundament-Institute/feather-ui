@@ -611,7 +611,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
         manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Rc<dyn Layout<T>> {
         let dpi = manager
             .get::<super::window::WindowStateMachine>(window)
             .map(|x| x.state.dpi)

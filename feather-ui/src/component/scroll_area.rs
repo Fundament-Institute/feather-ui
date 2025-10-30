@@ -235,7 +235,7 @@ pub struct ScrollArea<T> {
     props: Rc<T>,
     stepsize: (Option<f32>, Option<f32>),
     extension: crate::DAbsRect,
-    children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
+    children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>,
     slots: [Option<Slot>; ScrollAreaEvent::SIZE],
 }
 
@@ -245,7 +245,7 @@ impl<T: fixed::Prop + 'static> ScrollArea<T> {
         props: T,
         stepsize: (Option<f32>, Option<f32>),
         extension: crate::DAbsRect,
-        children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
+        children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>,
         slots: [Option<Slot>; ScrollAreaEvent::SIZE],
     ) -> Self {
         Self {
@@ -299,7 +299,7 @@ where
         manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T> + 'static> {
+    ) -> Rc<dyn Layout<T> + 'static> {
         let scroll = manager
             .get_mut::<StateMachine<ScrollAreaState, { ScrollAreaEvent::SIZE }>>(&self.id)
             .map(|state| {
@@ -313,7 +313,7 @@ where
         // children, which is always unsized, which we then move around to scroll.
         #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Box<ChildOf<dyn fixed::Prop>>| -> Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>> {
+            |child: &Box<ChildOf<dyn fixed::Prop>>| -> Rc<dyn Layout<<dyn fixed::Prop as Desc>::Child>> {
                 child.layout(manager, driver, window)
             })
         );
@@ -351,7 +351,7 @@ where
 
         Box::new(layout::Node::<T, dyn fixed::Prop> {
             props: self.props.clone(),
-            children: im::vector![inner],
+            children: imbl::vector![inner],
             id: Arc::downgrade(&self.id),
             renderable: None,
             layer: Some((crate::color::sRGB32::white(), 0.0)),
@@ -364,7 +364,7 @@ where
 pub struct Node<T: fixed::Prop> {
     pub id: std::sync::Weak<SourceID>,
     pub props: Rc<T>,
-    pub children: im::Vector<Option<Box<dyn Layout<dyn fixed::Child>>>>,
+    pub children: imbl::Vector<Option<Rc<dyn Layout<dyn fixed::Child>>>>,
     pub size: Rc<RefCell<PxDim>>,
     //pub renderable: Rc<dyn crate::render::Renderable>,
 }

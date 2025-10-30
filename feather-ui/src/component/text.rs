@@ -151,7 +151,7 @@ where
         manager: &mut crate::StateManager,
         driver: &graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Rc<dyn Layout<T>> {
         let dpi = manager
             .get::<super::window::WindowStateMachine>(window)
             .map(|x| x.state.dpi)

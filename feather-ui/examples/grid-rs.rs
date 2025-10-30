@@ -97,21 +97,21 @@ impl grid::Child for GridChild {
 struct BasicApp {}
 
 impl FnPersistStore for BasicApp {
-    type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
+    type Store = (CounterState, imbl::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
+impl FnPersist2<&CounterState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>>
     for BasicApp
 {
     fn init(&self) -> Self::Store {
-        (CounterState { count: 99999999 }, im::HashMap::new())
+        (CounterState { count: 99999999 }, imbl::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
         args: &CounterState,
         mut scope: ScopeID<'_>,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
                 let text = {
@@ -157,7 +157,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
 
             const NUM_COLUMNS: usize = 5;
             let rectgrid = {
-                let mut children: im::Vector<Box<ChildOf<dyn grid::Prop>>> = im::Vector::new();
+                let mut children: imbl::Vector<Rc<ChildOf<dyn grid::Prop>>> = imbl::Vector::new();
                 {
                     for (i, id) in scope.iter(0..args.count) {
                         children.push_back(Box::new(Shape::<
@@ -221,7 +221,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
                 Box::new(region),
             );
 
-            store.1 = im::HashMap::new();
+            store.1 = imbl::HashMap::new();
             store.1.insert(window.id.clone(), Some(window));
             store.0 = args.clone();
         }

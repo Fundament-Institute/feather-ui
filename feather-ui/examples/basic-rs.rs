@@ -15,6 +15,7 @@ use feather_ui::{
     AbsRect, App, DAbsPoint, DAbsRect, DPoint, DRect, PxRect, RelRect, ScopeID, Slot, SourceID,
     UNSIZED_AXIS, gen_id, im, winit,
 };
+use smolset::SmolSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -25,7 +26,7 @@ struct CounterState {
 
 #[derive(Default, Empty, Area, Anchor, ZIndex, Limits, RLimits, Padding)]
 struct FixedData {
-    area: DRect,
+    area: DynSignal<DRect>,
     anchor: DPoint,
     limits: feather_ui::DLimits,
     rlimits: feather_ui::RelLimits,
@@ -41,21 +42,64 @@ impl leaf::Padded for FixedData {}
 struct BasicApp {}
 
 impl FnPersistStore for BasicApp {
-    type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
+    type Store = (CounterState, imbl::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
+use feather_ui::reactive::AsSignal;
+use feather_ui::reactive::Property;
+use feather_ui::reactive::SignalProvider;
+
+//fn basic_app_ui(appcount: DynSignal<i32>) -> DynSignal<SmolSet<[DynSignal<Window>; 1]>> {
+fn basic_app_ui(appcount: i32) -> SmolSet<[DynSignal<Window>; 1]> {
+    let button = {
+        let text = Text::<FixedData> {
+            props: Rc::new(FixedData {
+                area: (AbsRect::new(8.0, 0.0, 8.0, 0.0)
+                    + RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS))
+                .to_signal(),
+                anchor: feather_ui::RelPoint::new(0.0, 0.5).into().to_signal(),
+                ..Default::default()
+            }),
+            color: sRGB::new(1.0, 1.0, 0.0, 1.0).to_signal(),
+            text: app.map(|count| format!("Clicks: {}", count)),
+            font_size: 40.0.to_signal(),
+            line_height: 56.0.to_signal(),
+            ..Default::default()
+        };
+        let rect = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
+            feather_ui::FILL_DRECT.into(),
+            0.0,
+            0.0,
+            wide::f32x4::splat(10.0),
+            sRGB::new(0.2, 0.7, 0.4, 1.0),
+            sRGB::transparent(),
+        );
+        Button::<FixedData>::new(
+            FixedData {
+                area: (AbsRect::new(45.0, 45.0, 0.0, 0.0)
+                    + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0))
+                .to_signal(),
+                ..Default::default()
+            },
+            Slot(feather_ui::APP_SOURCE_ID.into(), 0), // replace with event stream
+            feather_ui::children![fixed::Prop, rect, text],
+        )
+    };
+    // etc etc
+}
+
+impl FnPersist2<&CounterState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>>
     for BasicApp
 {
     fn init(&self) -> Self::Store {
-        (CounterState { count: -1 }, im::HashMap::new())
+        (CounterState { count: -1 }, imbl::HashMap::new())
     }
     fn call(
         &mut self,
         mut store: Self::Store,
         app: &CounterState,
         mut id: ScopeID<'_>,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *app {
             let button = {
                 let text = Text::<FixedData> {
@@ -171,7 +215,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
                 Box::new(region),
             );
 
-            store.1 = im::HashMap::new();
+            store.1 = imbl::HashMap::new();
             store.1.insert(window.id.clone(), Some(window));
             store.0 = app.clone();
         }

@@ -47,7 +47,7 @@ impl<T: leaf::Padded> Layout<T> for Node<T> {
         }
 
         let mut evaluated_area = limit_area(
-            super::cap_unsized(myarea * crate::layout::nuetralize_unsized(outer_area)),
+            super::cap_unsized(myarea * crate::layout::zero_unsized(outer_area)),
             limits,
         );
 

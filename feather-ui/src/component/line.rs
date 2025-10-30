@@ -3,20 +3,19 @@
 
 use crate::color::sRGB;
 use crate::layout::{Layout, base};
+use crate::reactive::{DynSignal, MutableSignal};
 use crate::{PxPoint, SourceID, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
 // This draws a line between two points relative to the parent
-#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone)]
 pub struct Line<T> {
-    pub id: Arc<SourceID>,
-    pub start: PxPoint,
-    pub end: PxPoint,
+    pub start: DynSignal<PxPoint>,
+    pub end: DynSignal<PxPoint>,
     pub props: Rc<T>,
-    pub fill: sRGB,
+    pub fill: DynSignal<sRGB>,
 }
 
 impl<T: base::Empty + 'static> super::Component for Line<T>
@@ -24,23 +23,19 @@ where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
     type Props = T;
+    type R = layout::Node<T, dyn base::Empty>;
 
-    fn layout(
-        &self,
-        _: &mut crate::StateManager,
-        _: &crate::graphics::Driver,
-        _window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>> {
-        Box::new(layout::Node::<T, dyn base::Empty> {
+    fn layout(&self, _: Arc<crate::graphics::Driver>, _: MutableSignal<crate::RelDim>) -> Self::R {
+        use crate::reactive::AsSignal;
+        layout::Node::<T, dyn base::Empty> {
             props: self.props.clone(),
-            children: Default::default(),
-            id: Arc::downgrade(&self.id),
-            renderable: Some(Rc::new(crate::render::line::Instance {
-                start: self.start,
-                end: self.end,
-                color: self.fill,
-            })),
+            children: ().to_signal().into(),
+            renderable: Some(Rc::new(crate::render::line::Instance::new(
+                self.start.clone(),
+                self.end.clone(),
+                self.fill.clone(),
+            ))),
             layer: None,
-        })
+        }
     }
 }

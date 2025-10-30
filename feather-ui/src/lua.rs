@@ -630,7 +630,7 @@ impl FromLua for LuaFontFamily {
 
 pub type ComponentBag = Box<dyn crate::component::Component<Props = PropBag>>;
 
-impl<U: ?Sized> crate::component::ComponentWrap<U> for ComponentBag
+impl<U: ?Sized> crate::component::DynComponent<U> for ComponentBag
 where
     for<'a> &'a U: std::convert::From<&'a PropBag>,
 {
@@ -725,7 +725,7 @@ impl<AppData: Clone> FnPersistStore for LuaPersist<AppData> {
 }
 
 impl<AppData: Clone + FromLua + IntoLua>
-    FnPersist2<&AppData, ScopeID<'static>, im::HashMap<Arc<SourceID>, Option<Window>>>
+    FnPersist2<&AppData, ScopeID<'static>, imbl::HashMap<Arc<SourceID>, Option<Window>>>
     for LuaPersist<AppData>
 {
     fn init(&self) -> Self::Store {
@@ -745,8 +745,8 @@ impl<AppData: Clone + FromLua + IntoLua>
         _: Self::Store,
         appdata: &AppData,
         mut id: ScopeID<'static>,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
-        let mut h = im::HashMap::new();
+    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
+        let mut h = imbl::HashMap::new();
 
         let (store, w) = self
             .id_enter
@@ -957,11 +957,11 @@ fn prop_no_children(t: &LuaTable) -> LuaResult<PropBag> {
 fn push_child<D: crate::layout::Desc + ?Sized>(
     t: &LuaTable,
     i: i64,
-    children: &mut im::Vector<Box<ChildOf<D>>>,
+    children: &mut imbl::Vector<Rc<ChildOf<D>>>,
 ) -> LuaResult<()>
 where
     std::boxed::Box<dyn crate::component::Component<Props = PropBag>>:
-        crate::component::ComponentWrap<<D as crate::layout::Desc>::Child>,
+        crate::component::DynComponent<<D as crate::layout::Desc>::Child>,
 {
     let v = t.get::<LuaValue>(i)?;
     if v.is_nil() {
@@ -985,12 +985,12 @@ where
 #[allow(clippy::type_complexity)]
 fn prop_children<D: crate::layout::Desc + ?Sized>(
     t: &LuaTable,
-) -> LuaResult<(im::Vector<Box<ChildOf<D>>>, PropBag)>
+) -> LuaResult<(imbl::Vector<Rc<ChildOf<D>>>, PropBag)>
 where
     std::boxed::Box<dyn crate::component::Component<Props = PropBag>>:
-        crate::component::ComponentWrap<<D as crate::layout::Desc>::Child>,
+        crate::component::DynComponent<<D as crate::layout::Desc>::Child>,
 {
-    let mut children: im::Vector<Box<ChildOf<D>>> = im::Vector::new();
+    let mut children: imbl::Vector<Rc<ChildOf<D>>> = imbl::Vector::new();
 
     for i in 1..=t.len()? {
         push_child::<D>(t, i, &mut children)?;

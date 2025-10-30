@@ -1,32 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::layout::{Desc, Layout, list};
-use crate::persist::{FnPersist, VectorMap};
-use crate::{SourceID, layout};
-use derive_where::derive_where;
+use crate::component::ChildOf;
+use crate::layout;
+use crate::layout::{Layout, list};
+use crate::reactive::{MutableSignal, map_vec};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use super::ChildOf;
-
-#[derive(feather_macro::StateMachineChild)]
-#[derive_where(Clone)]
+// Doesn't need to be clonable because we store it as an Rc<dyn Component>
 pub struct ListBox<T: list::Prop + 'static> {
-    pub id: Arc<SourceID>,
     props: Rc<T>,
-    children: im::Vector<Box<ChildOf<dyn list::Prop>>>,
+    children: MutableSignal<imbl::Vector<Rc<ChildOf<dyn list::Prop>>>>,
 }
 
 impl<T: list::Prop + 'static> ListBox<T> {
     pub fn new(
-        id: Arc<SourceID>,
         props: T,
-        children: im::Vector<Box<ChildOf<dyn list::Prop>>>,
+        children: MutableSignal<imbl::Vector<Rc<ChildOf<dyn list::Prop>>>>,
     ) -> Self {
+        let props = Rc::new(props);
         Self {
-            id,
-            props: props.into(),
+            props: props.clone(),
             children,
         }
     }
@@ -37,22 +32,18 @@ impl<T: list::Prop + 'static> super::Component for ListBox<T> {
 
     fn layout(
         &self,
-        manager: &mut crate::StateManager,
-        driver: &crate::graphics::Driver,
-        window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>> {
-        #[allow(clippy::borrowed_box)]
-        let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Box<ChildOf<dyn list::Prop>>| -> Box<dyn Layout<<dyn list::Prop as Desc>::Child>> {
-                child.layout(manager, driver,window)
-            })
+        driver: Arc<crate::graphics::Driver>,
+        dpi: MutableSignal<crate::RelDim>,
+    ) -> Rc<dyn Layout<T>> {
+        let children = map_vec(
+            move |child: &Rc<ChildOf<dyn list::Prop>>| child.layout(driver.clone(), dpi.clone()),
+            |x| crate::reactive::Identity(x.clone()),
+            &self.children,
         );
 
-        let (_, children) = map.call(Default::default(), &self.children);
         Box::new(layout::Node::<T, dyn list::Prop> {
             props: self.props.clone(),
-            children,
-            id: Arc::downgrade(&self.id),
+            children: children.into(),
             renderable: None,
             layer: None,
         })

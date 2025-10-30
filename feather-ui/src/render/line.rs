@@ -1,14 +1,44 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::color::sRGB;
+use crate::{
+    PxPoint,
+    color::sRGB,
+    reactive::{DynSignal, SignalMap, sample},
+};
 
 use super::compositor::CompositorView;
+use super::compositor::Data;
 
 pub struct Instance {
-    pub start: crate::PxPoint,
-    pub end: crate::PxPoint,
-    pub color: sRGB,
+    values: DynSignal<Data>,
+}
+
+impl Instance {
+    pub fn new(start: DynSignal<PxPoint>, end: DynSignal<PxPoint>, color: DynSignal<sRGB>) -> Self {
+        use crate::reactive::SignalTupleZip;
+
+        Self {
+            values: (start, end, color)
+                .zip::<(PxPoint, PxPoint, sRGB)>()
+                .map(|(p1, p2, color)| {
+                    let p = *p2 - *p1;
+                    Data::new(
+                        ((*p1 + p2.to_vector()) * 0.5)
+                            - (crate::PxVector::new(p.length() * 0.5, 0.0)),
+                        [p.length(), 1.0].into(),
+                        [0.0, 0.0].into(),
+                        [0.0, 0.0].into(),
+                        color.as_32bit().rgba,
+                        p.y.atan2(p.x) % std::f32::consts::TAU,
+                        u8::MAX,
+                        false,
+                        false,
+                    )
+                })
+                .into(),
+        }
+    }
 }
 
 impl super::Renderable for Instance {
@@ -18,20 +48,7 @@ impl super::Renderable for Instance {
         _: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {
-        let p1 = self.start;
-        let p2 = self.end;
-
-        let p = p2 - p1;
-        compositor.append_data(
-            ((p1 + p2.to_vector()) * 0.5) - (crate::PxVector::new(p.length() * 0.5, 0.0)),
-            [p.length(), 1.0].into(),
-            [0.0, 0.0].into(),
-            [0.0, 0.0].into(),
-            self.color.as_32bit().rgba,
-            p.y.atan2(p.x) % std::f32::consts::TAU,
-            u8::MAX,
-            false,
-        );
+        compositor.append_data(*sample(&self.values));
         Ok(())
     }
 }

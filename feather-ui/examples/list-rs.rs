@@ -120,14 +120,14 @@ impl flex::Prop for MinimalFlex {
 struct BasicApp {}
 
 impl FnPersistStore for BasicApp {
-    type Store = (CounterState, im::HashMap<Arc<SourceID>, Option<Window>>);
+    type Store = (CounterState, imbl::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>>
+impl FnPersist2<&CounterState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>>
     for BasicApp
 {
     fn init(&self) -> Self::Store {
-        (CounterState { count: -1 }, im::HashMap::new())
+        (CounterState { count: -1 }, imbl::HashMap::new())
     }
 
     fn call(
@@ -135,7 +135,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
         mut store: Self::Store,
         args: &CounterState,
         mut scope: ScopeID<'_>,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let button = {
                 let text = Text::<FixedData> {
@@ -180,7 +180,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
             };
 
             let rectlist = {
-                let mut children: im::Vector<Box<ChildOf<dyn list::Prop>>> = im::Vector::new();
+                let mut children: imbl::Vector<Rc<ChildOf<dyn list::Prop>>> = imbl::Vector::new();
 
                 for (i, id) in scope.iter(0..args.count) {
                     children.push_back(Box::new(
@@ -219,7 +219,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
             };
 
             let flexlist = {
-                let mut children: im::Vector<Box<ChildOf<dyn flex::Prop>>> = im::Vector::new();
+                let mut children: imbl::Vector<Rc<ChildOf<dyn flex::Prop>>> = imbl::Vector::new();
 
                 for (i, id) in scope.iter(0..args.count) {
                     let rect = Shape::<FlexChild, { ShapeKind::RoundRect as u8 }>::new(
@@ -292,7 +292,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Wi
                 Box::new(region),
             );
 
-            store.1 = im::HashMap::new();
+            store.1 = imbl::HashMap::new();
             store.1.insert(window.id.clone(), Some(window));
             store.0 = args.clone();
         }

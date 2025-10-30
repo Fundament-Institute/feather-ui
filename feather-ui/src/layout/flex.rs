@@ -3,7 +3,7 @@
 
 use super::{
     Concrete, Desc, Layout, Renderable, Staged, base, check_unsized_abs, map_unsized_area,
-    merge_margin, nuetralize_unsized,
+    merge_margin, zero_unsized,
 };
 use crate::layout::Swappable;
 use crate::persist::{FnPersist2, Persist2, VectorFold};
@@ -148,7 +148,7 @@ struct ChildCache {
 
 #[allow(clippy::too_many_arguments)]
 fn wrap_line(
-    childareas: &im::Vector<Option<ChildCache>>,
+    childareas: &imbl::Vector<Option<ChildCache>>,
     props: &dyn Prop,
     xaxis: bool,
     total_main: f32,
@@ -296,7 +296,7 @@ fn wrap_line(
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Box<dyn Layout<Self::Child>>>;
+    type Children = imbl::Vector<Rc<dyn DynLayout<Self::Child>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -313,15 +313,15 @@ impl Desc for dyn Prop {
         //let (unsized_x, unsized_y) = super::check_unsized(*myarea);
 
         let limits = outer_limits + props.limits().resolve(window.dpi);
-        let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits);
-        let outer_safe = nuetralize_unsized(outer_area);
+        let inner_dim = super::eval_dim(myarea, outer_area.dim(), limits);
+        let outer_safe = zero_unsized(outer_area);
 
         let xaxis = match props.direction() {
             RowDirection::LeftToRight | RowDirection::RightToLeft => true,
             RowDirection::TopToBottom | RowDirection::BottomToTop => false,
         };
 
-        let mut childareas: im::Vector<Option<ChildCache>> = im::Vector::new();
+        let mut childareas: imbl::Vector<Option<ChildCache>> = imbl::Vector::new();
         let (dpi_main, _) = window.dpi.swap_axis(xaxis);
         let (outer_main, _) = outer_safe.dim().swap_axis(xaxis);
 
@@ -411,8 +411,8 @@ impl Desc for dyn Prop {
 
         let (unsized_x, unsized_y) = check_unsized_abs(outer_area.bottomright());
 
-        let mut staging: im::Vector<Box<dyn Staged>> = im::Vector::new();
-        let mut nodes: im::Vector<Rc<rtree::Node>> = im::Vector::new();
+        let mut staging: imbl::Vector<Rc<dyn Staged>> = imbl::Vector::new();
+        let mut nodes: imbl::Vector<Rc<rtree::Node>> = imbl::Vector::new();
 
         if (unsized_x && xaxis) || (unsized_y && !xaxis) {
             // If we are evaluating our staged area along the main axis, no further

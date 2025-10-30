@@ -6,27 +6,29 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
+use crate::layout::Staged;
 use crate::persist::{FnPersist2, Persist2, VectorFold};
+use crate::reactive::{
+    self, AsSignal, DynSignal, Identity, SignalMap, fold_vec, map_vec, zip_pair,
+};
 use crate::{
     Dispatchable, InputResult, Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID, StateManager,
-    WindowStateMachine,
 };
 use guillotiere::euclid::Point3D;
 use std::rc::Rc;
 use winit::dpi::PhysicalPosition;
 
 pub struct Node {
-    pub area: PxRect, /* This is the calculated area of the node from the layout relative to the
-                       * topleft corner of the parent. */
-    pub extent: PxRect, /* This is the minimal bounding rectangle of the children's extent
-                         * relative to OUR topleft corner. */
-    pub top: i32, /* 2D R-tree nodes are actually 3 dimensional, but the z-axis can never
-                   * overlap (because layout rects have no depth). */
-    pub bottom: i32,
+    pub area: DynSignal<PxRect>, /* This is the calculated area of the node from the layout relative to the
+                                  * topleft corner of the parent. */
+    pub extent: DynSignal<PxRect>, /* This is the minimal bounding rectangle of the children's extent
+                                    * relative to OUR topleft corner. */
+    pub top: DynSignal<i32>,
+    pub depth: DynSignal<i32>, // Positive or negative range starting from the top that this node encompasses. Must be 0 if staged is non-null.
     pub mask: AtomicU64,
-    pub id: std::sync::Weak<SourceID>,
-    pub children: im::Vector<Rc<Node>>,
-    pub parent: std::cell::OnceCell<std::rc::Weak<Node>>,
+    pub children: Option<DynSignal<imbl::Vector<Rc<Node>>>>,
+    pub staged: Option<Box<dyn Staged>>,
+    pub state: Option<Rc<dyn crate::StateMachineChild>>,
 }
 
 // A tuple like this is necessary to build a chain of parent nodes down the
@@ -36,53 +38,121 @@ pub struct Node {
 
 impl Node {
     pub fn new(
-        area: PxRect,
-        z: Option<i32>,
-        children: im::Vector<Rc<Node>>,
-        id: std::sync::Weak<SourceID>,
-        window: &mut crate::component::window::WindowState,
-    ) -> Rc<Self> {
-        let this = Rc::new_cyclic(|this| {
-            let mut fold = VectorFold::new(Persist2::new(
-                |(rect, top, bottom): (PxRect, i32, i32), n: &Rc<Node>| -> (PxRect, i32, i32) {
-                    let n = n.as_ref();
-                    (rect.extend(n.area), top.max(n.top), bottom.min(n.bottom))
-                },
-            ));
+        area: DynSignal<PxRect>,
+        z: Option<DynSignal<i32>>,
+        children: Option<DynSignal<imbl::Vector<Rc<Node>>>>,
+        staged: Option<Box<dyn Staged>>,
+        state: Option<Rc<dyn crate::StateMachineChild>>,
+    ) -> Self {
+        let z = z.unwrap_or_else(|| 0.to_signal().into_dyn_signal());
+        if let Some(children) = children {
+            let areas = map_vec(|v| v.area, |v| Identity(v), &children);
 
-            // TODO: This is inefficient for large trees, but the alternative is to somehow
-            // maintain a "capture" pointer on each rtree node, which requires
-            // cooperation from the persistent data structure to maintain, which we don't
-            // have right now.
-            for child in &children {
-                child.as_ref().parent.get_or_init(|| this.clone());
-            }
-
-            // If no z index is provided for this node, try to use a zindex from the first
-            // child. If there is no first child, default to 0
-            let z = z.unwrap_or_else(|| children.front().map(|x| x.as_ref().top).unwrap_or(0));
-            let (_, (extent, top, bottom)) =
-                fold.call(fold.init(), (Default::default(), z, z), &children);
+            let extent = reactive::join(fold_vec(
+                |l, r| zip_pair(l, r, |x, y| x.extend(y)),
+                areas,
+                PxRect::zero().to_signal().into(),
+            ))
+            .into_dyn_signal();
 
             Self {
                 area,
                 extent,
-                top,
-                bottom,
-                id: id.clone(),
-                children,
-                parent: Default::default(),
+                top: z,
+                depth: 0.to_signal().into(),
+                children: Some(children),
                 mask: u64::MAX.into(),
+                staged,
+                state,
             }
-        });
-
-        if let Some(id) = id.upgrade() {
-            window.update_node(id, Rc::downgrade(&this));
+        } else {
+            Self {
+                extent: area.clone(),
+                area,
+                top: z,
+                depth: 0.to_signal().into(),
+                children: None,
+                mask: u64::MAX.into(),
+                staged,
+                state,
+            }
         }
-
-        this
     }
 
+    pub fn new_subtree(children: DynSignal<imbl::Vector<Rc<Node>>>) -> Self {
+        let areas = map_vec(|v| v.area, |v| Identity(v), &children);
+
+        let extent = reactive::join(fold_vec(
+            |l, r| zip_pair(l, r, |x, y| x.extend(y)),
+            areas,
+            PxRect::zero().to_signal().into(),
+        ))
+        .into_dyn_signal();
+
+        let tops = map_vec(|v| v.top, |v| Identity(v), &children);
+
+        let top = reactive::join(fold_vec(
+            |l, r| zip_pair(l, r, |x, y| x.min(y)),
+            tops,
+            0.to_signal().into_dyn_signal(),
+        ));
+
+        let bottoms = map_vec(
+            |v| zip_pair(v.top, v.depth, |l, r| l + r),
+            |v| Identity(v),
+            &children,
+        );
+
+        let bottom = reactive::join(fold_vec(
+            |l, r| zip_pair(l, r, |x, y| x.max(y)),
+            tops,
+            0.to_signal().into_dyn_signal(),
+        ));
+
+        Self {
+            area: extent.clone(),
+            extent,
+            depth: zip_pair(top.clone(), bottom, |t, b| b - t).into_dyn_signal(),
+            top: top.into_dyn_signal(),
+            children: Some(children),
+            mask: u64::MAX.into(),
+            staged: None,
+            state: None,
+        }
+    }
+
+    pub(crate) fn render(
+        self: &Rc<Self>,
+        parent_pos: PxPoint,
+        // cliprect: PxRect,
+        driver: &crate::graphics::Driver,
+        compositor: &mut crate::CompositorView<'_>,
+        dependents: &mut Vec<std::sync::Weak<SourceID>>,
+    ) -> Result<(), crate::Error> {
+        if let Some(staged) = self.staged.as_ref() {
+            let area = *crate::sample(&self.area);
+
+            // TODO: Pass down the clip area through the render stack so the r-tree can clip things correctly
+            //if (area + parent_pos).intersect(clip) {
+            let children = self.children.as_ref().map(|x| crate::sample(x));
+            staged.render(
+                parent_pos,
+                area,
+                driver,
+                compositor,
+                match &children {
+                    Some(x) => Some(&x),
+                    None => None,
+                },
+                dependents,
+            )
+            //} else {
+            //    Ok(())
+            //}
+        } else {
+            Ok(())
+        }
+    }
     // This handles event postprocessing that must always happen, even for directly
     // injected events
     pub(crate) fn postprocess(
@@ -90,7 +160,7 @@ impl Node {
         event: &RawEvent,
         dpi: RelDim,
         offset: PxVector,
-        window_id: Arc<SourceID>,
+        window: &mut crate::WindowState,
         manager: &mut StateManager,
     ) -> InputResult<()> {
         match event {
@@ -101,15 +171,11 @@ impl Node {
                 modifiers,
                 all_buttons,
             } => {
-                let state = match manager.get_mut::<WindowStateMachine>(&window_id) {
-                    Ok(v) => v,
-                    Err(e) => return InputResult::Error(e),
-                };
 
-                let window = &mut state.state;
-
+                // TODO: replace this with a different method of tracking r-tree nodes
                 // Either replace the old node, or simply remove it if this is not a valid focus
                 // target
+                /*
                 let (old, valid) = if let Some(id) = self.id.upgrade() {
                     (
                         window.set(WindowNodeTrack::Hover, *device_id, id, Rc::downgrade(self)),
@@ -159,7 +225,7 @@ impl Node {
                         &driver,
                         manager,
                     );
-                }
+                }*/
             }
             RawEvent::Mouse {
                 device_id,
@@ -175,18 +241,12 @@ impl Node {
                 ..
             } => {
                 // On any mouseup event, uncapture the cursor if no buttons are down
-                let state = match manager.get_mut::<WindowStateMachine>(&window_id) {
-                    Ok(v) => v,
-                    Err(e) => return InputResult::Error(e),
-                };
-
-                let window = &mut state.state;
                 window.remove(WindowNodeTrack::Capture, device_id);
                 let driver = Arc::downgrade(&window.driver);
 
                 // We don't care if this is accepted or not
                 let _ = crate::component::window::Window::on_window_event(
-                    window_id,
+                    window,
                     Self::find_root(self.clone()),
                     winit::event::WindowEvent::CursorMoved {
                         device_id: *device_id,
@@ -206,9 +266,9 @@ impl Node {
         self: &Rc<Self>,
         event: &RawEvent,
         kind: RawEventKind,
-        dpi: RelDim,
+        dpi: &crate::MutableSignal<RelDim>,
         offset: PxVector,
-        window_id: Arc<SourceID>,
+        window: &mut crate::WindowState,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
     ) -> InputResult<u64> {
@@ -232,7 +292,7 @@ impl Node {
                 }
 
                 return self
-                    .postprocess(event, dpi, offset, window_id, manager)
+                    .postprocess(event, dpi, offset, window, manager)
                     .map(|_| mask);
             }
             return InputResult::Forward(mask);
@@ -272,7 +332,7 @@ impl Node {
         dpi: RelDim,
         driver: &std::sync::Weak<crate::Driver>,
         manager: &mut StateManager,
-        window_id: Arc<SourceID>,
+        window: &mut crate::WindowState,
     ) -> InputResult<()> {
         if (self.mask.load(Ordering::Acquire) & kind as u64) != 0
             && self.area.contains(position - offset)
@@ -292,7 +352,7 @@ impl Node {
                     dpi,
                     driver,
                     manager,
-                    window_id.clone(),
+                    window,
                 );
                 if !r.is_reject() {
                     // At this point, we should've already set focus, and are simply walking back up
@@ -303,7 +363,7 @@ impl Node {
                 mask |= child.mask.load(Ordering::Relaxed);
             }
 
-            let e = self.inject_event(event, kind, dpi, offset, window_id.clone(), driver, manager);
+            let e = self.inject_event(event, kind, dpi, offset, window, driver, manager);
             match e {
                 InputResult::Consume(m) | InputResult::Forward(m) => mask |= m,
                 _ => (),
@@ -330,18 +390,12 @@ impl Node {
                         pos: Point3D::<f32, Pixel> { x, y, .. },
                         ..
                     } => {
-                        let state = manager.get_mut::<WindowStateMachine>(&window_id);
-                        let state = if let Err(e) = state {
-                            return InputResult::Error(e);
-                        } else {
-                            state.unwrap()
-                        };
-
-                        let window = &mut state.state;
                         let inner = window.window.clone();
 
+                        // TODO: Redo how focus works
                         // Either replace the old node, or simply remove it if this is not a valid
                         // focus target
+                        /*
                         let (old, valid) = if let Some(id) = self.id.upgrade() {
                             // On any mousedown event, capture the cursor if it wasn't captured
                             // already
@@ -413,7 +467,7 @@ impl Node {
                                 manager,
                                 driver.clone(),
                             );
-                        }
+                        }*/
                     }
                     _ => (),
                 }
@@ -432,7 +486,7 @@ struct Node25 {
     pub z: f32, // there is only one z coordinate because the contained area must be flat.
     pub transform: Rotor3,
     pub id: std::sync::Weak<SourceID>,
-    pub children: im::Vector<Rc<Node>>>,
+    pub children: imbl::Vector<Rc<Node>>>,
 }
 
 // 3D node capable of arbitrary translation (though it's AABB must still be fully contained within it's parent node)[]
@@ -441,6 +495,6 @@ struct Node3D {
     pub extent: AbsVolume,
     pub transform: Rotor3,
     pub id: std::sync::Weak<SourceID>,
-    pub children: im::Vector<Either<Rc<Node3D>, Rc<Node25>>>,
+    pub children: imbl::Vector<Either<Rc<Node3D>, Rc<Node25>>>,
 }
 */

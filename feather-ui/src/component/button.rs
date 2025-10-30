@@ -17,7 +17,7 @@ pub struct Button<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,
     marea: MouseArea<DRect>,
-    children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
+    children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>,
 }
 
 impl<T: fixed::Prop> Button<T> {
@@ -25,7 +25,7 @@ impl<T: fixed::Prop> Button<T> {
         id: Arc<SourceID>,
         props: T,
         onclick: Slot,
-        children: im::Vector<Box<ChildOf<dyn fixed::Prop>>>,
+        children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>,
     ) -> Self {
         Self {
             id: id.clone(),
@@ -66,10 +66,10 @@ where
         manager: &mut crate::StateManager,
         driver: &crate::graphics::Driver,
         window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>> {
+    ) -> Rc<dyn Layout<T>> {
         #[allow(clippy::borrowed_box)]
         let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Box<ChildOf<dyn fixed::Prop>>| -> Box<dyn Layout<<dyn fixed::Prop as Desc>::Child>> {
+            |child: &Box<ChildOf<dyn fixed::Prop>>| -> Rc<dyn Layout<<dyn fixed::Prop as Desc>::Child>> {
                 child.layout(manager, driver, window)
             })
         );

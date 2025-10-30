@@ -1,37 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-pub mod button;
-pub mod domain_line;
-pub mod domain_point;
-pub mod flexbox;
-pub mod gridbox;
-pub mod image;
 pub mod line;
-pub mod listbox;
-pub mod mouse_area;
-pub mod paragraph;
 pub mod region;
-pub mod scroll_area;
-pub mod shape;
-pub mod text;
-pub mod textbox;
 pub mod window;
 
 use crate::component::window::Window;
-use crate::event::EventRouter;
-use crate::layout::{Desc, Layout, Staged, root};
+use crate::layout::{Desc, DynLayout, Layout, Staged};
+use crate::reactive::MutableSignal;
 use crate::{
     DispatchPair, Dispatchable, InputResult, PxRect, Slot, SourceID, StateMachineChild,
     StateManager, graphics, rtree,
 };
-use dyn_clone::DynClone;
 use eyre::{OptionExt, Result};
 use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
-use window::WindowStateMachine;
 
 pub trait StateMachineWrapper: Any {
     fn process(
@@ -54,6 +40,28 @@ pub struct StateMachine<State, const OUTPUT_SIZE: usize> {
     pub output: [Option<Slot>; OUTPUT_SIZE],
     pub input_mask: u64,
     pub(crate) changed: bool,
+}
+
+pub trait EventRouter
+where
+    // : zerocopy::Immutable
+    Self: Sized,
+{
+    type Input: Dispatchable;
+    type Output: Dispatchable;
+
+    #[allow(unused_variables)]
+    #[allow(clippy::type_complexity)]
+    fn process(
+        state: crate::AccessCell<Self>,
+        input: Self::Input,
+        area: PxRect,
+        extent: PxRect,
+        dpi: crate::RelDim,
+        driver: &std::sync::Weak<crate::Driver>,
+    ) -> InputResult<SmallVec<[Self::Output; 1]>> {
+        InputResult::Forward(SmallVec::new())
+    }
 }
 
 impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMachineWrapper
@@ -185,48 +193,38 @@ impl<const N: usize> StateMachineWrapper for EventRouter<N> {
 ///     }
 /// }
 /// ```
-pub trait Component: crate::StateMachineChild + DynClone {
+pub trait Component {
     type Props;
+    type R: Layout<Props = Self::Props> + 'static;
 
-    fn layout(
-        &self,
-        state: &mut StateManager,
-        driver: &graphics::Driver,
-        window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<Self::Props>>;
+    fn layout(&self, driver: Arc<graphics::Driver>, dpi: MutableSignal<crate::RelDim>) -> Self::R;
 }
 
-dyn_clone::clone_trait_object!(<Parent> Component<Props = Parent> where Parent:?Sized);
+pub type ChildOf<D> = dyn DynComponent<<D as Desc>::Child>;
 
-pub type ChildOf<D> = dyn ComponentWrap<<D as Desc>::Child>;
-
-pub trait ComponentWrap<T: ?Sized>: crate::StateMachineChild + DynClone {
+pub trait DynComponent<T: ?Sized> {
     fn layout(
         &self,
-        state: &mut StateManager,
-        driver: &graphics::Driver,
-        window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<T>>;
+        driver: Arc<graphics::Driver>,
+        dpi: MutableSignal<crate::RelDim>,
+    ) -> Rc<dyn DynLayout<T>>;
 }
 
-dyn_clone::clone_trait_object!(<T> ComponentWrap<T> where T:?Sized);
-
-impl<U: ?Sized, C: Component> ComponentWrap<U> for C
+impl<U: ?Sized, C: Component> DynComponent<U> for C
 where
     for<'a> &'a U: From<&'a <C as Component>::Props>,
     <C as Component>::Props: Sized + 'static,
 {
     fn layout(
         &self,
-        state: &mut StateManager,
-        driver: &graphics::Driver,
-        window: &Arc<SourceID>,
-    ) -> Box<dyn Layout<U>> {
-        Box::new(Component::layout(self, state, driver, window))
+        driver: Arc<graphics::Driver>,
+        dpi: MutableSignal<crate::RelDim>,
+    ) -> Rc<dyn DynLayout<U>> {
+        Rc::new(Component::layout(self, driver, dpi))
     }
 }
 
-impl<T: Component + 'static, U> From<Box<T>> for Box<dyn ComponentWrap<U>>
+impl<T: Component + 'static, U> From<Box<T>> for Box<dyn DynComponent<U>>
 where
     for<'a> &'a U: std::convert::From<&'a <T as Component>::Props>,
     <T as Component>::Props: Sized,
@@ -236,125 +234,8 @@ where
     }
 }
 
-// Stores the root node for the various trees.
-
-pub struct RootState {
-    pub(crate) id: Arc<SourceID>,
-    layout_tree: Option<Box<dyn crate::layout::Layout<crate::PxDim>>>,
-    pub(crate) staging: Option<Box<dyn Staged>>,
-    rtree: std::rc::Weak<rtree::Node>,
-}
-
-impl RootState {
-    fn new(id: Arc<SourceID>) -> Self {
-        Self {
-            id,
-            layout_tree: None,
-            staging: None,
-            rtree: std::rc::Weak::<rtree::Node>::new(),
-        }
-    }
-}
-
-pub struct Root {
-    pub(crate) states: HashMap<winit::window::WindowId, RootState>,
-    // We currently rely on window-specific functions, so there's no point trying to make this more
-    // general right now.
-    pub(crate) children: im::HashMap<Arc<SourceID>, Option<Window>>,
-}
-
-impl Default for Root {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Root {
-    pub fn new() -> Self {
-        Self {
-            states: HashMap::new(),
-            children: im::HashMap::new(),
-        }
-    }
-
-    pub fn layout_all(
-        &mut self,
-        manager: &mut StateManager,
-        driver: &mut std::sync::Weak<graphics::Driver>,
-        on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<graphics::Driver>)>>,
-        instance: &wgpu::Instance,
-        event_loop: &winit::event_loop::ActiveEventLoop,
-    ) -> eyre::Result<()> {
-        // Initialize any states that need to be initialized before calling the layout
-        // function TODO: make this actually efficient by performing the
-        // initialization when a new component is initialized
-        for (_, window) in self.children.iter() {
-            let window = window.as_ref().unwrap();
-            window.init_custom(manager, driver, instance, event_loop, on_driver)?;
-            let state: &WindowStateMachine = manager.get(&window.id())?;
-            let id = state.state.window.id();
-            self.states
-                .entry(id)
-                .or_insert_with(|| RootState::new(window.id().clone()));
-
-            let root = self
-                .states
-                .get_mut(&id)
-                .ok_or_eyre("Couldn't find window state")?;
-            let driver = state.state.driver.clone();
-            root.layout_tree = Some(crate::component::Component::layout(
-                window,
-                manager,
-                &driver,
-                &window.id(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn stage_all(&mut self, states: &mut StateManager) -> eyre::Result<()> {
-        for (_, window) in self.children.iter() {
-            let window = window.as_ref().unwrap();
-            let state: &mut WindowStateMachine = states.get_mut(&window.id())?;
-            let id = state.state.window.id();
-            let root = self
-                .states
-                .get_mut(&id)
-                .ok_or_eyre("Couldn't find window state")?;
-            if let Some(layout) = root.layout_tree.as_ref() {
-                let layout: &dyn Layout<dyn root::Prop> = &layout.as_ref();
-                let staging =
-                    layout.stage(Default::default(), Default::default(), &mut state.state);
-                root.rtree = staging.get_rtree();
-                root.staging = Some(staging);
-                state.state.window.request_redraw();
-            }
-        }
-        Ok(())
-    }
-
-    pub fn validate_ids(&self) -> eyre::Result<()> {
-        struct Validator(std::collections::HashSet<Arc<SourceID>>);
-        impl Validator {
-            fn f(&mut self, x: &dyn StateMachineChild) -> eyre::Result<()> {
-                let id = x.id();
-                if !self.0.insert(id.clone()) {
-                    return Err(eyre::eyre!(
-                        "Duplicate ID found! Did you forget to add a child index to an ID? {}",
-                        x.id()
-                    ));
-                }
-
-                x.apply_children(&mut |x| self.f(x))
-            }
-        }
-        let mut v = Validator(std::collections::HashSet::new());
-        for (_, child) in &self.children {
-            if let Some(window) = child {
-                v.f(window)?;
-            }
-        }
-
-        Ok(())
-    }
+#[derive(Clone)]
+pub struct UI {
+    //children: imbl::Vector<Rc<dyn DynComponent<dyn root::Prop>>>,
+    pub children: crate::DynSignal<imbl::Vector<Rc<Window>>>,
 }

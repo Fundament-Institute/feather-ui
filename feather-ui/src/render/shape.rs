@@ -3,7 +3,7 @@
 
 use super::compositor;
 use crate::color::sRGB;
-use crate::component::shape::ShapeKind;
+//use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
 use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
@@ -65,7 +65,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
 
         // RoundRects have a specific optimization, but only if no edge length is less
         // than 2 pixels
-        if KIND == ShapeKind::RoundRect as u8 && perimeter.iter().all(|x| *x >= 2.0) {
+        if KIND == /*ShapeKind::RoundRect as u8*/ 0 && perimeter.iter().all(|x| *x >= 2.0) {
             // If the border is larger than the corner itself, pretend the size of that
             // corner is the border.
             let mut corners = self.corners.map(|x| x.max(self.border));

@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
+use crate::reactive::ConstProvider;
 use crate::render::atlas::{ATLAS_FORMAT, Atlas, AtlasKind};
 use crate::render::compositor::Compositor;
-use crate::render::shape::Shape;
 use crate::render::{atlas, compositor};
 use crate::resource::{Loader, Location, MAX_VARIANCE};
 use crate::{Error, Mat4x4, render};
@@ -154,6 +155,8 @@ impl Driver {
         surface: &wgpu::Surface<'static>,
         on_driver: &mut Option<Box<dyn FnOnce(std::sync::Weak<Driver>) + 'static>>,
     ) -> eyre::Result<Arc<Self>> {
+        //use crate::render::shape::Shape;
+
         if let Some(driver) = weak.upgrade() {
             return Ok(driver);
         }
@@ -180,8 +183,8 @@ impl Driver {
         let atlas = Atlas::new(&device, 512, AtlasKind::Primary);
         let layer0 = Atlas::new(&device, 128, AtlasKind::Layer0);
         let layer1 = Atlas::new(&device, 128, AtlasKind::Layer1);
-        let shape_shader = Shape::<0>::shader(&device);
-        let shape_pipeline = Shape::<0>::layout(&device);
+        //let shape_shader = Shape::<0>::shader(&device);
+        //let shape_pipeline = Shape::<0>::layout(&device);
 
         let comp1 = Compositor::new(
             &device,
@@ -219,7 +222,7 @@ impl Driver {
             layer_composite: [comp1.into(), comp2.into()],
         };
 
-        driver.register_pipeline::<Shape<0>>(
+        /*driver.register_pipeline::<Shape<0>>(
             shape_pipeline.clone(),
             shape_shader.clone(),
             Shape::<0>::create,
@@ -238,7 +241,7 @@ impl Driver {
             shape_pipeline.clone(),
             shape_shader.clone(),
             Shape::<3>::create,
-        );
+        );*/
 
         let driver = Arc::new(driver);
         *weak = Arc::downgrade(&driver);

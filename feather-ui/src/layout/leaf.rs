@@ -32,14 +32,13 @@ impl Desc for dyn Prop {
         outer_area: PxRect,
         outer_limits: crate::PxLimits,
         _: &Self::Children,
-        id: std::sync::Weak<SourceID>,
         renderable: Option<Rc<dyn Renderable>>,
         window: &mut crate::component::window::WindowState,
     ) -> Box<dyn Staged + 'a> {
         let limits = outer_limits + props.limits().resolve(window.dpi);
         let evaluated_area = super::limit_area(
             map_unsized_area(props.area().resolve(window.dpi), PxDim::zero())
-                * super::nuetralize_unsized(outer_area),
+                * super::zero_unsized(outer_area),
             limits,
         );
 
@@ -95,7 +94,7 @@ impl<T: Padded> Layout<T> for Sized<T> {
         // size. If only one axis is unsized, we stretch it to maintain an aspect
         // ratio relative to the size of the other axis.
         let (unsized_x, unsized_y) = super::check_unsized(area);
-        let outer_area = super::nuetralize_unsized(outer_area);
+        let outer_area = super::zero_unsized(outer_area);
         let mapped_area = match (unsized_x, unsized_y, aspect_ratio.is_finite()) {
             (true, false, false) => {
                 let mut presize = map_unsized_area(area, PxDim::zero()) * outer_area;

@@ -9,9 +9,9 @@ use std::rc::Rc;
 pub mod atlas;
 pub mod compositor;
 pub mod domain;
-pub mod image;
+//pub mod image;
 pub mod line;
-pub mod shape;
+//pub mod shape;
 pub mod text;
 pub mod textbox;
 

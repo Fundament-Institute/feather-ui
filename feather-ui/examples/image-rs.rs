@@ -34,12 +34,12 @@ impl leaf::Padded for FixedData {}
 struct BasicApp {}
 
 impl FnPersistStore for BasicApp {
-    type Store = im::HashMap<Arc<SourceID>, Option<Window>>;
+    type Store = imbl::HashMap<Arc<SourceID>, Option<Window>>;
 }
 
-impl FnPersist2<&i32, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersist2<&i32, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
-        im::HashMap::new()
+        imbl::HashMap::new()
     }
 
     fn call(
@@ -47,7 +47,7 @@ impl FnPersist2<&i32, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> f
         _: Self::Store,
         _: &i32,
         mut scope: ScopeID<'_>,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
         let pixel = Shape::<DRect, { ShapeKind::RoundRect as u8 }>::new(
             scope.create(),
             PxRect::new(1.0, 1.0, 2.0, 2.0).into(),
@@ -59,8 +59,8 @@ impl FnPersist2<&i32, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> f
             feather_ui::DAbsPoint::zero(),
         );
 
-        let mut children: im::Vector<Box<feather_ui::component::ChildOf<dyn fixed::Prop>>> =
-            im::Vector::new();
+        let mut children: imbl::Vector<Rc<feather_ui::component::ChildOf<dyn fixed::Prop>>> =
+            imbl::Vector::new();
         children.push_back(Box::new(pixel));
 
         let mut genimage = |pos: AbsPoint,
@@ -262,7 +262,7 @@ impl FnPersist2<&i32, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> f
             Box::new(region),
         );
 
-        let mut store = im::HashMap::new();
+        let mut store = imbl::HashMap::new();
         store.insert(window.id.clone(), Some(window));
         let windows = store.clone();
         (store, windows)

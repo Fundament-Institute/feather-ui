@@ -2,8 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::{
-    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, map_unsized_area,
-    nuetralize_unsized,
+    Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, map_unsized_area, zero_unsized,
 };
 use crate::{DPoint, DValue, PxDim, PxRect, RowDirection, SourceID, UNSIZED_AXIS, rtree};
 use std::rc::Rc;
@@ -44,7 +43,7 @@ fn swap_coord((x, y): (usize, usize), (w, h): (usize, usize), dir: RowDirection)
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
-    type Children = im::Vector<Box<dyn Layout<Self::Child>>>;
+    type Children = imbl::Vector<Rc<dyn DynLayout<Self::Child>>>;
 
     fn stage<'a>(
         props: &Self::Props,
@@ -70,8 +69,8 @@ impl Desc for dyn Prop {
             minmax[1] -= allpadding.height;
         }
 
-        let outer_safe = nuetralize_unsized(outer_area);
-        let inner_dim = super::limit_dim(super::eval_dim(myarea, outer_area.dim()), limits)
+        let outer_safe = zero_unsized(outer_area);
+        let inner_dim = super::eval_dim(myarea, outer_area.dim(), limits)
             - padding.topleft()
             - padding.bottomright();
 
@@ -81,8 +80,8 @@ impl Desc for dyn Prop {
         let nrows = props.rows().len();
         let ncolumns = props.columns().len();
 
-        let mut staging: im::Vector<Box<dyn Staged>> = im::Vector::new();
-        let mut nodes: im::Vector<Rc<rtree::Node>> = im::Vector::new();
+        let mut staging: imbl::Vector<Rc<dyn Staged>> = imbl::Vector::new();
+        let mut nodes: imbl::Vector<Rc<rtree::Node>> = imbl::Vector::new();
 
         let evaluated_area =
             crate::util::alloca_array::<f32, PxRect>((nrows + ncolumns) * 2, |x| {

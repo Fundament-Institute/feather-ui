@@ -92,15 +92,15 @@ impl flex::Prop for MinimalFlex {
 }
 
 impl FnPersistStore for BasicApp {
-    type Store = (Blocker, im::HashMap<Arc<SourceID>, Option<Window>>);
+    type Store = (Blocker, imbl::HashMap<Arc<SourceID>, Option<Window>>);
 }
-impl FnPersist2<&Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersist2<&Blocker, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
     fn init(&self) -> Self::Store {
         (
             Blocker {
                 area: AbsRect::new(f32::NAN, f32::NAN, f32::NAN, f32::NAN),
             },
-            im::HashMap::new(),
+            imbl::HashMap::new(),
         )
     }
     fn call(
@@ -108,7 +108,7 @@ impl FnPersist2<&Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>
         mut store: Self::Store,
         args: &Blocker,
         mut scope: ScopeID<'_>,
-    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let flex = {
                 let rect = Shape::<MinimalFlexChild, { ShapeKind::RoundRect as u8 }>::new(
@@ -166,7 +166,7 @@ impl FnPersist2<&Blocker, ScopeID<'_>, im::HashMap<Arc<SourceID>, Option<Window>
                 Box::new(region),
             );
 
-            store.1 = im::HashMap::new();
+            store.1 = imbl::HashMap::new();
             store.1.insert(window.id.clone(), Some(window));
             store.0 = args.clone();
         }
