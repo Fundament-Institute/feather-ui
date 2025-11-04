@@ -9,7 +9,7 @@ use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::layout::Staged;
 use crate::persist::{FnPersist2, Persist2, VectorFold};
 use crate::reactive::{
-    self, AsSignal, DynSignal, Identity, SignalMap, fold_vec, map_vec, zip_pair,
+    self, AsSignal, DynSignal, Identity, SignalMap, const_signal, fold_vec, map_vec, zip_pair,
 };
 use crate::{
     Dispatchable, InputResult, Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID, StateManager,
@@ -51,7 +51,7 @@ impl Node {
             let extent = reactive::join(fold_vec(
                 |l, r| zip_pair(l, r, |x, y| x.extend(y)),
                 areas,
-                PxRect::zero().to_signal().into(),
+                const_signal(PxRect::zero()).into(),
             ))
             .into_dyn_signal();
 
@@ -85,14 +85,14 @@ impl Node {
         let extent = reactive::join(fold_vec(
             |l, r| zip_pair(l, r, |x, y| x.extend(y)),
             areas,
-            PxRect::zero().to_signal().into(),
+            const_signal(PxRect::zero()).into(),
         ))
         .into_dyn_signal();
 
         let tops = map_vec(|v| v.top, |v| Identity(v), &children);
 
         let top = reactive::join(fold_vec(
-            |l, r| zip_pair(l, r, |x, y| x.min(y)),
+            |l, r| zip_pair(l, r, |x, y| x.min(y)).into(),
             tops,
             0.to_signal().into_dyn_signal(),
         ));

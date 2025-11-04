@@ -39,7 +39,8 @@ pub mod util;
 use crate::component::window::{Window, WindowState};
 use crate::graphics::Driver;
 use crate::reactive::{
-    AsSignal, DynSignal, Identity, MutableSignal, MutableSignalProvider, Sampler, map_vec, sample,
+    AsSignal, DynSignal, Identity, MutableSignal, MutableSignalProvider, Sampler, const_signal,
+    empty_signal, map_vec, sample,
 };
 use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
@@ -2866,14 +2867,14 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
         let empty_child: Rc<dyn crate::layout::DynLayout<dyn layout::base::Empty>> =
             Rc::new(layout::Node::<(), dyn layout::base::Empty> {
                 props: Rc::new(()),
-                children: ().to_signal().into(),
+                children: empty_signal().into(),
                 renderable: None,
                 layer: None,
             });
 
         layout::Node {
-            props: Rc::new(Size2D::zero().to_signal().into_dyn_signal()),
-            children: empty_child.to_signal().into_dyn_signal(),
+            props: Rc::new(const_signal(Size2D::zero()).into_dyn_signal()),
+            children: const_signal(empty_child).into_dyn_signal(),
             renderable: None,
             layer: None,
         }
@@ -2973,15 +2974,15 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
                             .surface_dim
                             .map(|x| x.to_f32().cast_unit())
                             .into_dyn_signal(),
-                        PxLimits::default().to_signal().into_dyn_signal(),
+                        const_signal(PxLimits::default()).into_dyn_signal(),
                         state.dpi.clone(),
                     );
 
                     (
                         Rc::new(f(
-                            PxPoint::zero().to_signal().into_dyn_signal(),
+                            const_signal(PxPoint::zero()).into_dyn_signal(),
                             state.surface_dim.map(|x| x.to_f32()).into_dyn_signal(),
-                            PxLimits::default().to_signal().into_dyn_signal(),
+                            const_signal(PxLimits::default()).into_dyn_signal(),
                         )),
                         w.clone(),
                     )

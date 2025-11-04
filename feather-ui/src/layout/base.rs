@@ -3,7 +3,9 @@
 
 use crate::{
     DAbsRect, DPoint, DRect, ZERO_DRECT,
-    reactive::{AsSignal, DynSignal, MutableSignal, SignalMap, SignalTupleZip, zip_pair},
+    reactive::{
+        AsSignal, DynSignal, MutableSignal, SignalMap, SignalTupleZip, const_signal, zip_pair,
+    },
 };
 use std::rc::Rc;
 
@@ -94,7 +96,7 @@ impl ZIndex for DRect {}
 // draws children inside (like text).
 pub trait Padding {
     fn padding(&self) -> DynSignal<DAbsRect> {
-        crate::ZERO_DABSRECT.to_signal().into()
+        const_signal(crate::ZERO_DABSRECT).into()
     }
 }
 
@@ -104,7 +106,7 @@ impl Padding for DRect {}
 // child elements.
 pub trait Margin {
     fn margin(&self) -> DynSignal<DRect> {
-        ZERO_DRECT.to_signal().into()
+        const_signal(ZERO_DRECT).into()
     }
 }
 
@@ -115,7 +117,7 @@ pub trait Area {
 
 impl Area for DRect {
     fn area(&self) -> DynSignal<DRect> {
-        self.clone().to_signal().into() // TODO: This doesn't make sense
+        const_signal(self.clone()).into() // TODO: This doesn't make sense
     }
 }
 
@@ -124,7 +126,7 @@ gen_dyn_prop!(Area);
 // Relative to child's evaluated area (inner area)
 pub trait Anchor {
     fn anchor(&self) -> DynSignal<DPoint> {
-        crate::ZERO_DPOINT.to_signal().into()
+        const_signal(crate::ZERO_DPOINT).into()
     }
 }
 
@@ -132,14 +134,14 @@ impl Anchor for DRect {}
 
 pub trait Limits {
     fn limits(&self) -> DynSignal<crate::DLimits> {
-        crate::DEFAULT_DLIMITS.to_signal().into()
+        const_signal(crate::DEFAULT_DLIMITS).into()
     }
 }
 
 // Relative to parent's area
 pub trait RLimits {
     fn rlimits(&self) -> DynSignal<crate::RelLimits> {
-        crate::DEFAULT_RLIMITS.to_signal().into()
+        const_signal(crate::DEFAULT_RLIMITS).into()
     }
 }
 
@@ -151,7 +153,7 @@ pub trait Order {
 
 pub trait Direction {
     fn direction(&self) -> DynSignal<crate::RowDirection> {
-        crate::RowDirection::LeftToRight.to_signal().into()
+        const_signal(crate::RowDirection::LeftToRight).into()
     }
 }
 

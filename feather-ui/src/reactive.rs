@@ -4,6 +4,7 @@ use stable_deref_trait::CloneStableDeref;
 use std::{
     any::Any,
     cell::Ref,
+    cmp::{PartialEq, PartialOrd},
     collections::HashMap,
     hash::Hash,
     marker::PhantomData,
@@ -203,6 +204,12 @@ impl<T, Provider: SignalProvider<T> + ?Sized> PartialEq for Signal<T, Provider> 
 }
 impl<T, Provider: SignalProvider<T> + ?Sized> Eq for Signal<T, Provider> {}
 
+impl<T, Provider: SignalProvider<T> + ?Sized> std::hash::Hash for Signal<T, Provider> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Rc::as_ptr(&self.0).hash(state);
+    }
+}
+
 // This has the same logic as From, but avoids needing manual type annotations in some situations.
 impl<T, Provider: SignalProvider<T> + 'static> Signal<T, Provider> {
     pub fn into_dyn_signal(self) -> Signal<T, dyn SignalProvider<T>> {
@@ -245,17 +252,10 @@ pub trait AsSignal<T> {
     fn to_signal(self) -> Signal<T, Self::Provider>;
 }
 
-impl<T> AsSignal<T> for T {
+impl<T: num_traits::Num> AsSignal<T> for T {
     type Provider = ConstProvider<T>;
     fn to_signal(self) -> Signal<T, Self::Provider> {
         Signal(Rc::new(ConstProvider::new(self)), PhantomData)
-    }
-}
-
-impl<T: Clone> AsSignal<T> for &T {
-    type Provider = ConstProvider<T>;
-    fn to_signal(self) -> Signal<T, Self::Provider> {
-        Signal(Rc::new(ConstProvider::new(self.clone())), PhantomData)
     }
 }
 
@@ -271,6 +271,10 @@ impl<T, P: SignalProvider<T> + ?Sized> AsSignal<T> for &Signal<T, P> {
     fn to_signal(self) -> Signal<T, Self::Provider> {
         self.clone()
     }
+}
+
+pub fn const_signal<T>(t: T) -> Signal<T, ConstProvider<T>> {
+    Signal(Rc::new(ConstProvider::new(t)), PhantomData)
 }
 
 pub type ConstSignal<T> = Signal<T, ConstProvider<T>>;
@@ -518,9 +522,13 @@ pub trait SignalTupleListZip<Output: TupleList + Clone> {
     fn zip(self) -> Signal<Output, impl SignalProvider<Output>>;
 }
 
+pub fn empty_signal() -> Signal<(), ConstProvider<()>> {
+    Signal(Rc::new(ConstProvider::new(())), PhantomData)
+}
+
 impl SignalTupleListZip<()> for () {
     fn zip(self) -> Signal<(), impl SignalProvider<()>> {
-        ().to_signal()
+        empty_signal()
     }
 }
 
@@ -1164,24 +1172,119 @@ pub fn animate<
     )
 }
 
-trait SignalOp<T> {
-    type Output;
-    fn operate(&self, args: &T) -> Self::Output;
+/// Trait describing any binary operation
+pub trait SignalOp<T, Rhs, Output> {
+    fn apply(lhs: T, rhs: Rhs) -> Output;
 }
+
+// Operation Marker Types
+mod marker {
+    pub struct AddOp;
+    pub struct SubOp;
+    pub struct MulOp;
+    pub struct DivOp;
+    pub struct RemOp;
+    pub struct BitAndOp;
+    pub struct BitOrOp;
+    pub struct BitXorOp;
+    pub struct ShlOp;
+    pub struct ShrOp;
+    pub struct EqOp;
+    pub struct OrdOp;
+    pub struct LtOp;
+    pub struct LeOp;
+    pub struct GtOp;
+    pub struct GeOp;
+    pub struct MinOp;
+    pub struct MaxOp;
+}
+
+use marker::*;
+
+macro_rules! gen_binop {
+    ($t:tt, $marker:path, $op:tt) => {
+        impl<T: std::ops::$t<Rhs, Output = Output>, Rhs, Output> SignalOp<T, Rhs, Output>
+            for $marker
+        {
+            fn apply(lhs: T, rhs: Rhs) -> Output {
+                lhs $op rhs
+            }
+        }
+    };
+}
+
+gen_binop!(Add, AddOp, +);
+gen_binop!(Sub, SubOp, -);
+gen_binop!(Mul, MulOp, *);
+gen_binop!(Div, DivOp, /);
+gen_binop!(Rem, RemOp, %);
+gen_binop!(BitAnd, BitAndOp, &);
+gen_binop!(BitOr, BitOrOp, |);
+gen_binop!(BitXor, BitXorOp, ^);
+gen_binop!(Shl, ShlOp, <<);
+gen_binop!(Shr, ShrOp, >>);
+
+impl<T: PartialEq<Rhs>, Rhs> SignalOp<T, Rhs, bool> for EqOp {
+    fn apply(lhs: T, rhs: Rhs) -> bool {
+        lhs.eq(&rhs)
+    }
+}
+
+impl<T: PartialOrd<Rhs>, Rhs> SignalOp<T, Rhs, Option<std::cmp::Ordering>> for OrdOp {
+    fn apply(lhs: T, rhs: Rhs) -> Option<std::cmp::Ordering> {
+        lhs.partial_cmp(&rhs)
+    }
+}
+
+macro_rules! gen_cmpop {
+    ($marker:path, $op:tt) => {
+        impl<T: PartialOrd<Rhs>, Rhs> SignalOp<T, Rhs, bool> for $marker {
+            fn apply(lhs: T, rhs: Rhs) -> bool {
+                lhs.partial_cmp(&rhs).is_some_and(std::cmp::Ordering::$op)
+            }
+        }
+    };
+}
+
+gen_cmpop!(LtOp, is_lt);
+gen_cmpop!(LeOp, is_le);
+gen_cmpop!(GtOp, is_gt);
+gen_cmpop!(GeOp, is_ge);
+
+impl<T: Ord> SignalOp<T, T, T> for MinOp {
+    fn apply(lhs: T, rhs: T) -> T {
+        std::cmp::min(lhs, rhs)
+    }
+}
+
+impl<T: Ord> SignalOp<T, T, T> for MaxOp {
+    fn apply(lhs: T, rhs: T) -> T {
+        std::cmp::max(lhs, rhs)
+    }
+}
+
 pub struct SignalOpProvider<
     T1: Clone,
     T2: Clone,
-    F: SignalOp<T1, Output = T2>,
-    P: SignalProvider<T1> + ?Sized,
+    Output,
+    OP: SignalOp<T1, T2, Output>,
+    P1: SignalProvider<T1> + ?Sized,
+    P2: SignalProvider<T2> + ?Sized,
 > {
-    provider: Rc<P>,
-    func: F,
-    arg_phantom: PhantomData<T1>,
-    res: RefCell<Option<T2>>,
+    provider1: Rc<P1>,
+    provider2: Rc<P2>,
+    res: RefCell<Option<Output>>,
     node: SignalNodeId,
+    phantom: PhantomData<(T1, T2, OP)>,
 }
-impl<T1: Clone, T2: Clone, F: SignalOp<T1, Output = T2>, P: SignalProvider<T1> + ?Sized>
-    SignalProvider<T2> for SignalOpProvider<T1, T2, F, P>
+impl<
+    T1: Clone,
+    T2: Clone,
+    Output,
+    OP: SignalOp<T1, T2, Output>,
+    P1: SignalProvider<T1> + ?Sized,
+    P2: SignalProvider<T2> + ?Sized,
+> SignalProvider<Output> for SignalOpProvider<T1, T2, Output, OP, P1, P2>
 {
     fn get_node(&self) -> &SignalNodeId {
         &self.node
@@ -1192,13 +1295,17 @@ impl<T1: Clone, T2: Clone, F: SignalOp<T1, Output = T2>, P: SignalProvider<T1> +
         match color {
             NodeColor::Ready => {}
             _ => {
-                self.provider.update_if_necessary();
+                self.provider1.update_if_necessary();
+                self.provider2.update_if_necessary();
             }
         }
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Changed => {
-                let res = self.func.operate(&self.provider.get_ref());
+                let res = OP::apply(
+                    self.provider1.get_ref().clone(),
+                    self.provider2.get_ref().clone(),
+                );
                 *self.res.borrow_mut() = Some(res);
                 notify_children_change(&self.node);
             }
@@ -1207,62 +1314,131 @@ impl<T1: Clone, T2: Clone, F: SignalOp<T1, Output = T2>, P: SignalProvider<T1> +
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
-    fn get_ref(&self) -> DynRef<T2> {
+    fn get_ref(&self) -> DynRef<Output> {
         DynRef::Cell(Ref::map(self.res.borrow(), |x| {
             x.as_ref().expect("must be updated before getting value")
         }))
     }
 }
-fn operate<T1: Clone, T2: Clone, F: SignalOp<T1, Output = T2>, P: AsSignal<T1>>(
-    f: F,
-    p: P,
-) -> Signal<T2, SignalOpProvider<T1, T2, F, P::Provider>> {
+
+fn operate<
+    T1: Clone,
+    T2: Clone,
+    Output,
+    OP: SignalOp<T1, T2, Output>,
+    P1: AsSignal<T1>,
+    P2: AsSignal<T2>,
+>(
+    lhs: P1,
+    rhs: P2,
+) -> Signal<Output, SignalOpProvider<T1, T2, Output, OP, P1::Provider, P2::Provider>> {
     let node = new_node(NodeColor::Changed);
-    let provider = p.to_signal().0;
-    add_dependency(provider.get_node(), node.clone());
+    let provider1 = lhs.to_signal().0;
+    let provider2 = rhs.to_signal().0;
+    add_dependency(provider1.get_node(), node.clone());
+    add_dependency(provider2.get_node(), node.clone());
     Signal(
         Rc::new(SignalOpProvider {
-            provider,
-            func: f,
-            arg_phantom: PhantomData,
+            provider1,
+            provider2,
             res: RefCell::new(None),
             node,
+            phantom: PhantomData,
         }),
         PhantomData,
     )
 }
 
-#[derive(Clone, Copy)]
-pub struct AddOperator<A, B>(PhantomData<(A, B)>);
-impl<A, B> SignalOp<(A, B)> for AddOperator<A, B>
-where
-    A: std::ops::Add<B> + Clone,
-    B: Clone,
-{
-    type Output = A::Output;
+macro_rules! gen_binop_impl {
+    ($t:tt, $marker:path, $op:tt) => {
+        impl<A: Clone, B: Clone, AP: SignalProvider<A> + ?Sized, BP: SignalProvider<B> + ?Sized>
+            std::ops::$t<Signal<B, BP>> for Signal<A, AP>
+        where
+            A: std::ops::$t<B>,
+            A::Output: Clone,
+        {
+            type Output = Signal<A::Output, SignalOpProvider<A, B, A::Output, $marker, AP, BP>>;
 
-    fn operate(&self, args: &(A, B)) -> Self::Output {
-        args.0.clone() + args.1.clone()
+            fn $op(self, rhs: Signal<B, BP>) -> Self::Output {
+                operate(self, rhs)
+            }
+        }
+    };
+}
+
+gen_binop_impl!(Add, AddOp, add);
+gen_binop_impl!(Sub, SubOp, sub);
+gen_binop_impl!(Mul, MulOp, mul);
+gen_binop_impl!(Div, DivOp, div);
+gen_binop_impl!(Rem, RemOp, rem);
+gen_binop_impl!(BitAnd, BitAndOp, bitand);
+gen_binop_impl!(BitOr, BitOrOp, bitor);
+gen_binop_impl!(BitXor, BitXorOp, bitxor);
+gen_binop_impl!(Shl, ShlOp, shl);
+gen_binop_impl!(Shr, ShrOp, shr);
+
+macro_rules! gen_cmpop_impl {
+    ($t:ident, $marker:path) => {
+        pub fn $t<
+            T1: Clone + PartialOrd<T2>,
+            T2: Clone,
+            AP: SignalProvider<T1> + ?Sized,
+            BP: SignalProvider<T2> + ?Sized,
+        >(
+            a: Signal<T1, AP>,
+            b: Signal<T2, BP>,
+        ) -> Signal<bool, impl SignalProvider<bool>> {
+            operate::<T1, T2, bool, $marker, _, _>(a, b)
+        }
+    };
+}
+pub mod cmp {
+    use super::{Signal, SignalProvider, marker::*, operate};
+
+    pub fn eq<
+        T1: Clone + PartialEq<T2>,
+        T2: Clone,
+        AP: SignalProvider<T1> + ?Sized,
+        BP: SignalProvider<T2> + ?Sized,
+    >(
+        a: Signal<T1, AP>,
+        b: Signal<T2, BP>,
+    ) -> Signal<bool, impl SignalProvider<bool>> {
+        operate::<T1, T2, bool, EqOp, _, _>(a, b)
+    }
+
+    gen_cmpop_impl!(le, LeOp);
+    gen_cmpop_impl!(lt, LtOp);
+    gen_cmpop_impl!(ge, GeOp);
+    gen_cmpop_impl!(gt, GtOp);
+
+    pub fn min<T: Clone + Ord, AP: SignalProvider<T> + ?Sized>(
+        a: Signal<T, AP>,
+        b: Signal<T, AP>,
+    ) -> Signal<T, impl SignalProvider<T>> {
+        operate::<T, T, T, MinOp, _, _>(a, b)
+    }
+
+    pub fn max<T: Clone + Ord, AP: SignalProvider<T> + ?Sized>(
+        a: Signal<T, AP>,
+        b: Signal<T, AP>,
+    ) -> Signal<T, impl SignalProvider<T>> {
+        operate::<T, T, T, MaxOp, _, _>(a, b)
+    }
+
+    pub fn partial_cmp<
+        T1: Clone + PartialOrd<T2>,
+        T2: Clone,
+        AP: SignalProvider<T1> + ?Sized,
+        BP: SignalProvider<T2> + ?Sized,
+    >(
+        a: Signal<T1, AP>,
+        b: Signal<T2, BP>,
+    ) -> Signal<Option<std::cmp::Ordering>, impl SignalProvider<Option<std::cmp::Ordering>>> {
+        operate::<T1, T2, Option<std::cmp::Ordering>, OrdOp, _, _>(a, b)
     }
 }
 
-impl<A: Clone, B: Clone, AP: SignalProvider<A>, BP: SignalProvider<B>> std::ops::Add<Signal<B, BP>>
-    for Signal<A, AP>
-where
-    A: std::ops::Add<B>,
-    A::Output: Clone,
-{
-    type Output = Signal<
-        A::Output,
-        SignalOpProvider<(A, B), A::Output, AddOperator<A, B>, ZipProvider<A, B, AP, BP>>,
-    >;
-
-    fn add(self, rhs: Signal<B, BP>) -> Self::Output {
-        operate(AddOperator(PhantomData), zip(self, rhs))
-    }
-}
-
-// You probably need to turn the input signals into ones with dyn Providers to use this.
 pub fn cond<T: Clone, CP: SignalProvider<bool> + ?Sized>(
     c: Signal<bool, CP>,
     a: DynSignal<T>,

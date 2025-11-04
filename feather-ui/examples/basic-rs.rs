@@ -57,10 +57,10 @@ fn basic_app_ui(appcount: i32) -> SmolSet<[DynSignal<Window>; 1]> {
                 area: (AbsRect::new(8.0, 0.0, 8.0, 0.0)
                     + RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS))
                 .to_signal(),
-                anchor: feather_ui::RelPoint::new(0.0, 0.5).into().to_signal(),
+                anchor: const_signal(feather_ui::RelPoint::new(0.0, 0.5).into()),
                 ..Default::default()
             }),
-            color: sRGB::new(1.0, 1.0, 0.0, 1.0).to_signal(),
+            color: const_signal(sRGB::new(1.0, 1.0, 0.0, 1.0)),
             text: app.map(|count| format!("Clicks: {}", count)),
             font_size: 40.0.to_signal(),
             line_height: 56.0.to_signal(),
