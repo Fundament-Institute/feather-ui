@@ -658,7 +658,7 @@ fn split_parity(
     )
 }
 
-fn statemachine<
+pub(crate) fn statemachine<
     'a,
     InputEvent: 'a,
     InputState: Clone + 'a,

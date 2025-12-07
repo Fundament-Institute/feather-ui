@@ -4,8 +4,9 @@
 use super::{Concrete, Desc, Renderable, base, check_unsized, map_unsized_area};
 use crate::{
     PxLimits, PxRect, RelDim, UnsizedDim,
+    event::{self, EventStream},
     layout::{DynLayout, zero_unsized},
-    reactive::{self, DynSignal, Signal, SignalMap, SignalProvider, SignalTupleZip, zip_pair},
+    reactive::{self, DynSignal, Signal, SignalMap, SignalTupleZip, zip_pair},
     rtree,
 };
 use std::rc::Rc;
@@ -57,7 +58,6 @@ impl Desc for dyn Prop {
         // again reduced by myarea.abs.bottomright() to account for how the area
         // calculations will interact with the limits later on.
 
-        /*
         let limits = (outer_limits, props.limits(), dpi.clone())
             .zip::<(PxLimits, crate::DLimits, RelDim)>()
             .map(|(outer, limits, dpi)| *outer + limits.resolve(*dpi));
@@ -72,27 +72,27 @@ impl Desc for dyn Prop {
 
         let limits2 = limits.clone();
         let dpi2 = dpi.clone();
-        let child_presize: Signal<
-            imbl::GenericVector<
-                Signal<crate::Rect<crate::Pixel>, dyn SignalProvider<crate::Rect<crate::Pixel>>>,
-                _,
-                _,
-            >,
-            dyn SignalProvider<
-                imbl::GenericVector<
-                    Signal<
-                        crate::Rect<crate::Pixel>,
-                        dyn SignalProvider<crate::Rect<crate::Pixel>>,
-                    >,
-                    _,
-                    _,
-                >,
-            >,
-        > = Signal::into_dyn_signal(reactive::map_vec(
-            move |child| todo!(),
-            reactive::Identity,
+        let child_presize = reactive::map_vec(
+            move |child| {
+                let child_limit = (
+                    inner_dim.clone(),
+                    limits2.clone(),
+                    child.as_ref().get_props().rlimits(),
+                )
+                    .zip::<(crate::UnsizedDim, PxLimits, crate::RelLimits)>()
+                    .map(|(inner, l, rlimits)| super::apply_limit(*inner, *l, *rlimits));
+
+                let (stage, _) = child.as_ref().stage(
+                    inner_dim.clone().into(),
+                    child_limit.into(),
+                    dpi2.clone(),
+                );
+                stage
+            },
+            |x| reactive::Identity(x.clone()),
             children.clone(),
-        ));
+        )
+        .into_dyn_signal();
 
         let presize = reactive::join(&reactive::fold_vec(
             |l, r| {
@@ -102,7 +102,7 @@ impl Desc for dyn Prop {
             crate::const_signal(PxRect::zero()).into(),
         ));
 
-        let presize = Signal::into_dyn_signal(presize);
+        let presize = presize.into_dyn_signal();
 
         let presize = presize.map(|x| x.extend(PxRect::zero()));
 
@@ -126,32 +126,42 @@ impl Desc for dyn Prop {
         let evaluated_area = reactive::cond(is_unsized, unsized_area.into(), sized_area.into());
         let dpi2 = dpi.clone();
 
+        let anchor = props.anchor();
+        let zindex = props.zindex();
+
         (
             evaluated_area.clone().into(),
             Box::new(move |offset, final_dim, final_limits| {
                 // We had to evaluate the full area first because our final area calculation can
                 // change the dimensions in unsized cases. Thus, we calculate the final
                 // inner_area for the children from this evaluated area.
-                let inner_dim = evaluated_area.map(|x| x.dim()).into_dyn_signal();
-                let inner_offset = evaluated_area.map(|x| x.topleft()).into_dyn_signal();
+                let inner_dim = evaluated_area.clone().map(|x| x.dim()).into_dyn_signal();
+                let inner_offset = evaluated_area
+                    .clone()
+                    .map(|x| x.topleft())
+                    .into_dyn_signal();
+
+                let dpi3 = dpi2.clone();
 
                 let nodes = reactive::map_vec(
-                    |child: &Rc<dyn DynLayout<dyn Child + 'static> + 'static>| {
+                    move |child: &Rc<dyn DynLayout<dyn Child + 'static> + 'static>| {
                         let child_props = child.get_props();
                         let child_limit =
                             zip_pair(child_props.rlimits(), inner_dim.clone(), |l, a| l * a)
                                 .into_dyn_signal();
 
                         let (_, mut f) = child.as_ref().stage(
-                            inner_dim.map(|x| x.cast_unit()).into_dyn_signal(),
-                            child_limit,
-                            dpi2.clone(),
+                            inner_dim.clone().map(|x| x.cast_unit()).into_dyn_signal(),
+                            child_limit.clone(),
+                            dpi3.clone(),
                         );
 
-                        Rc::new(f(inner_offset, inner_dim, child_limit))
+                        let node = f(inner_offset.clone(), inner_dim.clone(), child_limit.clone());
+
+                        Rc::new(node)
                     },
-                    reactive::Identity,
-                    children,
+                    |x| reactive::Identity(x.clone()),
+                    children.clone(),
                 );
 
                 // TODO: It isn't clear if the simple layout should attempt to handle children
@@ -163,19 +173,17 @@ impl Desc for dyn Prop {
 
                 // Calculate the anchor using the final evaluated dimensions, after all unsized
                 // axis and limits are calculated.
-                let anchored_area = (evaluated_area, props.anchor(), dpi)
+                let anchored_area = (evaluated_area.clone(), anchor.clone(), dpi2.clone())
                     .zip::<(PxRect, crate::DPoint, RelDim)>()
                     .map(|(e, a, d)| *e - (a.resolve(*d) * e.dim()));
 
                 rtree::Node::new(
                     anchored_area.into(),
-                    Some(props.zindex()),
-                    Some(Signal::into(nodes)),
-                    Some(Box::new(Concrete::new(renderable))),
+                    Some(zindex.clone()),
+                    Some(nodes.into()),
+                    Some(Box::new(Concrete::new(renderable.clone()))),
                 )
             }),
-        )*/
-
-        todo!()
+        )
     }
 }
