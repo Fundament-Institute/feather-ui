@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::{Concrete, Desc, Layout, Renderable, Staged, base, check_unsized, map_unsized_area};
+use super::{Concrete, Desc, Renderable, base, check_unsized, map_unsized_area};
 use crate::{
-    PxDim, PxLimits, PxRect, RelDim, UnsizedDim,
-    layout::{DynLayout, base::RLimits, check_unsized_dim, zero_unsized},
-    reactive::{self, AsSignal, DynSignal, Identity, SignalMap, SignalTupleZip, cond, zip_pair},
+    PxLimits, PxRect, RelDim, UnsizedDim,
+    layout::{DynLayout, zero_unsized},
+    reactive::{self, DynSignal, Signal, SignalMap, SignalProvider, SignalTupleZip, zip_pair},
     rtree,
 };
 use std::rc::Rc;
@@ -57,64 +57,74 @@ impl Desc for dyn Prop {
         // again reduced by myarea.abs.bottomright() to account for how the area
         // calculations will interact with the limits later on.
 
-        let limits = (outer_limits, props.limits(), dpi)
+        /*
+        let limits = (outer_limits, props.limits(), dpi.clone())
             .zip::<(PxLimits, crate::DLimits, RelDim)>()
             .map(|(outer, limits, dpi)| *outer + limits.resolve(*dpi));
 
-        let myarea =
-            zip_pair::<crate::DRect, RelDim, _, _>(props.area(), dpi, |p, dpi| p.resolve(dpi));
+        let myarea = zip_pair::<crate::DRect, RelDim, _, _>(props.area(), dpi.clone(), |p, dpi| {
+            p.resolve(dpi)
+        });
 
-        let inner_dim = (myarea, predim, limits)
+        let inner_dim = (myarea.clone(), predim.clone(), limits.clone())
             .zip::<(crate::URect, crate::UnsizedDim, PxLimits)>()
             .map(|(a, o, l)| super::eval_dim(*a, zero_unsized(*o), *l));
 
-        let child_presize = reactive::map_vec(
-            move |child| {
-                let child_limit = (
-                    inner_dim.clone(),
-                    limits,
-                    child.as_ref().get_props().rlimits(),
-                )
-                    .zip::<(crate::UnsizedDim, PxLimits, crate::RelLimits)>()
-                    .map(|(inner, l, rlimits)| super::apply_limit(*inner, *l, *rlimits));
-
-                let (stage, _) =
-                    child
-                        .as_ref()
-                        .stage(inner_dim.clone().into(), child_limit.into(), dpi);
-                stage
-            },
+        let limits2 = limits.clone();
+        let dpi2 = dpi.clone();
+        let child_presize: Signal<
+            imbl::GenericVector<
+                Signal<crate::Rect<crate::Pixel>, dyn SignalProvider<crate::Rect<crate::Pixel>>>,
+                _,
+                _,
+            >,
+            dyn SignalProvider<
+                imbl::GenericVector<
+                    Signal<
+                        crate::Rect<crate::Pixel>,
+                        dyn SignalProvider<crate::Rect<crate::Pixel>>,
+                    >,
+                    _,
+                    _,
+                >,
+            >,
+        > = Signal::into_dyn_signal(reactive::map_vec(
+            move |child| todo!(),
             reactive::Identity,
-            children,
-        );
+            children.clone(),
+        ));
 
-        let presize: reactive::Signal<PxRect, reactive::SignalJoinProvider<_, _, _>> =
-            reactive::join(reactive::fold_vec(
-                |l, r| zip_pair(&l, &r, |u: PxRect, v: PxRect| u.extend(v)).into(),
-                child_presize,
-                PxRect::zero().to_signal().into(),
-            ));
+        let presize = reactive::join(&reactive::fold_vec(
+            |l, r| {
+                zip_pair(l.clone(), r.clone(), |u: PxRect, v: PxRect| u.extend(v)).into_dyn_signal()
+            },
+            child_presize,
+            crate::const_signal(PxRect::zero()).into(),
+        ));
+
+        let presize = Signal::into_dyn_signal(presize);
 
         let presize = presize.map(|x| x.extend(PxRect::zero()));
 
         // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
-        let is_unsized = myarea.map(|x| {
+        let is_unsized = myarea.clone().map(|x| {
             let (l, r) = check_unsized(*x);
             l || r
         });
 
-        let unsized_area = (myarea, presize, predim, limits)
+        let unsized_area = (myarea.clone(), presize, predim.clone(), limits.clone())
             .zip::<(crate::URect, PxRect, UnsizedDim, PxLimits)>()
             .map(|(a, p, o, l)| {
                 super::limit_area(map_unsized_area(*a, p.dim()) * zero_unsized(*o), *l)
             });
 
-        let sized_area = (myarea, predim, limits)
+        let sized_area = (myarea.clone(), predim.clone(), limits.clone())
             .zip::<(crate::URect, UnsizedDim, PxLimits)>()
             .map(|(a, o, l)| super::limit_area(*a * zero_unsized(*o), *l));
 
         // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
         let evaluated_area = reactive::cond(is_unsized, unsized_area.into(), sized_area.into());
+        let dpi2 = dpi.clone();
 
         (
             evaluated_area.clone().into(),
@@ -122,25 +132,27 @@ impl Desc for dyn Prop {
                 // We had to evaluate the full area first because our final area calculation can
                 // change the dimensions in unsized cases. Thus, we calculate the final
                 // inner_area for the children from this evaluated area.
-                let inner_dim = evaluated_area.map(|x| x.dim()).into();
-                let inner_offset = evaluated_area.map(|x| x.topleft()).into();
+                let inner_dim = evaluated_area.map(|x| x.dim()).into_dyn_signal();
+                let inner_offset = evaluated_area.map(|x| x.topleft()).into_dyn_signal();
 
                 let nodes = reactive::map_vec(
-                    |child| {
-                        let child_props = child.as_ref().get_props();
+                    |child: &Rc<dyn DynLayout<dyn Child + 'static> + 'static>| {
+                        let child_props = child.get_props();
                         let child_limit =
-                            zip_pair(child_props.rlimits(), inner_dim.clone(), |l, a| {
-                                *l * a.dim()
-                            });
+                            zip_pair(child_props.rlimits(), inner_dim.clone(), |l, a| l * a)
+                                .into_dyn_signal();
 
-                        let (_, mut f) = child.as_ref().stage(inner_dim.clone(), child_limit, dpi);
+                        let (_, mut f) = child.as_ref().stage(
+                            inner_dim.map(|x| x.cast_unit()).into_dyn_signal(),
+                            child_limit,
+                            dpi2.clone(),
+                        );
 
                         Rc::new(f(inner_offset, inner_dim, child_limit))
                     },
                     reactive::Identity,
                     children,
-                )
-                .into_dyn_signal();
+                );
 
                 // TODO: It isn't clear if the simple layout should attempt to handle children
                 // changing their estimated sizes after the initial estimate. If we were
@@ -158,11 +170,12 @@ impl Desc for dyn Prop {
                 rtree::Node::new(
                     anchored_area.into(),
                     Some(props.zindex()),
-                    nodes,
+                    Some(Signal::into(nodes)),
                     Some(Box::new(Concrete::new(renderable))),
-                    None,
                 )
             }),
-        )
+        )*/
+
+        todo!()
     }
 }

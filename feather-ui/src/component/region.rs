@@ -10,7 +10,7 @@ use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive_where(Clone, Default)]
+#[derive_where(Clone)]
 pub struct Region<T: Default> {
     pub color: Option<sRGB32>,
     pub rotation: Option<f32>,
@@ -23,7 +23,8 @@ impl<T: fixed::Prop + Default + 'static> Region<T> {
         Self {
             props: props.into(),
             children,
-            ..Default::default()
+            color: None,
+            rotation: None,
         }
     }
 

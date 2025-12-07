@@ -15,7 +15,6 @@ use guillotiere::euclid::{Point2D, Vector2D};
 use wide::f32x4;
 
 use crate::color::sRGB32;
-use crate::reactive::sample;
 use crate::render::Renderable;
 use crate::render::compositor::CompositorView;
 use crate::{

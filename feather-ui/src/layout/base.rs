@@ -73,7 +73,6 @@ impl crate::layout::Desc for dyn Empty {
                     Some(Box::new(crate::layout::Concrete::new(
                         renderable.as_ref().map(|x| x.clone()),
                     ))),
-                    None,
                 )
             }),
         )

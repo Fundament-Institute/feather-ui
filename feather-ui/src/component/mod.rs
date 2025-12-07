@@ -2,20 +2,17 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 pub mod line;
+//pub mod mouse_area;
 pub mod region;
 pub mod window;
 
 use crate::component::window::Window;
-use crate::layout::{Desc, DynLayout, Layout, Staged};
+use crate::layout::{Desc, DynLayout, Layout};
 use crate::reactive::MutableSignal;
-use crate::{
-    DispatchPair, Dispatchable, InputResult, PxRect, Slot, SourceID, StateMachineChild,
-    StateManager, graphics, rtree,
-};
-use eyre::{OptionExt, Result};
+use crate::{DispatchPair, Dispatchable, InputResult, PxRect, Slot, graphics};
+use eyre::Result;
 use smallvec::SmallVec;
 use std::any::Any;
-use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 

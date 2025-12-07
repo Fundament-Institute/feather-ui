@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::{Component, StateMachine};
 use crate::component::{ChildOf, DynComponent};
 use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
-use crate::reactive::{AsSignal, MutableSignal, sample};
+use crate::reactive::{AsSignal, MutableSignal, sample, sample_val};
 use crate::reactive::{DynSignal, SignalMap};
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
-use crate::{
-    InputResult, PxDim, PxPoint, PxVector, RelDim, RelVector, SourceID, StateMachineChild,
-    StateManager, graphics, layout, rtree,
-};
+use crate::{PxPoint, PxVector, RelDim, RelVector, SourceID, graphics, layout, rtree};
 use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
@@ -46,8 +42,7 @@ pub struct WindowState {
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
     pub driver: Arc<graphics::Driver>,
-    trackers: [HashMap<DeviceId, RcNode>; 3],
-    lookup: HashMap<(Arc<SourceID>, u8), DeviceId>,
+    trackers: [HashMap<DeviceId, Weak<Node>>; 3],
     pub compositor: Compositor,
     pub clipstack: Vec<crate::PxRect>, /* Current clipping rectangle stack. These only get added
                                         * to the GPU clip list if something is rotated */
@@ -116,7 +111,6 @@ impl WindowState {
             window,
             driver: driver.clone(),
             trackers: Default::default(),
-            lookup: Default::default(),
             compositor,
             clipstack: Vec::new(),
             layers: Vec::new(),
@@ -146,17 +140,14 @@ impl WindowState {
     pub(crate) fn nodes(&self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
         self.trackers[tracker as usize]
             .values()
-            .map(|RcNode(_, node)| node.clone())
+            .map(|node| node.clone())
             .collect()
     }
 
     pub(crate) fn drain(&mut self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
         self.trackers[tracker as usize]
             .drain()
-            .map(|(_, RcNode(id, v))| {
-                self.lookup.remove(&(id, tracker as u8));
-                v
-            })
+            .map(|(_, v)| v)
             .collect()
     }
 
@@ -164,18 +155,9 @@ impl WindowState {
         &mut self,
         tracker: WindowNodeTrack,
         device_id: DeviceId,
-        id: Arc<SourceID>,
         node: Weak<Node>,
     ) -> Option<Weak<Node>> {
-        let n = self.trackers[tracker as usize]
-            .insert(device_id, RcNode(id.clone(), node))
-            .map(|RcNode(id, v)| {
-                self.lookup.remove(&(id, tracker as u8));
-                v
-            });
-
-        self.lookup.insert((id, tracker as u8), device_id);
-        n
+        self.trackers[tracker as usize].insert(device_id, node)
     }
 
     pub(crate) fn remove(
@@ -183,28 +165,13 @@ impl WindowState {
         tracker: WindowNodeTrack,
         device_id: &DeviceId,
     ) -> Option<Weak<Node>> {
-        self.trackers[tracker as usize]
-            .remove(device_id)
-            .map(|RcNode(id, v)| {
-                self.lookup.remove(&(id, tracker as u8));
-                v
-            })
+        self.trackers[tracker as usize].remove(device_id)
     }
 
     pub(crate) fn get(&self, tracker: WindowNodeTrack, device_id: &DeviceId) -> Option<Weak<Node>> {
         self.trackers[tracker as usize]
             .get(device_id)
-            .map(|RcNode(_, v)| v.clone())
-    }
-
-    pub(crate) fn update_node(&mut self, id: Arc<SourceID>, node: Weak<Node>) {
-        for i in 0..self.trackers.len() {
-            if let Some(device) = self.lookup.get(&(id.clone(), i as u8))
-                && let Some(RcNode(_, n)) = self.trackers[i].get_mut(device)
-            {
-                *n = node.clone();
-            }
-        }
+            .map(|v| v.clone())
     }
 
     pub(crate) fn draw(&mut self, mut encoder: wgpu::CommandEncoder) {
@@ -250,14 +217,6 @@ impl WindowState {
 
         self.driver.queue.submit(Some(encoder.finish()));
         frame.present();
-    }
-}
-
-pub(crate) struct RcNode(Arc<SourceID>, pub(crate) Weak<Node>);
-
-impl PartialEq for RcNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 
@@ -317,23 +276,23 @@ impl Window {
         }
     }
 
+    /// Returns true if the event is consumed, false if it should be forwarded
     #[allow(clippy::result_unit_err)]
     pub fn on_window_event(
         window: &mut WindowState,
-        rt: Rc<rtree::Node>,
+        root: Rc<rtree::Node>,
         event: WindowEvent, // EventStream<WindowEvent>
         driver: std::sync::Weak<graphics::Driver>,
-        manager: &mut StateManager,
-    ) -> InputResult<()> {
+    ) -> bool {
         use crate::Convert;
 
-        let dpi = window.dpi;
+        let dpi = window.dpi.clone();
         let inner = window.window.clone();
         match event {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 window.dpi.replace(RelDim::splat(scale_factor as f32));
                 window.window.request_redraw();
-                InputResult::Consume(())
+                true
             }
             WindowEvent::ModifiersChanged(m) => {
                 window.modifiers = if m.state().control_key() {
@@ -353,7 +312,7 @@ impl Window {
                 } else {
                     0
                 };
-                InputResult::Consume(())
+                true
             }
             WindowEvent::Resized(new_size) => {
                 // Resize events can sometimes give empty sizes if the window is minimized
@@ -362,11 +321,11 @@ impl Window {
                 }
                 // On macos the window needs to be redrawn manually after resizing
                 window.window.request_redraw();
-                InputResult::Consume(())
+                true
             }
             WindowEvent::CloseRequested => {
                 // If this returns Reject(data), the close request will be ignored
-                InputResult::Consume(())
+                true
             }
             WindowEvent::RedrawRequested => {
                 panic!("Don't process this with on_window_event");
@@ -384,17 +343,9 @@ impl Window {
                 let nodes: SmallVec<[Weak<Node>; 4]> = window.nodes(WindowNodeTrack::Focus);
 
                 for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                    let _ = node.inject_event(
-                        &evt,
-                        evt.kind(),
-                        &dpi,
-                        PxVector::zero(),
-                        window,
-                        &driver,
-                        manager,
-                    );
+                    let _ = node.inject_event(&evt, evt.kind(), window, &root);
                 }
-                InputResult::Consume(())
+                true
             }
             _ => {
                 let e = match event {
@@ -549,7 +500,7 @@ impl Window {
                             None => 0.0,
                         },
                     },
-                    _ => return InputResult::Forward(()),
+                    _ => return false,
                 };
 
                 match e {
@@ -561,8 +512,8 @@ impl Window {
                     _ => (),
                 }
                 let r = match e {
-                    RawEvent::Drag => InputResult::Forward(()),
-                    RawEvent::Focus { .. } => InputResult::Forward(()),
+                    RawEvent::Drag => false,
+                    RawEvent::Focus { .. } => false,
                     RawEvent::JoyAxis { device_id: _, .. }
                     | RawEvent::JoyButton { device_id: _, .. }
                     | RawEvent::JoyOrientation { device_id: _, .. }
@@ -577,23 +528,12 @@ impl Window {
                         if nodes.iter().fold(false, |ok, node| {
                             ok | node
                                 .upgrade()
-                                .map(|n| {
-                                    n.inject_event(
-                                        &e,
-                                        e.kind(),
-                                        &dpi,
-                                        PxVector::zero(),
-                                        window,
-                                        &driver,
-                                        manager,
-                                    )
-                                    .is_accept()
-                                })
+                                .map(|n| n.inject_event(&e, e.kind(), window, &root).0)
                                 .unwrap_or(false)
                         }) {
-                            InputResult::Consume(())
+                            true
                         } else {
-                            InputResult::Forward(())
+                            false
                         }
                     }
                     RawEvent::MouseOff { .. } => {
@@ -606,32 +546,16 @@ impl Window {
                             window.nodes(WindowNodeTrack::Capture);
 
                         for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                            let _ = node.inject_event(
-                                &e,
-                                e.kind(),
-                                &dpi,
-                                PxVector::zero(),
-                                window,
-                                &driver,
-                                manager,
-                            );
+                            let _ = node.inject_event(&e, e.kind(), window, &root);
                         }
 
                         // While we could recover the offset here, we don't so we can be consistent
                         // about MouseOff not having offset.
                         for node in capture_nodes.iter().filter_map(|x| x.upgrade()) {
-                            let _ = node.inject_event(
-                                &e,
-                                e.kind(),
-                                &dpi,
-                                PxVector::zero(),
-                                window,
-                                &driver,
-                                manager,
-                            );
+                            let _ = node.inject_event(&e, e.kind(), window, &root);
                         }
 
-                        InputResult::Consume(())
+                        true
                     }
                     RawEvent::Mouse {
                         device_id,
@@ -667,27 +591,23 @@ impl Window {
                             .get(WindowNodeTrack::Capture, &device_id)
                             .and_then(|x| x.upgrade())
                         {
-                            let offset = Node::offset(node.clone());
-                            return node
-                                .clone()
-                                .inject_event(&e, e.kind(), &dpi, offset, window, &driver, manager)
-                                .map(|_| ());
+                            return node.clone().inject_event(&e, e.kind(), window, &root).0;
                         }
 
-                        rt.process(
+                        root.process(
                             &e,
                             e.kind(),
                             PxPoint::new(x, y),
                             PxVector::zero(),
-                            &dpi,
+                            sample_val(&dpi),
                             &driver,
-                            manager,
                             window,
+                            &root,
                         )
                     }
                 };
 
-                if r.is_err() {
+                if !r {
                     match e {
                         // If everything rejected the mousemove, remove hover from all elements
                         RawEvent::MouseMove {
@@ -708,15 +628,7 @@ impl Window {
                                 window.drain(WindowNodeTrack::Hover);
 
                             for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                                let _ = node.inject_event(
-                                    &evt,
-                                    evt.kind(),
-                                    &dpi,
-                                    PxVector::zero(),
-                                    window,
-                                    &driver,
-                                    manager,
-                                );
+                                let _ = node.inject_event(&evt, evt.kind(), window, &root);
                             }
                         }
                         // If everything rejected a mousedown, remove all focused elements
@@ -746,15 +658,7 @@ impl Window {
                                 window.drain(WindowNodeTrack::Focus);
 
                             for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                                let _ = node.inject_event(
-                                    &evt,
-                                    evt.kind(),
-                                    &dpi,
-                                    PxVector::zero(),
-                                    window,
-                                    &driver,
-                                    manager,
-                                );
+                                let _ = node.inject_event(&evt, evt.kind(), window, &root);
                             }
                         }
                         _ => (),

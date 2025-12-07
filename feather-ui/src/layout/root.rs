@@ -3,11 +3,11 @@
 
 use guillotiere::euclid::Size2D;
 
-use super::{Desc, Renderable, Staged, base};
+use super::{Desc, Renderable, base};
 use crate::{
-    DEFAULT_LIMITS, Pixel, PxRect, Unsized, UnsizedDim,
+    Pixel, PxRect, UnsizedDim,
     layout::DynLayout,
-    reactive::{self, AsSignal, DynSignal, SignalMap, zip_pair},
+    reactive::{self, DynSignal, SignalMap, const_signal},
 };
 use std::rc::Rc;
 
@@ -54,14 +54,14 @@ impl Desc for dyn Prop {
                     child.clone().map(move |c| {
                         let (_, mut f) = c.stage(
                             dim.clone(),
-                            crate::PxLimits::default().to_signal().into(),
+                            const_signal(crate::PxLimits::default()).into(),
                             dpi.clone(),
                         );
 
                         Rc::new(f(
-                            crate::PxPoint::default().to_signal().into(),
+                            const_signal(crate::PxPoint::default()).into(),
                             sized.clone(),
-                            crate::PxLimits::default().to_signal().into(),
+                            const_signal(crate::PxLimits::default()).into(),
                         ))
                     });
 
@@ -75,7 +75,6 @@ impl Desc for dyn Prop {
                             .into_dyn_signal(),
                     ),
                     Some(Box::new(crate::layout::Concrete::new(None))),
-                    None,
                 )
             }),
         )
