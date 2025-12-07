@@ -1559,7 +1559,11 @@ fn test_reactive_map_vec() {
 
     let rv = const_signal(vector![Rc::new(1), Rc::new(2), Rc::new(3), Rc::new(4)]);
 
-    let result = map_vec(|x| *x.as_ref() * *x.as_ref(), Identity, rv.clone());
+    let result = map_vec(
+        |x| *x.as_ref() * *x.as_ref(),
+        |x| Identity(x.clone()),
+        rv.clone(),
+    );
 
     for i in sample(&result).iter() {
         println!("{i}");
