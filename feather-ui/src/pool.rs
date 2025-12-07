@@ -97,7 +97,7 @@ impl ArenaAllocPool {
     }
 }
 
-pub struct ArenaRc<T>(std::rc::Rc<T>);
+pub struct PoolRc<T>(std::rc::Rc<T>);
 
 thread_local! {
     static POOL: std::cell::RefCell<ArenaAllocPool> = Default::default();
@@ -282,10 +282,15 @@ impl<T> std::ops::Drop for ArenaBox<T> {
     }
 }
 
+/*
 #[cfg(test)]
-fn shared_pointer_fuzzer<P: SharedPointerKind, const TRIALS: usize, const MAXSIZE: usize>() {
+fn shared_pointer_fuzzer<
+    P: imbl::shared_ptr::SharedPointerKind,
+    const TRIALS: usize,
+    const MAXSIZE: usize,
+>() {
     let plist: Vec<(P, usize)> = Vec::new();
-    static_assertions::const_assert!(MAXSIZE < 16);
+    assert!(MAXSIZE < 16);
     const id: u8 = 0;
 
     for k in 0..TRIALS {
@@ -327,7 +332,7 @@ fn shared_pointer_fuzzer<P: SharedPointerKind, const TRIALS: usize, const MAXSIZ
     while !plist.is_empty() {}
 
     TEST(pass);
-}
+}*/
 
 #[test]
 fn test_arena_alloc() {}

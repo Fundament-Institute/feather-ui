@@ -2,9 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::collections::HashMap;
-use std::marker::PhantomData;
 
-use crate::reactive::ConstProvider;
 use crate::render::atlas::{ATLAS_FORMAT, Atlas, AtlasKind};
 use crate::render::compositor::Compositor;
 use crate::render::{atlas, compositor};

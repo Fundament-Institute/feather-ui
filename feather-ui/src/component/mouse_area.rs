@@ -288,13 +288,14 @@ where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
     type Props = T;
+    type R = layout::Node<T, dyn leaf::Prop>;
 
     fn layout(
         &self,
         manager: &mut crate::StateManager,
         _: &crate::graphics::Driver,
         _: &Arc<SourceID>,
-    ) -> Rc<dyn Layout<T>> {
+    ) -> Self::R {
         // TODO: allow layout to return a Result
         manager
             .get_mut::<StateMachine<MouseAreaState, { MouseAreaEvent::SIZE }>>(&self.id)
@@ -306,7 +307,6 @@ where
         Box::new(layout::Node::<T, dyn leaf::Prop> {
             props: self.props.clone(),
             children: Default::default(),
-            id: Arc::downgrade(&self.id),
             renderable: None,
             layer: None,
         })

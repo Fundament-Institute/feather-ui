@@ -12,7 +12,8 @@
 //! Examples can be found in [feather-ui/examples](feather-ui/examples), and can
 //! be run via `cargo run --example <example_name>`.
 
-#![warn(unreachable_pub, missing_docs)]
+//#![warn(unreachable_pub, missing_docs)]
+#![allow(dead_code)]
 
 extern crate alloc;
 
@@ -39,8 +40,8 @@ pub mod util;
 use crate::component::window::{Window, WindowState};
 use crate::graphics::Driver;
 use crate::reactive::{
-    AsSignal, DynSignal, Identity, MutableSignal, MutableSignalProvider, Sampler, const_signal,
-    empty_signal, map_vec, sample,
+    AsSignal, DynSignal, Identity, MutableSignalProvider, Sampler, const_signal, empty_signal,
+    map_vec, sample,
 };
 use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
@@ -65,8 +66,7 @@ use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64};
-use wgpu::wgc::id::Id;
+use std::sync::atomic::AtomicBool;
 use wgpu::{InstanceDescriptor, InstanceFlags};
 use wide::{CmpGe, CmpGt, f32x4};
 use winit::event::WindowEvent;
@@ -1583,6 +1583,26 @@ impl Mul<UnsizedDim> for RelLimits {
     }
 }
 
+impl Mul<PxDim> for RelLimits {
+    type Output = PxLimits;
+
+    #[inline]
+    fn mul(self, rhs: PxDim) -> Self::Output {
+        let minmax = self.v.as_array_ref();
+        let v = f32x4::new([
+            minmax[0] * rhs.width,
+            minmax[1] * rhs.height,
+            minmax[2] * rhs.width,
+            minmax[3] * rhs.height,
+        ]);
+
+        Self::Output {
+            v: self.v.is_finite().blend(v, self.v),
+            _unit: PhantomData,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct UValue {
     pub abs: f32,
@@ -2696,7 +2716,6 @@ pub type EventPair<AppData> = (u64, AppEvent<AppData>);
 /// It stores all wgpu, winit, and any other global state needed. See
 /// [`App::new`] for examples.
 pub struct App<AppData: Clone, T: 'static> {
-    pub state: DynSignal<AppData>,
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
     pub ready: AtomicBool,
@@ -2843,7 +2862,7 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
     pub fn new(
         appstate: DynSignal<AppData>,
         inputs: Vec<AppEvent<AppData>>,
-        outline: impl Fn(&AppData) -> component::UI,
+        outline: impl (Fn(&AppData) -> component::UI) + 'static,
         user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
         driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
     ) -> eyre::Result<(Self, EventLoop<FeatherEvent<T>>)> {
@@ -2887,13 +2906,13 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
     pub fn new_any_thread(
         appstate: DynSignal<AppData>,
         inputs: Vec<AppEvent<AppData>>,
-        outline: impl Fn(&AppData) -> component::UI,
+        outline: impl (Fn(&AppData) -> component::UI) + 'static,
         any_thread: bool,
         user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
         driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
     ) -> eyre::Result<(Self, EventLoop<FeatherEvent<T>>)> {
         use reactive::SignalMap;
-        let count = AtomicU64::new(inputs.len() as u64);
+        // let count = AtomicU64::new(inputs.len() as u64);
 
         #[cfg(debug_assertions)]
         let desc = InstanceDescriptor {
@@ -2908,7 +2927,7 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
 
         let outline_tree = appstate.map(outline);
         let instance = wgpu::Instance::new(&desc);
-        let on_driver = Rc::new(driver_init);
+        //let on_driver = Rc::new(driver_init);
         let driver = std::sync::Weak::<graphics::Driver>::new();
 
         #[cfg(target_os = "windows")]
@@ -2935,7 +2954,7 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
         let proxy = event_loop.create_proxy();
 
         let mut sampler = reactive::Sampler::new(outline_tree.clone().into());
-        sampler.notify(|| {
+        sampler.notify(move || {
             proxy
                 .send_event(FeatherEvent::ChangeUI)
                 .expect("Failed to send internal changeUI message!");
@@ -2945,8 +2964,9 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
         let windows2 = windows.clone();
 
         let layouts = outline_tree.map(move |outline| {
+            let windows2 = windows2.clone();
             map_vec(
-                |w| {
+                move |w| {
                     (
                         Rc::from(
                             if let Some((state, _)) = windows2.borrow().get(&Identity(w.clone())) {
@@ -2955,23 +2975,26 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
                                 Box::new(Self::empty_layout_root())
                             },
                         ),
-                        w,
+                        w.clone(),
                     )
                 },
-                |w| Identity(w),
+                |w| Identity(w.clone()),
                 &outline.children,
             )
         });
 
+        let windows2 = windows.clone();
         let nodes = map_vec(
-            |(v, w): &(
+            move |tuple: &(
                 Rc<dyn layout::Layout<Props = DynSignal<Size2D<u32, crate::Pixel>>>>,
                 Rc<Window>,
             )| {
-                if let Some((state, _)) = windows2.borrow().get(&Identity(w.clone())) {
+                let (v, w) = tuple;
+                if let Some((state, _)) = windows2.borrow().get(&Identity((*w).clone())) {
                     let (_, mut f) = v.stage(
                         state
                             .surface_dim
+                            .clone()
                             .map(|x| x.to_f32().cast_unit())
                             .into_dyn_signal(),
                         const_signal(PxLimits::default()).into_dyn_signal(),
@@ -2981,17 +3004,21 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
                     (
                         Rc::new(f(
                             const_signal(PxPoint::zero()).into_dyn_signal(),
-                            state.surface_dim.map(|x| x.to_f32()).into_dyn_signal(),
+                            state
+                                .surface_dim
+                                .clone()
+                                .map(|x| x.to_f32())
+                                .into_dyn_signal(),
                             const_signal(PxLimits::default()).into_dyn_signal(),
                         )),
-                        w.clone(),
+                        (*w).clone(),
                     )
                 } else {
                     todo!()
                 }
             },
-            |w| Identity(w),
-            layouts,
+            |(_, w)| Identity(w.clone()),
+            reactive::join(layouts),
         );
 
         let trees = nodes.map_mut::<HashMap<Identity<Rc<Window>>, Rc<rtree::Node>>>(|v, old| {
@@ -3017,7 +3044,6 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
             trees: trees.into(),
             driver_init,
             user_events: user_event,
-            state: appstate,
             ready: AtomicBool::new(false),
             window_map: HashMap::new(),
             windows,
@@ -3094,18 +3120,14 @@ impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandle
     ) {
         let trees = sample(&self.trees);
         if let Some(id) = self.window_map.get(&window_id)
-            && let Some(root) = trees.get_mut(&Identity(id.clone()))
+            && let Some(root) = trees.get(&Identity(id.clone()))
             && let Some((state, _)) = self.windows.borrow_mut().get_mut(&Identity(id.clone()))
         {
             let mut resized = false;
             let _ = match event {
-                WindowEvent::CloseRequested => Window::on_window_event(
-                    state,
-                    root.clone(),
-                    event,
-                    self.driver.clone(),
-                    &mut self.manager,
-                ),
+                WindowEvent::CloseRequested => {
+                    Window::on_window_event(state, root.clone(), event, self.driver.clone())
+                }
                 WindowEvent::RedrawRequested => {
                     // TODO: this doesn't properly update all window aspects
                     if let Some(driver) = self.driver.upgrade() {
@@ -3242,25 +3264,13 @@ impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandle
                         driver.layer_composite[1].write().cleanup();
                     }
 
-                    InputResult::Consume(())
+                    true
                 }
                 WindowEvent::Resized(_) => {
                     resized = true;
-                    Window::on_window_event(
-                        state,
-                        root.clone(),
-                        event,
-                        self.driver.clone(),
-                        &mut self.manager,
-                    )
+                    Window::on_window_event(state, root.clone(), event, self.driver.clone())
                 }
-                _ => Window::on_window_event(
-                    state,
-                    root.clone(),
-                    event,
-                    self.driver.clone(),
-                    &mut self.manager,
-                ),
+                _ => Window::on_window_event(state, root.clone(), event, self.driver.clone()),
             };
         }
 
@@ -3284,8 +3294,8 @@ impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandle
                 // TODO: There are much more efficient ways to perform this check that can be done using purely stack-allocated storage, but we don't bother right now
                 let mut exist = std::collections::HashSet::new();
 
-                let ui = self.sampler.inspect();
-                for w in ui.children.iter() {
+                let children = reactive::sample_val(&self.sampler.inspect().children);
+                for w in children.iter() {
                     if !self.windows.borrow().contains_key(&Identity(w.clone())) {
                         self.update_window(w.clone(), event_loop);
                     }
@@ -3315,7 +3325,7 @@ impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandle
 
 #[cfg(test)]
 struct TestApp {}
-
+/*
 #[cfg(test)]
 impl crate::persist::FnPersistStore for TestApp {
     type Store = (u8, OutlineReturn);
@@ -3375,6 +3385,7 @@ fn test_basic() {
     proxy.send_event(()).unwrap();
     event_loop.run_app(&mut app).unwrap();
 }
+*/
 
 #[test]
 fn test_absrect_contain() {

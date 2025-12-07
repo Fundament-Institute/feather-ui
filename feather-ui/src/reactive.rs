@@ -1,15 +1,12 @@
-use imbl::GenericVector;
+use imbl::{GenericVector, vector};
 use smolset::SmolSet;
 use stable_deref_trait::CloneStableDeref;
 use std::{
-    any::Any,
     cell::Ref,
     cmp::{PartialEq, PartialOrd},
-    collections::HashMap,
     hash::Hash,
     marker::PhantomData,
-    mem,
-    ops::{Deref, DerefMut},
+    ops::Deref,
     rc::Rc,
 };
 use tuple_list::{Tuple, TupleList};
@@ -1139,7 +1136,7 @@ impl<
         }
     }
 
-    fn get_ref(&self) -> DynRef<<Anim as Animator<T>>::Output> {
+    fn get_ref(&self) -> DynRef<'_, <Anim as Animator<T>>::Output> {
         DynRef::Cell(Ref::map(self.val.borrow(), |x| {
             x.as_ref().expect("must be updated before getting value")
         }))
@@ -1314,7 +1311,7 @@ impl<
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
-    fn get_ref(&self) -> DynRef<Output> {
+    fn get_ref(&self) -> DynRef<'_, Output> {
         DynRef::Cell(Ref::map(self.res.borrow(), |x| {
             x.as_ref().expect("must be updated before getting value")
         }))
@@ -1456,7 +1453,7 @@ fn add() {
     assert_eq!(problem, 3);
 }
 
-struct SignalVecMapProvider<
+pub struct SignalVecMapProvider<
     T1,
     T2,
     Key: Eq + Hash,
@@ -1472,19 +1469,22 @@ struct SignalVecMapProvider<
     node: SignalNodeId,
 }
 
+fn assert_static<T: 'static>() {}
+
 impl<
-    T1: Clone,
-    T2: Clone,
-    Key: Eq + Hash,
-    F: Fn(&T1) -> T2,
-    Ex: Fn(&T1) -> Key,
-    P: SignalProvider<GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized,
-    Ptr: imbl::shared_ptr::SharedPointerKind,
+    T1: Clone + 'static,
+    T2: Clone + 'static,
+    Key: Eq + Hash + 'static,
+    F: (Fn(&T1) -> T2) + 'static,
+    Ex: (Fn(&T1) -> Key) + 'static,
+    P: SignalProvider<GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
+    Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
 > SignalProvider<GenericVector<T2, Ptr, CHUNK_SIZE>>
     for SignalVecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
 {
     fn get_node(&self) -> &SignalNodeId {
+        assert_static::<Self>();
         &self.node
     }
 
@@ -1514,13 +1514,13 @@ impl<
 }
 
 pub fn map_vec<
-    T1: Clone,
-    T2: Clone,
-    Key: Eq + Hash,
-    F: Fn(&T1) -> T2,
-    Ex: Fn(&T1) -> Key,
+    T1: Clone + 'static,
+    T2: Clone + 'static,
+    Key: Eq + Hash + 'static,
+    F: (Fn(&T1) -> T2) + 'static,
+    Ex: (Fn(&T1) -> Key) + 'static,
     P: AsSignal<GenericVector<T1, Ptr, CHUNK_SIZE>>,
-    Ptr: imbl::shared_ptr::SharedPointerKind,
+    Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
 >(
     f: F,
@@ -1529,7 +1529,10 @@ pub fn map_vec<
 ) -> Signal<
     GenericVector<T2, Ptr, CHUNK_SIZE>,
     SignalVecMapProvider<T1, T2, Key, F, Ex, P::Provider, Ptr, CHUNK_SIZE>,
-> {
+>
+where
+    <P as AsSignal<GenericVector<T1, Ptr, CHUNK_SIZE>>>::Provider: 'static,
+{
     let node = new_node(NodeColor::Changed);
     let provider = p.to_signal().0;
     add_dependency(provider.get_node(), node.clone());
@@ -1544,7 +1547,26 @@ pub fn map_vec<
     )
 }
 
-struct SignalVecFoldProvider<
+#[test]
+fn test_reactive_map_vec() {
+    let v = const_signal(vector![1, 2, 3, 4]);
+
+    let result = map_vec(|x| *x * *x, |x| *x, v.clone());
+
+    for i in sample(&result).iter() {
+        println!("{i}");
+    }
+
+    let rv = const_signal(vector![Rc::new(1), Rc::new(2), Rc::new(3), Rc::new(4)]);
+
+    let result = map_vec(|x| *x.as_ref() * *x.as_ref(), Identity, rv.clone());
+
+    for i in sample(&result).iter() {
+        println!("{i}");
+    }
+}
+
+pub struct SignalVecFoldProvider<
     T,
     F: FnMut(T, T) -> T,
     P: SignalProvider<GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,

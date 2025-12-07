@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
-use crate::layout::{Layout, base};
+use crate::layout::base;
 use crate::reactive::{self, DynSignal, MutableSignal};
-use crate::{PxPoint, SourceID, layout};
+use crate::{PxPoint, layout};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -26,7 +26,6 @@ where
     type R = layout::Node<T, dyn base::Empty>;
 
     fn layout(&self, _: Arc<crate::graphics::Driver>, _: MutableSignal<crate::RelDim>) -> Self::R {
-        use crate::reactive::AsSignal;
         layout::Node::<T, dyn base::Empty> {
             props: self.props.clone(),
             children: reactive::empty_signal().into(),

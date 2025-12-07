@@ -182,8 +182,6 @@ fn hit_fixed(buffer: &Buffer, x: f32, y: f32) -> Option<Cursor> {
     new_cursor_opt
 }
 
-/// A wrapper of [`Buffer`] for easy editing. Modified to use an external
-/// Rc<RefCell<Buffer>> reference to work better with our immutable framework
 #[derive(Debug, Clone)]
 pub struct Editor {
     cursor: Cursor,

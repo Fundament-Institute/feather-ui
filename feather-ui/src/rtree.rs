@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+use std::cell::RefCell;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::layout::Staged;
-use crate::persist::{FnPersist2, Persist2, VectorFold};
 use crate::reactive::{
-    self, AsSignal, DynSignal, Identity, SignalMap, const_signal, fold_vec, map_vec, zip_pair,
+    self, AsSignal, DynSignal, Identity, const_signal, fold_vec, map_vec, zip_pair,
 };
-use crate::{
-    Dispatchable, InputResult, Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID, StateManager,
-};
+use crate::{Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID};
 use guillotiere::euclid::Point3D;
 use std::rc::Rc;
 use winit::dpi::PhysicalPosition;
@@ -28,13 +26,24 @@ pub struct Node {
     pub mask: AtomicU64,
     pub children: Option<DynSignal<imbl::Vector<Rc<Node>>>>,
     pub staged: Option<Box<dyn Staged>>,
-    pub state: Option<Rc<dyn crate::StateMachineChild>>,
+    pub callback: RefCell<Option<Box<dyn crate::event::StreamCallback<RawEvent>>>>,
 }
 
 // A tuple like this is necessary to build a chain of parent nodes down the
 // recursive process call, but we currently don't need it. This is left here as
-// reference. pub struct ParentTuple<'a>(&'a Rc<Node>, Option<&'a
-// ParentTuple<'a>>);
+// reference.
+
+pub struct ParentTuple<'a>(&'a Rc<Node>, Option<&'a ParentTuple<'a>>);
+
+impl<'a> ParentTuple<'a> {
+    pub fn root(&'a self) -> &'a Rc<Node> {
+        if let Some(n) = self.1 {
+            n.root()
+        } else {
+            self.0
+        }
+    }
+}
 
 impl Node {
     pub fn new(
@@ -42,14 +51,13 @@ impl Node {
         z: Option<DynSignal<i32>>,
         children: Option<DynSignal<imbl::Vector<Rc<Node>>>>,
         staged: Option<Box<dyn Staged>>,
-        state: Option<Rc<dyn crate::StateMachineChild>>,
     ) -> Self {
         let z = z.unwrap_or_else(|| 0.to_signal().into_dyn_signal());
         if let Some(children) = children {
-            let areas = map_vec(|v| v.area, |v| Identity(v), &children);
+            let areas = map_vec(|v| v.area.clone(), |v| Identity(v.clone()), &children);
 
             let extent = reactive::join(fold_vec(
-                |l, r| zip_pair(l, r, |x, y| x.extend(y)),
+                |l, r| zip_pair(l, r, |x, y| x.extend(y)).into(),
                 areas,
                 const_signal(PxRect::zero()).into(),
             ))
@@ -63,7 +71,7 @@ impl Node {
                 children: Some(children),
                 mask: u64::MAX.into(),
                 staged,
-                state,
+                callback: None.into(),
             }
         } else {
             Self {
@@ -74,22 +82,22 @@ impl Node {
                 children: None,
                 mask: u64::MAX.into(),
                 staged,
-                state,
+                callback: None.into(),
             }
         }
     }
 
     pub fn new_subtree(children: DynSignal<imbl::Vector<Rc<Node>>>) -> Self {
-        let areas = map_vec(|v| v.area, |v| Identity(v), &children);
+        let areas = map_vec(|v| v.area.clone(), |v| Identity(v.clone()), &children);
 
         let extent = reactive::join(fold_vec(
-            |l, r| zip_pair(l, r, |x, y| x.extend(y)),
+            |l, r| zip_pair(l, r, |x, y| x.extend(y)).into(),
             areas,
             const_signal(PxRect::zero()).into(),
         ))
         .into_dyn_signal();
 
-        let tops = map_vec(|v| v.top, |v| Identity(v), &children);
+        let tops = map_vec(|v| v.top.clone(), |v| Identity(v.clone()), &children);
 
         let top = reactive::join(fold_vec(
             |l, r| zip_pair(l, r, |x, y| x.min(y)).into(),
@@ -98,14 +106,14 @@ impl Node {
         ));
 
         let bottoms = map_vec(
-            |v| zip_pair(v.top, v.depth, |l, r| l + r),
-            |v| Identity(v),
+            |v| (v.top.clone() + v.depth.clone()).into_dyn_signal(),
+            |v| Identity(v.clone()),
             &children,
         );
 
         let bottom = reactive::join(fold_vec(
-            |l, r| zip_pair(l, r, |x, y| x.max(y)),
-            tops,
+            |l, r| zip_pair(l, r, |x, y| x.max(y)).into(),
+            bottoms,
             0.to_signal().into_dyn_signal(),
         ));
 
@@ -117,7 +125,7 @@ impl Node {
             children: Some(children),
             mask: u64::MAX.into(),
             staged: None,
-            state: None,
+            callback: None.into(),
         }
     }
 
@@ -153,16 +161,16 @@ impl Node {
             Ok(())
         }
     }
+
     // This handles event postprocessing that must always happen, even for directly
     // injected events
+
     pub(crate) fn postprocess(
         self: &Rc<Self>,
         event: &RawEvent,
-        dpi: RelDim,
-        offset: PxVector,
         window: &mut crate::WindowState,
-        manager: &mut StateManager,
-    ) -> InputResult<()> {
+        root: &Rc<Self>,
+    ) {
         match event {
             // If we successfully process a mousemove event, this node gains hover
             RawEvent::MouseMove {
@@ -171,21 +179,10 @@ impl Node {
                 modifiers,
                 all_buttons,
             } => {
-
-                // TODO: replace this with a different method of tracking r-tree nodes
                 // Either replace the old node, or simply remove it if this is not a valid focus
                 // target
-                /*
-                let (old, valid) = if let Some(id) = self.id.upgrade() {
-                    (
-                        window.set(WindowNodeTrack::Hover, *device_id, id, Rc::downgrade(self)),
-                        true,
-                    )
-                } else {
-                    (window.remove(WindowNodeTrack::Hover, device_id), false)
-                };
 
-                let driver = Arc::downgrade(&window.driver);
+                let old = window.set(WindowNodeTrack::Hover, *device_id, Rc::downgrade(self));
 
                 // Tell the old node that it lost hover (if it cares).
                 if let Some(old) = old.and_then(|x| x.upgrade()) {
@@ -196,36 +193,18 @@ impl Node {
                     };
 
                     // We don't care about the result of this event
-                    let _ = old.inject_event(
-                        &evt,
-                        evt.kind(),
-                        dpi,
-                        PxVector::zero(),
-                        window_id.clone(),
-                        &driver,
-                        manager,
-                    );
+                    let _ = old.inject_event(&evt, evt.kind(), window, root);
                 }
 
                 // We delay injecting MouseOn until after an old node gets MouseOff to present
                 // events in a sensible order
-                if valid {
-                    let evt = RawEvent::MouseOn {
-                        device_id: *device_id,
-                        modifiers: *modifiers,
-                        pos: *pos,
-                        all_buttons: *all_buttons,
-                    };
-                    let _ = self.inject_event(
-                        &evt,
-                        evt.kind(),
-                        dpi,
-                        offset,
-                        window_id,
-                        &driver,
-                        manager,
-                    );
-                }*/
+                let evt = RawEvent::MouseOn {
+                    device_id: *device_id,
+                    modifiers: *modifiers,
+                    pos: *pos,
+                    all_buttons: *all_buttons,
+                };
+                let _ = self.inject_event(&evt, evt.kind(), window, root);
             }
             RawEvent::Mouse {
                 device_id,
@@ -247,80 +226,48 @@ impl Node {
                 // We don't care if this is accepted or not
                 let _ = crate::component::window::Window::on_window_event(
                     window,
-                    Self::find_root(self.clone()),
+                    root.clone(),
                     winit::event::WindowEvent::CursorMoved {
                         device_id: *device_id,
                         position: PhysicalPosition::<f64>::new(*x as f64, *y as f64),
                     },
-                    manager,
                     driver,
                 );
             }
             _ => (),
         };
-
-        InputResult::Consume(())
     }
 
     pub(crate) fn inject_event(
         self: &Rc<Self>,
         event: &RawEvent,
         kind: RawEventKind,
-        dpi: &crate::MutableSignal<RelDim>,
-        offset: PxVector,
         window: &mut crate::WindowState,
-        driver: &std::sync::Weak<crate::Driver>,
-        manager: &mut StateManager,
-    ) -> InputResult<u64> {
-        if let Some(id) = self.id.upgrade()
-            && let Ok(state) = manager.get_trait(&id)
-        {
-            let mask = state.input_mask();
+        root: &Rc<Self>,
+    ) -> (bool, u64) {
+        let mut cell = self.callback.borrow_mut();
+        if cell.is_some() {
+            let mask = self.mask.load(Ordering::Relaxed);
             if (kind as u64 & mask) != 0 {
-                match manager.process(
-                    event.clone().extract(),
-                    &crate::Slot(id.clone(), 0), /* TODO: We currently don't use the slot index
-                                                  * here, but we might need to later */
-                    dpi,
-                    self.area + offset,
-                    self.extent,
-                    driver,
-                ) {
-                    Ok(false) => return InputResult::Forward(mask),
-                    Ok(true) => (),
-                    Err(e) => return InputResult::Error(e),
+                let e = cell.as_mut().unwrap().send(event.clone());
+                if e.claim {
+                    self.postprocess(event, window, root);
                 }
-
-                return self
-                    .postprocess(event, dpi, offset, window, manager)
-                    .map(|_| mask);
+                if e.cancel {
+                    cell.take();
+                }
+                return (e.claim, mask);
             }
-            return InputResult::Forward(mask);
+            return (false, mask);
         }
-        InputResult::Forward(u64::MAX)
+        return (false, u64::MAX);
     }
 
-    // We allow this to return an invalid weak pointer because returning an
-    // *invalid* root is a more obvious problem than returning the *wrong* node
-    // as if it were the root (which can be very confusing).
-    fn find_root(mut node: Rc<Node>) -> std::rc::Weak<Node> {
-        while let Some(parent) = node.parent.get() {
-            if let Some(n) = parent.upgrade() {
-                node = n;
-            } else {
-                return parent.clone();
-            }
-        }
-        Rc::downgrade(&node)
-    }
-
-    pub(crate) fn offset(mut node: Rc<Node>) -> PxVector {
-        let mut offset = PxVector::zero();
-        while let Some(parent) = node.parent.get().and_then(|x| x.upgrade()) {
-            offset = (parent.area.topleft() + offset).to_vector();
-            node = parent;
-        }
-        offset
+    pub(crate) fn offset(self: Rc<Self>, parent: DynSignal<PxVector>) -> DynSignal<PxVector> {
+        zip_pair(parent, self.area.clone(), |l, r| {
+            (r.topleft() + l).to_vector()
+        })
+        .into_dyn_signal()
     }
 
     pub fn process(
@@ -331,93 +278,71 @@ impl Node {
         offset: PxVector,
         dpi: RelDim,
         driver: &std::sync::Weak<crate::Driver>,
-        manager: &mut StateManager,
         window: &mut crate::WindowState,
-    ) -> InputResult<()> {
+        root: &Rc<Self>,
+    ) -> bool {
+        let area = crate::sample(&self.area);
         if (self.mask.load(Ordering::Acquire) & kind as u64) != 0
-            && self.area.contains(position - offset)
+            && area.contains(position - offset)
         {
-            let child_offset = self.area.topleft() + offset;
+            let child_offset = area.topleft() + offset;
 
             let mut mask = 0;
-            // Children should be sorted from top to bottom
-            for child in self.children.iter().rev() {
-                // TODO: Split these iterations into positive and negative z indexes, then call
-                // this node after processing index 0 but before negative indices.
-                let r = child.process(
-                    event,
-                    kind,
-                    position,
-                    child_offset.to_vector(),
-                    dpi,
-                    driver,
-                    manager,
-                    window,
-                );
-                if !r.is_reject() {
-                    // At this point, we should've already set focus, and are simply walking back up
-                    // the stack
-                    return r;
-                }
+            if let Some(children) = &self.children {
+                // Children should be sorted from top to bottom
+                for child in crate::sample(&children).iter().rev() {
+                    // TODO: Split these iterations into positive and negative z indexes, then call
+                    // this node after processing index 0 but before negative indices.
+                    let claimed = child.process(
+                        event,
+                        kind,
+                        position,
+                        child_offset.to_vector(),
+                        dpi,
+                        driver,
+                        window,
+                        root,
+                    );
+                    if claimed {
+                        // At this point, we should've already set focus, and are simply walking back up
+                        // the stack
+                        return true;
+                    }
 
-                mask |= child.mask.load(Ordering::Relaxed);
+                    mask |= child.mask.load(Ordering::Relaxed);
+                }
             }
 
-            let e = self.inject_event(event, kind, dpi, offset, window, driver, manager);
-            match e {
-                InputResult::Consume(m) | InputResult::Forward(m) => mask |= m,
-                _ => (),
-            };
+            let (claimed, m) = self.inject_event(event, kind, window, root);
+            mask |= m;
 
             // This is only ever stored when a message has been rejected by all children and
             // this node. It's mostly used as an optimization for large sets of
             // non-interactive nodes, but it could be made more aggressive.
             self.mask.store(mask, Ordering::Release);
 
-            if e.is_accept() {
+            if claimed {
                 match event {
                     // If we successfully process a mouse event, this node gains focus in it's
                     // parent window
                     RawEvent::Mouse {
                         device_id,
                         state: MouseState::Down,
-                        pos: crate::PxPoint { x, y, .. },
                         ..
                     }
                     | RawEvent::Touch {
                         device_id,
                         state: TouchState::Start,
-                        pos: Point3D::<f32, Pixel> { x, y, .. },
                         ..
                     } => {
                         let inner = window.window.clone();
 
-                        // TODO: Redo how focus works
-                        // Either replace the old node, or simply remove it if this is not a valid
-                        // focus target
-                        /*
-                        let (old, valid) = if let Some(id) = self.id.upgrade() {
-                            // On any mousedown event, capture the cursor if it wasn't captured
-                            // already
-                            window.set(
-                                WindowNodeTrack::Capture,
-                                *device_id,
-                                id.clone(),
-                                Rc::downgrade(self),
-                            );
-                            (
-                                window.set(
-                                    WindowNodeTrack::Focus,
-                                    *device_id,
-                                    id,
-                                    Rc::downgrade(self),
-                                ),
-                                true,
-                            )
-                        } else {
-                            window.remove(WindowNodeTrack::Capture, device_id);
-                            (window.remove(WindowNodeTrack::Focus, device_id), false)
-                        };
+                        // On any mousedown event, capture the cursor if it wasn't captured
+                        // already
+                        window.set(WindowNodeTrack::Capture, *device_id, Rc::downgrade(self));
+
+                        let old =
+                            window.set(WindowNodeTrack::Focus, *device_id, Rc::downgrade(self));
 
                         // Tell the old node that it lost focus (if it cares).
                         if let Some(old) = old.and_then(|old| old.upgrade()) {
@@ -427,57 +352,50 @@ impl Node {
                             };
 
                             // We don't care about the result of this event
-                            let _ = old.inject_event(
-                                &evt,
-                                evt.kind(),
-                                dpi,
-                                PxVector::zero(),
-                                window_id.clone(),
-                                driver,
-                                manager,
-                            );
+                            let _ = old.inject_event(&evt, evt.kind(), window, root);
                         }
 
-                        // We delay injecting Focus until after the old node gets it's own Focus
-                        // event to preserve a sensible ordering
-                        if valid {
-                            let evt = RawEvent::Focus {
-                                acquired: true,
-                                window: inner,
-                            };
-                            let _ = self.inject_event(
-                                &evt,
-                                evt.kind(),
-                                dpi,
-                                offset,
-                                window_id.clone(),
-                                driver,
-                                manager,
-                            );
-                        } else {
-                            // If this wasn't a valid node, we removed capture but didn't replace
-                            // it, so we have to inject a mousemove event
-                            let _ = crate::component::window::Window::on_window_event(
-                                window_id.clone(),
-                                Self::find_root(self.clone()),
-                                winit::event::WindowEvent::CursorMoved {
-                                    device_id: *device_id,
-                                    position: PhysicalPosition::<f64>::new(*x as f64, *y as f64),
-                                },
-                                manager,
-                                driver.clone(),
-                            );
-                        }*/
+                        let evt = RawEvent::Focus {
+                            acquired: true,
+                            window: inner,
+                        };
+                        let _ = self.inject_event(&evt, evt.kind(), window, root);
                     }
                     _ => (),
                 }
             }
-            return e.map(|_| ());
+
+            return claimed;
         }
-        InputResult::Forward(())
+
+        false
     }
 }
 
+impl<'l> crate::event::EventStream<'static, RawEvent> for Node {
+    type Subscription<H: crate::event::StreamCallback<RawEvent> + 'static> = Node;
+
+    fn subscribe<H: crate::event::StreamCallback<RawEvent> + 'static>(
+        self,
+        h: H,
+    ) -> Self::Subscription<H> {
+        self.callback.replace(Some(Box::new(h)));
+        self
+    }
+}
+
+impl<H: crate::event::StreamCallback<RawEvent>> crate::event::Unsubscribe<RawEvent, Node, H>
+    for Node
+{
+    fn unsubscribe(self) -> (Node, H)
+    where
+        H: Sized,
+    {
+        // SAFETY: Because Nodes are put into Rc objects immediately after creation, this can never
+        // be called under normal circumstances.
+        unreachable!()
+    }
+}
 /*
 // 2.5D node which contains a 2D r-tree, embedded inside the parent 3D space.
 struct Node25 {

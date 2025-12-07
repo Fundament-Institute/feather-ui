@@ -3,18 +3,30 @@
 
 use std::{any::Any, cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
-use crate::reactive::ConstSignal;
+use crate::reactive::SignalMap;
 
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct EventRes {
-    cancel: bool,
-    claim: bool,
+    pub cancel: bool,
+    pub claim: bool,
+}
+
+impl std::ops::BitOr for EventRes {
+    type Output = EventRes;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self {
+            cancel: self.cancel | rhs.cancel,
+            claim: self.claim | rhs.claim,
+        }
+    }
 }
 
 pub trait StreamCallback<T> {
     fn send(&mut self, x: T) -> EventRes;
 }
 
-trait Unsubscribe<T, S: ?Sized, H: StreamCallback<T>> {
+pub trait Unsubscribe<T, S: ?Sized, H: StreamCallback<T>> {
     fn unsubscribe(self) -> (S, H)
     where
         S: Sized,
@@ -55,8 +67,7 @@ impl<'l, T> EventStream<'l, T> for NeverStream<T> {
 struct MapCallback<T, R, F: Fn(T) -> R, H: StreamCallback<R>> {
     f: F,
     h: H,
-    t: PhantomData<T>,
-    r: PhantomData<R>,
+    phantom: PhantomData<(T, R)>,
 }
 
 impl<T, R, F: Fn(T) -> R, H: StreamCallback<R>> StreamCallback<T> for MapCallback<T, R, F, H> {
@@ -74,8 +85,6 @@ struct MapSubscription<
     S: EventStream<'a, T>,
 > {
     origin: <S as EventStream<'a, T>>::Subscription<MapCallback<T, R, F, H>>,
-    t: PhantomData<T>,
-    r: PhantomData<R>,
 }
 
 impl<'a, T, R, F: Fn(T) -> R, H: StreamCallback<R>, S: EventStream<'a, T>>
@@ -113,11 +122,8 @@ impl<'l, T: 'l, R: 'l, F: 'l + Fn(T) -> R, S: EventStream<'l, T>> EventStream<'l
             origin: self.origin.subscribe(MapCallback {
                 f: self.f,
                 h: h,
-                t: PhantomData,
-                r: PhantomData,
+                phantom: PhantomData,
             }),
-            t: PhantomData,
-            r: PhantomData,
         }
     }
 }
@@ -125,7 +131,7 @@ impl<'l, T: 'l, R: 'l, F: 'l + Fn(T) -> R, S: EventStream<'l, T>> EventStream<'l
 struct FilterCallback<T, F: Fn(&T) -> bool, H: StreamCallback<T>> {
     f: F,
     h: H,
-    t: PhantomData<T>,
+    phantom: PhantomData<T>,
 }
 
 impl<T, F: Fn(&T) -> bool, H: StreamCallback<T>> StreamCallback<T> for FilterCallback<T, F, H> {
@@ -149,7 +155,6 @@ struct FilterSubscription<
     S: EventStream<'l, T>,
 > {
     origin: S::Subscription<FilterCallback<T, F, H>>,
-    t: PhantomData<T>,
 }
 
 impl<'l, T, F: Fn(&T) -> bool, H: StreamCallback<T>, S: EventStream<'l, T>>
@@ -164,7 +169,7 @@ impl<'l, T, F: Fn(&T) -> bool, H: StreamCallback<T>, S: EventStream<'l, T>>
             FilterStream {
                 origin: s,
                 f: h.f,
-                t: PhantomData,
+                phantom: PhantomData,
             },
             h.h,
         )
@@ -174,7 +179,7 @@ impl<'l, T, F: Fn(&T) -> bool, H: StreamCallback<T>, S: EventStream<'l, T>>
 struct FilterStream<'l, T, F: Fn(&T) -> bool, S: EventStream<'l, T>> {
     origin: S,
     f: F,
-    t: PhantomData<(&'l (), T)>,
+    phantom: PhantomData<&'l T>,
 }
 
 impl<'l, T: 'l, F: 'l + Fn(&T) -> bool, S: EventStream<'l, T>> EventStream<'l, T>
@@ -187,16 +192,15 @@ impl<'l, T: 'l, F: 'l + Fn(&T) -> bool, S: EventStream<'l, T>> EventStream<'l, T
             origin: self.origin.subscribe(FilterCallback {
                 f: self.f,
                 h: h,
-                t: PhantomData,
+                phantom: PhantomData,
             }),
-            t: PhantomData,
         }
     }
 }
 
 struct ClaimCallback<T, H: StreamCallback<T>> {
     h: H,
-    t: PhantomData<T>,
+    phantom: PhantomData<T>,
 }
 
 impl<T, H: StreamCallback<T>> StreamCallback<T> for ClaimCallback<T, H> {
@@ -209,7 +213,6 @@ impl<T, H: StreamCallback<T>> StreamCallback<T> for ClaimCallback<T, H> {
 
 struct ClaimSubscription<'l, T: 'l, H: 'l + StreamCallback<T>, S: EventStream<'l, T>> {
     origin: S::Subscription<ClaimCallback<T, H>>,
-    t: PhantomData<T>,
 }
 
 impl<'l, T, H: StreamCallback<T>, S: EventStream<'l, T>> Unsubscribe<T, ClaimStream<'l, T, S>, H>
@@ -223,7 +226,7 @@ impl<'l, T, H: StreamCallback<T>, S: EventStream<'l, T>> Unsubscribe<T, ClaimStr
         (
             ClaimStream {
                 origin: s,
-                t: PhantomData,
+                phantom: PhantomData,
             },
             h.h,
         )
@@ -232,7 +235,7 @@ impl<'l, T, H: StreamCallback<T>, S: EventStream<'l, T>> Unsubscribe<T, ClaimStr
 
 struct ClaimStream<'l, T, S: EventStream<'l, T>> {
     origin: S,
-    t: PhantomData<(&'l (), T)>,
+    phantom: PhantomData<&'l T>,
 }
 
 impl<'l, T: 'l, S: EventStream<'l, T>> EventStream<'l, T> for ClaimStream<'l, T, S> {
@@ -242,16 +245,15 @@ impl<'l, T: 'l, S: EventStream<'l, T>> EventStream<'l, T> for ClaimStream<'l, T,
         Self::Subscription {
             origin: self.origin.subscribe(ClaimCallback {
                 h: h,
-                t: PhantomData,
+                phantom: PhantomData,
             }),
-            t: PhantomData,
         }
     }
 }
 
 struct FlattenInnerCallback<T, H: StreamCallback<T>> {
     h: Rc<RefCell<H>>,
-    t: PhantomData<T>,
+    phantom: PhantomData<T>,
 }
 
 impl<T, H: StreamCallback<T>> StreamCallback<T> for FlattenInnerCallback<T, H> {
@@ -263,8 +265,6 @@ impl<T, H: StreamCallback<T>> StreamCallback<T> for FlattenInnerCallback<T, H> {
 struct FlattenOuterCallback<'l, T: EventStream<'l, R>, R: 'l, H: 'l + StreamCallback<R>> {
     h: Rc<RefCell<H>>,
     tracker: Vec<T::Subscription<FlattenInnerCallback<R, H>>>,
-    t: PhantomData<T>,
-    r: PhantomData<R>,
 }
 
 impl<'l, T: EventStream<'l, R>, R, H: StreamCallback<R>> StreamCallback<T>
@@ -273,7 +273,7 @@ impl<'l, T: EventStream<'l, R>, R, H: StreamCallback<R>> StreamCallback<T>
     fn send(&mut self, x: T) -> EventRes {
         let sub = x.subscribe(FlattenInnerCallback {
             h: self.h.clone(),
-            t: PhantomData,
+            phantom: PhantomData,
         });
         self.tracker.push(sub);
         EventRes {
@@ -291,8 +291,6 @@ struct FlattenSubscription<
     S: EventStream<'l, T>,
 > {
     origin: S::Subscription<FlattenOuterCallback<'l, T, R, H>>,
-    t: PhantomData<T>,
-    r: PhantomData<R>,
 }
 
 impl<'l, T: EventStream<'l, R>, R, H: StreamCallback<R>, S: EventStream<'l, T>>
@@ -316,7 +314,7 @@ impl<'l, T: EventStream<'l, R>, R, H: StreamCallback<R>, S: EventStream<'l, T>>
             FlattenStream {
                 origin: s,
                 tracker: tracker,
-                r: PhantomData,
+                phantom: PhantomData,
             },
             hh,
         )
@@ -326,7 +324,7 @@ impl<'l, T: EventStream<'l, R>, R, H: StreamCallback<R>, S: EventStream<'l, T>>
 struct FlattenStream<'l, T: EventStream<'l, R>, R, S: EventStream<'l, T>> {
     origin: S,
     tracker: Vec<T>,
-    r: PhantomData<(&'l (), R)>,
+    phantom: PhantomData<&'l R>,
 }
 
 impl<'l, T: 'l + EventStream<'l, R>, R: 'l, S: EventStream<'l, T>> EventStream<'l, R>
@@ -342,7 +340,7 @@ impl<'l, T: 'l + EventStream<'l, R>, R: 'l, S: EventStream<'l, T>> EventStream<'
             .map(|x| {
                 x.subscribe(FlattenInnerCallback {
                     h: hh.clone(),
-                    t: PhantomData,
+                    phantom: PhantomData,
                 })
             })
             .collect();
@@ -350,18 +348,14 @@ impl<'l, T: 'l + EventStream<'l, R>, R: 'l, S: EventStream<'l, T>> EventStream<'
             origin: self.origin.subscribe(FlattenOuterCallback {
                 h: hh,
                 tracker: tracker,
-                t: PhantomData,
-                r: PhantomData,
             }),
-            t: PhantomData,
-            r: PhantomData,
         }
     }
 }
 
 struct EachCallback<T, F: FnMut(T)> {
     f: F,
-    t: PhantomData<T>,
+    phantom: PhantomData<T>,
 }
 
 impl<T, F: FnMut(T)> StreamCallback<T> for EachCallback<T, F> {
@@ -396,7 +390,7 @@ struct Bubbler<'l, T: Clone, Priority: Ord, S: EventStream<'l, T>> {
 
 impl<'l, T: Clone, Priority: Ord, S: EventStream<'l, T>> Bubbler<'l, T, Priority, S> {
     // Get the derived stream with a specific priority; BubbleStream will attempt to dispatch the event to each child Stream in priority order until one of them claims it.
-    fn get(self, p: Priority) -> impl EventStream<'l, T> {
+    fn get(self, _: Priority) -> impl EventStream<'l, T> {
         NeverStream { t: PhantomData }
     }
 }
@@ -440,8 +434,7 @@ struct DupSubscription<
 > {
     callbackid: *const dyn DynamicStreamCallback<T>,
     state: Rc<RefCell<DupState<T, S>>>,
-    t: PhantomData<T>,
-    h: PhantomData<H>,
+    phantom: PhantomData<H>,
 }
 
 enum DupState<T: Clone + 'static, S: EventStream<'static, T>> {
@@ -544,8 +537,7 @@ impl<T: Clone + 'static, S: EventStream<'static, T>> EventStream<'static, T> for
         return DupSubscription {
             callbackid: callbackid,
             state: self.state.clone(),
-            t: PhantomData,
-            h: PhantomData,
+            phantom: PhantomData,
         };
     }
 }
@@ -588,13 +580,13 @@ where
         FilterStream {
             origin: self,
             f: f,
-            t: PhantomData,
+            phantom: PhantomData,
         }
     }
     fn claim(self) -> impl EventStream<'l, T> {
         ClaimStream {
             origin: self,
-            t: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -605,7 +597,7 @@ where
         FlattenStream {
             origin: self,
             tracker: Vec::new(),
-            r: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -616,7 +608,7 @@ where
         EachSubscription {
             origin: self.subscribe(EachCallback {
                 f: f,
-                t: PhantomData,
+                phantom: PhantomData,
             }),
             phantom: PhantomData,
         }
@@ -666,17 +658,165 @@ fn split_parity(
     )
 }
 
-/*
-fn statemachine<'a, InputEvent, InputState: Clone, OutputEvent, OutputState: Clone>(
-    machine: impl StateMachine<InputEvent, InputState, OutputEvent, OutputState>,
+fn statemachine<
+    'a,
+    InputEvent: 'a,
+    InputState: Clone + 'a,
+    OutputEvent: 'a,
+    OutputState: Clone + 'a,
+>(
+    machine: Rc<RefCell<impl StateMachine<InputEvent, InputState, OutputEvent, OutputState> + 'a>>,
     events: impl EventStream<'a, InputEvent>,
-    state: impl crate::reactive::AsSignal<InputState>,
+    state: impl crate::reactive::AsSignal<InputState> + 'a,
 ) -> (
     impl EventStream<'a, OutputEvent>,
     crate::reactive::Signal<OutputState, impl crate::reactive::SignalProvider<OutputState>>,
 ) {
+    let sig = state.to_signal();
+    let sig2 = sig.clone();
+    let machine2 = machine.clone();
     (
-        NeverStream { t: PhantomData },
-        ,
+        StateMachineStream {
+            origin: events,
+            m: machine,
+            s: sig,
+            phantom: PhantomData,
+        },
+        sig2.map(move |x| machine2.borrow_mut().get(x.clone())),
     )
-}*/
+}
+
+struct StateMachineCallback<
+    'a,
+    InputEvent: 'a,
+    InputState: Clone + 'a,
+    OutputEvent: 'a,
+    OutputState: Clone + 'a,
+    M: StateMachine<InputEvent, InputState, OutputEvent, OutputState> + 'a,
+    H: StreamCallback<OutputEvent>,
+    P: crate::reactive::SignalProvider<InputState> + ?Sized,
+> {
+    m: Rc<RefCell<M>>,
+    h: H,
+    s: crate::reactive::Signal<InputState, P>,
+    phantom: PhantomData<&'a (InputEvent, OutputEvent, OutputState)>,
+}
+
+impl<
+    'a,
+    InputEvent: 'a,
+    IS: Clone + 'a,
+    OutputEvent: 'a,
+    OS: Clone + 'a,
+    M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
+    H: StreamCallback<OutputEvent>,
+    P: crate::reactive::SignalProvider<IS> + ?Sized,
+> StreamCallback<InputEvent>
+    for StateMachineCallback<'a, InputEvent, IS, OutputEvent, OS, M, H, P>
+{
+    fn send(&mut self, x: InputEvent) -> EventRes {
+        let mut res = EventRes {
+            cancel: false,
+            claim: false,
+        };
+        let mut machine = self.m.borrow_mut();
+        for e in machine.update(x, crate::reactive::sample(&self.s).clone()) {
+            res = res | self.h.send(e);
+        }
+        res
+    }
+}
+
+struct StateMachineSubscription<
+    'a,
+    InputEvent: 'a,
+    IS: Clone + 'a,
+    OutputEvent: 'a,
+    OS: Clone + 'a,
+    M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
+    H: StreamCallback<OutputEvent> + 'a,
+    P: crate::reactive::SignalProvider<IS> + ?Sized + 'a,
+    S: EventStream<'a, InputEvent>,
+> {
+    origin: <S as EventStream<'a, InputEvent>>::Subscription<
+        StateMachineCallback<'a, InputEvent, IS, OutputEvent, OS, M, H, P>,
+    >,
+}
+
+impl<
+    'a,
+    InputEvent: 'a,
+    IS: Clone + 'a,
+    OutputEvent: 'a,
+    OS: Clone + 'a,
+    M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
+    H: StreamCallback<OutputEvent> + 'a,
+    P: crate::reactive::SignalProvider<IS> + ?Sized + 'a,
+    S: EventStream<'a, InputEvent>,
+> Unsubscribe<OutputEvent, StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, P, S>, H>
+    for StateMachineSubscription<'a, InputEvent, IS, OutputEvent, OS, M, H, P, S>
+{
+    fn unsubscribe(
+        self,
+    ) -> (
+        StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, P, S>,
+        H,
+    )
+    where
+        StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, P, S>: Sized,
+    {
+        let (s, h) = self.origin.unsubscribe();
+        (
+            StateMachineStream {
+                origin: s,
+                m: h.m,
+                s: h.s,
+                phantom: PhantomData,
+            },
+            h.h,
+        )
+    }
+}
+
+struct StateMachineStream<
+    'l,
+    InputEvent: 'l,
+    IS: Clone + 'l,
+    OutputEvent: 'l,
+    OS: Clone + 'l,
+    M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'l,
+    P: crate::reactive::SignalProvider<IS> + ?Sized,
+    S: EventStream<'l, InputEvent>,
+> {
+    origin: S,
+    m: Rc<RefCell<M>>,
+    s: crate::reactive::Signal<IS, P>,
+    phantom: PhantomData<&'l (InputEvent, OutputEvent, OS)>,
+}
+
+impl<
+    'l,
+    InputEvent: 'l,
+    IS: Clone + 'l,
+    OutputEvent: 'l,
+    OS: Clone + 'l,
+    M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'l,
+    P: crate::reactive::SignalProvider<IS> + ?Sized + 'l,
+    S: EventStream<'l, InputEvent>,
+> EventStream<'l, OutputEvent>
+    for StateMachineStream<'l, InputEvent, IS, OutputEvent, OS, M, P, S>
+{
+    type Subscription<H: 'l + StreamCallback<OutputEvent> + 'l> =
+        StateMachineSubscription<'l, InputEvent, IS, OutputEvent, OS, M, H, P, S>;
+
+    fn subscribe<H: StreamCallback<OutputEvent> + 'l>(self, h: H) -> Self::Subscription<H> {
+        Self::Subscription {
+            origin: self.origin.subscribe(StateMachineCallback {
+                m: self.m,
+                h: h,
+                s: self.s,
+                phantom: PhantomData,
+            }),
+        }
+    }
+}
