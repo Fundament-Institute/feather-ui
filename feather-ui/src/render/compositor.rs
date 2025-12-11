@@ -4,7 +4,7 @@
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
 use crate::render::atlas::PxBox;
-use crate::{PxDim, PxPoint, PxRect, PxVector, RelDim, SourceID};
+use crate::{PxDim, PxPoint, PxRect, PxVector, RelDim};
 use derive_where::derive_where;
 use num_traits::Zero;
 use smallvec::SmallVec;
@@ -27,7 +27,6 @@ pub struct Shared {
     shader: wgpu::ShaderModule,
     sampler: wgpu::Sampler,
     pipelines: RwLock<HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>>,
-    layers: RwLock<HashMap<Arc<SourceID>, Layer>>,
 }
 
 pub const TARGET_BLEND: wgpu::ColorTargetState = wgpu::ColorTargetState {
@@ -128,18 +127,7 @@ impl Shared {
             shader,
             sampler,
             pipelines: HashMap::new().into(),
-            layers: HashMap::new().into(),
         }
-    }
-
-    pub fn access_layers(
-        &self,
-    ) -> parking_lot::lock_api::RwLockReadGuard<
-        '_,
-        parking_lot::RawRwLock,
-        HashMap<Arc<SourceID>, Layer>,
-    > {
-        self.layers.read()
     }
 
     fn get_pipeline(
@@ -183,64 +171,18 @@ impl Shared {
             })
             .clone()
     }
-
-    pub fn create_layer(
-        &self,
-        _device: &wgpu::Device,
-        id: Arc<SourceID>,
-        mut area: PxRect,
-        dest: Option<PxRect>,
-        color: sRGB32,
-        rotation: f32,
-        force: bool,
-    ) -> Option<Layer> {
-        // Snap the layer area to the nearest pixel. This is necessary because the layer
-        // is treated as a compositing target, which is always assumed to be on
-        // a pixel grid.
-        let array = area.v.as_array_mut();
-        array[0] = array[0].floor();
-        array[1] = array[1].floor();
-        array[2] = array[2].ceil();
-        array[3] = array[3].ceil();
-
-        let dest = dest.unwrap_or(area);
-
-        // If true, this is a clipping layer, not a texture-backed one
-        let target = if color == sRGB32::white() && rotation.is_zero() && !force && dest == area {
-            None
-        } else {
-            Some(RwLock::new(LayerTarget {
-                dependents: Default::default(),
-            }))
-        };
-
-        let layer = Layer {
-            area,
-            dest,
-            color,
-            rotation,
-            target,
-        };
-
-        if let Some(prev) = self.layers.read().get(&id)
-            && *prev == layer
-        {
-            return None;
-        }
-
-        self.layers.write().insert(id, layer)
-    }
 }
 
 // This holds the information for rendering to a layer, which can only be done
 // if the layer is texture-backed.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LayerTarget {
-    pub dependents: Vec<std::sync::Weak<SourceID>>, /* Layers that draw on to this one (does not
-                                                     * include fake layers) */
+    pub dependents: Vec<std::rc::Weak<Layer>>, /* Layers that draw on to this one (does not
+                                                * include fake layers) */
+    pub region: crate::render::atlas::Region,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Layer {
     // Renderable area representing what children draw onto. This corresponds to this layer's
     // compositor viewport, if it has one.
@@ -252,6 +194,41 @@ pub struct Layer {
     rotation: f32,
     // Layers aren't always texture-backed so this may not exist
     pub target: Option<RwLock<LayerTarget>>,
+}
+
+impl Layer {
+    pub fn update(
+        &mut self,
+        mut area: PxRect,
+        dest: Option<PxRect>,
+        color: sRGB32,
+        rotation: f32,
+        force: bool,
+    ) {
+        // Snap the layer area to the nearest pixel. This is necessary because the layer
+        // is treated as a compositing target, which is always assumed to be on
+        // a pixel grid.
+        let array = area.v.as_array_mut();
+        array[0] = array[0].floor();
+        array[1] = array[1].floor();
+        array[2] = array[2].ceil();
+        array[3] = array[3].ceil();
+
+        let dest = dest.unwrap_or(area);
+
+        self.area = area;
+        self.dest = dest;
+        self.color = color;
+        self.rotation = rotation;
+
+        // If true, this is a clipping layer, not a texture-backed one
+        if color == sRGB32::white() && rotation.is_zero() && !force && dest == area {
+            self.target = None;
+        } else if self.target.is_none() {
+            // Be careful not to delete the target every time we update the layer
+            self.target = Some(RwLock::new(Default::default()))
+        };
+    }
 }
 
 impl PartialEq for Layer {

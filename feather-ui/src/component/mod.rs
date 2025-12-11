@@ -4,135 +4,20 @@
 pub mod line;
 //pub mod mouse_area;
 pub mod region;
+pub mod shape;
 pub mod window;
 
 use crate::component::window::Window;
 use crate::layout::{Desc, DynLayout, Layout};
 use crate::reactive::MutableSignal;
-use crate::{DispatchPair, Dispatchable, InputResult, PxRect, Slot, graphics};
+use crate::{DispatchPair, Dispatchable, PxRect, graphics};
 use eyre::Result;
 use smallvec::SmallVec;
 use std::any::Any;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub trait StateMachineWrapper: Any {
-    fn process(
-        &mut self,
-        input: DispatchPair,
-        index: u64,
-        dpi: crate::RelDim,
-        area: PxRect,
-        extent: PxRect,
-        driver: &std::sync::Weak<crate::Driver>,
-    ) -> InputResult<SmallVec<[DispatchPair; 1]>>;
-    fn output_slot(&self, i: usize) -> Result<&Option<Slot>>;
-    fn input_mask(&self) -> u64;
-    fn changed(&self) -> bool;
-    fn set_changed(&mut self, changed: bool);
-}
-
-pub struct StateMachine<State, const OUTPUT_SIZE: usize> {
-    pub state: State,
-    pub output: [Option<Slot>; OUTPUT_SIZE],
-    pub input_mask: u64,
-    pub(crate) changed: bool,
-}
-
-pub trait EventRouter
-where
-    // : zerocopy::Immutable
-    Self: Sized,
-{
-    type Input: Dispatchable;
-    type Output: Dispatchable;
-
-    #[allow(unused_variables)]
-    #[allow(clippy::type_complexity)]
-    fn process(
-        state: crate::AccessCell<Self>,
-        input: Self::Input,
-        area: PxRect,
-        extent: PxRect,
-        dpi: crate::RelDim,
-        driver: &std::sync::Weak<crate::Driver>,
-    ) -> InputResult<SmallVec<[Self::Output; 1]>> {
-        InputResult::Forward(SmallVec::new())
-    }
-}
-
-impl<State: EventRouter + PartialEq + 'static, const OUTPUT_SIZE: usize> StateMachineWrapper
-    for StateMachine<State, OUTPUT_SIZE>
-{
-    fn process(
-        &mut self,
-        input: DispatchPair,
-        _index: u64,
-        dpi: crate::RelDim,
-        area: PxRect,
-        extent: PxRect,
-        driver: &std::sync::Weak<crate::Driver>,
-    ) -> InputResult<SmallVec<[DispatchPair; 1]>> {
-        if input.0 & self.input_mask == 0 {
-            return InputResult::Error(crate::Error::UnhandledEvent.into());
-        }
-
-        let s = match State::Input::restore(input) {
-            Ok(s) => s,
-            Err(e) => return InputResult::Error(e.into()),
-        };
-
-        State::process(
-            crate::AccessCell {
-                value: &mut self.state,
-                changed: &mut self.changed,
-            },
-            s,
-            area,
-            extent,
-            dpi,
-            driver,
-        )
-        .map(|x| x.into_iter().map(|x| x.extract()).collect())
-    }
-    fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
-        self.output.get(i).ok_or(crate::Error::OutOfRange(i).into())
-    }
-    fn input_mask(&self) -> u64 {
-        self.input_mask
-    }
-    fn changed(&self) -> bool {
-        self.changed
-    }
-    fn set_changed(&mut self, changed: bool) {
-        self.changed = changed
-    }
-}
-
-/*pub struct EventRouter<const N: usize> {
-    pub input: (u64, EventWrapper<Output, State>),
-    pub output: [Option<Slot>; N],
-}
-
-impl<const N: usize> StateMachineWrapper for EventRouter<N> {
-    fn process(
-        &mut self,
-        input: DispatchPair,
-        index: u64,
-        dpi: crate::RelDim,
-        area: AbsRect,
-    ) -> InputResult<SmallVec<[DispatchPair; 1]>>{
-        todo!()
-    }
-
-    fn output_slot(&self, i: usize) -> Result<&Option<Slot>> {
-        self.output.get(i).ok_or(crate::Error::OutOfRange(i).into())
-    }
-
-    fn input_masks(&self) -> SmallVec<[u64; 4]> {
-        SmallVec::from_buf([self.input.0])
-    }
-}*/
+pub trait ComponentMarker {}
 
 /// The trait representing an arbitrary UI component. The Props associated type
 /// must be used to expose the concrete property type that was used to
@@ -196,6 +81,8 @@ pub trait Component {
 
     fn layout(&self, driver: Arc<graphics::Driver>, dpi: MutableSignal<crate::RelDim>) -> Self::R;
 }
+
+impl<T: Component> ComponentMarker for T {}
 
 pub type ChildOf<D> = dyn DynComponent<<D as Desc>::Child>;
 

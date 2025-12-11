@@ -3,7 +3,7 @@
 
 use std::{any::Any, cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
-use crate::reactive::SignalMap;
+use crate::reactive::{SignalMap, SignalProvider};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct EventRes {
@@ -667,12 +667,12 @@ pub(crate) fn statemachine<
 >(
     machine: Rc<RefCell<impl StateMachine<InputEvent, InputState, OutputEvent, OutputState> + 'a>>,
     events: impl EventStream<'a, InputEvent>,
-    state: impl crate::reactive::AsSignal<InputState> + 'a,
+    state: crate::reactive::Signal<impl SignalProvider<Item = InputState> + ?Sized + 'a>,
 ) -> (
     impl EventStream<'a, OutputEvent>,
-    crate::reactive::Signal<OutputState, impl crate::reactive::SignalProvider<OutputState>>,
+    crate::reactive::Signal<impl crate::reactive::SignalProvider<Item = OutputState>>,
 ) {
-    let sig = state.to_signal();
+    let sig = state;
     let sig2 = sig.clone();
     let machine2 = machine.clone();
     (
@@ -694,11 +694,11 @@ struct StateMachineCallback<
     OutputState: Clone + 'a,
     M: StateMachine<InputEvent, InputState, OutputEvent, OutputState> + 'a,
     H: StreamCallback<OutputEvent>,
-    P: crate::reactive::SignalProvider<InputState> + ?Sized,
+    P: crate::reactive::SignalProvider<Item = InputState> + ?Sized,
 > {
     m: Rc<RefCell<M>>,
     h: H,
-    s: crate::reactive::Signal<InputState, P>,
+    s: crate::reactive::Signal<P>,
     phantom: PhantomData<&'a (InputEvent, OutputEvent, OutputState)>,
 }
 
@@ -710,7 +710,7 @@ impl<
     OS: Clone + 'a,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
     H: StreamCallback<OutputEvent>,
-    P: crate::reactive::SignalProvider<IS> + ?Sized,
+    P: crate::reactive::SignalProvider<Item = IS> + ?Sized,
 > StreamCallback<InputEvent>
     for StateMachineCallback<'a, InputEvent, IS, OutputEvent, OS, M, H, P>
 {
@@ -735,7 +735,7 @@ struct StateMachineSubscription<
     OS: Clone + 'a,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
     H: StreamCallback<OutputEvent> + 'a,
-    P: crate::reactive::SignalProvider<IS> + ?Sized + 'a,
+    P: crate::reactive::SignalProvider<Item = IS> + ?Sized + 'a,
     S: EventStream<'a, InputEvent>,
 > {
     origin: <S as EventStream<'a, InputEvent>>::Subscription<
@@ -751,7 +751,7 @@ impl<
     OS: Clone + 'a,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
     H: StreamCallback<OutputEvent> + 'a,
-    P: crate::reactive::SignalProvider<IS> + ?Sized + 'a,
+    P: crate::reactive::SignalProvider<Item = IS> + ?Sized + 'a,
     S: EventStream<'a, InputEvent>,
 > Unsubscribe<OutputEvent, StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, P, S>, H>
     for StateMachineSubscription<'a, InputEvent, IS, OutputEvent, OS, M, H, P, S>
@@ -785,12 +785,12 @@ struct StateMachineStream<
     OutputEvent: 'l,
     OS: Clone + 'l,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'l,
-    P: crate::reactive::SignalProvider<IS> + ?Sized,
+    P: crate::reactive::SignalProvider<Item = IS> + ?Sized,
     S: EventStream<'l, InputEvent>,
 > {
     origin: S,
     m: Rc<RefCell<M>>,
-    s: crate::reactive::Signal<IS, P>,
+    s: crate::reactive::Signal<P>,
     phantom: PhantomData<&'l (InputEvent, OutputEvent, OS)>,
 }
 
@@ -801,7 +801,7 @@ impl<
     OutputEvent: 'l,
     OS: Clone + 'l,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'l,
-    P: crate::reactive::SignalProvider<IS> + ?Sized + 'l,
+    P: crate::reactive::SignalProvider<Item = IS> + ?Sized + 'l,
     S: EventStream<'l, InputEvent>,
 > EventStream<'l, OutputEvent>
     for StateMachineStream<'l, InputEvent, IS, OutputEvent, OS, M, P, S>

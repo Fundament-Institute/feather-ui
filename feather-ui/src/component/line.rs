@@ -34,7 +34,6 @@ where
                 self.end.clone(),
                 self.fill.clone(),
             ))),
-            layer: None,
         }
     }
 }

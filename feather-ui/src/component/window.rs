@@ -4,11 +4,11 @@
 use crate::component::{ChildOf, DynComponent};
 use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
-use crate::reactive::{AsSignal, MutableSignal, sample, sample_val};
 use crate::reactive::{DynSignal, SignalMap};
+use crate::reactive::{MutableSignal, sample, sample_val};
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
-use crate::{PxPoint, PxVector, RelDim, RelVector, SourceID, graphics, layout, rtree};
+use crate::{PxPoint, PxVector, RelDim, RelVector, graphics, layout, rtree};
 use alloc::sync::Arc;
 use core::f32;
 use eyre::{OptionExt, Result};
@@ -46,13 +46,8 @@ pub struct WindowState {
     pub compositor: Compositor,
     pub clipstack: Vec<crate::PxRect>, /* Current clipping rectangle stack. These only get added
                                         * to the GPU clip list if something is rotated */
-    pub layers: Vec<std::sync::Weak<SourceID>>, /* All layers that render directly to the final
-                                                 * compositor */
-}
-
-impl super::EventRouter for WindowState {
-    type Input = Infallible;
-    type Output = Infallible;
+    pub layers: Vec<std::rc::Weak<crate::render::compositor::Layer>>, /* All layers that render directly to the final
+                                                                       * compositor */
 }
 
 const BACKCOLOR: wgpu::Color = wgpu::Color {
@@ -131,10 +126,8 @@ impl WindowState {
             config.width = size.width;
             config.height = size.height;
         });
-        self.surface.configure(
-            &self.driver.device,
-            &sample(&self.config.clone().to_signal()),
-        );
+        self.surface
+            .configure(&self.driver.device, &sample(&self.config.clone()));
     }
 
     pub(crate) fn nodes(&self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
@@ -229,7 +222,7 @@ impl WindowState {
 /// or orientation.
 pub struct Window {
     pub attributes: MutableSignal<WindowAttributes>,
-    pub child: MutableSignal<Rc<ChildOf<dyn root::Prop>>>,
+    pub child: MutableSignal<Arc<ChildOf<dyn root::Prop>>>,
 }
 
 impl std::fmt::Debug for Window {
@@ -259,7 +252,6 @@ impl Window {
                 props: Rc::new(size),
                 children: children.into(),
                 renderable: None,
-                layer: None,
             },
         )
     }
@@ -272,7 +264,7 @@ impl Window {
     ) -> Self {
         Self {
             attributes: MutableSignal::new(attributes),
-            child: MutableSignal::new(Rc::from(child)),
+            child: MutableSignal::new(Arc::from(child)),
         }
     }
 
@@ -599,7 +591,7 @@ impl Window {
                             e.kind(),
                             PxPoint::new(x, y),
                             PxVector::zero(),
-                            sample_val(&dpi),
+                            sample_val(dpi.clone()),
                             &driver,
                             window,
                             &root,
