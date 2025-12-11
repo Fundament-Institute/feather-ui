@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 pub mod base;
-//pub mod domain_write;
+pub mod domain_write;
 pub mod fixed;
 //pub mod flex;
 //pub mod grid;
-//pub mod leaf;
+pub mod leaf;
 //pub mod list;
 pub mod root;
 //pub mod text;
@@ -15,18 +15,19 @@ use guillotiere::euclid::{Point2D, Vector2D};
 use wide::f32x4;
 
 use crate::color::sRGB32;
+use crate::reactive::zip_pair;
 use crate::render::Renderable;
-use crate::render::compositor::CompositorView;
+use crate::render::compositor::{CompositorView, Layer};
 use crate::{
-    DynSignal, Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, SourceID, UNSIZED_AXIS, URect,
-    UnsizedDim, rtree,
+    DynSignal, Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, UNSIZED_AXIS, URect, UnsizedDim,
+    rtree,
 };
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 
 type StageThunk<'a> =
-    Box<dyn FnMut(DynSignal<PxPoint>, DynSignal<PxDim>, DynSignal<PxLimits>) -> rtree::Node>;
+    Box<dyn Fn(DynSignal<PxPoint>, DynSignal<PxDim>, DynSignal<PxLimits>) -> rtree::Node>;
 
 /// Represents an arbitrary layout node that hasn't been staged yet. The vast
 /// majority of the time, components should simply use the standard [`Node`]
@@ -100,7 +101,6 @@ pub struct Node<T, D: Desc + ?Sized> {
     pub props: Rc<T>,
     pub children: DynSignal<D::Children>,
     pub renderable: Option<Rc<dyn Renderable>>,
-    pub layer: Option<(sRGB32, f32)>,
 }
 
 impl<T, D: Desc + ?Sized> Layout for Node<T, D>
@@ -126,18 +126,11 @@ where
             self.renderable.as_ref().map(|x| x.clone()),
             dpi,
         );
-        /*if let Some((color, rotation)) = self.layer {
-            window.driver.shared.create_layer(
-                &window.driver.device,
-                self.id.upgrade().unwrap(),
-                staged.get_area().to_untyped(),
-                None,
-                color,
-                rotation,
-                false,
-            );
-            staged.set_layer(self.id.clone());
-        }*/
+        if let Some(layer) = self.layer {
+            let instance = zip_pair(layer, staged., |l, s| );
+            staged.set_layer()
+        }
+        staged.set_layer(self.layer);
         staged
     }
 }
@@ -150,16 +143,16 @@ pub trait Staged {
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         children: Option<&imbl::Vector<Rc<rtree::Node>>>,
-        dependents: &mut Vec<std::sync::Weak<SourceID>>,
+        dependents: &mut Vec<DynSignal<Layer>>,
     ) -> Result<(), Error>;
-    fn set_layer(&mut self, _id: std::sync::Weak<SourceID>) {
+    fn set_layer(&mut self, _layer: DynSignal<Layer>) {
         panic!("This staged object doesn't support layers!");
     }
 }
 
 pub(crate) struct Concrete {
     renderable: Option<Rc<dyn Renderable>>,
-    layer: Option<std::sync::Weak<SourceID>>,
+    layer: Option<DynSignal<Layer>>,
 }
 
 impl Concrete {
@@ -188,7 +181,7 @@ impl Concrete {
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         children: &imbl::Vector<Rc<rtree::Node>>,
-        dependents: &mut Vec<std::sync::Weak<SourceID>>,
+        dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), Error> {
         for child in children {
             // The r-tree node will determine whether it should be culled in its render function
@@ -206,18 +199,16 @@ impl Staged for Concrete {
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         children: Option<&imbl::Vector<Rc<rtree::Node>>>,
-        dependents: &mut Vec<std::sync::Weak<SourceID>>,
+        dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), Error> {
-        if let Some(id) = self.layer.as_ref().and_then(|x| x.upgrade()) {
-            let layers = driver.shared.access_layers();
-            let layer = layers.get(&id).expect("Missing layer in render call!");
+        if let Some(layer) = self.layer.upgrade() {
             let mut deps = Vec::new();
             let mut region_uv = None;
 
             let (mut view, depview) = if layer.target.is_some() {
                 // If this is a "real" layer with a texture target, mark it as a dependency of
                 // our parent
-                dependents.push(Arc::downgrade(&id));
+                dependents.push(Rc::downgrade(&layer));
 
                 // Acquire a region if we don't have one already. This is done carefully so that
                 // the layer can be moved to a different dependency layer and
@@ -299,7 +290,7 @@ impl Staged for Concrete {
                 // dependencies, and append ourselves to the parent layer. We
                 // must be very careful not to use the wrong view here.
                 target.write().dependents = deps;
-                compositor.append_layer(layer, parent_pos, region_uv.unwrap());
+                compositor.append_layer(&layer, parent_pos, region_uv.unwrap());
             }
         } else {
             self.render_self(area + parent_pos, driver, compositor)?;
@@ -382,6 +373,15 @@ pub(crate) fn limit_dim(v: crate::UnsizedDim, limits: PxLimits) -> PxDim {
         } else {
             v.height.max(limits.min().height).min(limits.max().height)
         },
+    )
+}
+
+#[must_use]
+#[inline]
+pub(crate) fn limit_dim_sized(v: crate::PxDim, limits: PxLimits) -> PxDim {
+    PxDim::new(
+            v.width.max(limits.min().width).min(limits.max().width),
+            v.height.max(limits.min().height).min(limits.max().height),
     )
 }
 

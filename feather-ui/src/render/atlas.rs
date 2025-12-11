@@ -33,7 +33,6 @@ pub struct Atlas {
     pub(crate) texture: wgpu::Texture,
     #[derive_where(skip)]
     allocators: Vec<AtlasAllocator>,
-    cache: HashMap<Arc<crate::SourceID>, Region>,
     pub view: Arc<wgpu::TextureView>, /* Stores a view into the atlas texture. Compositors take
                                        * a weak reference to this that is invalidated when they
                                        * need to rebind */
@@ -51,14 +50,6 @@ pub struct Atlas {
 pub const ATLAS_FORMAT: TextureFormat = TextureFormat::Bgra8UnormSrgb;
 const ATLAS_MIP_LEVELS: u32 = 8;
 pub type PxBox = guillotiere::euclid::Box2D<i32, Pixel>;
-
-impl Drop for Atlas {
-    fn drop(&mut self) {
-        for (_, mut r) in self.cache.drain() {
-            r.id = AllocId::deserialize(u32::MAX);
-        }
-    }
-}
 
 impl Atlas {
     fn create_view(t: &wgpu::Texture) -> wgpu::TextureView {
@@ -311,7 +302,6 @@ impl Atlas {
             allocators: vec![allocator],
             extent_buf,
             mvp,
-            cache: HashMap::new(),
             targets,
             kind,
             mipgen: HashMap::new(),
@@ -367,19 +357,6 @@ impl Atlas {
             id: r.id,
             uv,
             index: idx as u8,
-        }
-    }
-
-    pub fn get_region(&self, id: Arc<crate::SourceID>) -> Option<&Region> {
-        self.cache.get(&id)
-    }
-
-    pub fn remove_cache(&mut self, id: &Arc<crate::SourceID>) -> bool {
-        if let Some(mut region) = self.cache.remove(id) {
-            self.destroy(&mut region);
-            true
-        } else {
-            false
         }
     }
 
@@ -439,6 +416,7 @@ impl Atlas {
             );
         }
     }
+
     /// Allocates a new region in the texture atlas with an associated ID. If
     /// the ID already exists, returns the existing region, provided it is
     /// the same size as before, otherwise allocates a new one and releases
@@ -448,31 +426,23 @@ impl Atlas {
     /// anyway.
     ///
     /// If mipmap is set, queues a set of mipmaps for the region.
-    pub fn cache_region(
+    pub fn set_region(
         &mut self,
+        region: &mut Region,
         device: &wgpu::Device,
-        id: &Arc<crate::SourceID>,
         dim: Size,
         mipmap: Option<&wgpu::Queue>, /* This is a little silly but works because we can have
                                        * two immutable references at once */
         clear: Option<&wgpu::Queue>,
-    ) -> Result<&Region, Error> {
-        let uv = self.cache.get(id).map(|x| x.uv);
-
-        if let Some(old) = uv {
-            if old.size() != dim {
-                if let Some(mut region) = self.cache.remove(id) {
-                    self.destroy(&mut region);
-                }
-                let region = self.reserve(device, dim, mipmap, clear)?;
-                self.cache.insert(id.clone(), region);
-            }
-        } else {
-            let region = self.reserve(device, dim, mipmap, clear)?;
-            self.cache.insert(id.clone(), region);
+    ) -> Result<(), Error> {
+        if region.id == AllocId::deserialize(u32::MAX) {
+            *region = self.reserve(device, dim, mipmap, clear)?;
+        } else if region.uv.size() != dim {
+            self.destroy(region);
+            *region = self.reserve(device, dim, mipmap, clear)?;
         }
 
-        self.cache.get(id).ok_or(Error::AtlasCacheFailure)
+        Ok(())
     }
 
     pub fn reserve(
@@ -682,6 +652,16 @@ pub struct Region {
     pub id: AllocId,
     pub uv: PxBox,
     pub index: u8,
+}
+
+impl Default for Region {
+    fn default() -> Self {
+        Self {
+            id: AllocId::deserialize(u32::MAX),
+            uv: Default::default(),
+            index: Default::default(),
+        }
+    }
 }
 
 // Technically, this should implement !Forget (or !Leak), because it should

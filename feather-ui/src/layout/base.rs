@@ -4,7 +4,7 @@
 use crate::{
     DAbsRect, DPoint, DRect, ZERO_DRECT,
     reactive::{
-        AsSignal, DynSignal, MutableSignal, SignalMap, SignalTupleZip, const_signal, zip_pair,
+        DynSignal, MutableSignal, SignalMap, SignalTupleZip, ToSignal, const_signal, zip_pair,
     },
 };
 use std::rc::Rc;
@@ -49,10 +49,7 @@ impl crate::layout::Desc for dyn Empty {
         _: MutableSignal<crate::RelDim>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
         let area = zip_pair(predim, prelimits, move |dim, limits| {
-            crate::PxRect::from(super::limit_dim(
-                super::zero_unsized(dim).cast_unit(),
-                limits,
-            ))
+            crate::PxRect::from(super::limit_dim_sized(super::zero_unsized(dim), limits))
         })
         .into();
 
@@ -62,7 +59,7 @@ impl crate::layout::Desc for dyn Empty {
                 let final_area = (offset, final_dim, final_limits)
                     .zip::<(crate::PxPoint, crate::PxDim, crate::PxLimits)>()
                     .map(|(o, dim, limits)| {
-                        crate::Rect::offsetdim(*o, super::limit_dim(dim.cast_unit(), *limits))
+                        crate::Rect::offsetdim(*o, super::limit_dim_sized(*dim, *limits))
                     })
                     .into_dyn_signal();
 

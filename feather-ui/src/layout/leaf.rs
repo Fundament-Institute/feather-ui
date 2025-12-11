@@ -3,13 +3,15 @@
 
 use super::base::Empty;
 use super::{Concrete, Desc, Layout, Renderable, Staged, base, map_unsized_area};
-use crate::{DRect, PxDim, PxRect, SourceID, rtree};
+use crate::layout::zero_unsized;
+use crate::reactive::{DynSignal, SignalMap, SignalTupleZip, zip_pair};
+use crate::{DRect, PxDim, PxLimits, PxRect, RelDim, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Anchor {}
 
-crate::gen_from_to_dyn!(Prop);
+crate::gen_dyn_prop!(Prop);
 
 impl Prop for DRect {}
 
@@ -18,47 +20,52 @@ impl Prop for DRect {}
 // padding for the rendering system for when it doesn't affect layouts.
 pub trait Padded: Prop + base::Padding {}
 
-crate::gen_from_to_dyn!(Padded);
+crate::gen_dyn_prop!(Padded);
 
 impl Padded for DRect {}
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
-    type Children = PhantomData<dyn Layout<Self::Child>>;
+    type Children = PhantomData<dyn Layout<Props = Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
-        outer_area: PxRect,
-        outer_limits: crate::PxLimits,
-        _: &Self::Children,
+        outer: DynSignal<crate::UnsizedDim>,
+        outer_limits: DynSignal<PxLimits>,
+        _: DynSignal<Self::Children>,
         renderable: Option<Rc<dyn Renderable>>,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a> {
-        let limits = outer_limits + props.limits().resolve(window.dpi);
-        let evaluated_area = super::limit_area(
-            map_unsized_area(props.area().resolve(window.dpi), PxDim::zero())
-                * super::zero_unsized(outer_area),
-            limits,
-        );
+        dpi: crate::reactive::MutableSignal<RelDim>,
+    ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
+        let limits = (outer_limits, props.limits(), dpi.clone())
+            .zip::<(PxLimits, crate::DLimits, RelDim)>()
+            .map(|(outer, limits, dpi)| *outer + limits.resolve(*dpi));
 
-        let anchor = props.anchor().resolve(window.dpi) * evaluated_area.dim();
-        let evaluated_area = evaluated_area - anchor;
+        let myarea =
+            zip_pair::<crate::DRect, RelDim, _, _, _, _>(props.area(), dpi.clone(), |p, dpi| {
+                p.resolve(dpi)
+            });
 
-        debug_assert!(evaluated_area.v.is_finite().all());
-        Box::new(Concrete {
-            area: evaluated_area,
-            renderable,
-            rtree: rtree::Node::new(
-                evaluated_area.to_untyped(),
-                None,
-                Default::default(),
-                id,
-                window,
-            ),
-            children: Default::default(),
-            layer: None,
-        })
+        let evaluated_area = (myarea.clone(), outer.clone(), limits.clone())
+            .zip::<(crate::URect, crate::UnsizedDim, PxLimits)>()
+            .map(|(a, o, l)| super::limit_area(*a * zero_unsized(*o), *l));
+
+        let anchor = props.anchor();
+        (
+            evaluated_area.clone().into(),
+            Box::new(move |offset, final_dim, final_limits| {
+                let anchored_area = (evaluated_area.clone(), anchor.clone(), dpi.clone())
+                    .zip::<(PxRect, crate::DPoint, RelDim)>()
+                    .map(|(e, a, d)| *e - (a.resolve(*d) * e.dim()));
+
+                rtree::Node::new(
+                    anchored_area.into(),
+                    None,
+                    Default::default(),
+                    Some(Box::new(Concrete::new(renderable.clone()))),
+                )
+            }),
+        )
     }
 }
 
@@ -68,22 +75,23 @@ impl Desc for dyn Prop {
 
 #[derive_where::derive_where(Clone)]
 pub struct Sized<T> {
-    pub id: std::sync::Weak<SourceID>,
     pub props: Rc<T>,
-    pub size: crate::PxDim,
+    pub size: DynSignal<crate::PxDim>,
     pub renderable: Option<Rc<dyn Renderable>>,
 }
 
-impl<T: Padded> Layout<T> for Sized<T> {
+impl<T: Padded> Layout for Sized<T> {
+    type Props = T;
+
     fn get_props(&self) -> &T {
         &self.props
     }
     fn stage<'a>(
         &self,
-        outer_area: crate::PxRect,
-        outer_limits: crate::PxLimits,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn super::Staged + 'a> {
+        dim: DynSignal<crate::UnsizedDim>,
+        limits: DynSignal<PxLimits>,
+        dpi: crate::reactive::MutableSignal<crate::RelDim>,
+    ) -> (DynSignal<PxRect>, super::StageThunk<'a>) {
         let limits = outer_limits + self.props.limits().resolve(window.dpi);
         let padding = self.props.padding().as_perimeter(window.dpi);
         let area = self.props.area().resolve(window.dpi);

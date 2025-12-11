@@ -43,7 +43,7 @@ impl<T: CloneStableDeref> PartialEq for Identity<T> {
     fn eq(&self, other: &Self) -> bool {
         let self_ptr: *const _ = self.0.deref();
         let other_ptr: *const _ = other.0.deref();
-        self_ptr == other_ptr
+        std::ptr::addr_eq(self_ptr, other_ptr)
     }
 
     fn ne(&self, other: &Self) -> bool {
@@ -55,7 +55,7 @@ impl<T: CloneStableDeref> PartialOrd for Identity<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         let self_ptr: *const _ = self.0.deref();
         let other_ptr: *const _ = other.0.deref();
-        self_ptr.partial_cmp(&other_ptr)
+        self_ptr.cast::<()>().partial_cmp(&other_ptr.cast::<()>())
     }
 
     fn lt(&self, other: &Self) -> bool {
@@ -178,47 +178,50 @@ enum SignalNodeState {
     Discrete(SignalNodeId),
 }
 
-pub trait SignalProvider<T> {
+pub trait SignalProvider {
+    type Item;
+
     fn get_node(&self) -> &SignalNodeId;
-    fn get_ref(&self) -> DynRef<'_, T>;
+    fn get_ref(&self) -> DynRef<'_, Self::Item>;
     // TODO: does this have equivelent performance in the base case? If so it can eliminate storing intermediates in Join and Zip
-    // fn with_ref(&self, &mut dyn FnMut(&T));
+    // fn with_ref(&self, &mut dyn FnMut(&Self::Item));
     fn update_if_necessary(&self);
 }
 
 //This wrapper type is required to make the trait resolution allow any constant to be used as a signal with AsSignal, which in addition to being a nice convenience feature is necessary for the idiom macro to work
 // TODO: try to reduce amount of Rc required
-pub struct Signal<T, Provider: SignalProvider<T> + ?Sized>(Rc<Provider>, PhantomData<T>);
-impl<T, Provider: SignalProvider<T> + ?Sized> Clone for Signal<T, Provider> {
+#[derive(Debug)]
+pub struct Signal<Provider: SignalProvider + ?Sized>(Rc<Provider>);
+impl<Provider: SignalProvider + ?Sized> Clone for Signal<Provider> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        Self(self.0.clone())
     }
 }
-impl<T, Provider: SignalProvider<T> + ?Sized> PartialEq for Signal<T, Provider> {
+impl<Provider: SignalProvider + ?Sized> PartialEq for Signal<Provider> {
     fn eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.0, &other.0)
     }
 }
-impl<T, Provider: SignalProvider<T> + ?Sized> Eq for Signal<T, Provider> {}
+impl<Provider: SignalProvider + ?Sized> Eq for Signal<Provider> {}
 
-impl<T, Provider: SignalProvider<T> + ?Sized> std::hash::Hash for Signal<T, Provider> {
+impl<Provider: SignalProvider + ?Sized> std::hash::Hash for Signal<Provider> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         Rc::as_ptr(&self.0).hash(state);
     }
 }
 
 // This has the same logic as From, but avoids needing manual type annotations in some situations.
-impl<T, Provider: SignalProvider<T> + 'static> Signal<T, Provider> {
-    pub fn into_dyn_signal(self) -> Signal<T, dyn SignalProvider<T>> {
-        Signal(self.0.clone(), PhantomData)
+impl<Provider: SignalProvider + 'static> Signal<Provider> {
+    pub fn into_dyn_signal(self) -> Signal<dyn SignalProvider<Item = Provider::Item>> {
+        Signal(self.0.clone())
     }
 }
 
-impl<T, Provider: SignalProvider<T> + 'static> From<Signal<T, Provider>>
-    for Signal<T, dyn SignalProvider<T>>
+impl<Provider: SignalProvider + 'static> From<Signal<Provider>>
+    for Signal<dyn SignalProvider<Item = Provider::Item>>
 {
-    fn from(value: Signal<T, Provider>) -> Self {
-        Self(value.0.clone(), PhantomData)
+    fn from(value: Signal<Provider>) -> Self {
+        Self(value.0.clone())
     }
 }
 
@@ -232,7 +235,9 @@ impl<T> ConstProvider<T> {
     }
 }
 
-impl<T> SignalProvider<T> for ConstProvider<T> {
+impl<T> SignalProvider for ConstProvider<T> {
+    type Item = T;
+
     fn update_if_necessary(&self) {}
 
     fn get_node(&self) -> &SignalNodeId {
@@ -244,63 +249,41 @@ impl<T> SignalProvider<T> for ConstProvider<T> {
     }
 }
 
-pub trait AsSignal<T> {
-    type Provider: SignalProvider<T> + ?Sized;
-    fn to_signal(self) -> Signal<T, Self::Provider>;
+pub trait ToSignal<T> {
+    type Provider: SignalProvider<Item = T> + ?Sized;
+    fn to_signal(self) -> Signal<Self::Provider>;
 }
 
-impl<T: num_traits::Num> AsSignal<T> for T {
+impl<T: num_traits::Num> ToSignal<T> for T {
     type Provider = ConstProvider<T>;
-    fn to_signal(self) -> Signal<T, Self::Provider> {
-        Signal(Rc::new(ConstProvider::new(self)), PhantomData)
+    fn to_signal(self) -> Signal<Self::Provider> {
+        Signal(Rc::new(ConstProvider::new(self)))
     }
 }
 
-impl<T, P: SignalProvider<T> + ?Sized> AsSignal<T> for Signal<T, P> {
-    type Provider = P;
-    fn to_signal(self) -> Signal<T, Self::Provider> {
-        self
-    }
+pub fn const_signal<T>(t: T) -> Signal<ConstProvider<T>> {
+    Signal(Rc::new(ConstProvider::new(t)))
 }
 
-impl<T, P: SignalProvider<T> + ?Sized> AsSignal<T> for &Signal<T, P> {
-    type Provider = P;
-    fn to_signal(self) -> Signal<T, Self::Provider> {
-        self.clone()
-    }
-}
-
-pub fn const_signal<T>(t: T) -> Signal<T, ConstProvider<T>> {
-    Signal(Rc::new(ConstProvider::new(t)), PhantomData)
-}
-
-pub type ConstSignal<T> = Signal<T, ConstProvider<T>>;
-
-// impl<T> AsSignal<T> for ! {
-//     type Provider = !;
-//     fn to_signal(self) {
-//         self
-//     }
-// }
+pub type ConstSignal<T> = Signal<ConstProvider<T>>;
 
 //TODO: use macros to generate ZipProviders for multiple tuple lengths
 //TODO: constant fusion optimization to eliminate unnecessary intermediate storage
-pub struct ZipProvider<
-    T1: Clone,
-    T2: Clone,
-    P1: SignalProvider<T1> + ?Sized,
-    P2: SignalProvider<T2> + ?Sized,
-> {
+pub struct ZipProvider<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> {
     provider1: Rc<P1>,
-    phantom1: PhantomData<T1>,
     provider2: Rc<P2>,
-    phantom2: PhantomData<T2>,
     node: SignalNodeId,
-    result: RefCell<Option<(T1, T2)>>,
+    result: RefCell<Option<(P1::Item, P2::Item)>>,
 }
-impl<T1: Clone, T2: Clone, P1: SignalProvider<T1> + ?Sized, P2: SignalProvider<T2> + ?Sized>
-    SignalProvider<(T1, T2)> for ZipProvider<T1, T2, P1, P2>
+
+impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> SignalProvider
+    for ZipProvider<P1, P2>
+where
+    P1::Item: Clone,
+    P2::Item: Clone,
 {
+    type Item = (P1::Item, P2::Item);
+
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -345,44 +328,46 @@ impl<T1: Clone, T2: Clone, P1: SignalProvider<T1> + ?Sized, P2: SignalProvider<T
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
-    fn get_ref(&self) -> DynRef<'_, (T1, T2)> {
+    fn get_ref(&self) -> DynRef<'_, (P1::Item, P2::Item)> {
         DynRef::Cell(Ref::map(self.result.borrow(), |x| {
             x.as_ref().expect("must be updated before getting value")
         }))
     }
 }
-fn zip<T1: Clone, T2: Clone, P1: AsSignal<T1>, P2: AsSignal<T2>>(
-    p1: P1,
-    p2: P2,
-) -> Signal<(T1, T2), ZipProvider<T1, T2, P1::Provider, P2::Provider>> {
-    let provider1 = p1.to_signal().0;
-    let provider2 = p2.to_signal().0;
+
+pub fn zip<
+    T1: Clone,
+    T2: Clone,
+    P1: SignalProvider<Item = T1> + ?Sized,
+    P2: SignalProvider<Item = T2> + ?Sized,
+>(
+    p1: Signal<P1>,
+    p2: Signal<P2>,
+) -> Signal<ZipProvider<P1, P2>> {
+    let provider1 = p1.0;
+    let provider2 = p2.0;
     let node = new_node(NodeColor::Changed);
     add_dependency(provider1.get_node(), node.clone());
     add_dependency(provider2.get_node(), node.clone());
-    Signal(
-        Rc::new(ZipProvider {
-            provider1,
-            phantom1: PhantomData,
-            provider2,
-            phantom2: PhantomData,
-            node,
-            result: RefCell::new(None),
-        }),
-        PhantomData,
-    )
+    Signal(Rc::new(ZipProvider {
+        provider1,
+        provider2,
+        node,
+        result: RefCell::new(None),
+    }))
 }
 
-struct SignalMapProvider<T1, T2, F: Fn(&T1) -> T2, P: SignalProvider<T1> + ?Sized> {
+struct SignalMapProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> {
     provider: Rc<P>,
     func: F,
-    arg_phantom: PhantomData<T1>,
     res: RefCell<Option<T2>>,
     node: SignalNodeId,
 }
-impl<T1, T2, F: Fn(&T1) -> T2, P: SignalProvider<T1> + ?Sized> SignalProvider<T2>
-    for SignalMapProvider<T1, T2, F, P>
+impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> SignalProvider
+    for SignalMapProvider<P, T2, F>
 {
+    type Item = T2;
+
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -413,35 +398,33 @@ impl<T1, T2, F: Fn(&T1) -> T2, P: SignalProvider<T1> + ?Sized> SignalProvider<T2
         }))
     }
 }
-fn map<T1, T2, F: Fn(&T1) -> T2, P: AsSignal<T1>>(
+
+pub fn map<T1, T2, F: Fn(&P::Item) -> T2, P: SignalProvider<Item = T1> + ?Sized>(
     f: F,
-    p: P,
-) -> Signal<T2, SignalMapProvider<T1, T2, F, P::Provider>> {
+    p: Signal<P>,
+) -> Signal<SignalMapProvider<P, T2, F>> {
     let node = new_node(NodeColor::Changed);
-    let provider = p.to_signal().0;
+    let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
-    Signal(
-        Rc::new(SignalMapProvider {
-            provider,
-            func: f,
-            arg_phantom: PhantomData,
-            res: RefCell::new(None),
-            node,
-        }),
-        PhantomData,
-    )
+    Signal(Rc::new(SignalMapProvider {
+        provider,
+        func: f,
+        res: RefCell::new(None),
+        node,
+    }))
 }
 
-struct SignalMapMutProvider<T1, T2, F: Fn(&T1, Option<T2>) -> T2, P: SignalProvider<T1> + ?Sized> {
+struct SignalMapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> {
     provider: Rc<P>,
     func: F,
-    arg_phantom: PhantomData<T1>,
     res: RefCell<Option<T2>>,
     node: SignalNodeId,
 }
-impl<T1, T2, F: Fn(&T1, Option<T2>) -> T2, P: SignalProvider<T1> + ?Sized> SignalProvider<T2>
-    for SignalMapMutProvider<T1, T2, F, P>
+
+impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalProvider
+    for SignalMapMutProvider<P, T2, F>
 {
+    type Item = T2;
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -473,70 +456,69 @@ impl<T1, T2, F: Fn(&T1, Option<T2>) -> T2, P: SignalProvider<T1> + ?Sized> Signa
     }
 }
 
-fn map_mut<T1, T2, F: Fn(&T1, Option<T2>) -> T2, P: AsSignal<T1>>(
+pub fn map_mut<T1, T2, F: Fn(&P::Item, Option<T2>) -> T2, P: SignalProvider<Item = T1> + ?Sized>(
     f: F,
-    p: P,
-) -> Signal<T2, SignalMapMutProvider<T1, T2, F, P::Provider>> {
+    p: Signal<P>,
+) -> Signal<SignalMapMutProvider<P, T2, F>> {
     let node = new_node(NodeColor::Changed);
-    let provider = p.to_signal().0;
+    let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
-    Signal(
-        Rc::new(SignalMapMutProvider {
-            provider,
-            func: f,
-            arg_phantom: PhantomData,
-            res: RefCell::new(None),
-            node,
-        }),
-        PhantomData,
-    )
+    Signal(Rc::new(SignalMapMutProvider {
+        provider,
+        func: f,
+        res: RefCell::new(None),
+        node,
+    }))
 }
 
 pub trait SignalMap<Elem> {
     // type Elem
-    fn map<T>(self, f: impl Fn(&Elem) -> T) -> Signal<T, impl SignalProvider<T>>;
-    fn map_mut<T>(self, f: impl Fn(&Elem, Option<T>) -> T) -> Signal<T, impl SignalProvider<T>>;
+    fn map<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>>;
+    fn map_mut<T>(self, f: impl Fn(&Elem, Option<T>) -> T)
+    -> Signal<impl SignalProvider<Item = T>>;
 }
-impl<Elem, P: SignalProvider<Elem> + ?Sized> SignalMap<Elem> for Signal<Elem, P> {
+impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem> for Signal<P> {
     // type Elem = T;
 
-    fn map<T>(self, f: impl Fn(&Elem) -> T) -> Signal<T, impl SignalProvider<T>> {
+    fn map<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self)
     }
-    fn map_mut<T>(self, f: impl Fn(&Elem, Option<T>) -> T) -> Signal<T, impl SignalProvider<T>> {
+    fn map_mut<T>(
+        self,
+        f: impl Fn(&Elem, Option<T>) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>> {
         map_mut(f, self)
     }
 }
 
 pub trait SignalTupleZip: Tuple {
-    fn zip<Output>(self) -> Signal<Output, impl SignalProvider<Output>>
+    fn zip<Output>(self) -> Signal<impl SignalProvider<Item = Output>>
     where
         Output: Tuple + Clone,
         Self::TupleList: SignalTupleListZip<Output::TupleList>,
         Output::TupleList: Clone;
 }
 pub trait SignalTupleListZip<Output: TupleList + Clone> {
-    fn zip(self) -> Signal<Output, impl SignalProvider<Output>>;
+    fn zip(self) -> Signal<impl SignalProvider<Item = Output>>;
 }
 
-pub fn empty_signal() -> Signal<(), ConstProvider<()>> {
-    Signal(Rc::new(ConstProvider::new(())), PhantomData)
+pub fn empty_signal() -> Signal<ConstProvider<()>> {
+    Signal(Rc::new(ConstProvider::new(())))
 }
 
 impl SignalTupleListZip<()> for () {
-    fn zip(self) -> Signal<(), impl SignalProvider<()>> {
+    fn zip(self) -> Signal<impl SignalProvider<Item = ()>> {
         empty_signal()
     }
 }
 
-impl<HeadT: Clone, Head, Tail, TailOut: TupleList + Clone> SignalTupleListZip<(HeadT, TailOut)>
-    for (Head, Tail)
+impl<HeadT: Clone, Head: SignalProvider<Item = HeadT> + ?Sized, Tail, TailOut: TupleList + Clone>
+    SignalTupleListZip<(HeadT, TailOut)> for (Signal<Head>, Tail)
 where
-    Head: AsSignal<HeadT>,
     Tail: SignalTupleListZip<TailOut>,
     (HeadT, TailOut): TupleList,
 {
-    fn zip(self) -> Signal<(HeadT, TailOut), impl SignalProvider<(HeadT, TailOut)>> {
+    fn zip(self) -> Signal<impl SignalProvider<Item = (HeadT, TailOut)>> {
         zip(self.0, self.1.zip())
     }
 }
@@ -545,7 +527,7 @@ impl<Input> SignalTupleZip for Input
 where
     Input: Tuple,
 {
-    fn zip<Output>(self) -> Signal<Output, impl SignalProvider<Output>>
+    fn zip<Output>(self) -> Signal<impl SignalProvider<Item = Output>>
     where
         Output: Tuple + Clone,
         Input::TupleList: SignalTupleListZip<Output::TupleList>,
@@ -560,8 +542,8 @@ where
 
 pub struct SignalJoinProvider<
     T: Clone,
-    P1: SignalProvider<T> + ?Sized,
-    P2: SignalProvider<Signal<T, P1>> + ?Sized,
+    P1: SignalProvider<Item = T> + ?Sized,
+    P2: SignalProvider<Item = Signal<P1>> + ?Sized,
 > {
     provider: Rc<P2>,
     innerprovider: RefCell<Option<Rc<P1>>>,
@@ -569,9 +551,13 @@ pub struct SignalJoinProvider<
     res: RefCell<Option<T>>,
     phantom: PhantomData<P1>,
 }
-impl<T: Clone, P1: SignalProvider<T> + ?Sized, P2: SignalProvider<Signal<T, P1>> + ?Sized>
-    SignalProvider<T> for SignalJoinProvider<T, P1, P2>
+impl<
+    T: Clone,
+    P1: SignalProvider<Item = T> + ?Sized,
+    P2: SignalProvider<Item = Signal<P1>> + ?Sized,
+> SignalProvider for SignalJoinProvider<T, P1, P2>
 {
+    type Item = T;
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -630,19 +616,20 @@ impl<T: Clone, P1: SignalProvider<T> + ?Sized, P2: SignalProvider<Signal<T, P1>>
     }
 }
 
-pub fn join<T: Clone, P1: SignalProvider<T> + ?Sized, P2: AsSignal<Signal<T, P1>>>(
-    p: P2,
-) -> Signal<T, SignalJoinProvider<T, P1, <P2 as AsSignal<Signal<T, P1>>>::Provider>> {
-    Signal(
-        Rc::new(SignalJoinProvider {
-            provider: p.to_signal().0,
-            innerprovider: RefCell::new(None),
-            node: new_node(NodeColor::Changed),
-            res: RefCell::new(None),
-            phantom: PhantomData,
-        }),
-        PhantomData,
-    )
+pub fn join<
+    T: Clone,
+    P1: SignalProvider<Item = T> + ?Sized,
+    P2: SignalProvider<Item = Signal<P1>> + ?Sized,
+>(
+    p: Signal<P2>,
+) -> Signal<SignalJoinProvider<T, P1, P2>> {
+    Signal(Rc::new(SignalJoinProvider {
+        provider: p.0,
+        innerprovider: RefCell::new(None),
+        node: new_node(NodeColor::Changed),
+        res: RefCell::new(None),
+        phantom: PhantomData,
+    }))
 }
 
 #[derive(Debug)]
@@ -659,7 +646,8 @@ impl<T> MutableSignalProvider<T> {
     }
 }
 
-impl<T> SignalProvider<T> for MutableSignalProvider<T> {
+impl<T> SignalProvider for MutableSignalProvider<T> {
+    type Item = T;
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -690,9 +678,7 @@ impl<'a, T> Drop for SignalRefMut<'a, T> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct MutableSignal<T>(Rc<MutableSignalProvider<T>>);
-impl<T> MutableSignal<T> {
+impl<T> Signal<MutableSignalProvider<T>> {
     pub fn new(x: T) -> Self {
         Self(Rc::new(MutableSignalProvider::new(x)))
     }
@@ -728,65 +714,30 @@ impl<T> MutableSignal<T> {
         f(&mut self.0.val.borrow_mut());
         notify_change(&self.0.node);
     }
-    pub fn swap(&mut self, rhs: &mut MutableSignal<T>) {
+    pub fn swap(&mut self, rhs: &mut Self) {
         self.0.val.swap(&rhs.0.val);
     }
 }
 
-// This implementation isn't strictly necessary, but Rust has difficulty inferring the types when we manually go through the signal route
-impl<Elem> SignalMap<Elem> for MutableSignal<Elem> {
-    fn map<T>(self, f: impl Fn(&Elem) -> T) -> Signal<T, impl SignalProvider<T>> {
-        map(f, self.to_signal())
-    }
-
-    fn map_mut<T>(self, f: impl Fn(&Elem, Option<T>) -> T) -> Signal<T, impl SignalProvider<T>> {
-        map_mut(f, self.to_signal())
-    }
-}
-
-impl<T> AsSignal<T> for MutableSignal<T> {
-    type Provider = MutableSignalProvider<T>;
-
-    fn to_signal(self) -> Signal<T, Self::Provider> {
-        Signal(self.0.clone(), PhantomData)
-    }
-}
-
-impl<T> AsSignal<T> for &MutableSignal<T> {
-    type Provider = MutableSignalProvider<T>;
-
-    fn to_signal(self) -> Signal<T, Self::Provider> {
-        Signal(self.0.clone(), PhantomData)
-    }
-}
-
-impl<T> AsSignal<T> for &mut MutableSignal<T> {
-    type Provider = MutableSignalProvider<T>;
-
-    fn to_signal(self) -> Signal<T, Self::Provider> {
-        Signal(self.0.clone(), PhantomData)
-    }
-}
-
-pub type DynSignal<T> = Signal<T, dyn SignalProvider<T>>; // Removing the stuff to handle smarter const folding to write less code
+pub type DynSignal<T> = Signal<dyn SignalProvider<Item = T>>; // Removing the stuff to handle smarter const folding to write less code
+pub type AnySignal<T, P: SignalProvider<Item = T>> = (Signal<P>, PhantomData<T>);
+pub type MutableSignal<T> = Signal<MutableSignalProvider<T>>;
 
 // A mechanism for declaring that something that isn't a signal cares about checking when a signal changes
-pub struct Sampler<T, Provider: SignalProvider<T> + ?Sized> {
+pub struct Sampler<Provider: SignalProvider + ?Sized> {
     node: SignalNodeId,
     provider: Rc<Provider>,
-    phantom: PhantomData<T>,
 }
-impl<T, Provider: SignalProvider<T> + ?Sized> Sampler<T, Provider> {
-    pub fn new(signal: Signal<T, Provider>) -> Self {
+impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
+    pub fn new(signal: Signal<Provider>) -> Self {
         let node = new_node(NodeColor::Changed);
         add_dependency(signal.0.get_node(), node.clone());
         Sampler {
             node,
             provider: signal.0,
-            phantom: PhantomData,
         }
     }
-    pub fn sample(&mut self) -> Option<DynRef<'_, T>> {
+    pub fn sample(&mut self) -> Option<DynRef<'_, Provider::Item>> {
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => None,
@@ -809,7 +760,7 @@ impl<T, Provider: SignalProvider<T> + ?Sized> Sampler<T, Provider> {
     }
 
     /// This is an unconditional sample()
-    pub fn inspect(&mut self) -> DynRef<'_, T> {
+    pub fn inspect(&mut self) -> DynRef<'_, Provider::Item> {
         self.provider.update_if_necessary();
         self.provider.get_ref()
     }
@@ -835,7 +786,8 @@ struct DynamicSignalProvider<T, F: Fn() -> T> {
     val: RefCell<Option<T>>,
 }
 
-impl<T, F: Fn() -> T> SignalProvider<T> for DynamicSignalProvider<T, F> {
+impl<T, F: Fn() -> T> SignalProvider for DynamicSignalProvider<T, F> {
+    type Item = T;
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -873,16 +825,13 @@ impl<T, F: Fn() -> T> SignalProvider<T> for DynamicSignalProvider<T, F> {
     }
 }
 
-fn new_dynamic_signal<T, F: Fn() -> T>(f: F) -> Signal<T, DynamicSignalProvider<T, F>> {
-    Signal(
-        Rc::new(DynamicSignalProvider {
-            node: new_node(NodeColor::Changed),
-            lastdeps: RefCell::new(SmolSet::new()),
-            f: f,
-            val: RefCell::new(None),
-        }),
-        PhantomData,
-    )
+pub fn new_dynamic_signal<T, F: Fn() -> T>(f: F) -> Signal<DynamicSignalProvider<T, F>> {
+    Signal(Rc::new(DynamicSignalProvider {
+        node: new_node(NodeColor::Changed),
+        lastdeps: RefCell::new(SmolSet::new()),
+        f: f,
+        val: RefCell::new(None),
+    }))
 }
 
 /// This is not a general purpose get trait DO NOT USE IT AS SUCH
@@ -894,7 +843,7 @@ trait DynamicSignalGettable<T> {
     fn get(self) -> Option<T>;
 }
 
-impl<T: Clone, Provider: SignalProvider<T>> DynamicSignalGettable<T> for Signal<T, Provider> {
+impl<T: Clone, Provider: SignalProvider<Item = T>> DynamicSignalGettable<T> for Signal<Provider> {
     fn get(self) -> Option<T> {
         DYNAMIC_DEPS.with_borrow_mut(|deps| match deps {
             None => None,
@@ -912,24 +861,31 @@ impl<T: Clone, Provider: SignalProvider<T>> DynamicSignalGettable<T> for Signal<
 //TODO: UNIT TESTS
 
 //FIXME: Lifetimes needed to establish invariant that signals don't outlive the functions needed to compute them (and signals don't outlive their inputs just in case signal contents have limited lifetimes)
-pub fn zip_pair<T1: Clone, T2: Clone, R: Clone, F: Fn(T1, T2) -> R>(
-    p1: impl AsSignal<T1>,
-    p2: impl AsSignal<T2>,
+pub fn zip_pair<
+    T1: Clone,
+    T2: Clone,
+    R: Clone,
+    F: Fn(P1::Item, P2::Item) -> R,
+    P1: SignalProvider<Item = T1> + ?Sized,
+    P2: SignalProvider<Item = T2> + ?Sized,
+>(
+    p1: Signal<P1>,
+    p2: Signal<P2>,
     f: F,
-) -> Signal<R, impl SignalProvider<R>> {
+) -> Signal<impl SignalProvider<Item = R>> {
     map(
-        move |arg: &(T1, T2)| f(arg.0.clone(), arg.1.clone()),
+        move |arg: &(P1::Item, P2::Item)| f(arg.0.clone(), arg.1.clone()),
         zip(p1, p2),
     )
 }
 
-pub fn sample<T, P: SignalProvider<T> + ?Sized>(signal: &Signal<T, P>) -> DynRef<'_, T> {
+pub fn sample<T, P: SignalProvider<Item = T> + ?Sized>(signal: &Signal<P>) -> DynRef<'_, T> {
     signal.0.update_if_necessary();
     signal.0.get_ref()
 }
 
-pub fn sample_val<T: Clone>(signal: impl AsSignal<T>) -> T {
-    let p = signal.to_signal();
+pub fn sample_val<T: Clone, P: SignalProvider<Item = T> + ?Sized>(signal: Signal<P>) -> T {
+    let p = signal;
     p.0.update_if_necessary();
     p.0.get_ref().clone()
 }
@@ -972,8 +928,8 @@ pub trait Animator<T> {
 pub struct AnimProvider<
     T: Clone,
     Anim: Animator<T>,
-    Source: SignalProvider<T> + ?Sized,
-    Time: SignalProvider<Microseconds>,
+    Source: SignalProvider<Item = T> + ?Sized,
+    Time: SignalProvider<Item = Microseconds>,
 > {
     node: SignalNodeId,
     val: RefCell<Option<Anim::Output>>,
@@ -995,10 +951,11 @@ impl Microseconds {
 impl<
     T: Clone,
     Anim: Animator<T>,
-    Source: SignalProvider<T> + ?Sized,
-    Time: SignalProvider<Microseconds>,
-> SignalProvider<Anim::Output> for AnimProvider<T, Anim, Source, Time>
+    Source: SignalProvider<Item = T> + ?Sized,
+    Time: SignalProvider<Item = Microseconds>,
+> SignalProvider for AnimProvider<T, Anim, Source, Time>
 {
+    type Item = Anim::Output;
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -1145,28 +1102,25 @@ impl<
 
 pub fn animate<
     T: Clone,
-    S: AsSignal<T>,
+    S: SignalProvider<Item = T> + ?Sized,
     Anim: Animator<T>,
-    Time: SignalProvider<Microseconds> + Sized,
+    Time: SignalProvider<Item = Microseconds> + Sized,
 >(
-    p: S,
+    p: Signal<S>,
     anim: Anim,
-    time: Signal<Microseconds, Time>,
-) -> Signal<Anim::Output, AnimProvider<T, Anim, S::Provider, Time>> {
+    time: Signal<Time>,
+) -> Signal<AnimProvider<T, Anim, S, Time>> {
     let node = new_node(NodeColor::Changed);
-    let input = p.to_signal().0;
+    let input = p.0;
     add_dependency(input.get_node(), node.clone());
-    Signal(
-        Rc::new(AnimProvider {
-            node,
-            val: RefCell::new(None),
-            state: RefCell::new(None),
-            anim: anim,
-            time: time.0,
-            input,
-        }),
-        PhantomData,
-    )
+    Signal(Rc::new(AnimProvider {
+        node,
+        val: RefCell::new(None),
+        state: RefCell::new(None),
+        anim: anim,
+        time: time.0,
+        input,
+    }))
 }
 
 /// Trait describing any binary operation
@@ -1261,28 +1215,29 @@ impl<T: Ord> SignalOp<T, T, T> for MaxOp {
 }
 
 pub struct SignalOpProvider<
-    T1: Clone,
-    T2: Clone,
+    P1: SignalProvider + ?Sized,
+    P2: SignalProvider + ?Sized,
     Output,
-    OP: SignalOp<T1, T2, Output>,
-    P1: SignalProvider<T1> + ?Sized,
-    P2: SignalProvider<T2> + ?Sized,
+    OP: SignalOp<P1::Item, P2::Item, Output>,
 > {
     provider1: Rc<P1>,
     provider2: Rc<P2>,
     res: RefCell<Option<Output>>,
     node: SignalNodeId,
-    phantom: PhantomData<(T1, T2, OP)>,
+    phantom: PhantomData<(P1::Item, P2::Item, OP)>,
 }
+
 impl<
-    T1: Clone,
-    T2: Clone,
     Output,
-    OP: SignalOp<T1, T2, Output>,
-    P1: SignalProvider<T1> + ?Sized,
-    P2: SignalProvider<T2> + ?Sized,
-> SignalProvider<Output> for SignalOpProvider<T1, T2, Output, OP, P1, P2>
+    P1: SignalProvider + ?Sized,
+    P2: SignalProvider + ?Sized,
+    OP: SignalOp<P1::Item, P2::Item, Output>,
+> SignalProvider for SignalOpProvider<P1, P2, Output, OP>
+where
+    P1::Item: Clone,
+    P2::Item: Clone,
 {
+    type Item = Output;
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -1319,44 +1274,46 @@ impl<
 }
 
 fn operate<
-    T1: Clone,
-    T2: Clone,
+    P1: SignalProvider + ?Sized,
+    P2: SignalProvider + ?Sized,
     Output,
-    OP: SignalOp<T1, T2, Output>,
-    P1: AsSignal<T1>,
-    P2: AsSignal<T2>,
+    OP: SignalOp<P1::Item, P2::Item, Output>,
 >(
-    lhs: P1,
-    rhs: P2,
-) -> Signal<Output, SignalOpProvider<T1, T2, Output, OP, P1::Provider, P2::Provider>> {
+    lhs: Signal<P1>,
+    rhs: Signal<P2>,
+) -> Signal<SignalOpProvider<P1, P2, Output, OP>>
+where
+    P1::Item: Clone,
+    P2::Item: Clone,
+{
     let node = new_node(NodeColor::Changed);
-    let provider1 = lhs.to_signal().0;
-    let provider2 = rhs.to_signal().0;
+    let provider1 = lhs.0;
+    let provider2 = rhs.0;
     add_dependency(provider1.get_node(), node.clone());
     add_dependency(provider2.get_node(), node.clone());
-    Signal(
-        Rc::new(SignalOpProvider {
-            provider1,
-            provider2,
-            res: RefCell::new(None),
-            node,
-            phantom: PhantomData,
-        }),
-        PhantomData,
-    )
+    Signal(Rc::new(SignalOpProvider {
+        provider1,
+        provider2,
+        res: RefCell::new(None),
+        node,
+        phantom: PhantomData,
+    }))
 }
 
 macro_rules! gen_binop_impl {
     ($t:tt, $marker:path, $op:tt) => {
-        impl<A: Clone, B: Clone, AP: SignalProvider<A> + ?Sized, BP: SignalProvider<B> + ?Sized>
-            std::ops::$t<Signal<B, BP>> for Signal<A, AP>
+        impl<AP: SignalProvider + ?Sized, BP: SignalProvider + ?Sized> std::ops::$t<Signal<BP>>
+            for Signal<AP>
         where
-            A: std::ops::$t<B>,
-            A::Output: Clone,
+            AP::Item: std::ops::$t<BP::Item> + Clone,
+            BP::Item: Clone,
+            <AP::Item as std::ops::$t<BP::Item>>::Output: Clone,
         {
-            type Output = Signal<A::Output, SignalOpProvider<A, B, A::Output, $marker, AP, BP>>;
+            type Output = Signal<
+                SignalOpProvider<AP, BP, <AP::Item as std::ops::$t<BP::Item>>::Output, $marker>,
+            >;
 
-            fn $op(self, rhs: Signal<B, BP>) -> Self::Output {
+            fn $op(self, rhs: Signal<BP>) -> Self::Output {
                 operate(self, rhs)
             }
         }
@@ -1376,32 +1333,30 @@ gen_binop_impl!(Shr, ShrOp, shr);
 
 macro_rules! gen_cmpop_impl {
     ($t:ident, $marker:path) => {
-        pub fn $t<
-            T1: Clone + PartialOrd<T2>,
-            T2: Clone,
-            AP: SignalProvider<T1> + ?Sized,
-            BP: SignalProvider<T2> + ?Sized,
-        >(
-            a: Signal<T1, AP>,
-            b: Signal<T2, BP>,
-        ) -> Signal<bool, impl SignalProvider<bool>> {
-            operate::<T1, T2, bool, $marker, _, _>(a, b)
+        pub fn $t<AP: SignalProvider + ?Sized, BP: SignalProvider + ?Sized>(
+            a: Signal<AP>,
+            b: Signal<BP>,
+        ) -> Signal<impl SignalProvider<Item = bool>>
+        where
+            AP::Item: Clone + PartialOrd<BP::Item>,
+            BP::Item: Clone,
+        {
+            operate::<AP, BP, bool, $marker>(a, b)
         }
     };
 }
 pub mod cmp {
     use super::{Signal, SignalProvider, marker::*, operate};
 
-    pub fn eq<
-        T1: Clone + PartialEq<T2>,
-        T2: Clone,
-        AP: SignalProvider<T1> + ?Sized,
-        BP: SignalProvider<T2> + ?Sized,
-    >(
-        a: Signal<T1, AP>,
-        b: Signal<T2, BP>,
-    ) -> Signal<bool, impl SignalProvider<bool>> {
-        operate::<T1, T2, bool, EqOp, _, _>(a, b)
+    pub fn eq<AP: SignalProvider + ?Sized, BP: SignalProvider + ?Sized>(
+        a: Signal<AP>,
+        b: Signal<BP>,
+    ) -> Signal<impl SignalProvider<Item = bool>>
+    where
+        AP::Item: Clone + PartialOrd<BP::Item>,
+        BP::Item: Clone,
+    {
+        operate::<AP, BP, bool, EqOp>(a, b)
     }
 
     gen_cmpop_impl!(le, LeOp);
@@ -1409,38 +1364,43 @@ pub mod cmp {
     gen_cmpop_impl!(ge, GeOp);
     gen_cmpop_impl!(gt, GtOp);
 
-    pub fn min<T: Clone + Ord, AP: SignalProvider<T> + ?Sized>(
-        a: Signal<T, AP>,
-        b: Signal<T, AP>,
-    ) -> Signal<T, impl SignalProvider<T>> {
-        operate::<T, T, T, MinOp, _, _>(a, b)
+    pub fn min<AP: SignalProvider + ?Sized>(
+        a: Signal<AP>,
+        b: Signal<AP>,
+    ) -> Signal<impl SignalProvider<Item = AP::Item>>
+    where
+        AP::Item: Clone + Ord,
+    {
+        operate::<AP, AP, AP::Item, MinOp>(a, b)
     }
 
-    pub fn max<T: Clone + Ord, AP: SignalProvider<T> + ?Sized>(
-        a: Signal<T, AP>,
-        b: Signal<T, AP>,
-    ) -> Signal<T, impl SignalProvider<T>> {
-        operate::<T, T, T, MaxOp, _, _>(a, b)
+    pub fn max<AP: SignalProvider + ?Sized>(
+        a: Signal<AP>,
+        b: Signal<AP>,
+    ) -> Signal<impl SignalProvider<Item = AP::Item>>
+    where
+        AP::Item: Clone + Ord,
+    {
+        operate::<AP, AP, AP::Item, MaxOp>(a, b)
     }
 
-    pub fn partial_cmp<
-        T1: Clone + PartialOrd<T2>,
-        T2: Clone,
-        AP: SignalProvider<T1> + ?Sized,
-        BP: SignalProvider<T2> + ?Sized,
-    >(
-        a: Signal<T1, AP>,
-        b: Signal<T2, BP>,
-    ) -> Signal<Option<std::cmp::Ordering>, impl SignalProvider<Option<std::cmp::Ordering>>> {
-        operate::<T1, T2, Option<std::cmp::Ordering>, OrdOp, _, _>(a, b)
+    pub fn partial_cmp<AP: SignalProvider + ?Sized, BP: SignalProvider + ?Sized>(
+        a: Signal<AP>,
+        b: Signal<BP>,
+    ) -> Signal<impl SignalProvider<Item = Option<std::cmp::Ordering>>>
+    where
+        AP::Item: Clone + PartialOrd<BP::Item>,
+        BP::Item: Clone,
+    {
+        operate::<AP, BP, Option<std::cmp::Ordering>, OrdOp>(a, b)
     }
 }
 
-pub fn cond<T: Clone, CP: SignalProvider<bool> + ?Sized>(
-    c: Signal<bool, CP>,
+pub fn cond<T: Clone>(
+    c: Signal<impl SignalProvider<Item = bool> + ?Sized>,
     a: DynSignal<T>,
     b: DynSignal<T>,
-) -> Signal<T, impl SignalProvider<T>> {
+) -> Signal<impl SignalProvider<Item = T>> {
     join(c.map(move |cc| if *cc { a.clone() } else { b.clone() }))
 }
 
@@ -1459,7 +1419,7 @@ pub struct SignalVecMapProvider<
     Key: Eq + Hash,
     F: Fn(&T1) -> T2,
     Ex: Fn(&T1) -> Key,
-    P: SignalProvider<GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized,
+    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
 > {
@@ -1477,12 +1437,12 @@ impl<
     Key: Eq + Hash + 'static,
     F: (Fn(&T1) -> T2) + 'static,
     Ex: (Fn(&T1) -> Key) + 'static,
-    P: SignalProvider<GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
+    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
-> SignalProvider<GenericVector<T2, Ptr, CHUNK_SIZE>>
-    for SignalVecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
+> SignalProvider for SignalVecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
 {
+    type Item = GenericVector<T2, Ptr, CHUNK_SIZE>;
     fn get_node(&self) -> &SignalNodeId {
         assert_static::<Self>();
         &self.node
@@ -1519,32 +1479,23 @@ pub fn map_vec<
     Key: Eq + Hash + 'static,
     F: (Fn(&T1) -> T2) + 'static,
     Ex: (Fn(&T1) -> Key) + 'static,
-    P: AsSignal<GenericVector<T1, Ptr, CHUNK_SIZE>>,
+    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
 >(
     f: F,
     ex: Ex,
-    p: P,
-) -> Signal<
-    GenericVector<T2, Ptr, CHUNK_SIZE>,
-    SignalVecMapProvider<T1, T2, Key, F, Ex, P::Provider, Ptr, CHUNK_SIZE>,
->
-where
-    <P as AsSignal<GenericVector<T1, Ptr, CHUNK_SIZE>>>::Provider: 'static,
-{
+    p: Signal<P>,
+) -> Signal<SignalVecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>> {
     let node = new_node(NodeColor::Changed);
-    let provider = p.to_signal().0;
+    let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
-    Signal(
-        Rc::new(SignalVecMapProvider {
-            provider,
-            map: RefCell::new(imbl::vector::PersistentMap::new(f, ex)),
-            res: Default::default(),
-            node,
-        }),
-        PhantomData,
-    )
+    Signal(Rc::new(SignalVecMapProvider {
+        provider,
+        map: RefCell::new(imbl::vector::PersistentMap::new(f, ex)),
+        res: Default::default(),
+        node,
+    }))
 }
 
 #[test]
@@ -1573,7 +1524,7 @@ fn test_reactive_map_vec() {
 pub struct SignalVecFoldProvider<
     T,
     F: FnMut(T, T) -> T,
-    P: SignalProvider<GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
+    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
 > {
@@ -1586,11 +1537,12 @@ pub struct SignalVecFoldProvider<
 impl<
     T: Clone,
     F: FnMut(T, T) -> T,
-    P: SignalProvider<GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
+    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
-> SignalProvider<T> for SignalVecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
+> SignalProvider for SignalVecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
 {
+    type Item = T;
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -1623,24 +1575,21 @@ impl<
 pub fn fold_vec<
     T: Clone,
     F: FnMut(T, T) -> T,
-    P: AsSignal<GenericVector<T, Ptr, CHUNK_SIZE>>,
+    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
 >(
     f: F,
-    p: P,
+    p: Signal<P>,
     z: T,
-) -> Signal<T, SignalVecFoldProvider<T, F, P::Provider, Ptr, CHUNK_SIZE>> {
+) -> Signal<SignalVecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>> {
     let node = new_node(NodeColor::Changed);
-    let provider = p.to_signal().0;
+    let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
-    Signal(
-        Rc::new(SignalVecFoldProvider {
-            provider,
-            fold: RefCell::new(imbl::vector::PersistentFold::new(f, z.clone())),
-            res: RefCell::new(z),
-            node,
-        }),
-        PhantomData,
-    )
+    Signal(Rc::new(SignalVecFoldProvider {
+        provider,
+        fold: RefCell::new(imbl::vector::PersistentFold::new(f, z.clone())),
+        res: RefCell::new(z),
+        node,
+    }))
 }

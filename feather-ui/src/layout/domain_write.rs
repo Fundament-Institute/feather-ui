@@ -3,7 +3,11 @@
 
 use super::base::{Empty, RLimits};
 use super::{Concrete, Desc, Layout, Renderable, Staged};
-use crate::{CrossReferenceDomain, SourceID, render, rtree};
+use crate::component::ComponentMarker;
+use crate::layout::DynLayout;
+use crate::reactive::SignalMap;
+use crate::reactive::{self, DynSignal, SignalTupleZip, zip_pair};
+use crate::{CrossReferenceDomain, PxLimits, RelDim, render, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -12,13 +16,19 @@ use std::sync::Arc;
 // cross-reference domain
 pub trait Prop {
     fn domain(&self) -> Arc<CrossReferenceDomain>;
+    fn id(&self) -> std::sync::Weak<dyn ComponentMarker + Send + Sync>;
 }
 
-crate::gen_from_to_dyn!(Prop);
+impl ComponentMarker for CrossReferenceDomain {}
+
+crate::gen_dyn_prop!(Prop);
 
 impl Prop for Arc<CrossReferenceDomain> {
     fn domain(&self) -> Arc<CrossReferenceDomain> {
         self.clone()
+    }
+    fn id(&self) -> std::sync::Weak<dyn ComponentMarker + Send + Sync> {
+        std::sync::Arc::<CrossReferenceDomain>::downgrade(self)
     }
 }
 
@@ -29,37 +39,46 @@ impl super::fixed::Child for Arc<CrossReferenceDomain> {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
-    type Children = PhantomData<dyn Layout<Self::Child>>;
+    type Children = PhantomData<dyn DynLayout<Self::Child>>;
 
     fn stage<'a>(
         props: &Self::Props,
-        mut outer_area: crate::PxRect,
-        outer_limits: crate::PxLimits,
-        _: &Self::Children,
-        id: std::sync::Weak<SourceID>,
+        predim: DynSignal<crate::UnsizedDim>,
+        prelimits: DynSignal<PxLimits>,
+        _: DynSignal<Self::Children>,
         renderable: Option<Rc<dyn Renderable>>,
-        window: &mut crate::component::window::WindowState,
-    ) -> Box<dyn Staged + 'a> {
-        outer_area = super::zero_unsized(outer_area);
-        outer_area = super::limit_area(outer_area, outer_limits);
-
-        debug_assert!(outer_area.v.is_finite().all());
-        Box::new(Concrete {
-            area: outer_area,
-            renderable: Some(Rc::new(render::domain::Write {
-                id: id.clone(),
-                domain: props.domain().clone(),
-                base: renderable,
-            })),
-            rtree: rtree::Node::new(
-                outer_area.to_untyped(),
-                None,
-                Default::default(),
-                id,
-                window,
-            ),
-            children: Default::default(),
-            layer: None,
+        _: reactive::MutableSignal<RelDim>,
+    ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
+        let area = zip_pair(predim, prelimits, move |dim, limits| {
+            crate::PxRect::from(super::limit_dim_sized(super::zero_unsized(dim), limits))
         })
+        .into();
+
+        let id = props.id();
+        let domain = props.domain();
+        (
+            area,
+            Box::new(move |offset, final_dim, final_limits| {
+                let final_area = (offset, final_dim, final_limits)
+                    .zip::<(crate::PxPoint, crate::PxDim, crate::PxLimits)>()
+                    .map(|(o, dim, limits)| {
+                        crate::Rect::offsetdim(*o, super::limit_dim_sized(*dim, *limits))
+                    })
+                    .into_dyn_signal();
+
+                crate::rtree::Node::new(
+                    final_area,
+                    None,
+                    None,
+                    Some(Box::new(crate::layout::Concrete::new(Some(Rc::new(
+                        render::domain::Write {
+                            id: id.clone(),
+                            domain: domain.clone(),
+                            base: renderable.as_ref().map(|x| x.clone()),
+                        },
+                    ))))),
+                )
+            }),
+        )
     }
 }

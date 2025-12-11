@@ -37,16 +37,16 @@ mod shaders;
 pub mod text;
 pub mod util;
 
+use crate::component::ComponentMarker;
 use crate::component::window::{Window, WindowState};
 use crate::graphics::Driver;
 use crate::reactive::{
-    AsSignal, DynSignal, Identity, MutableSignalProvider, Sampler, const_signal, empty_signal,
-    map_vec, sample,
+    DynSignal, Identity, MutableSignalProvider, Sampler, const_signal, empty_signal, map_vec,
+    sample,
 };
 use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
 use bytemuck::NoUninit;
-use component::StateMachineWrapper;
 use core::f32;
 use dyn_clone::DynClone;
 use eyre::OptionExt;
@@ -1687,22 +1687,22 @@ pub enum RowDirection {
 // source ID.
 #[derive(Default)]
 pub struct CrossReferenceDomain {
-    mappings: RwLock<imbl::HashMap<Arc<SourceID>, PxRect>>,
+    mappings: RwLock<imbl::HashMap<Identity<Arc<dyn ComponentMarker + Send + Sync>>, PxRect>>,
 }
 
 impl CrossReferenceDomain {
-    pub fn write_area(&self, target: Arc<SourceID>, area: PxRect) {
-        self.mappings.write().insert(target, area);
+    pub fn write_area(&self, target: Arc<dyn ComponentMarker + Send + Sync>, area: PxRect) {
+        self.mappings.write().insert(Identity(target), area);
     }
 
-    pub fn get_area(&self, target: &Arc<SourceID>) -> Option<PxRect> {
-        self.mappings.read().get(target).copied()
+    pub fn get_area(&self, target: Arc<dyn ComponentMarker + Send + Sync>) -> Option<PxRect> {
+        self.mappings.read().get(&Identity(target)).copied()
     }
 
-    pub fn remove_self(&self, target: &Arc<SourceID>) {
+    pub fn remove_self(&self, target: Arc<dyn ComponentMarker + Send + Sync>) {
         // TODO: Is this necessary? Does it even make sense? Do you simply need to wipe
         // the mapping for every new layout instead?
-        self.mappings.write().remove(target);
+        self.mappings.write().remove(&Identity(target));
     }
 }
 
@@ -1724,519 +1724,6 @@ impl<H: Hash + PartialEq + std::cmp::Eq + Clone + std::fmt::Debug + Any> DynHash
         } else {
             false
         }
-    }
-}
-
-/// Represents different kinds of IDs that can be used to populate a
-/// [`SourceID`]. Provides both static strings and owned strings, plus a way to
-/// create your own ID using a dynamic hash object.
-///
-/// Might be [replaced in the future](https://github.com/Fundament-Institute/feather-ui/issues/156) with pointer-based IDs instead.
-#[derive(Clone, Default, Debug)]
-pub enum DataID {
-    Named(&'static str),
-    Owned(String),
-    Int(i64),
-    Other(Box<dyn DynHashEq + Sync + Send>),
-    #[default]
-    None, // Marks an invalid default ID, crashes if you ever try to actually use it.
-}
-
-impl Hash for DataID {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            DataID::Named(s) => s.hash(state),
-            DataID::Owned(s) => s.hash(state),
-            DataID::Int(i) => i.hash(state),
-            DataID::Other(hash_comparable) => hash_comparable.dyn_hash(state),
-            DataID::None => {
-                panic!("Invalid ID! Did you forget to initialize a component node's ID field?")
-            }
-        }
-    }
-}
-
-impl std::cmp::Eq for DataID {}
-impl PartialEq for DataID {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            DataID::Named(s) => {
-                if let DataID::Named(name) = other {
-                    name == s
-                } else {
-                    false
-                }
-            }
-            DataID::Owned(s) => {
-                if let DataID::Owned(name) = other {
-                    name == s
-                } else {
-                    false
-                }
-            }
-            DataID::Int(i) => {
-                if let DataID::Int(integer) = other {
-                    integer == i
-                } else {
-                    false
-                }
-            }
-            DataID::Other(hash_comparable) => {
-                if let DataID::Other(h) = other {
-                    hash_comparable.dyn_eq(h)
-                } else {
-                    false
-                }
-            }
-            DataID::None => panic!("Invalid ID!"),
-        }
-    }
-}
-
-/// Represents a unique ID out of a linked list of [`DataID`]. Taken together,
-/// all the IDs in a program form a tree that doesn't just ensure uniqueness,
-/// but also allows tracking the structure of the data being used and how each
-/// piece of data depends on another piece of data. As a result, the tree
-/// structure of IDs generally diverges from the component tree of the actual
-/// UI, and may or may not actually resemble the storage structure of the data.
-#[derive(Clone, Default, Debug)]
-pub struct SourceID {
-    parent: Option<std::sync::Arc<SourceID>>,
-    id: DataID,
-}
-
-impl SourceID {
-    /// Creates a new [`SourceID`] out of the given [`DataID`], with ourselves
-    /// as its parent
-    pub fn child(self: &Arc<Self>, id: DataID) -> Arc<Self> {
-        Self {
-            parent: self.clone().into(),
-            id,
-        }
-        .into()
-    }
-
-    /// Creates a new, unique duplicate ID using this as the parent and the
-    /// strong count of this Rc as the child [`DataID`]. This is used to
-    /// enable cloning certain components, like [`component::shape::Shape`],
-    /// while automatically generating a new unique ID for the cloned
-    /// component.
-    pub fn duplicate(self: &Arc<Self>) -> Arc<Self> {
-        self.child(DataID::Int(Arc::strong_count(self) as i64))
-    }
-
-    #[allow(dead_code)] // TODO: not sure if we'll need this later
-    #[cfg(debug_assertions)]
-    #[allow(clippy::mutable_key_type)]
-    pub(crate) fn parents(self: &Arc<Self>) -> std::collections::HashSet<&Arc<Self>> {
-        let mut set = std::collections::HashSet::new();
-
-        let mut cur = self.parent.as_ref();
-        while let Some(id) = cur {
-            if set.contains(id) {
-                panic!("Loop detected in IDs! {:?} already existed!", id.id);
-            }
-            set.insert(id);
-            cur = id.parent.as_ref();
-        }
-        set
-    }
-}
-impl std::cmp::Eq for SourceID {}
-impl PartialEq for SourceID {
-    fn eq(&self, other: &Self) -> bool {
-        if let Some(parent) = self.parent.as_ref() {
-            if let Some(pother) = other.parent.as_ref() {
-                parent == pother && self.id == other.id
-            } else {
-                false
-            }
-        } else {
-            other.parent.is_none() && self.id == other.id
-        }
-    }
-}
-impl Hash for SourceID {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Some(parent) = self.parent.as_ref() {
-            parent.id.hash(state);
-        }
-        self.id.hash(state);
-    }
-}
-impl Display for SourceID {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(parent) = self.parent.as_ref() {
-            parent.fmt(f)?;
-        }
-
-        match (&self.id, self.parent.is_some()) {
-            (DataID::Named(_), true) | (DataID::Owned(_), true) => f.write_str(" -> "),
-            (DataID::Other(_), true) => f.write_str(" "),
-            _ => Ok(()),
-        }?;
-
-        match &self.id {
-            DataID::Named(s) => f.write_str(s),
-            DataID::Owned(s) => f.write_str(s),
-            DataID::Int(i) => write!(f, "[{i}]"),
-            DataID::Other(dyn_hash_eq) => {
-                let mut h = std::hash::DefaultHasher::new();
-                dyn_hash_eq.dyn_hash(&mut h);
-                write!(f, "{{{}}}", h.finish())
-            }
-            DataID::None => Ok(()),
-        }
-    }
-}
-
-pub struct ScopeIterID<'a, T> {
-    base: ScopeID<'a>,
-    it: T,
-}
-
-impl<'a, T: Iterator> ScopeIterID<'a, T> {
-    fn new(parent: &'a mut ScopeID<'_>, it: T) -> Self {
-        Self {
-            base: parent.scope(),
-            it,
-        }
-    }
-}
-
-impl<T> Iterator for ScopeIterID<'_, T>
-where
-    T: Iterator,
-{
-    type Item = (T::Item, Arc<SourceID>);
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        let x = self.it.next()?;
-        let id = self.base.create();
-        Some((x, id))
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.it.size_hint()
-    }
-
-    #[inline]
-    fn nth(&mut self, mut n: usize) -> Option<Self::Item> {
-        while let Some(x) = Iterator::next(self) {
-            if n == 0 {
-                return Some(x);
-            }
-            n -= 1;
-        }
-        None
-    }
-
-    #[inline]
-    fn fold<Acc, F>(mut self, init: Acc, mut f: F) -> Acc
-    where
-        F: FnMut(Acc, Self::Item) -> Acc,
-    {
-        let mut accum = init;
-        while let Some(x) = Iterator::next(&mut self) {
-            accum = f(accum, x);
-        }
-        accum
-    }
-}
-
-/// Represents a scope with a particular ID assigned to it. Used to generate new
-/// IDs for anything created inside this scope, with this scope's ID as parents,
-/// or to generate a new [`ScopeID`] with this scope as its parent. Includes
-/// [`ScopeID::iter`] and [`ScopeID::cond`] to make it easier to generate stable
-/// IDs across control flow boundaries. It can be used in conjunction with
-/// [`gen_id`] to generate child IDs with source and line numbers.
-///
-/// # Examples
-/// ```
-/// use feather_ui::layout::fixed;
-/// use feather_ui::component::{shape, region::Region};
-/// use feather_ui::{ScopeID, gen_id, DRect, DAbsPoint, color::sRGB, FILL_DRECT, children };
-///
-/// fn foobar(mut id: ScopeID<'_>) {
-///
-/// let rect = shape::round_rect::<DRect>(
-///     gen_id!(id),
-///     FILL_DRECT,
-///     0.0,
-///     0.0,
-///     wide::f32x4::splat(10.0),
-///     sRGB::new(0.2, 0.7, 0.4, 1.0),
-///     sRGB::transparent(),
-///     DAbsPoint::zero(),
-/// );
-///
-/// let region = Region::<DRect>::new(
-///     id.create(),
-///     FILL_DRECT,
-///     children![fixed::Prop, rect],
-/// );
-/// }
-/// ```
-pub struct ScopeID<'a> {
-    // This is only used to force a mutable borrow of the parent, which ensures you cannot fork ID
-    // scopes
-    _parent: PhantomData<&'a mut ()>,
-    base: Arc<SourceID>,
-    count: i64,
-}
-
-impl<'a> ScopeID<'a> {
-    /// Gets the underlying ID for this scope. This is sometimes useful when
-    /// creating custom scopes that belong to a specific component.
-    pub fn id(&mut self) -> &Arc<SourceID> {
-        &self.base
-    }
-
-    /// Creates a new unique [`SourceID`] using an internal counter with this
-    /// scope as it's parent.
-    ///
-    /// # Examples
-    /// ```
-    /// use feather_ui::component::shape;
-    /// use feather_ui::{ScopeID, DRect, DAbsPoint, color::sRGB, FILL_DRECT };
-    ///
-    /// fn foobar(mut id: ScopeID<'_>) {
-    /// let rect = shape::round_rect::<DRect>(
-    ///     id.create(),
-    ///     FILL_DRECT,
-    ///     0.0,
-    ///     0.0,
-    ///     wide::f32x4::splat(10.0),
-    ///     sRGB::new(0.2, 0.7, 0.4, 1.0),
-    ///     sRGB::transparent(),
-    ///     DAbsPoint::zero(),
-    /// );
-    /// }
-    /// ```
-    pub fn create(&mut self) -> Arc<SourceID> {
-        let node = self.base.child(crate::DataID::Int(self.count));
-        self.count += 1;
-        node
-    }
-
-    /// Creates a new scoped ID with this scope as it's parent that can then be
-    /// passed into a function.
-    pub fn scope(&mut self) -> ScopeID<'_> {
-        ScopeID {
-            base: self.create(),
-            _parent: PhantomData,
-            count: 0,
-        }
-    }
-
-    /// Creates a new unique SourceID using the provided DataID, which bypasses
-    /// the internal counter. This can be used to either manually create a
-    /// new SourceID from a custom DataID by the user, or by calling
-    /// [`gen_id`], which calls this function internally.
-    pub fn child(&mut self, id: DataID) -> Arc<SourceID> {
-        self.base.child(id)
-    }
-
-    /// Wraps another iterator and returns a pair of both a unique ID and the
-    /// result of the iterator. Required for outline functions that use a
-    /// for loop when iterating through data.  
-    /// # Examples
-    /// ```
-    /// use feather_ui::component::shape;
-    /// use feather_ui::{ScopeID, DRect, DAbsPoint, color::sRGB, FILL_DRECT };
-    ///
-    /// fn foobar(count: usize, mut scope: ScopeID<'_>) {
-    /// for (i, id) in scope.iter(0..count) {
-    ///     let _ = shape::round_rect::<DRect>(
-    ///         id,
-    ///         FILL_DRECT,
-    ///         i as f32,
-    ///         0.0,
-    ///         wide::f32x4::splat(4.0),
-    ///         sRGB::transparent(),
-    ///         sRGB::transparent(),
-    ///         DAbsPoint::zero(),
-    ///     );
-    /// }
-    /// }
-    /// ```
-    pub fn iter<U: IntoIterator>(&mut self, other: U) -> ScopeIterID<'_, U::IntoIter> {
-        ScopeIterID::new(self, other.into_iter())
-    }
-
-    /// Wraps the true and false branches of a condition, ensuring the IDs for
-    /// both are maintained separately regardless of which branch is picked.
-    ///
-    /// # Examples
-    /// ```
-    /// use feather_ui::component::{shape, DynComponent, text::Text};
-    /// use feather_ui::{ScopeID, DRect, DAbsPoint, color::sRGB, FILL_DRECT };
-    /// fn foobar(cond: bool, mut scope: ScopeID<'_>) {
-    /// let _ = scope.cond::<Box<dyn DynComponent<dyn feather_ui::layout::base::Empty>>>(
-    ///     cond,
-    ///     |mut id: ScopeID<'_>| Box::new(shape::round_rect::<DRect>(
-    ///         id.create(),
-    ///         FILL_DRECT,
-    ///         0.0,
-    ///         0.0,
-    ///         wide::f32x4::splat(4.0),
-    ///         sRGB::transparent(),
-    ///         sRGB::transparent(),
-    ///         DAbsPoint::zero(),
-    ///     )),
-    ///     |mut id: ScopeID<'_>| {
-    ///         Box::new(Text::<DRect> {
-    ///             id: id.create(),
-    ///             props: FILL_DRECT.into(),
-    ///             text: "Foobar".to_string(),
-    ///             font_size: 40.0,
-    ///             line_height: 56.0,
-    ///             ..Default::default()
-    ///         })
-    ///     });
-    /// }
-    /// ```
-    pub fn cond<R>(
-        &mut self,
-        condition: bool,
-        tvalue: impl FnOnce(ScopeID<'_>) -> R,
-        fvalue: impl FnOnce(ScopeID<'_>) -> R,
-    ) -> R {
-        let (id_true, id_false) = (self.create(), self.create());
-
-        if condition {
-            tvalue(ScopeID {
-                base: id_true,
-                _parent: PhantomData,
-                count: 0,
-            })
-        } else {
-            fvalue(ScopeID {
-                base: id_false,
-                _parent: PhantomData,
-                count: 0,
-            })
-        }
-    }
-
-    // Used internally to generate the root scope encapsulating the hardcoded
-    // [`APP_SOURCE_ID`]
-    fn root() -> ScopeID<'a> {
-        ScopeID {
-            _parent: PhantomData,
-            base: Arc::new(APP_SOURCE_ID),
-            count: 0,
-        }
-    }
-}
-
-/// This replaces [`Result`] and allows event handlers to consume an event with
-/// [`InputResult::Consume`] (preventing any further processing), forward an
-/// event with [`InputResult::Forward`] (allow other components to process the
-/// event), or return an error.
-pub enum InputResult<T> {
-    Consume(T),
-    Forward(T),
-    Error(eyre::ErrReport),
-}
-
-impl<T, E: std::error::Error + Send + Sync + 'static> From<Result<T, E>> for InputResult<T> {
-    fn from(value: Result<T, E>) -> Self {
-        match value {
-            Ok(v) => InputResult::Consume(v),
-            Err(e) => InputResult::Error(e.into()),
-        }
-    }
-}
-
-impl<T> InputResult<T> {
-    /// Maps the [`InputResult`] inner value to a different type, just like
-    /// [`Result::map`].
-    fn map<U>(self, f: impl FnOnce(T) -> U) -> InputResult<U> {
-        match self {
-            InputResult::Consume(v) => InputResult::Consume(f(v)),
-            InputResult::Forward(v) => InputResult::Forward(f(v)),
-            InputResult::Error(error) => InputResult::Error(error),
-        }
-    }
-
-    fn is_accept(&self) -> bool {
-        matches!(*self, InputResult::Consume(_))
-    }
-    fn is_reject(&self) -> bool {
-        matches!(*self, InputResult::Forward(_))
-    }
-    fn is_err(&self) -> bool {
-        matches!(*self, InputResult::Error(_))
-    }
-}
-
-#[derive(Clone)]
-pub struct Slot(pub Arc<SourceID>, pub u64);
-
-/// Represents a wrapped lambda that can act as an top-level event handler using
-/// the AppState.
-pub type AppEvent<State> = Box<dyn FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>>;
-
-/// This trait is used to wrap rust lambdas into [`AppEvent<AppData>`] objects
-/// that can be boxed for use in [`App::new`]. These lambdas must always take
-/// the form of `|evt: AnEventEnum, state: AccessCell<AppData>| ->
-/// InputResult<()> {}` After implorting this extension trait, you will be able
-/// to call [`WrapEventEx::wrap`] on a qualifying lambda.
-///
-/// # Examples
-/// ```
-/// use feather_ui::component::{ mouse_area, window::Window };
-/// use feather_ui::persist::{ FnPersist2, FnPersistStore };
-/// use feather_ui::{ SourceID, ScopeID, App, AccessCell };
-/// use std::sync::Arc;
-///
-/// #[derive(Clone, PartialEq)]
-/// struct MyState {
-///   count: i32
-/// }
-///
-/// // Remember to use the extension trait here so you can call `.wrap()` on a qualifying lambda.
-/// use crate::feather_ui::WrapEventEx;
-///
-/// let onclick = |_: mouse_area::MouseAreaEvent,
-///  mut appdata: AccessCell<MyState>|
-///  -> feather_ui::InputResult<()> {
-///     {
-///         appdata.count += 1;
-///         feather_ui::InputResult::Consume(())
-///     }
-/// }
-/// .wrap();
-///
-/// struct MyApp {}
-///
-/// impl FnPersistStore for MyApp { type Store = (); }
-///
-/// impl FnPersist2<&MyState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>> for MyApp {
-///     fn init(&self) -> Self::Store { () }
-///
-///     fn call(&mut self,  _: Self::Store,  _: &MyState, _: ScopeID<'_>) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
-///         ((), imbl::HashMap::new())
-///     }
-/// }
-///
-/// App::<MyState, MyApp, ()>::new(MyState { count: 0 }, vec![Box::new(onclick)], MyApp {}, None, None);
-/// ```
-pub trait WrapEventEx<State, Input: Dispatchable> {
-    /// Wraps a lambda with the appropriate type signature. See [`WrapEventEx`]
-    /// for examples.
-    fn wrap(self) -> impl FnMut(DispatchPair, AccessCell<State>) -> InputResult<()>;
-}
-
-impl<AppData, Input: Dispatchable, T> WrapEventEx<AppData, Input> for T
-where
-    T: FnMut(Input, AccessCell<AppData>) -> InputResult<()>,
-{
-    fn wrap(mut self) -> impl FnMut(DispatchPair, AccessCell<AppData>) -> InputResult<()> {
-        move |pair, state| (self)(Input::restore(pair).unwrap(), state)
     }
 }
 
@@ -2262,60 +1749,6 @@ impl Dispatchable for Infallible {
     fn restore(_: DispatchPair) -> Result<Self, Error> {
         Err(Error::Stateless)
     }
-}
-
-/// Represents any potentially stateful component. All components must implement
-/// this trait because all components are tracked by the state manager even if
-/// they are stateless. A derive macro [`feather_macro::StateMachineChild`] is
-/// provided to make it easier for stateless components to correctly implement
-/// StateMachineChild and correctly propagate events to their children. It is
-/// important that this is done correctly, as a component can be stateless
-/// itself, but have stateful children.
-///
-/// # Examples
-/// ```
-/// use feather_ui::component::ChildOf;
-/// use feather_ui::layout::fixed;
-/// use feather_ui::{ StateMachineChild, SourceID};
-/// use std::sync::Arc;
-/// use std::rc::Rc;
-///
-/// pub struct MyComponent<T> {
-///     pub id: Arc<SourceID>,
-///     pub props: Rc<T>,
-///     pub children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>,
-/// }
-///
-/// impl<T: Default> StateMachineChild for MyComponent<T> {
-///     fn id(&self) -> std::sync::Arc<SourceID> {
-///         self.id.clone()
-///     }
-///     fn apply_children(
-///         &self,
-///         f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
-///     ) -> eyre::Result<()> {
-///         self.children
-///             .iter()
-///             .try_for_each(|x| f(x.as_ref().unwrap().as_ref()))
-///     }
-/// }
-/// ```
-pub trait StateMachineChild {
-    #[allow(unused_variables)]
-    fn init(
-        &self,
-        driver: &std::sync::Weak<Driver>,
-    ) -> Result<Box<dyn StateMachineWrapper>, crate::Error> {
-        Err(crate::Error::Stateless)
-    }
-    fn apply_children(
-        &self,
-        _: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        // Default implementation assumes no children
-        Ok(())
-    }
-    fn id(&self) -> Arc<SourceID>;
 }
 
 // This was originally supposed to use a pointer, but rust moves things all over
@@ -2458,255 +1891,6 @@ fn test_access_cell() {
     assert_eq!(tracker, true);
 }
 
-/// `StateManager` is used to manage the mutable state associated with a
-/// particular component's ID. Because components technically only exist while a
-/// layout tree is being calculated, this is where a component is expected to
-/// store all it's durable state that must survive through the next layout pass.
-/// The StateManager also requires that all components implement
-/// [`StateMachineChild`], even if they are stateless. A derive macro is
-/// provided for this case. Likewise, the internal state object must implement
-/// [`event::EventRouter`], even if it doesn't process any events, in which case
-/// it can simply set Input and Output to [`std::convert::Infallible`]
-///
-///
-/// All components can access their own state by calling [`StateManager::get`]
-/// with their ID and the [`component::StateMachine`] wrapper type around their
-/// internal state object, which should have been created earlier by feather
-/// automatically calling [`StateMachineChild::init`].
-///
-/// # Examples
-///
-/// ```
-/// use feather_ui::{SourceID, StateManager, component::StateMachine, event::EventRouter};
-/// use std::sync::Arc;
-/// use std::convert::Infallible;
-///
-/// #[derive(Clone, PartialEq)]
-/// struct FooBar {
-///   i: i32
-/// }
-///
-/// impl EventRouter for FooBar {
-///    type Input = Infallible;
-///    type Output = Infallible;
-/// }
-///
-/// fn layout(id: Arc<SourceID>, manager: &mut StateManager) {
-///     let outer = manager.get_mut::<StateMachine<FooBar, 0>>(&id).unwrap();
-///     outer.state.i = 3;
-/// }
-/// ```
-///
-/// A component can even retrieve a *different* component's internal state as
-/// long as it has the ID and knows the type of the inner state. This is how
-/// most feather components get the DPI for the current window.
-///
-/// ```
-/// use feather_ui::{SourceID, StateManager, component::StateMachine, event::EventRouter};
-/// use std::sync::Arc;
-/// use std::convert::Infallible;
-/// use feather_ui::component::window::WindowStateMachine;
-///
-/// #[derive(Clone, PartialEq)]
-/// struct FooBar {
-///   i: i32
-/// }
-///
-/// impl EventRouter for FooBar {
-///    type Input = Infallible;
-///    type Output = Infallible;
-/// }
-///
-/// fn layout(
-///     manager: &mut StateManager,
-///     window: &Arc<SourceID>,
-/// ) {
-/// let dpi = manager
-///     .get::<WindowStateMachine>(window)
-///     .map(|x| x.state.dpi)
-///     .unwrap_or(feather_ui::BASE_DPI);
-/// println!("{dpi:?}");
-/// }
-/// ```
-#[derive(Default)]
-pub struct StateManager {
-    states: HashMap<Arc<SourceID>, Box<dyn StateMachineWrapper>>,
-    pointers: HashMap<*const c_void, Arc<SourceID>>,
-    changed: bool,
-}
-
-impl StateManager {
-    pub fn register_pointer<T>(&mut self, p: *const T, id: Arc<SourceID>) -> Option<Arc<SourceID>> {
-        let ptr = p as *const c_void;
-        self.pointers.insert(ptr, id)
-    }
-
-    pub fn invalidate_pointer<T>(&mut self, p: *const T) -> Option<Arc<SourceID>> {
-        let ptr = p as *const c_void;
-        self.pointers.remove(&ptr)
-    }
-
-    pub fn mutate_pointer<T>(&mut self, p: *const T) {
-        let ptr = p as *const c_void;
-        let id = self
-            .pointers
-            .get(&ptr)
-            .expect("Tried to mutate pointer that wasn't registered!")
-            .clone();
-
-        self.mutate_id(&id);
-    }
-
-    pub fn mutate_id(&mut self, id: &Arc<SourceID>) {
-        if let Some(state) = self.states.get_mut(id) {
-            state.set_changed(true);
-            self.propagate_change(id);
-        }
-    }
-
-    #[allow(dead_code)]
-    fn init_default<State: component::StateMachineWrapper + Default>(
-        &mut self,
-        id: Arc<SourceID>,
-    ) -> eyre::Result<&mut State> {
-        if !self.states.contains_key(&id) {
-            self.states.insert(id.clone(), Box::new(State::default()));
-        }
-        let v = &mut *self
-            .states
-            .get_mut(&id)
-            .ok_or_eyre("Failed to insert state!")?
-            .as_mut() as &mut dyn Any;
-        v.downcast_mut().ok_or(Error::RuntimeTypeMismatch.into())
-    }
-    fn init(&mut self, id: Arc<SourceID>, state: Box<dyn StateMachineWrapper>) {
-        if !self.states.contains_key(&id) {
-            self.states.insert(id.clone(), state);
-        }
-    }
-
-    /// Gets a reference to a state for the given `id`. Returns an error if the
-    /// state doesn't exist or if the requested type doesn't match.
-    pub fn get<'a, State: component::StateMachineWrapper>(
-        &'a self,
-        id: &SourceID,
-    ) -> eyre::Result<&'a State> {
-        let v = self
-            .states
-            .get(id)
-            .ok_or_eyre("State does not exist")?
-            .as_ref() as &dyn Any;
-        v.downcast_ref().ok_or(Error::RuntimeTypeMismatch.into())
-    }
-
-    /// Gets a **mutable** reference to a state for the given `id`. Returns an
-    /// error if the state doesn't exist or if the requested type doesn't
-    /// match.
-    pub fn get_mut<'a, State: component::StateMachineWrapper>(
-        &'a mut self,
-        id: &SourceID,
-    ) -> eyre::Result<&'a mut State> {
-        let v = &mut *self
-            .states
-            .get_mut(id)
-            .ok_or_eyre("State does not exist")?
-            .as_mut() as &mut dyn Any;
-        v.downcast_mut().ok_or(Error::RuntimeTypeMismatch.into())
-    }
-
-    #[allow(clippy::borrowed_box)]
-    fn get_trait<'a>(&'a self, id: &SourceID) -> eyre::Result<&'a Box<dyn StateMachineWrapper>> {
-        self.states.get(id).ok_or_eyre("State does not exist")
-    }
-
-    fn propagate_change(&mut self, mut id: &Arc<SourceID>) {
-        self.changed = true;
-        while let Some(parent) = id.parent.as_ref() {
-            if let Some(state) = self.states.get_mut(parent) {
-                if state.changed() {
-                    // If this state is marked change, then this change must have already propagated
-                    // upwards and we have no more work to do.
-                    return;
-                }
-                state.set_changed(true);
-            }
-            id = parent;
-        }
-    }
-
-    fn process(
-        &mut self,
-        event: DispatchPair,
-        slot: &Slot,
-        dpi: RelDim,
-        area: PxRect,
-        extent: PxRect,
-        driver: &std::sync::Weak<crate::Driver>,
-    ) -> eyre::Result<bool> {
-        type IterTuple = (Box<dyn Any>, u64, Option<Slot>);
-
-        // We use smallvec here so we can satisfy the borrow checker without making yet
-        // another heap allocation in most cases
-        let mut handled = false;
-        let iter: SmallVec<[IterTuple; 2]> = {
-            let state = self.states.get_mut(&slot.0).ok_or_eyre("Invalid slot")?;
-            let v = match state.process(event, slot.1, dpi, area, extent, driver) {
-                InputResult::Consume(v) => {
-                    handled = true;
-                    v
-                }
-                InputResult::Forward(v) => v,
-                InputResult::Error(error) => return Err(error),
-            };
-            if state.changed() {
-                self.propagate_change(&slot.0);
-            }
-
-            let state = self.states.get(&slot.0).ok_or(Error::InternalFailure)?;
-
-            v.into_iter()
-                .map(|(i, e)| (e, i, state.output_slot(i.ilog2() as usize).unwrap().clone()))
-        }
-        .collect();
-
-        for (e, index, slot) in iter {
-            if let Some(s) = slot.as_ref() {
-                handled |= self.process((index, e), s, dpi, area, extent, driver)?;
-            }
-        }
-
-        Ok(handled)
-    }
-
-    fn init_child(
-        &mut self,
-        target: &dyn StateMachineChild,
-        driver: &std::sync::Weak<Driver>,
-    ) -> eyre::Result<()> {
-        if !self.states.contains_key(&target.id()) {
-            match target.init(driver) {
-                Ok(v) => self.init(target.id().clone(), v),
-                Err(Error::Stateless) => (),
-                Err(e) => return Err(e.into()),
-            };
-        }
-
-        target.apply_children(&mut |child| self.init_child(child, driver))
-    }
-}
-
-/// This is the root ID for the application itself, representing the user's
-/// AppState. All IDs are derived from this root ID, and this is the only ID
-/// that is allowed to have a parent of [`None`]
-#[allow(clippy::declare_interior_mutable_const)]
-pub const APP_SOURCE_ID: SourceID = SourceID {
-    parent: None,
-    id: DataID::Named("__fg_AppData_ID__"),
-};
-
-type OutlineReturn = imbl::HashMap<Arc<SourceID>, Option<Window>>;
-pub type EventPair<AppData> = (u64, AppEvent<AppData>);
-
 /// Represents a feather application with a given `AppData` and persistent
 /// outline function `O`. The outline function must always be a persistent
 /// function that takes two parameters, a copy of the AppData, and a ScopeID. It
@@ -2730,58 +1914,20 @@ pub struct App<AppData: Clone, T: 'static> {
                 Identity<Rc<Window>>,
                 (
                     WindowState,
-                    reactive::Sampler<WindowAttributes, MutableSignalProvider<WindowAttributes>>,
+                    reactive::Sampler<MutableSignalProvider<WindowAttributes>>,
                 ),
             >,
         >,
     >,
-    sampler: reactive::Sampler<component::UI, dyn reactive::SignalProvider<component::UI>>,
+    sampler: reactive::Sampler<dyn reactive::SignalProvider<Item = component::UI>>,
     proxy: winit::event_loop::EventLoopProxy<FeatherEvent<T>>,
 }
 
 pub struct AppDataMachine<AppData> {
     pub state: AppData,
-    handlers: HashMap<usize, AppEvent<AppData>>,
     changed: bool,
 }
 
-impl<AppData: 'static> StateMachineWrapper for AppDataMachine<AppData> {
-    fn output_slot(&self, _: usize) -> eyre::Result<&Option<Slot>> {
-        Ok(&None)
-    }
-
-    fn input_mask(&self) -> u64 {
-        0
-    }
-
-    fn changed(&self) -> bool {
-        self.changed
-    }
-
-    fn set_changed(&mut self, changed: bool) {
-        self.changed = changed;
-    }
-
-    fn process(
-        &mut self,
-        input: DispatchPair,
-        index: u64,
-        _: RelDim,
-        _: PxRect,
-        _: PxRect,
-        _: &std::sync::Weak<crate::Driver>,
-    ) -> InputResult<SmallVec<[DispatchPair; 1]>> {
-        if let Some(f) = self.handlers.get_mut(&(index as usize)) {
-            let cell = AccessCell {
-                value: &mut self.state,
-                changed: &mut self.changed,
-            };
-            f(input, cell).map(|_| SmallVec::new())
-        } else {
-            InputResult::Error(Error::InternalFailure.into())
-        }
-    }
-}
 #[cfg(target_os = "windows")]
 use winit::platform::windows::EventLoopBuilderExtWindows;
 
@@ -2861,7 +2007,6 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
     #[allow(clippy::type_complexity)]
     pub fn new(
         appstate: DynSignal<AppData>,
-        inputs: Vec<AppEvent<AppData>>,
         outline: impl (Fn(&AppData) -> component::UI) + 'static,
         user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
         driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
@@ -2871,14 +2016,7 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
         #[cfg(not(test))]
         let any_thread = false;
 
-        Self::new_any_thread(
-            appstate,
-            inputs,
-            outline,
-            any_thread,
-            user_event,
-            driver_init,
-        )
+        Self::new_any_thread(appstate, outline, any_thread, user_event, driver_init)
     }
 
     fn empty_layout_root()
@@ -2888,14 +2026,12 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
                 props: Rc::new(()),
                 children: empty_signal().into(),
                 renderable: None,
-                layer: None,
             });
 
         layout::Node {
             props: Rc::new(const_signal(Size2D::zero()).into_dyn_signal()),
             children: const_signal(empty_child).into_dyn_signal(),
             renderable: None,
-            layer: None,
         }
     }
 
@@ -2905,7 +2041,6 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
     #[allow(clippy::type_complexity)]
     pub fn new_any_thread(
         appstate: DynSignal<AppData>,
-        inputs: Vec<AppEvent<AppData>>,
         outline: impl (Fn(&AppData) -> component::UI) + 'static,
         any_thread: bool,
         user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
@@ -2979,7 +2114,7 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
                     )
                 },
                 |w| Identity(w.clone()),
-                &outline.children,
+                outline.children.clone(),
             )
         });
 
@@ -3059,7 +2194,7 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
             return;
         }
 
-        let binding = window.attributes.clone().to_signal();
+        let binding = window.attributes.clone();
         let attributes = sample(&binding);
         let mut windows = self.windows.borrow_mut();
         let (w, sampler) = windows.entry(Identity(window)).or_insert_with_key(|r| {
@@ -3072,7 +2207,7 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
             )
             .expect("failed to create window");
             self.window_map.insert(state.window.id(), r.0.clone());
-            let mut sampler = Sampler::new(r.0.attributes.clone().to_signal());
+            let mut sampler = Sampler::new(r.0.attributes.clone());
             let proxy = self.proxy.clone();
             let w = r.0.clone();
             sampler.notify(move || {
@@ -3294,7 +2429,7 @@ impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandle
                 // TODO: There are much more efficient ways to perform this check that can be done using purely stack-allocated storage, but we don't bother right now
                 let mut exist = std::collections::HashSet::new();
 
-                let children = reactive::sample_val(&self.sampler.inspect().children);
+                let children = reactive::sample_val(self.sampler.inspect().children.clone());
                 for w in children.iter() {
                     if !self.windows.borrow().contains_key(&Identity(w.clone())) {
                         self.update_window(w.clone(), event_loop);

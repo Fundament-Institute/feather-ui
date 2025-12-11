@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+use crate::CrossReferenceDomain;
 use crate::color::sRGB;
+use crate::component::ComponentMarker;
 use crate::render::compositor::{self, DataFlags};
-use crate::{CrossReferenceDomain, SourceID};
 
 use std::sync::Arc;
+use std::sync::Weak;
 
 pub struct Instance {
     pub domain: Arc<CrossReferenceDomain>,
-    pub start: Arc<SourceID>,
-    pub end: Arc<SourceID>,
+    pub start: Weak<dyn ComponentMarker + Sync + Send>,
+    pub end: Weak<dyn ComponentMarker + Sync + Send>,
     pub color: sRGB,
 }
 
@@ -27,8 +29,15 @@ impl super::Renderable for Instance {
         let color = self.color.as_32bit();
 
         compositor.defer(move |_, data| {
-            let start = domain.get_area(&start_id).unwrap_or_default();
-            let end = domain.get_area(&end_id).unwrap_or_default();
+            let start = start_id
+                .upgrade()
+                .and_then(|x| domain.get_area(x))
+                .unwrap_or_default();
+
+            let end = end_id
+                .upgrade()
+                .and_then(|x| domain.get_area(x))
+                .unwrap_or_default();
 
             let p1 = (start.topleft() + start.bottomright().to_vector()) * 0.5;
             let p2 = (end.topleft() + end.bottomright().to_vector()) * 0.5;

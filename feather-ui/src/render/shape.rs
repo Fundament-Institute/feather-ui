@@ -7,7 +7,7 @@ use crate::color::sRGB;
 use crate::graphics::{self, Vec2f, Vec4f};
 use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
-use crate::{Canonicalize, PxDim, PxPoint, SourceID, shaders};
+use crate::{Canonicalize, PxDim, PxPoint, shaders};
 use core::f32;
 use guillotiere::euclid::Size2D;
 use num_traits::Zero;
@@ -23,7 +23,6 @@ pub struct Instance<const KIND: u8> {
     pub fill: sRGB,
     pub outline: sRGB,
     pub corners: [f32; 4],
-    pub id: Arc<SourceID>,
 }
 
 impl<const KIND: u8> super::Renderable for Instance<KIND> {

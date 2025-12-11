@@ -62,9 +62,10 @@ impl Desc for dyn Prop {
             .zip::<(PxLimits, crate::DLimits, RelDim)>()
             .map(|(outer, limits, dpi)| *outer + limits.resolve(*dpi));
 
-        let myarea = zip_pair::<crate::DRect, RelDim, _, _>(props.area(), dpi.clone(), |p, dpi| {
-            p.resolve(dpi)
-        });
+        let myarea =
+            zip_pair::<crate::DRect, RelDim, _, _, _, _>(props.area(), dpi.clone(), |p, dpi| {
+                p.resolve(dpi)
+            });
 
         let inner_dim = (myarea.clone(), predim.clone(), limits.clone())
             .zip::<(crate::URect, crate::UnsizedDim, PxLimits)>()
@@ -82,24 +83,27 @@ impl Desc for dyn Prop {
                     .zip::<(crate::UnsizedDim, PxLimits, crate::RelLimits)>()
                     .map(|(inner, l, rlimits)| super::apply_limit(*inner, *l, *rlimits));
 
-                let (stage, _) = child.as_ref().stage(
+                let (stage, a) = child.as_ref().stage(
                     inner_dim.clone().into(),
                     child_limit.into(),
                     dpi2.clone(),
                 );
-                stage
+                (stage, Rc::from(a))
             },
             |x| reactive::Identity(x.clone()),
             children.clone(),
         )
         .into_dyn_signal();
 
-        let presize = reactive::join(&reactive::fold_vec(
+        let presize = reactive::join(reactive::fold_vec(
             |l, r| {
-                zip_pair(l.clone(), r.clone(), |u: PxRect, v: PxRect| u.extend(v)).into_dyn_signal()
+                zip_pair(l.clone(), r.clone(), |u: (PxRect, _), v: (PxRect, _)| {
+                    u.0.extend(v.0)
+                })
+                .into_dyn_signal()
             },
             child_presize,
-            crate::const_signal(PxRect::zero()).into(),
+            Default::default(),
         ));
 
         let presize = presize.into_dyn_signal();
@@ -186,4 +190,11 @@ impl Desc for dyn Prop {
             }),
         )
     }
+}
+
+pub struct Layer<T> {
+    pub props: Rc<T>,
+    pub children: DynSignal<imbl::Vector<Rc<dyn DynLayout<dyn Child>>>>,
+    pub renderable: Option<Rc<dyn Renderable>>,
+    pub layer: Option<DynSignal<(crate::color::sRGB32, f32)>>,
 }

@@ -2,8 +2,9 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
-use crate::layout::{Layout, leaf};
-use crate::{DAbsPoint, SourceID};
+use crate::layout::{Layout, base, leaf};
+use crate::reactive::MutableSignal;
+use crate::{DAbsPoint, layout};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -16,7 +17,6 @@ pub enum ShapeKind {
 }
 
 pub struct Shape<T, const KIND: u8> {
-    id: std::sync::Arc<SourceID>,
     props: Rc<T>,
     border: f32,
     blur: f32,
@@ -27,7 +27,6 @@ pub struct Shape<T, const KIND: u8> {
 }
 
 pub fn round_rect<T: leaf::Padded + 'static>(
-    id: std::sync::Arc<SourceID>,
     props: T,
     border: f32,
     blur: f32,
@@ -37,7 +36,6 @@ pub fn round_rect<T: leaf::Padded + 'static>(
     size: DAbsPoint,
 ) -> Shape<T, { ShapeKind::RoundRect as u8 }> {
     Shape {
-        id,
         props: props.into(),
         border,
         blur,
@@ -49,7 +47,6 @@ pub fn round_rect<T: leaf::Padded + 'static>(
 }
 
 pub fn triangle<T: leaf::Padded + 'static>(
-    id: std::sync::Arc<SourceID>,
     props: T,
     border: f32,
     blur: f32,
@@ -60,7 +57,6 @@ pub fn triangle<T: leaf::Padded + 'static>(
     size: DAbsPoint,
 ) -> Shape<T, { ShapeKind::Triangle as u8 }> {
     Shape {
-        id,
         props: props.into(),
         border,
         blur,
@@ -72,7 +68,6 @@ pub fn triangle<T: leaf::Padded + 'static>(
 }
 
 pub fn circle<T: leaf::Padded + 'static>(
-    id: std::sync::Arc<SourceID>,
     props: T,
     border: f32,
     blur: f32,
@@ -82,7 +77,6 @@ pub fn circle<T: leaf::Padded + 'static>(
     size: DAbsPoint,
 ) -> Shape<T, { ShapeKind::Circle as u8 }> {
     Shape {
-        id,
         props: props.into(),
         border,
         blur,
@@ -94,7 +88,6 @@ pub fn circle<T: leaf::Padded + 'static>(
 }
 
 pub fn arcs<T: leaf::Padded + 'static>(
-    id: std::sync::Arc<SourceID>,
     props: T,
     border: f32,
     blur: f32,
@@ -105,7 +98,6 @@ pub fn arcs<T: leaf::Padded + 'static>(
     size: DAbsPoint,
 ) -> Shape<T, { ShapeKind::Arc as u8 }> {
     Shape {
-        id,
         props: props.into(),
         border,
         blur,
@@ -116,24 +108,8 @@ pub fn arcs<T: leaf::Padded + 'static>(
     }
 }
 
-impl<T: leaf::Padded + 'static, const KIND: u8> Clone for Shape<T, KIND> {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.duplicate(),
-            props: self.props.clone(),
-            border: self.border,
-            blur: self.blur,
-            corners: self.corners,
-            fill: self.fill,
-            outline: self.outline,
-            size: self.size,
-        }
-    }
-}
-
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
     pub fn new(
-        id: std::sync::Arc<SourceID>,
         props: T,
         border: f32,
         blur: f32,
@@ -143,7 +119,6 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
         size: DAbsPoint,
     ) -> Self {
         Self {
-            id,
             props: props.into(),
             border,
             blur,
@@ -157,7 +132,6 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::RoundRect as u8 }> {
 
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
     pub fn new(
-        id: std::sync::Arc<SourceID>,
         props: T,
         border: f32,
         blur: f32,
@@ -168,7 +142,6 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
         size: DAbsPoint,
     ) -> Self {
         Self {
-            id,
             props: props.into(),
             border,
             blur,
@@ -182,7 +155,6 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Triangle as u8 }> {
 
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
     pub fn new(
-        id: std::sync::Arc<SourceID>,
         props: T,
         border: f32,
         blur: f32,
@@ -192,7 +164,6 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
         size: DAbsPoint,
     ) -> Self {
         Self {
-            id,
             props: props.into(),
             border,
             blur,
@@ -206,7 +177,6 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Circle as u8 }> {
 
 impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
     pub fn new(
-        id: std::sync::Arc<SourceID>,
         props: T,
         border: f32,
         blur: f32,
@@ -217,7 +187,6 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
         size: DAbsPoint,
     ) -> Self {
         Self {
-            id,
             props: props.into(),
             border,
             blur,
@@ -229,29 +198,18 @@ impl<T: leaf::Padded + 'static> Shape<T, { ShapeKind::Arc as u8 }> {
     }
 }
 
-impl<T: leaf::Padded + 'static, const KIND: u8> crate::StateMachineChild for Shape<T, KIND> {
-    fn id(&self) -> std::sync::Arc<SourceID> {
-        self.id.clone()
-    }
-}
-
 impl<T: leaf::Padded + 'static, const KIND: u8> super::Component for Shape<T, KIND>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
     type Props = T;
+    type R = leaf::Sized<T>;
 
     fn layout(
         &self,
-        manager: &mut crate::StateManager,
-        _: &crate::graphics::Driver,
-        window: &Arc<SourceID>,
-    ) -> Rc<dyn Layout<T>> {
-        let dpi = manager
-            .get::<super::window::WindowStateMachine>(window)
-            .map(|x| x.state.dpi)
-            .unwrap_or(crate::BASE_DPI);
-
+        driver: Arc<crate::graphics::Driver>,
+        dpi: MutableSignal<crate::RelDim>,
+    ) -> Self::R {
         let mut corners = self.corners;
         if KIND == ShapeKind::RoundRect as u8 {
             corners[0] *= dpi.width;
@@ -260,9 +218,8 @@ where
             corners[3] *= dpi.height;
         }
 
-        Box::new(leaf::Sized::<T> {
+        leaf::Sized::<T> {
             props: self.props.clone(),
-            id: Arc::downgrade(&self.id),
             size: self.size.resolve(dpi).to_vector().to_size().cast_unit(),
             renderable: Some(Rc::new(crate::render::shape::Instance::<KIND> {
                 padding: self.props.padding().as_perimeter(dpi),
@@ -271,8 +228,7 @@ where
                 fill: self.fill,
                 outline: self.outline,
                 corners,
-                id: self.id.clone(),
             })),
-        })
+        }
     }
 }

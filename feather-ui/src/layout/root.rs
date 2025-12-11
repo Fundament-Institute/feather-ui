@@ -50,20 +50,19 @@ impl Desc for dyn Prop {
                 let sized = sized.clone();
                 let final_area = sized.clone().map(|d| PxRect::from(*d)).into_dyn_signal();
 
-                let presize: reactive::Signal<Rc<crate::rtree::Node>, _> =
-                    child.clone().map(move |c| {
-                        let (_, mut f) = c.stage(
-                            dim.clone(),
-                            const_signal(crate::PxLimits::default()).into(),
-                            dpi.clone(),
-                        );
+                let presize = child.clone().map(move |c| {
+                    let (_, mut f) = c.stage(
+                        dim.clone(),
+                        const_signal(crate::PxLimits::default()).into(),
+                        dpi.clone(),
+                    );
 
-                        Rc::new(f(
-                            const_signal(crate::PxPoint::default()).into(),
-                            sized.clone(),
-                            const_signal(crate::PxLimits::default()).into(),
-                        ))
-                    });
+                    Rc::new(f(
+                        const_signal(crate::PxPoint::default()).into(),
+                        sized.clone(),
+                        const_signal(crate::PxLimits::default()).into(),
+                    ))
+                });
 
                 crate::rtree::Node::new(
                     final_area.clone(),

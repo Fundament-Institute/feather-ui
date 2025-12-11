@@ -2,14 +2,16 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::Renderable;
-use crate::{CrossReferenceDomain, PxRect, SourceID};
+use crate::component::ComponentMarker;
+use crate::reactive::Identity;
+use crate::{CrossReferenceDomain, PxRect};
 use std::rc::Rc;
 use std::sync::Arc;
 
 pub mod line;
 
 pub struct Write {
-    pub(crate) id: std::sync::Weak<SourceID>,
+    pub(crate) id: std::sync::Weak<dyn ComponentMarker + Send + Sync>,
     pub(crate) domain: Arc<CrossReferenceDomain>,
     pub(crate) base: Option<Rc<dyn Renderable>>,
 }

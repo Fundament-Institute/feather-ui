@@ -5,39 +5,36 @@ use crate::color::sRGB32;
 use crate::component::ChildOf;
 use crate::layout;
 use crate::layout::fixed;
-use crate::reactive::{DynSignal, MutableSignal, map_vec};
+use crate::reactive::{DynSignal, MutableSignal, SignalTupleZip, map_vec, zip_pair};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive_where(Clone)]
 pub struct Region<T: Default> {
-    pub color: Option<sRGB32>,
-    pub rotation: Option<f32>,
+    pub layer: Option<DynSignal<(sRGB32, f32)>>,
     props: Rc<T>,
-    children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>,
+    children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>,
 }
 
 impl<T: fixed::Prop + Default + 'static> Region<T> {
-    pub fn new(props: T, children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>) -> Self {
+    pub fn new(props: T, children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>) -> Self {
         Self {
             props: props.into(),
             children,
-            color: None,
-            rotation: None,
+            layer: None,
         }
     }
 
     pub fn new_layer(
         props: T,
-        color: sRGB32,
-        rotation: f32,
-        children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>,
+        color: DynSignal<sRGB32>,
+        rotation: DynSignal<f32>,
+        children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>,
     ) -> Self {
         Self {
             props: props.into(),
-            color: Some(color),
-            rotation: Some(rotation),
+            layer: Some((color, rotation).zip().into_dyn_signal()),
             children,
         }
     }
@@ -56,25 +53,16 @@ where
         dpi: MutableSignal<crate::RelDim>,
     ) -> Self::R {
         let children = map_vec(
-            move |child: &Rc<ChildOf<dyn fixed::Prop>>| child.layout(driver.clone(), dpi.clone()),
+            move |child: &Arc<ChildOf<dyn fixed::Prop>>| child.layout(driver.clone(), dpi.clone()),
             |x| crate::reactive::Identity(x.clone()),
-            &self.children,
+            self.children.clone(),
         );
-
-        let layer = if self.color.is_some() || self.rotation.is_some() {
-            Some((
-                self.color.unwrap_or(sRGB32::white()),
-                self.rotation.unwrap_or_default(),
-            ))
-        } else {
-            None
-        };
 
         Self::R {
             props: self.props.clone(),
             children: children.into(),
             renderable: None,
-            layer,
+            layer: self.layer.clone(),
         }
     }
 }

@@ -9,9 +9,10 @@ use crate::component::window::WindowNodeTrack;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::layout::Staged;
 use crate::reactive::{
-    self, AsSignal, DynSignal, Identity, const_signal, fold_vec, map_vec, zip_pair,
+    self, DynSignal, Identity, ToSignal, const_signal, fold_vec, map_vec, zip_pair,
 };
-use crate::{Pixel, PxPoint, PxRect, PxVector, RelDim, SourceID};
+use crate::render::compositor::Layer;
+use crate::{Pixel, PxPoint, PxRect, PxVector, RelDim};
 use guillotiere::euclid::Point3D;
 use std::rc::Rc;
 use winit::dpi::PhysicalPosition;
@@ -54,7 +55,11 @@ impl Node {
     ) -> Self {
         let z = z.unwrap_or_else(|| 0.to_signal().into_dyn_signal());
         if let Some(children) = children {
-            let areas = map_vec(|v| v.area.clone(), |v| Identity(v.clone()), &children);
+            let areas = map_vec(
+                |v| v.area.clone(),
+                |v| Identity(v.clone()),
+                children.clone(),
+            );
 
             let extent = reactive::join(fold_vec(
                 |l, r| zip_pair(l, r, |x, y| x.extend(y)).into(),
@@ -88,7 +93,11 @@ impl Node {
     }
 
     pub fn new_subtree(children: DynSignal<imbl::Vector<Rc<Node>>>) -> Self {
-        let areas = map_vec(|v| v.area.clone(), |v| Identity(v.clone()), &children);
+        let areas = map_vec(
+            |v| v.area.clone(),
+            |v| Identity(v.clone()),
+            children.clone(),
+        );
 
         let extent = reactive::join(fold_vec(
             |l, r| zip_pair(l, r, |x, y| x.extend(y)).into(),
@@ -97,7 +106,7 @@ impl Node {
         ))
         .into_dyn_signal();
 
-        let tops = map_vec(|v| v.top.clone(), |v| Identity(v.clone()), &children);
+        let tops = map_vec(|v| v.top.clone(), |v| Identity(v.clone()), children.clone());
 
         let top = reactive::join(fold_vec(
             |l, r| zip_pair(l, r, |x, y| x.min(y)).into(),
@@ -108,7 +117,7 @@ impl Node {
         let bottoms = map_vec(
             |v| (v.top.clone() + v.depth.clone()).into_dyn_signal(),
             |v| Identity(v.clone()),
-            &children,
+            children.clone(),
         );
 
         let bottom = reactive::join(fold_vec(
@@ -135,13 +144,14 @@ impl Node {
         // cliprect: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut crate::CompositorView<'_>,
-        dependents: &mut Vec<std::sync::Weak<SourceID>>,
+        dependents: &mut Vec<DynSignal<Layer>>,
     ) -> Result<(), crate::Error> {
         if let Some(staged) = self.staged.as_ref() {
             let area = *crate::sample(&self.area);
+            // let extent = *crate::sample(&self.extent);
 
             // TODO: Pass down the clip area through the render stack so the r-tree can clip things correctly
-            //if (area + parent_pos).intersect(clip) {
+            //if (extent + parent_pos).intersect(clip) {
             let children = self.children.as_ref().map(|x| crate::sample(x));
             staged.render(
                 parent_pos,
