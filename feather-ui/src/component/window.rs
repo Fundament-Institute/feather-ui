@@ -248,7 +248,7 @@ impl Window {
             .map(move |child| child.layout(driver.clone(), dpi.clone()));
 
         Box::new(
-            layout::Node::<DynSignal<Size2D<u32, crate::Pixel>>, dyn root::Prop> {
+            layout::Node::<DynSignal<Size2D<u32, crate::Pixel>>, dyn root::Prop, ()> {
                 props: Rc::new(size),
                 children: children.into(),
                 renderable: None,

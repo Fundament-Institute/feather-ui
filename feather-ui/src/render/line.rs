@@ -10,6 +10,7 @@ use crate::{
 use super::compositor::CompositorView;
 use super::compositor::Data;
 
+#[derive(Clone)]
 pub struct Instance {
     values: DynSignal<Data>,
 }
@@ -41,10 +42,18 @@ impl Instance {
     }
 }
 
+impl super::Prerender for Instance {
+    type R = Instance;
+
+    fn prerender(&self, _: crate::DynSignal<crate::PxRect>) -> Self::R {
+        self.clone()
+    }
+}
+
 impl super::Renderable for Instance {
     fn render(
         &self,
-        _: crate::PxRect,
+        _: crate::PxPoint,
         _: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::Error> {

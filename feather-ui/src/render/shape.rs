@@ -5,6 +5,7 @@ use super::compositor;
 use crate::color::sRGB;
 //use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
+use crate::reactive::DynSignal;
 use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
 use crate::{Canonicalize, PxDim, PxPoint, shaders};
@@ -16,23 +17,48 @@ use std::num::NonZero;
 use std::sync::Arc;
 use wgpu::BindGroupLayout;
 
-pub struct Instance<const KIND: u8> {
-    pub padding: crate::PxPerimeter,
-    pub border: f32,
-    pub blur: f32,
-    pub fill: sRGB,
-    pub outline: sRGB,
-    pub corners: [f32; 4],
+#[derive(Clone)]
+pub struct PreInstance<const KIND: u8> {
+    pub padding: DynSignal<crate::PxPerimeter>,
+    pub border: DynSignal<f32>,
+    pub blur: DynSignal<f32>,
+    pub fill: DynSignal<sRGB>,
+    pub outline: DynSignal<sRGB>,
+    pub corners: DynSignal<[f32; 4]>,
 }
 
-impl<const KIND: u8> super::Renderable for Instance<KIND> {
-    fn render(
-        &self,
-        area: crate::PxRect,
-        driver: &crate::graphics::Driver,
-        compositor: &mut CompositorView<'_>,
-    ) -> Result<(), crate::Error> {
-        let dim = area.dim() - self.padding.bottomright() - self.padding.topleft();
+impl<const KIND: u8> crate::render::Prerender for PreInstance<KIND> {
+    type R = Instance<KIND>;
+
+    fn prerender(&self, area: crate::DynSignal<crate::PxRect>) -> Self::R {
+        Instance::<KIND>::new(
+            self.padding.clone(),
+            self.border.clone(),
+            self.blur.clone(),
+            self.fill.clone(),
+            self.outline.clone(),
+            self.corners.clone(),
+            area,
+        )
+    }
+}
+
+pub struct Instance<const KIND: u8> {
+    values: DynSignal<[compositor::Data; 9]>,
+}
+// DynSignal<Result<(Data, atlas::Size), crate::Error>>
+
+impl<const KIND: u8> Instance<KIND> {
+    pub fn new(
+        padding: DynSignal<crate::PxPerimeter>,
+        border: DynSignal<f32>,
+        blur: DynSignal<f32>,
+        fill: DynSignal<sRGB>,
+        outline: DynSignal<sRGB>,
+        corners: DynSignal<[f32; 4]>,
+        area: DynSignal<crate::PxRect>,
+    ) -> Self {
+        let dim = area.dim() - padding.bottomright() - padding.topleft();
 
         if dim.width <= 0.0 || dim.height <= 0.0 {
             return Ok(());
@@ -40,13 +66,16 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
 
         // If a rect has no corners and no outline, it's just a flat color box and we
         // can draw it directly in the compositor
-        if self.corners.iter().all(|x| x.is_zero()) && self.border.is_zero() {
+        if KIND == /*ShapeKind::RoundRect as u8*/ 0
+            && corners.iter().all(|x| x.is_zero())
+            && border.is_zero()
+        {
             compositor.append_data(
-                area.topleft().add_size(&self.padding.topleft()),
+                area.topleft().add_size(&padding.topleft()),
                 dim,
                 [0.0, 0.0].into(),
                 [0.0, 0.0].into(),
-                self.fill.as_32bit().rgba,
+                fill.as_32bit().rgba,
                 0.0,
                 u8::MAX,
                 false,
@@ -56,10 +85,10 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
         }
 
         let perimeter = [
-            dim.height - self.corners[0] - self.corners[3],
-            dim.width - self.corners[0] - self.corners[1],
-            dim.height - self.corners[1] - self.corners[2],
-            dim.width - self.corners[2] - self.corners[3],
+            dim.height - corners[0] - corners[3],
+            dim.width - corners[0] - corners[1],
+            dim.height - corners[1] - corners[2],
+            dim.width - corners[2] - corners[3],
         ];
 
         // RoundRects have a specific optimization, but only if no edge length is less
@@ -67,7 +96,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
         if KIND == /*ShapeKind::RoundRect as u8*/ 0 && perimeter.iter().all(|x| *x >= 2.0) {
             // If the border is larger than the corner itself, pretend the size of that
             // corner is the border.
-            let mut corners = self.corners.map(|x| x.max(self.border));
+            let mut corners = corners.map(|x| x.max(border));
             let mut intcorners = corners.map(|x| x.ceil() as i32);
 
             let intsides = [
@@ -94,18 +123,18 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                     |pipeline| {
                         pipeline.reserve(
                             driver,
-                            self.id.clone(),
+                            id.clone(),
                             inner + atlas::Size::new(4, 4),
                             Data {
                                 pos: [2.0; 2].into(),
                                 dim: inner.to_f32().to_array().into(),
-                                border: self.border,
-                                blur: self.blur,
+                                border: border,
+                                blur: blur,
                                 // We use corners raised to the nearest pixel so we can cut out the
                                 // corners neatly
                                 corners: intcorners.map(|x| x as f32).into(),
-                                fill: self.fill.as_32bit().rgba,
-                                outline: self.outline.as_32bit().rgba,
+                                fill: fill.as_32bit().rgba,
+                                outline: outline.as_32bit().rgba,
                             },
                             true,
                         )
@@ -117,7 +146,8 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             // coordinate happens along that axis
 
             // We add data here starting from the topleft corner and going clockwise around
-            // the rect: 1 6 2
+            // the rect:
+            // 1 6 2
             // 5 9 7
             // 4 8 3
 
@@ -126,7 +156,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             corners = corners.map(|x| x + 1.0);
             intcorners = intcorners.map(|x| x + 1);
 
-            let topleft = area.topleft().add_size(&self.padding.topleft()).to_vector();
+            let topleft = area.topleft().add_size(&padding.topleft()).to_vector();
             // Add 2 to account for the 2 pixel transparent border
             let uvpos = region_uv.min.add_size(&Size2D::splat(2));
             let mut gen_corner = |pos: PxPoint, corner: f32, u: i32, v: i32| {
@@ -248,52 +278,100 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                 dim - PxDim::splat(corners[0] + corners[2]),
                 [0.0, 0.0].into(),
                 [0.0, 0.0].into(),
-                self.fill.as_32bit().rgba,
+                fill.as_32bit().rgba,
                 0.0,
                 u8::MAX,
                 true,
             );
+        } else {
+            // The region dimensions here can be wrong, because the region is rounded up to
+            // the nearest pixel. However, properly fixing this requires changing
+            // how the SDF shader works so it can properly emulate conservative
+            // rasterization. For now, we keep our original behavior of rounding up and
+            // then letting the compositor squish the result slightly, which is actually
+            // pretty accurate. TODO: Change this to be pixel-perfect by outputting
+            // the exact dimensions instead of rounded ones.
 
-            return Ok(());
-        }
-
-        // The region dimensions here can be wrong, because the region is rounded up to
-        // the nearest pixel. However, properly fixing this requires changing
-        // how the SDF shader works so it can properly emulate conservative
-        // rasterization. For now, we keep our original behavior of rounding up and
-        // then letting the compositor squish the result slightly, which is actually
-        // pretty accurate. TODO: Change this to be pixel-perfect by outputting
-        // the exact dimensions instead of rounded ones.
-
-        let (region_uv, region_index) = driver
-            .with_pipeline::<Shape<KIND>, Result<(atlas::PxBox, u8), crate::Error>>(|pipeline| {
-                pipeline.reserve(
-                    driver,
-                    self.id.clone(),
-                    dim.ceil().cast(),
-                    Data {
-                        pos: [0.0; 2].into(),
-                        dim: dim.to_array().into(),
-                        border: self.border,
-                        blur: self.blur,
-                        corners: self.corners.into(),
-                        fill: self.fill.as_32bit().rgba,
-                        outline: self.outline.as_32bit().rgba,
+            let (region_uv, region_index) = driver
+                .with_pipeline::<Shape<KIND>, Result<(atlas::PxBox, u8), crate::Error>>(
+                    |pipeline| {
+                        pipeline.reserve(
+                            driver,
+                            id.clone(),
+                            dim.ceil().cast(),
+                            Data {
+                                pos: [0.0; 2].into(),
+                                dim: dim.to_array().into(),
+                                border: border,
+                                blur: blur,
+                                corners: corners.into(),
+                                fill: fill.as_32bit().rgba,
+                                outline: outline.as_32bit().rgba,
+                            },
+                            false,
+                        )
                     },
-                    false,
-                )
-            })?;
+                )?;
 
-        compositor.append_data(
-            area.topleft().add_size(&self.padding.topleft()),
-            dim,
-            region_uv.min.to_f32().to_array().into(),
-            region_uv.size().to_f32().to_array().into(),
-            0xFFFFFFFF,
-            0.0,
-            region_index,
-            false,
-        );
+            compositor.append_data(
+                area.topleft().add_size(&padding.topleft()),
+                dim,
+                region_uv.min.to_f32().to_array().into(),
+                region_uv.size().to_f32().to_array().into(),
+                0xFFFFFFFF,
+                0.0,
+                region_index,
+                false,
+            );
+        }
+        Ok(())
+    }
+}
+
+impl super::Renderable for DynSignal<Result<compositor::Data, crate::Error>> {
+    fn render(
+        &self,
+        parent_pos: crate::PxPoint,
+        driver: &crate::graphics::Driver,
+        compositor: &mut CompositorView<'_>,
+    ) -> Result<(), crate::Error> {
+        let data = crate::reactive::sample(self);
+        if let Some(e) = data.as_ref().err() {
+            return Err(match e {
+                crate::Error::ResizeTextureAtlas(i, k) => crate::Error::ResizeTextureAtlas(*i, *k),
+                _ => crate::Error::InternalFailure,
+            });
+        }
+        compositor.append_data(data.as_ref().unwrap().clone());
+        Ok(())
+    }
+}
+
+impl super::Renderable for DynSignal<Result<[compositor::Data; 9], crate::Error>> {
+    fn render(
+        &self,
+        parent_pos: crate::PxPoint,
+        driver: &crate::graphics::Driver,
+        compositor: &mut CompositorView<'_>,
+    ) -> Result<(), crate::Error> {
+        todo!()
+    }
+}
+
+impl<const KIND: u8> super::Renderable for Instance<KIND> {
+    fn render(
+        &self,
+        pos: crate::PxPoint,
+        driver: &crate::graphics::Driver,
+        compositor: &mut CompositorView<'_>,
+    ) -> Result<(), crate::Error> {
+        let data = crate::sample(&self.values);
+        compositor.append_data(data[0]);
+        if crate::render::compositor::DataFlags::from_bits(data[0].flags).raw() {
+            for i in 1..9 {
+                compositor.append_data(data[i]);
+            }
+        }
 
         Ok(())
     }
@@ -345,34 +423,24 @@ pub struct Shape<const KIND: u8> {
     buffer: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
-    cache: HashMap<Arc<SourceID>, (Data, atlas::PxBox, u8)>,
     refcount: HashMap<(Data, atlas::Size), (atlas::Region, usize)>,
 }
 
 impl<const KIND: u8> Shape<KIND> {
-    fn reserve(
+    fn update(
         &mut self,
         driver: &graphics::Driver,
-        id: Arc<SourceID>,
         uvdim: atlas::Size,
         mut data: Data,
+        old: Option<(Data, atlas::Size)>,
         clear: bool,
     ) -> Result<(atlas::PxBox, u8), crate::Error> {
-        // First we check our ID cache to see if there's an existing entry
-        if let Some((cache, uv, layer)) = self.cache.get(&id) {
-            // If we already have data cached, see if it changed. If it didn't, just append
-            // the cached data.
-            if data == *cache && uvdim == uv.size() {
-                // To make the cache possible, the data only contains the offset, so we add the
-                // region position here.
-                data.pos += uv.min.to_f32().to_array();
-                self.data.entry(*layer).or_default().push(data);
-                return Ok((*uv, *layer));
-            } else if let Some((old, uv, _)) = self.cache.remove(&id) {
-                // Otherwise, we have to delete the cache and decrement the refcount. If the
-                // refcount reaches 0, we delete the region entirely.
+        // If we have an old value, see if it's the same as the one we passed in. If it isn't, we have to
+        // delete the old value from the refcount.
+        if let Some((data_old, uvdim_old)) = old {
+            if data_old != data || uvdim_old != uvdim {
                 if let std::collections::hash_map::Entry::Occupied(mut v) =
-                    self.refcount.entry((old, uv.size()))
+                    self.refcount.entry((data_old, uvdim_old))
                 {
                     if v.get().1 <= 1 {
                         driver.atlas.write().destroy(&mut v.get_mut().0);
@@ -381,11 +449,18 @@ impl<const KIND: u8> Shape<KIND> {
                         v.get_mut().1 -= 1;
                     }
                 }
+            } else if let std::collections::hash_map::Entry::Occupied(v) =
+                self.refcount.entry((data, uvdim))
+            {
+                // If our new data is the same as our old data, we acquire our region and push it.
+                let (uv, _) = v.get();
+                data.pos += uv.uv.min.to_f32().to_array();
+                self.data.entry(uv.index).or_default().push(data);
+                return Ok((uv.uv, uv.index));
             }
         }
 
-        // If we get this far, either we didn't have something cached, or it had to be
-        // replaced. We check to see if the data key we have is already being
+        // We check to see if the data key we have is already being
         // used for something else, and increment the refcount if so. Otherwise, we
         // allocate a new region.
         let (region, _) = match self.refcount.entry((data, uvdim)) {
@@ -405,11 +480,6 @@ impl<const KIND: u8> Shape<KIND> {
         };
 
         debug_assert_eq!(uvdim, region.uv.size());
-
-        self.cache
-            .entry(id)
-            .and_modify(|v| *v = (data, region.uv, region.index))
-            .or_insert((data, region.uv, region.index));
 
         data.pos += region.uv.min.to_f32().to_array();
         self.data.entry(region.index).or_default().push(data);
@@ -591,7 +661,6 @@ impl<const KIND: u8> Shape<KIND> {
             buffer,
             pipeline,
             group,
-            cache: HashMap::new(),
             refcount: HashMap::new(),
         }
     }

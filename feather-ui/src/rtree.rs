@@ -144,7 +144,7 @@ impl Node {
         // cliprect: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut crate::CompositorView<'_>,
-        dependents: &mut Vec<DynSignal<Layer>>,
+        dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), crate::Error> {
         if let Some(staged) = self.staged.as_ref() {
             let area = *crate::sample(&self.area);
@@ -155,7 +155,6 @@ impl Node {
             let children = self.children.as_ref().map(|x| crate::sample(x));
             staged.render(
                 parent_pos,
-                area,
                 driver,
                 compositor,
                 match &children {

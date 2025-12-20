@@ -15,9 +15,9 @@ use guillotiere::euclid::{Point2D, Vector2D};
 use wide::f32x4;
 
 use crate::color::sRGB32;
-use crate::reactive::zip_pair;
-use crate::render::Renderable;
+use crate::reactive::{self, zip_pair};
 use crate::render::compositor::{CompositorView, Layer};
+use crate::render::{Prerender, Renderable};
 use crate::{
     DynSignal, Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, UNSIZED_AXIS, URect, UnsizedDim,
     rtree,
@@ -26,8 +26,7 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 
-type StageThunk<'a> =
-    Box<dyn Fn(DynSignal<PxPoint>, DynSignal<PxDim>, DynSignal<PxLimits>) -> rtree::Node>;
+type StageThunk<'a> = Box<dyn Fn(DynSignal<PxPoint>, DynSignal<PxDim>) -> rtree::Node>;
 
 /// Represents an arbitrary layout node that hasn't been staged yet. The vast
 /// majority of the time, components should simply use the standard [`Node`]
@@ -40,8 +39,7 @@ pub trait Layout {
     fn get_props(&self) -> &Self::Props;
     fn stage<'a>(
         &self,
-        dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        dim: DynSignal<PxDim>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
@@ -50,8 +48,7 @@ pub trait DynLayout<DynProps: ?Sized> {
     fn get_props(&self) -> &DynProps;
     fn stage<'a>(
         &self,
-        dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        dim: DynSignal<PxDim>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
@@ -65,11 +62,10 @@ where
     }
     fn stage<'a>(
         &self,
-        dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        dim: DynSignal<PxDim>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>) {
-        Layout::stage(self, dim, limits, dpi)
+        Layout::stage(self, dim, dpi)
     }
 }
 
@@ -78,12 +74,11 @@ pub trait Desc {
     type Child: ?Sized;
     type Children;
 
-    fn stage<'a>(
+    fn stage<'a, T: Prerender + 'static>(
         props: &Self::Props,
-        outer: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        outer: DynSignal<PxDim>,
         children: DynSignal<Self::Children>,
-        renderable: Option<Rc<dyn Renderable>>,
+        renderable: Option<T>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
@@ -97,13 +92,13 @@ pub trait Desc {
 ///
 /// # Examples
 /// See [`super::component::Component`]
-pub struct Node<T, D: Desc + ?Sized> {
+pub struct Node<T, D: Desc + ?Sized, R> {
     pub props: Rc<T>,
     pub children: DynSignal<D::Children>,
-    pub renderable: Option<Rc<dyn Renderable>>,
+    pub renderable: Option<R>,
 }
 
-impl<T, D: Desc + ?Sized> Layout for Node<T, D>
+impl<T, D: Desc + ?Sized, R: Prerender + Clone + 'static> Layout for Node<T, D, R>
 where
     for<'a> &'a T: Into<&'a D::Props>,
 {
@@ -114,24 +109,16 @@ where
     }
     fn stage<'a>(
         &self,
-        dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        dim: DynSignal<PxDim>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>) {
-        let mut staged = D::stage(
+        D::stage(
             self.props.as_ref().into(),
             dim,
-            limits,
             self.children.clone(),
-            self.renderable.as_ref().map(|x| x.clone()),
+            self.renderable.clone(),
             dpi,
-        );
-        if let Some(layer) = self.layer {
-            let instance = zip_pair(layer, staged., |l, s| );
-            staged.set_layer()
-        }
-        staged.set_layer(self.layer);
-        staged
+        )
     }
 }
 
@@ -139,38 +126,36 @@ pub trait Staged {
     fn render(
         &self,
         parent_pos: PxPoint,
-        area: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         children: Option<&imbl::Vector<Rc<rtree::Node>>>,
-        dependents: &mut Vec<DynSignal<Layer>>,
+        dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), Error>;
-    fn set_layer(&mut self, _layer: DynSignal<Layer>) {
-        panic!("This staged object doesn't support layers!");
-    }
 }
 
-pub(crate) struct Concrete {
-    renderable: Option<Rc<dyn Renderable>>,
-    layer: Option<DynSignal<Layer>>,
+pub(crate) struct Concrete<T: Renderable> {
+    renderable: Option<T>,
+    layer: Option<Rc<Layer>>,
+    area: DynSignal<PxRect>,
 }
 
-impl Concrete {
-    pub fn new(renderable: Option<Rc<dyn Renderable>>) -> Self {
+impl<T: Renderable> Concrete<T> {
+    pub fn new<R: Prerender<R = T>>(prerender: Option<&R>, area: DynSignal<PxRect>) -> Self {
         Self {
-            renderable,
+            renderable: prerender.map(|x| x.prerender(area.clone())),
             layer: None,
+            area,
         }
     }
 
     fn render_self(
         &self,
-        area: PxRect,
+        parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {
         if let Some(r) = &self.renderable {
-            r.render(area.to_untyped(), driver, compositor)?;
+            r.render(parent_pos, driver, compositor)?;
         }
         Ok(())
     }
@@ -191,21 +176,22 @@ impl Concrete {
     }
 }
 
-impl Staged for Concrete {
+impl<T: Renderable> Staged for Concrete<T> {
     fn render(
         &self,
         parent_pos: PxPoint,
-        area: PxRect,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
         children: Option<&imbl::Vector<Rc<rtree::Node>>>,
         dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), Error> {
-        if let Some(layer) = self.layer.upgrade() {
+        let area = reactive::sample(&self.area);
+        if let Some(layer) = &self.layer {
             let mut deps = Vec::new();
-            let mut region_uv = None;
 
-            let (mut view, depview) = if layer.target.is_some() {
+            let layer_area = reactive::sample(&layer.area);
+            let target = reactive::sample(&layer.target);
+            let (mut view, depview) = if let Some(target) = &*target {
                 // If this is a "real" layer with a texture target, mark it as a dependency of
                 // our parent
                 dependents.push(Rc::downgrade(&layer));
@@ -221,18 +207,12 @@ impl Staged for Concrete {
                     _ => panic!("Invalid index!"),
                 };
 
-                let mut atlas = driver.layer_atlas[index - 1].write();
-                let region = atlas.cache_region(
-                    &driver.device,
-                    &id,
-                    layer.area.dim().ceil().to_i32(),
-                    None,
-                    None,
-                )?;
-                region_uv = Some(region.uv);
+                target
+                    .write()
+                    .update(layer_area.dim().ceil().to_i32(), index - 1, driver);
 
-                // Make sure we aren't cached in the opposite atlas
-                driver.layer_atlas[index % 2].write().remove_cache(&id);
+                let region_uv = target.read().region.uv;
+                let region_index = target.read().region.index;
                 assert!(compositor.pass < 0b111111);
 
                 let mut v = CompositorView {
@@ -241,10 +221,10 @@ impl Staged for Concrete {
                     layer0: compositor.layer0,
                     layer1: compositor.layer1,
                     clipstack: compositor.clipstack,
-                    offset: region.uv.min.to_f32() - layer.area.topleft() - parent_pos.to_vector(),
+                    offset: region_uv.min.to_f32() - layer_area.topleft() - parent_pos.to_vector(),
                     surface_dim: compositor.surface_dim,
                     pass: compositor.pass + 1,
-                    slice: region.index,
+                    slice: region_index,
                 };
 
                 v.reserve(driver);
@@ -271,8 +251,8 @@ impl Staged for Concrete {
 
             // Always push a new clipping area, but remember that a layer can only store
             // it's relative area.
-            view.with_clip(layer.area + parent_pos, |refview| {
-                self.render_self(area + parent_pos, driver, refview)?;
+            view.with_clip(*layer_area + parent_pos, |refview| {
+                self.render_self(parent_pos, driver, refview)?;
                 if let Some(c) = children {
                     self.render_children(
                         parent_pos + area.topleft().to_vector(),
@@ -285,15 +265,15 @@ impl Staged for Concrete {
                 Ok(())
             })?;
 
-            if let Some(target) = layer.target.as_ref() {
+            if let Some(target) = &*target {
                 // If this was a real layer, now we need to actually assign the result of our
                 // dependencies, and append ourselves to the parent layer. We
                 // must be very careful not to use the wrong view here.
                 target.write().dependents = deps;
-                compositor.append_layer(&layer, parent_pos, region_uv.unwrap());
+                compositor.append_layer(&layer, parent_pos, target.read().region.uv);
             }
         } else {
-            self.render_self(area + parent_pos, driver, compositor)?;
+            self.render_self(parent_pos, driver, compositor)?;
             if let Some(c) = children {
                 self.render_children(
                     parent_pos + area.topleft().to_vector(),
@@ -306,10 +286,6 @@ impl Staged for Concrete {
         };
 
         Ok(())
-    }
-
-    fn set_layer(&mut self, id: std::sync::Weak<SourceID>) {
-        self.layer = Some(id)
     }
 }
 
@@ -380,8 +356,8 @@ pub(crate) fn limit_dim(v: crate::UnsizedDim, limits: PxLimits) -> PxDim {
 #[inline]
 pub(crate) fn limit_dim_sized(v: crate::PxDim, limits: PxLimits) -> PxDim {
     PxDim::new(
-            v.width.max(limits.min().width).min(limits.max().width),
-            v.height.max(limits.min().height).min(limits.max().height),
+        v.width.max(limits.min().width).min(limits.max().width),
+        v.height.max(limits.min().height).min(limits.max().height),
     )
 }
 

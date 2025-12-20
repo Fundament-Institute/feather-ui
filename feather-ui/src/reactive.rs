@@ -261,6 +261,10 @@ impl<T: num_traits::Num> ToSignal<T> for T {
     }
 }
 
+// TODO: The Rc here should be removed by changing the API interface such that SignalProvider
+// is implemented on Rc<TheProvider>, thus allowing ConstProvider to not store an Rc at all,
+// but this will also require changing how updates are handled so that ConstProvider doesn't
+// need to store an update node.
 pub fn const_signal<T>(t: T) -> Signal<ConstProvider<T>> {
     Signal(Rc::new(ConstProvider::new(t)))
 }
@@ -1353,7 +1357,7 @@ pub mod cmp {
         b: Signal<BP>,
     ) -> Signal<impl SignalProvider<Item = bool>>
     where
-        AP::Item: Clone + PartialOrd<BP::Item>,
+        AP::Item: Clone + PartialEq<BP::Item>,
         BP::Item: Clone,
     {
         operate::<AP, BP, bool, EqOp>(a, b)

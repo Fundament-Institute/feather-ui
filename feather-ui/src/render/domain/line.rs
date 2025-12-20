@@ -19,7 +19,7 @@ pub struct Instance {
 impl super::Renderable for Instance {
     fn render(
         &self,
-        _: crate::PxRect,
+        _: crate::PxPoint,
         _: &crate::graphics::Driver,
         compositor: &mut compositor::CompositorView<'_>,
     ) -> Result<(), crate::Error> {
