@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 #[derive_where(Clone)]
 pub struct Region<T: Default> {
-    pub layer: Option<DynSignal<(sRGB32, f32)>>,
+    pub layer: Option<(DynSignal<crate::color::sRGB32>, DynSignal<f32>)>,
     props: Rc<T>,
     children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>,
 }
@@ -34,7 +34,7 @@ impl<T: fixed::Prop + Default + 'static> Region<T> {
     ) -> Self {
         Self {
             props: props.into(),
-            layer: Some((color, rotation).zip().into_dyn_signal()),
+            layer: Some((color, rotation)),
             children,
         }
     }
@@ -45,7 +45,7 @@ where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
     type Props = T;
-    type R = layout::Node<T, dyn fixed::Prop>;
+    type R = fixed::Layer<T, ()>;
 
     fn layout(
         &self,

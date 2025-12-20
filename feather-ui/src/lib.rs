@@ -59,6 +59,7 @@ use std::cell::RefCell;
 use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::convert::Infallible;
+use std::f32::{INFINITY, NEG_INFINITY};
 use std::ffi::c_void;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -1555,29 +1556,29 @@ impl Mul<UnsizedDim> for RelLimits {
         let minmax = self.v.as_array_ref();
         let v = f32x4::new([
             if unsized_x {
-                minmax[0]
+                NEG_INFINITY
             } else {
                 minmax[0] * rhs.width
             },
             if unsized_y {
-                minmax[1]
+                NEG_INFINITY
             } else {
                 minmax[1] * rhs.height
             },
             if unsized_x {
-                minmax[2]
+                INFINITY
             } else {
                 minmax[2] * rhs.width
             },
             if unsized_y {
-                minmax[3]
+                INFINITY
             } else {
                 minmax[3] * rhs.height
             },
         ]);
 
         Self::Output {
-            v: self.v.is_finite().blend(v, self.v),
+            v,
             _unit: PhantomData,
         }
     }
@@ -2020,9 +2021,9 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
     }
 
     fn empty_layout_root()
-    -> layout::Node<DynSignal<Size2D<u32, crate::Pixel>>, dyn layout::root::Prop> {
+    -> layout::Node<DynSignal<Size2D<u32, crate::Pixel>>, dyn layout::root::Prop, ()> {
         let empty_child: Rc<dyn crate::layout::DynLayout<dyn layout::base::Empty>> =
-            Rc::new(layout::Node::<(), dyn layout::base::Empty> {
+            Rc::new(layout::Node::<(), dyn layout::base::Empty, ()> {
                 props: Rc::new(()),
                 children: empty_signal().into(),
                 renderable: None,
@@ -2126,13 +2127,12 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
             )| {
                 let (v, w) = tuple;
                 if let Some((state, _)) = windows2.borrow().get(&Identity((*w).clone())) {
-                    let (_, mut f) = v.stage(
+                    let (_, f) = v.stage(
                         state
                             .surface_dim
                             .clone()
                             .map(|x| x.to_f32().cast_unit())
                             .into_dyn_signal(),
-                        const_signal(PxLimits::default()).into_dyn_signal(),
                         state.dpi.clone(),
                     );
 
@@ -2144,7 +2144,6 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
                                 .clone()
                                 .map(|x| x.to_f32())
                                 .into_dyn_signal(),
-                            const_signal(PxLimits::default()).into_dyn_signal(),
                         )),
                         (*w).clone(),
                     )

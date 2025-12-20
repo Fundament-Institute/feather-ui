@@ -60,7 +60,7 @@ impl Instance {
 impl crate::render::Renderable for Instance {
     fn render(
         &self,
-        area: crate::PxRect,
+        parent_pos: crate::PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut compositor::CompositorView<'_>,
     ) -> Result<(), Error> {

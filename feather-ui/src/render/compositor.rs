@@ -3,12 +3,14 @@
 
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
-use crate::render::atlas::PxBox;
+use crate::reactive::{self, DynSignal, MutableSignal, SignalMap, SignalTupleZip, cmp, zip_pair};
+use crate::render::atlas::{self, PxBox};
 use crate::{PxDim, PxPoint, PxRect, PxVector, RelDim};
 use derive_where::derive_where;
 use num_traits::Zero;
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::num::NonZero;
 use std::sync::Arc;
 use wgpu::wgt::SamplerDescriptor;
@@ -30,7 +32,7 @@ pub struct Shared {
 }
 
 pub const TARGET_BLEND: wgpu::ColorTargetState = wgpu::ColorTargetState {
-    format: crate::render::atlas::ATLAS_FORMAT,
+    format: atlas::ATLAS_FORMAT,
     blend: Some(wgpu::BlendState::REPLACE),
     write_mask: wgpu::ColorWrites::ALL,
 };
@@ -179,55 +181,119 @@ impl Shared {
 pub struct LayerTarget {
     pub dependents: Vec<std::rc::Weak<Layer>>, /* Layers that draw on to this one (does not
                                                 * include fake layers) */
-    pub region: crate::render::atlas::Region,
+    pub region: atlas::Region,
+    pub driver: std::sync::Weak<Driver>,
+    pub atlas: u8,
 }
 
-#[derive(Debug, Default)]
+impl LayerTarget {
+    pub fn update(
+        &mut self,
+        dim: atlas::Size,
+        atlas: u8,
+        driver: &crate::graphics::Driver,
+    ) -> Result<(), crate::Error> {
+        if self.region.id == guillotiere::AllocId::deserialize(u32::MAX) {
+            self.region = driver.layer_atlas[atlas as usize].write().reserve(
+                &driver.device,
+                dim,
+                None,
+                None,
+            )?;
+        } else if self.region.uv.size() != dim {
+            driver.layer_atlas[self.atlas as usize]
+                .write()
+                .destroy(&mut self.region);
+            self.region = driver.layer_atlas[atlas as usize].write().reserve(
+                &driver.device,
+                dim,
+                None,
+                None,
+            )?;
+        }
+        self.atlas = atlas;
+        Ok(())
+    }
+}
+
+impl Drop for LayerTarget {
+    fn drop(&mut self) {
+        if let Some(driver) = self.driver.upgrade() {
+            driver.layer_atlas[self.atlas as usize]
+                .write()
+                .destroy(&mut self.region);
+        }
+    }
+}
+
 pub struct Layer {
     // Renderable area representing what children draw onto. This corresponds to this layer's
     // compositor viewport, if it has one.
-    pub area: PxRect,
+    pub area: DynSignal<PxRect>,
     // destination area that the layer is composited onto. Usually this is the same as area, but
     // can be different when scaling down
-    dest: PxRect,
-    color: sRGB32,
-    rotation: f32,
+    pub(crate) dest: DynSignal<PxRect>,
+    pub(crate) color: DynSignal<sRGB32>,
+    pub(crate) rotation: DynSignal<f32>,
     // Layers aren't always texture-backed so this may not exist
-    pub target: Option<RwLock<LayerTarget>>,
+    pub target: DynSignal<Option<RwLock<LayerTarget>>>,
 }
 
 impl Layer {
-    pub fn update(
-        &mut self,
-        mut area: PxRect,
-        dest: Option<PxRect>,
-        color: sRGB32,
-        rotation: f32,
+    pub fn new(
+        area: DynSignal<PxRect>,
+        dest: DynSignal<PxRect>,
+        color: DynSignal<sRGB32>,
+        rotation: DynSignal<f32>,
         force: bool,
-    ) {
+    ) -> Self {
         // Snap the layer area to the nearest pixel. This is necessary because the layer
         // is treated as a compositing target, which is always assumed to be on
         // a pixel grid.
-        let array = area.v.as_array_mut();
-        array[0] = array[0].floor();
-        array[1] = array[1].floor();
-        array[2] = array[2].ceil();
-        array[3] = array[3].ceil();
+        let area = area
+            .map(|x| {
+                let array = x.v.as_array_ref();
+                PxRect {
+                    v: wide::f32x4::new([
+                        array[0].floor(),
+                        array[1].floor(),
+                        array[2].ceil(),
+                        array[3].ceil(),
+                    ]),
+                    _unit: PhantomData,
+                }
+            })
+            .into_dyn_signal();
 
-        let dest = dest.unwrap_or(area);
-
-        self.area = area;
-        self.dest = dest;
-        self.color = color;
-        self.rotation = rotation;
-
-        // If true, this is a clipping layer, not a texture-backed one
-        if color == sRGB32::white() && rotation.is_zero() && !force && dest == area {
-            self.target = None;
-        } else if self.target.is_none() {
-            // Be careful not to delete the target every time we update the layer
-            self.target = Some(RwLock::new(Default::default()))
+        let target = if force {
+            MutableSignal::new(Some(RwLock::new(Default::default()))).into_dyn_signal()
+        } else {
+            (
+                color.clone(),
+                rotation.clone(),
+                cmp::eq(area.clone(), dest.clone()).into_dyn_signal(),
+            )
+                .zip()
+                .map_mut(|(c, r, s), old| {
+                    if *c == sRGB32::white() && r.is_zero() && *s {
+                        None
+                    } else if let Some(o) = old {
+                        o
+                    } else {
+                        // Be careful not to delete the target every time we update the layer
+                        Some(RwLock::new(Default::default()))
+                    }
+                })
+                .into_dyn_signal()
         };
+
+        Self {
+            area,
+            dest,
+            color,
+            rotation,
+            target,
+        }
     }
 }
 
@@ -889,13 +955,16 @@ impl<'a> CompositorView<'a> {
             2 => &mut self.layer1,
             _ => panic!("Illegal compositor index!"),
         };
+        let dest = reactive::sample(&layer.dest);
+        let color = reactive::sample(&layer.color);
+        let rotation = reactive::sample(&layer.rotation);
         let data = Data::new(
-            layer.dest.topleft() + parent_pos.to_vector(),
-            layer.dest.dim(),
+            dest.topleft() + parent_pos.to_vector(),
+            dest.dim(),
             uv.min.to_f32().to_array().into(),
             uv.size().to_f32().to_array().into(),
-            layer.color.rgba,
-            layer.rotation,
+            color.rgba,
+            *rotation,
             0,
             false,
             true,

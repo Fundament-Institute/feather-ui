@@ -317,7 +317,7 @@ impl Instance {
 impl super::Renderable for Instance {
     fn render(
         &self,
-        area: PxRect,
+        parent_pos: crate::PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), Error> {

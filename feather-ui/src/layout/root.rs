@@ -31,36 +31,30 @@ impl Desc for dyn Prop {
     type Child = dyn base::Empty;
     type Children = Rc<dyn DynLayout<Self::Child>>;
 
-    fn stage<'a>(
+    fn stage<'a, T>(
         props: &Self::Props,
-        _: DynSignal<UnsizedDim>,
-        _: DynSignal<crate::PxLimits>,
+        _: DynSignal<crate::PxDim>,
         child: DynSignal<Self::Children>,
-        _: Option<Rc<dyn Renderable>>,
+        _: Option<T>,
         dpi: reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        let dim: DynSignal<UnsizedDim> = props.dim().clone().map(|d| d.to_f32().cast_unit()).into();
+        let dim: DynSignal<crate::PxDim> = props.dim().clone().map(|d| d.to_f32()).into();
         let sized = props.dim().map(|d| d.to_f32()).into_dyn_signal();
 
         (
             props.dim().map(|x| PxRect::from(x.to_f32())).into(),
-            Box::new(move |_, _, _| {
+            Box::new(move |_, _| {
                 let dim = dim.clone();
                 let dpi = dpi.clone();
                 let sized = sized.clone();
                 let final_area = sized.clone().map(|d| PxRect::from(*d)).into_dyn_signal();
 
                 let presize = child.clone().map(move |c| {
-                    let (_, mut f) = c.stage(
-                        dim.clone(),
-                        const_signal(crate::PxLimits::default()).into(),
-                        dpi.clone(),
-                    );
+                    let (_, f) = c.stage(dim.clone(), dpi.clone());
 
                     Rc::new(f(
                         const_signal(crate::PxPoint::default()).into(),
                         sized.clone(),
-                        const_signal(crate::PxLimits::default()).into(),
                     ))
                 });
 
@@ -73,7 +67,11 @@ impl Desc for dyn Prop {
                             .map(|node| imbl::vector![node.clone()])
                             .into_dyn_signal(),
                     ),
-                    Some(Box::new(crate::layout::Concrete::new(None))),
+                    Some(Box::new(crate::layout::Concrete::<()> {
+                        renderable: None,
+                        layer: None,
+                        area: final_area.clone(),
+                    })),
                 )
             }),
         )

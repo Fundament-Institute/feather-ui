@@ -23,17 +23,17 @@ where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {
     type Props = T;
-    type R = layout::Node<T, dyn base::Empty>;
+    type R = layout::Node<T, dyn base::Empty, crate::render::line::Instance>;
 
     fn layout(&self, _: Arc<crate::graphics::Driver>, _: MutableSignal<crate::RelDim>) -> Self::R {
-        layout::Node::<T, dyn base::Empty> {
+        layout::Node::<T, dyn base::Empty, crate::render::line::Instance> {
             props: self.props.clone(),
             children: reactive::empty_signal().into(),
-            renderable: Some(Rc::new(crate::render::line::Instance::new(
+            renderable: Some(crate::render::line::Instance::new(
                 self.start.clone(),
                 self.end.clone(),
                 self.fill.clone(),
-            ))),
+            )),
         }
     }
 }

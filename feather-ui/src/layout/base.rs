@@ -40,35 +40,29 @@ impl crate::layout::Desc for dyn Empty {
     type Child = dyn Empty;
     type Children = ();
 
-    fn stage<'a>(
+    fn stage<'a, T: crate::render::Prerender + 'static>(
         _: &Self::Props,
-        predim: DynSignal<crate::UnsizedDim>,
-        prelimits: DynSignal<crate::PxLimits>,
+        predim: DynSignal<crate::PxDim>,
         _: DynSignal<Self::Children>,
-        renderable: Option<Rc<dyn crate::render::Renderable>>,
+        renderable: Option<T>,
         _: MutableSignal<crate::RelDim>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        let area = zip_pair(predim, prelimits, move |dim, limits| {
-            crate::PxRect::from(super::limit_dim_sized(super::zero_unsized(dim), limits))
-        })
-        .into();
+        let area = predim.map(|dim| crate::PxRect::from(*dim)).into();
 
         (
             area,
-            Box::new(move |offset, final_dim, final_limits| {
-                let final_area = (offset, final_dim, final_limits)
-                    .zip::<(crate::PxPoint, crate::PxDim, crate::PxLimits)>()
-                    .map(|(o, dim, limits)| {
-                        crate::Rect::offsetdim(*o, super::limit_dim_sized(*dim, *limits))
-                    })
-                    .into_dyn_signal();
+            Box::new(move |offset, final_dim| {
+                let final_area =
+                    zip_pair(offset, final_dim, |o, dim| crate::Rect::offsetdim(o, dim))
+                        .into_dyn_signal();
 
                 crate::rtree::Node::new(
-                    final_area,
+                    final_area.clone(),
                     None,
                     None,
                     Some(Box::new(crate::layout::Concrete::new(
-                        renderable.as_ref().map(|x| x.clone()),
+                        renderable.as_ref(),
+                        final_area,
                     ))),
                 )
             }),
