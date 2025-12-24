@@ -2,10 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
-use crate::layout::{Layout, base, leaf};
+use crate::layout::leaf;
 use crate::reactive::{DynSignal, MutableSignal, SignalMap, zip_pair};
-use crate::{DAbsPoint, layout};
-use std::iter::zip;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -121,7 +119,7 @@ where
 
     fn layout(
         &self,
-        _: Arc<crate::graphics::Driver>,
+        driver: Arc<crate::graphics::Driver>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> Self::R {
         let corners = if KIND == ShapeKind::RoundRect as u8 {
@@ -151,6 +149,7 @@ where
                 fill: self.fill.clone(),
                 outline: self.outline.clone(),
                 corners,
+                driver,
             }),
         }
     }

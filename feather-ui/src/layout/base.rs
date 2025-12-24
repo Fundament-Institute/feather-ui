@@ -3,9 +3,7 @@
 
 use crate::{
     DAbsRect, DPoint, DRect, ZERO_DRECT,
-    reactive::{
-        DynSignal, MutableSignal, SignalMap, SignalTupleZip, ToSignal, const_signal, zip_pair,
-    },
+    reactive::{DynSignal, MutableSignal, SignalMap, ToSignal, const_signal, zip_pair},
 };
 use std::rc::Rc;
 

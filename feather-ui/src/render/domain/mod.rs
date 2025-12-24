@@ -3,9 +3,7 @@
 
 use super::Renderable;
 use crate::component::ComponentMarker;
-use crate::reactive::Identity;
 use crate::{CrossReferenceDomain, PxPoint, PxRect, sample};
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub mod line;

@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+use super::Desc;
 use super::base::{Empty, RLimits};
-use super::{Concrete, Desc, Layout, Renderable, Staged};
 use crate::component::ComponentMarker;
 use crate::layout::DynLayout;
 use crate::reactive::SignalMap;
-use crate::reactive::{self, DynSignal, SignalTupleZip, zip_pair};
-use crate::{CrossReferenceDomain, PxLimits, RelDim, render, rtree};
+use crate::reactive::{self, DynSignal, zip_pair};
+use crate::{CrossReferenceDomain, RelDim, render};
 use std::marker::PhantomData;
-use std::rc::Rc;
 use std::sync::Arc;
 
 // A DomainWrite layout spawns a renderable that writes it's area to the target

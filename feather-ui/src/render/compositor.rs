@@ -3,7 +3,7 @@
 
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
-use crate::reactive::{self, DynSignal, MutableSignal, SignalMap, SignalTupleZip, cmp, zip_pair};
+use crate::reactive::{self, DynSignal, MutableSignal, SignalMap, SignalTupleZip, cmp};
 use crate::render::atlas::{self, PxBox};
 use crate::{PxDim, PxPoint, PxRect, PxVector, RelDim};
 use derive_where::derive_where;
@@ -1092,6 +1092,7 @@ pub struct Data {
 }
 
 impl Data {
+    #[inline(always)]
     pub fn new(
         pos: PxPoint,
         dim: PxDim,
@@ -1117,6 +1118,12 @@ impl Data {
                 .into(),
             ..Default::default()
         }
+    }
+
+    #[inline(always)]
+    pub fn offset(mut self, offset: PxPoint) -> Self {
+        self.pos += offset.into();
+        self
     }
 }
 

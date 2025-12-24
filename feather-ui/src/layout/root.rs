@@ -3,9 +3,9 @@
 
 use guillotiere::euclid::Size2D;
 
-use super::{Desc, Renderable, base};
+use super::{Desc, base};
 use crate::{
-    Pixel, PxRect, UnsizedDim,
+    Pixel, PxRect,
     layout::DynLayout,
     reactive::{self, DynSignal, SignalMap, const_signal},
 };

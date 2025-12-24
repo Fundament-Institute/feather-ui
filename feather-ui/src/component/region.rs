@@ -3,9 +3,8 @@
 
 use crate::color::sRGB32;
 use crate::component::ChildOf;
-use crate::layout;
 use crate::layout::fixed;
-use crate::reactive::{DynSignal, MutableSignal, SignalTupleZip, map_vec, zip_pair};
+use crate::reactive::{DynSignal, MutableSignal, map_vec};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;

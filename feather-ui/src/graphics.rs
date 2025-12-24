@@ -331,7 +331,7 @@ impl Driver {
             uvsize = r.uv.size();
             Ok(())
         }) {
-            Err(Error::ResizeTextureAtlas(layers, kind)) => {
+            Err(Error::ResizeTextureAtlas(crate::ResizeTextureAtlasErr(layers, kind))) => {
                 // Resize the texture atlas with the requested number of layers (the extent has
                 // already been changed)
                 match kind {
