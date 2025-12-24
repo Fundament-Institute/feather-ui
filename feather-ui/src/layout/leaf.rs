@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::base::Empty;
-use super::{Concrete, Desc, Layout, Renderable, base, map_unsized_area};
+use super::{Concrete, Desc, Layout, base, map_unsized_area};
 use crate::reactive::{DynSignal, SignalMap, SignalTupleZip, zip_pair};
 use crate::{DRect, PxDim, PxLimits, PxRect, RelDim, rtree};
 use std::marker::PhantomData;

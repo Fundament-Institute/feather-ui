@@ -147,7 +147,6 @@ impl Node {
         dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), crate::Error> {
         if let Some(staged) = self.staged.as_ref() {
-            let area = *crate::sample(&self.area);
             // let extent = *crate::sample(&self.extent);
 
             // TODO: Pass down the clip area through the render stack so the r-tree can clip things correctly

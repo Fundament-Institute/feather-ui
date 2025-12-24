@@ -1,4 +1,4 @@
-use imbl::{GenericVector, vector};
+use imbl::GenericVector;
 use smolset::SmolSet;
 use stable_deref_trait::CloneStableDeref;
 use std::{
@@ -94,7 +94,8 @@ impl<T: CloneStableDeref> Hash for Identity<T> {
     }
 }
 
-type SignalNodeId = Identity<Rc<RefCell<SignalNode>>>;
+pub(crate) type SignalNodeId = Identity<Rc<RefCell<SignalNode>>>;
+
 // Let's just be single threaded for now.
 pub struct SignalNode {
     children: SmolSet<[SignalNodeId; 4]>,
@@ -361,7 +362,7 @@ pub fn zip<
     }))
 }
 
-struct SignalMapProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> {
+pub struct SignalMapProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> {
     provider: Rc<P>,
     func: F,
     res: RefCell<Option<T2>>,
@@ -418,7 +419,7 @@ pub fn map<T1, T2, F: Fn(&P::Item) -> T2, P: SignalProvider<Item = T1> + ?Sized>
     }))
 }
 
-struct SignalMapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> {
+pub struct SignalMapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> {
     provider: Rc<P>,
     func: F,
     res: RefCell<Option<T2>>,
@@ -724,7 +725,6 @@ impl<T> Signal<MutableSignalProvider<T>> {
 }
 
 pub type DynSignal<T> = Signal<dyn SignalProvider<Item = T>>; // Removing the stuff to handle smarter const folding to write less code
-pub type AnySignal<T, P: SignalProvider<Item = T>> = (Signal<P>, PhantomData<T>);
 pub type MutableSignal<T> = Signal<MutableSignalProvider<T>>;
 
 // A mechanism for declaring that something that isn't a signal cares about checking when a signal changes
@@ -741,7 +741,40 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
             provider: signal.0,
         }
     }
-    pub fn sample(&mut self) -> Option<DynRef<'_, Provider::Item>> {
+
+    /// If the value didn't change, calls force() and returns the value anyway if force returns true.
+    pub fn partial_sample(
+        &self,
+        force: impl Fn(&Provider::Item) -> bool,
+    ) -> Option<DynRef<'_, Provider::Item>> {
+        let color = self.node.0.borrow().color;
+        match color {
+            NodeColor::Ready => {
+                if force(&self.provider.get_ref()) {
+                    Some(self.provider.get_ref())
+                } else {
+                    None
+                }
+            }
+            _ => {
+                self.provider.update_if_necessary();
+                let color = self.node.0.borrow().color;
+                match color {
+                    NodeColor::Changed => {
+                        notify_children_change(&self.node);
+                        self.node.0.borrow_mut().color = NodeColor::Ready;
+                        Some(self.provider.get_ref())
+                    }
+                    _ => {
+                        self.node.0.borrow_mut().color = NodeColor::Ready;
+                        None
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn sample(&self) -> Option<DynRef<'_, Provider::Item>> {
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => None,
@@ -783,7 +816,7 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
 thread_local! {
 static DYNAMIC_DEPS: std::cell::RefCell<Option<SmolSet<[SignalNodeId; 4]>>> = std::cell::RefCell::new(None);
 }
-struct DynamicSignalProvider<T, F: Fn() -> T> {
+pub struct DynamicSignalProvider<T, F: Fn() -> T> {
     node: SignalNodeId,
     lastdeps: RefCell<SmolSet<[SignalNodeId; 4]>>,
     f: F,
@@ -1408,6 +1441,16 @@ pub fn cond<T: Clone>(
     join(c.map(move |cc| if *cc { a.clone() } else { b.clone() }))
 }
 
+#[macro_export]
+macro_rules! switch {
+    ($e:expr, $($param:expr => $pattern:pat $(if $guard:expr)?),+ $(,)?) => {
+        $crate::join($e.map(move |x|
+        match x {
+            $($pattern $(if $guard)? => $param.clone()),+
+        }))
+    };
+}
+
 #[test]
 fn add() {
     let a = 1.to_signal();
@@ -1504,7 +1547,7 @@ pub fn map_vec<
 
 #[test]
 fn test_reactive_map_vec() {
-    let v = const_signal(vector![1, 2, 3, 4]);
+    let v = const_signal(imbl::vector![1, 2, 3, 4]);
 
     let result = map_vec(|x| *x * *x, |x| *x, v.clone());
 
@@ -1512,7 +1555,12 @@ fn test_reactive_map_vec() {
         println!("{i}");
     }
 
-    let rv = const_signal(vector![Rc::new(1), Rc::new(2), Rc::new(3), Rc::new(4)]);
+    let rv = const_signal(imbl::vector![
+        Rc::new(1),
+        Rc::new(2),
+        Rc::new(3),
+        Rc::new(4)
+    ]);
 
     let result = map_vec(
         |x| *x.as_ref() * *x.as_ref(),

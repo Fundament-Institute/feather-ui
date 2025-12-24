@@ -14,8 +14,7 @@ pub mod root;
 use guillotiere::euclid::{Point2D, Vector2D};
 use wide::f32x4;
 
-use crate::color::sRGB32;
-use crate::reactive::{self, zip_pair};
+use crate::reactive::{self};
 use crate::render::compositor::{CompositorView, Layer};
 use crate::render::{Prerender, Renderable};
 use crate::{
@@ -24,7 +23,6 @@ use crate::{
 };
 use std::marker::PhantomData;
 use std::rc::Rc;
-use std::sync::Arc;
 
 type StageThunk<'a> = Box<dyn Fn(DynSignal<PxPoint>, DynSignal<PxDim>) -> rtree::Node>;
 
@@ -209,7 +207,7 @@ impl<T: Renderable> Staged for Concrete<T> {
 
                 target
                     .write()
-                    .update(layer_area.dim().ceil().to_i32(), index - 1, driver);
+                    .update(layer_area.dim().ceil().to_i32(), index - 1, driver)?;
 
                 let region_uv = target.read().region.uv;
                 let region_index = target.read().region.index;

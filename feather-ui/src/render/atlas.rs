@@ -9,11 +9,11 @@ use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator};
 use wgpu::util::DeviceExt;
 use wgpu::{BindGroupLayoutEntry, Extent3d, TextureDescriptor, TextureFormat, TextureUsages};
 
-use crate::{Error, Pixel};
+use crate::{Pixel, ResizeTextureAtlasErr};
 
 pub type Size = guillotiere::euclid::Size2D<i32, Pixel>;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum AtlasKind {
     Primary,
@@ -434,7 +434,7 @@ impl Atlas {
         mipmap: Option<&wgpu::Queue>, /* This is a little silly but works because we can have
                                        * two immutable references at once */
         clear: Option<&wgpu::Queue>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), ResizeTextureAtlasErr> {
         if region.id == AllocId::deserialize(u32::MAX) {
             *region = self.reserve(device, dim, mipmap, clear)?;
         } else if region.uv.size() != dim {
@@ -451,7 +451,7 @@ impl Atlas {
         dim: Size,
         mipmap: Option<&wgpu::Queue>,
         clear: Option<&wgpu::Queue>,
-    ) -> Result<Region, Error> {
+    ) -> Result<Region, ResizeTextureAtlasErr> {
         if dim.height == 0 {
             assert_ne!(dim.height, 0);
         }
@@ -480,9 +480,7 @@ impl Atlas {
         region.id = AllocId::deserialize(u32::MAX);
     }
 
-    // This always triggers a resize error telling us to abort the current frame
-    // render
-    fn grow(&mut self, device: &wgpu::Device) -> Error {
+    fn grow(&mut self, device: &wgpu::Device) -> ResizeTextureAtlasErr {
         if (self.extent * 2) <= device.limits().max_texture_dimension_2d {
             self.extent *= 2;
             if let Some(allocator) = self.allocators.first_mut() {
@@ -491,13 +489,13 @@ impl Atlas {
                     self.extent as i32,
                 ));
             } else {
-                return Error::InternalFailure;
+                return ResizeTextureAtlasErr(0, AtlasKind::Primary);
             }
         } else {
             self.allocators.push(Self::create_allocator(self.extent));
         }
 
-        Error::ResizeTextureAtlas(self.allocators.len() as u32, self.kind)
+        ResizeTextureAtlasErr(self.allocators.len() as u32, self.kind)
     }
 
     fn queue_mip(&mut self, region: &Region, device: &wgpu::Device, queue: &wgpu::Queue) {

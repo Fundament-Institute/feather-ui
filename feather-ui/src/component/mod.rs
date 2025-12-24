@@ -8,12 +8,9 @@ pub mod shape;
 pub mod window;
 
 use crate::component::window::Window;
+use crate::graphics;
 use crate::layout::{Desc, DynLayout, Layout};
 use crate::reactive::MutableSignal;
-use crate::{DispatchPair, Dispatchable, PxRect, graphics};
-use eyre::Result;
-use smallvec::SmallVec;
-use std::any::Any;
 use std::rc::Rc;
 use std::sync::Arc;
 

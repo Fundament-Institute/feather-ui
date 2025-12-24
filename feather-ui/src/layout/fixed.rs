@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::{Concrete, Desc, Renderable, base, check_unsized, map_unsized_area};
+use super::{Concrete, Desc, base, check_unsized, map_unsized_area};
 use crate::{
     PxLimits, PxRect, RelDim,
     layout::{DynLayout, zero_unsized},
@@ -103,7 +103,7 @@ fn stage<'a, T: Prerender + 'static>(
         crate::const_signal(PxRect::zero()).into_dyn_signal(),
     ));
 
-    let presize = presize.into_dyn_signal().map(|x| x.extend(PxRect::zero()));
+    let presize = presize.map(|x| x.extend(PxRect::zero()));
 
     // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
     let is_unsized = myarea.clone().map(|x| {

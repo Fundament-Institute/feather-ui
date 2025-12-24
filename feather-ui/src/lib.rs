@@ -49,18 +49,16 @@ use crate::render::compositor::CompositorView;
 use bytemuck::NoUninit;
 use core::f32;
 use dyn_clone::DynClone;
-use eyre::OptionExt;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
+use num_traits::Zero;
 use parking_lot::RwLock;
-use smallvec::SmallVec;
 use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::f32::{INFINITY, NEG_INFINITY};
-use std::ffi::c_void;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -82,28 +80,17 @@ pub use mlua;
 
 const MAX_ALLOCA: usize = 1 << 20;
 
-/// While the ID scope provides a .next() method to generate a new, unique ID,
-/// this macro allows you to generate a unique ID with the file name and line
-/// embedded in it. This helps when debugging, because it'll tell you exactly
-/// what line of code generated the element causing the problem.
-///
-/// # Examples:
-///
-/// ```
-/// use feather_ui::{gen_id, ScopeID};
-///
-/// fn app(id: &mut ScopeID) {
-///   let unique_id = gen_id!(id); // unique_id now contains the source location where gen_id! was invoked.
-/// }
-/// ```
-#[macro_export]
-macro_rules! gen_id {
-    ($idx:expr) => {
-        $idx.child($crate::DataID::Named(concat!(file!(), ":", line!())))
-    };
-    ($idx:expr, $i:expr) => {
-        $idx.child($crate::DataID::Int($i as i64))
-    };
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ResizeTextureAtlasErr(u32, crate::render::atlas::AtlasKind);
+
+impl From<ResizeTextureAtlasErr> for Error {
+    fn from(value: ResizeTextureAtlasErr) -> Self {
+        if value.0.is_zero() {
+            Self::InternalFailure
+        } else {
+            Self::ResizeTextureAtlas(value)
+        }
+    }
 }
 
 use std::any::TypeId;
@@ -118,7 +105,7 @@ pub enum Error {
     #[error("Event handler didn't handle this method.")]
     UnhandledEvent,
     #[error("Frame aborted due to pending Texture Atlas resize.")]
-    ResizeTextureAtlas(u32, crate::render::atlas::AtlasKind),
+    ResizeTextureAtlas(ResizeTextureAtlasErr),
     #[error("Internal texture atlas reservation failure.")]
     AtlasReservationFailure,
     #[error("Internal texture atlas cache lookup failure.")]
@@ -1900,7 +1887,7 @@ fn test_access_cell() {
 /// An App creates all the top level structures needed for Feather to function.
 /// It stores all wgpu, winit, and any other global state needed. See
 /// [`App::new`] for examples.
-pub struct App<AppData: Clone, T: 'static> {
+pub struct App<AppData, T: 'static> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
     pub ready: AtomicBool,
@@ -1937,7 +1924,7 @@ use winit::platform::windows::EventLoopBuilderExtWindows;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::EventLoopBuilderExtX11;
 
-enum FeatherEvent<T> {
+pub enum FeatherEvent<T> {
     ChangeUI,
     ChangeWindow(Rc<Window>),
     UserEvent(T),
@@ -1955,7 +1942,7 @@ impl<T> std::fmt::Debug for FeatherEvent<T> {
 
 type WindowRef = Identity<Rc<Window>>;
 
-impl<AppData: 'static + Clone, T> App<AppData, T> {
+impl<AppData: 'static, T> App<AppData, T> {
     /// Creates a new feather application. `app_state` represents the initial
     /// state of the application, and will override any value returned by
     /// `<O as FnPersist2>::init()`. `inputs` must be an array of
@@ -2238,7 +2225,7 @@ impl<AppData: 'static + Clone, T> App<AppData, T> {
     }
 }
 
-impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandler<FeatherEvent<T>>
+impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<FeatherEvent<T>>
     for App<AppData, T>
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -2291,7 +2278,10 @@ impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandle
                                 &mut state.layers,
                             ) {
                                 match e {
-                                    Error::ResizeTextureAtlas(layers, kind) => {
+                                    Error::ResizeTextureAtlas(ResizeTextureAtlasErr(
+                                        layers,
+                                        kind,
+                                    )) => {
                                         // Resize the texture atlas with the requested
                                         // number of layers (the extent has already been
                                         // changed)
@@ -2459,67 +2449,42 @@ impl<AppData: 'static + Clone, T: 'static> winit::application::ApplicationHandle
 
 #[cfg(test)]
 struct TestApp {}
-/*
-#[cfg(test)]
-impl crate::persist::FnPersistStore for TestApp {
-    type Store = (u8, OutlineReturn);
-}
-
-#[cfg(test)]
-impl FnPersist2<&u8, ScopeID<'static>, OutlineReturn> for TestApp {
-    fn init(&self) -> Self::Store {
-        (0, imbl::HashMap::new())
-    }
-
-    fn call(
-        &mut self,
-        store: Self::Store,
-        _: &u8,
-        mut id: ScopeID<'static>,
-    ) -> (Self::Store, OutlineReturn) {
-        use crate::color::sRGB;
-        use crate::component::shape::Shape;
-
-        let rect = Shape::<DRect, { component::shape::ShapeKind::RoundRect as u8 }>::new(
-            gen_id!(id),
-            crate::FILL_DRECT.into(),
-            0.0,
-            0.0,
-            f32x4::splat(0.0),
-            sRGB::new(1.0, 0.0, 0.0, 1.0),
-            sRGB::transparent(),
-            DAbsPoint::zero(),
-        );
-        let window = Window::new(
-            winit::window::Window::default_attributes()
-                .with_title("test_blank")
-                .with_resizable(true),
-            Box::new(rect),
-        );
-
-        let mut windows = imbl::HashMap::new();
-        windows.insert(window.id().clone(), Some(window));
-
-        (store, windows)
-    }
-}
 
 #[test]
 fn test_basic() {
-    let (mut app, event_loop, _, _) = App::<u8, TestApp, ()>::new(
-        0u8,
-        vec![],
-        TestApp {},
+    use crate::color::sRGB;
+    use crate::component::shape;
+
+    let rect = shape::round_rect(
+        crate::FILL_DRECT,
+        const_signal(0.0).into(),
+        const_signal(0.0).into(),
+        const_signal(f32x4::splat(0.0)).into(),
+        const_signal(sRGB::new(1.0, 0.0, 0.0, 1.0)).into(),
+        const_signal(sRGB::transparent()).into(),
+        const_signal(DAbsPoint::zero()).into(),
+    );
+    let window = Rc::new(Window::new(
+        winit::window::Window::default_attributes()
+            .with_title("test_blank")
+            .with_resizable(true),
+        Box::new(rect),
+    ));
+
+    let (mut app, event_loop) = App::<TestApp, ()>::new(
+        reactive::MutableSignal::new(TestApp {}).into_dyn_signal(),
+        move |x| component::UI {
+            children: reactive::MutableSignal::new(imbl::vector![window.clone()]).into_dyn_signal(),
+        },
         Some(Box::new(|_, evt: &ActiveEventLoop, _| evt.exit())),
         None,
     )
     .unwrap();
 
     let proxy = event_loop.create_proxy();
-    proxy.send_event(()).unwrap();
+    proxy.send_event(FeatherEvent::UserEvent(())).unwrap();
     event_loop.run_app(&mut app).unwrap();
 }
-*/
 
 #[test]
 fn test_absrect_contain() {

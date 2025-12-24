@@ -16,7 +16,6 @@ use guillotiere::euclid::default::Rotation3D;
 use guillotiere::euclid::{Point3D, Size2D};
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::convert::Infallible;
 use std::rc::{Rc, Weak};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
