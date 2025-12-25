@@ -181,7 +181,7 @@ const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 #[macro_export]
 macro_rules! children {
     () => { [] };
-    ($prop:path, $($param:expr),+ $(,)?) => { $crate::imbl::Vector::from_iter([$(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>),+]) };
+    ($prop:path, $($param:expr),+ $(,)?) => { $crate::imbl::Vector::from_iter([$(std::sync::Arc::from(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>)),+]) };
 }
 
 #[macro_export]
