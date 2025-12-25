@@ -272,6 +272,12 @@ pub fn const_signal<T>(t: T) -> Signal<ConstProvider<T>> {
 
 pub type ConstSignal<T> = Signal<ConstProvider<T>>;
 
+impl<T: Default> Default for Signal<ConstProvider<T>> {
+    fn default() -> Self {
+        Self(Rc::new(ConstProvider::new(T::default())))
+    }
+}
+
 //TODO: use macros to generate ZipProviders for multiple tuple lengths
 //TODO: constant fusion optimization to eliminate unnecessary intermediate storage
 pub struct ZipProvider<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> {
@@ -680,6 +686,12 @@ pub struct SignalRefMut<'a, T>(std::cell::RefMut<'a, T>, Rc<MutableSignalProvide
 impl<'a, T> Drop for SignalRefMut<'a, T> {
     fn drop(&mut self) {
         notify_change(&self.1.node);
+    }
+}
+
+impl<T: Default> Default for Signal<MutableSignalProvider<T>> {
+    fn default() -> Self {
+        Self(Rc::new(MutableSignalProvider::new(T::default())))
     }
 }
 

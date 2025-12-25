@@ -10,13 +10,13 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive_where(Clone)]
-pub struct Region<T: Default> {
+pub struct Region<T> {
     pub layer: Option<(DynSignal<crate::color::sRGB32>, DynSignal<f32>)>,
     props: Rc<T>,
     children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>,
 }
 
-impl<T: fixed::Prop + Default + 'static> Region<T> {
+impl<T: fixed::Prop + 'static> Region<T> {
     pub fn new(props: T, children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>) -> Self {
         Self {
             props: props.into(),
@@ -39,7 +39,7 @@ impl<T: fixed::Prop + Default + 'static> Region<T> {
     }
 }
 
-impl<T: fixed::Prop + Default + 'static> super::Component for Region<T>
+impl<T: fixed::Prop + 'static> super::Component for Region<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {

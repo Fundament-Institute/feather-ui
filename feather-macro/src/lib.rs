@@ -17,8 +17,8 @@ fn derive_base_prop(input: TokenStream, prop: &str, source: &str, result: &str) 
     let name = ast.ident;
     quote! {
         impl #source for #name {
-            fn #prop(&self) -> &#result {
-                &self.#prop
+            fn #prop(&self) -> DynSignal<#result> {
+                self.#prop.clone().into()
             }
         }
     }
@@ -106,6 +106,11 @@ pub fn derive_textedit(input: TokenStream) -> TokenStream {
     )
 }
 
+#[proc_macro_derive(ZIndex)]
+pub fn derive_zindex(input: TokenStream) -> TokenStream {
+    derive_base_prop(input, "zindex", "feather_ui::layout::base::ZIndex", "i32")
+}
+
 #[proc_macro_derive(FlexProp)]
 pub fn derive_flex_prop(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -136,34 +141,14 @@ pub fn derive_flex_child(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(ZIndex)]
-pub fn derive_zindex(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-
-    let sname = ast.ident;
-    quote! {
-        impl feather_ui::layout::base::ZIndex for #sname {
-            fn zindex(&self) -> i32 {
-                self.zindex
-            }
-        }
-    }
-    .into()
-}
-
 #[proc_macro_derive(Direction)]
 pub fn derive_direction(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-
-    let sname = ast.ident;
-    quote! {
-        impl feather_ui::layout::base::Direction for #sname {
-            fn direction(&self) -> feather_ui::RowDirection {
-                self.direction
-            }
-        }
-    }
-    .into()
+    derive_base_prop(
+        input,
+        "direction",
+        "feather_ui::layout::base::Direction",
+        "feather_ui::RowDirection",
+    )
 }
 
 #[proc_macro_derive(RootProp)]
