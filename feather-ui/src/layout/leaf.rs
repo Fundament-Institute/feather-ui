@@ -4,7 +4,7 @@
 use super::base::Empty;
 use super::{Concrete, Desc, Layout, base, map_unsized_area};
 use crate::reactive::{DynSignal, SignalMap, SignalTupleZip, zip_pair};
-use crate::{DRect, PxDim, PxLimits, PxRect, RelDim, rtree};
+use crate::{DRect, PxDim, PxLimits, PxPerimeter, PxRect, RelDim, rtree};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -43,17 +43,15 @@ impl Desc for dyn Prop {
 
         let evaluated_area = (myarea.clone(), predim.clone(), limits.clone())
             .zip::<(crate::URect, crate::PxDim, PxLimits)>()
-            .map(|(a, o, l)| super::limit_area(*a * *o, *l));
+            .map(|(a, dim, l)| super::limit_area(*a * *dim, *l));
 
         let anchor = props.anchor();
         (
             evaluated_area.into(),
             Box::new(move |offset, final_dim| {
-                let final_area = (offset, final_dim, limits.clone())
-                    .zip::<(crate::PxPoint, crate::PxDim, crate::PxLimits)>()
-                    .map(|(o, dim, limits)| {
-                        crate::Rect::offsetdim(*o, super::limit_dim_sized(*dim, *limits))
-                    })
+                let final_area = (myarea.clone(), offset, final_dim, limits.clone())
+                    .zip()
+                    .map(|(a, o, dim, limits)| super::limit_area(*a * *dim, *limits) + *o)
                     .into_dyn_signal();
 
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
@@ -82,6 +80,30 @@ pub struct Sized<T, R: Clone> {
     pub renderable: Option<R>,
 }
 
+#[inline]
+fn calc_sized_area(padding: PxPerimeter, area: crate::URect, size: PxDim, outer: PxDim) -> PxRect {
+    let (unsized_x, unsized_y) = super::check_unsized(area);
+    let aspect_ratio = size.width / size.height; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
+    match (unsized_x, unsized_y, aspect_ratio.is_finite()) {
+        (true, false, false) => {
+            let mut presize = map_unsized_area(area, PxDim::zero()) * outer;
+            let adjust = presize.dim().height * aspect_ratio;
+            let v = presize.v.as_array_mut();
+            v[2] += adjust;
+            presize
+        }
+        (false, true, false) => {
+            let mut presize = map_unsized_area(area, PxDim::zero()) * outer;
+            // Be careful, the aspect ratio here is being divided instead of multiplied
+            let adjust = presize.dim().width / aspect_ratio;
+            let v = presize.v.as_array_mut();
+            v[3] += adjust;
+            presize
+        }
+        _ => map_unsized_area(area, size + padding.topleft() + padding.bottomright()) * outer,
+    }
+}
+
 impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<T, R> {
     type Props = T;
 
@@ -106,47 +128,33 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
         // If both axes are unsized, we simply set the area to the internal
         // size. If only one axis is unsized, we stretch it to maintain an aspect
         // ratio relative to the size of the other axis.
-        let mapped_area =
-            (padding, area, self.size.clone(), predim)
-                .zip()
-                .map(|(padding, area, size, outer)| {
-                    let (unsized_x, unsized_y) = super::check_unsized(*area);
-                    let aspect_ratio = size.width / size.height; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
-                    match (unsized_x, unsized_y, aspect_ratio.is_finite()) {
-                        (true, false, false) => {
-                            let mut presize = map_unsized_area(*area, PxDim::zero()) * *outer;
-                            let adjust = presize.dim().height * aspect_ratio;
-                            let v = presize.v.as_array_mut();
-                            v[2] += adjust;
-                            presize
-                        }
-                        (false, true, false) => {
-                            let mut presize = map_unsized_area(*area, PxDim::zero()) * *outer;
-                            // Be careful, the aspect ratio here is being divided instead of multiplied
-                            let adjust = presize.dim().width / aspect_ratio;
-                            let v = presize.v.as_array_mut();
-                            v[3] += adjust;
-                            presize
-                        }
-                        _ => {
-                            map_unsized_area(
-                                *area,
-                                *size + padding.topleft() + padding.bottomright(),
-                            ) * *outer
-                        }
-                    }
-                });
+        let mapped_area = (padding.clone(), area.clone(), self.size.clone(), predim)
+            .zip()
+            .map(|(padding, area, size, outer)| calc_sized_area(*padding, *area, *size, *outer));
 
+        let size = self.size.clone();
         let evaluated_area = zip_pair(mapped_area, limits.clone(), |a, l| super::limit_area(a, l));
         let renderable = self.renderable.clone();
         let anchor = self.props.anchor();
         (
             evaluated_area.into(),
             Box::new(move |offset, final_dim| {
-                let final_area = (offset, final_dim, limits.clone())
-                    .zip::<(crate::PxPoint, crate::PxDim, crate::PxLimits)>()
-                    .map(|(o, dim, limits)| {
-                        crate::Rect::offsetdim(*o, super::limit_dim_sized(*dim, *limits))
+                let final_area = (
+                    padding.clone(),
+                    area.clone(),
+                    size.clone(),
+                    offset,
+                    final_dim,
+                    limits.clone(),
+                )
+                    .zip()
+                    .map(move |(padding, area, size, o, outer, limits)| {
+                        calc_sized_area(
+                            *padding,
+                            *area,
+                            *size,
+                            super::limit_dim_sized(*outer, *limits),
+                        ) + *o
                     })
                     .into_dyn_signal();
 

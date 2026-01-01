@@ -179,7 +179,7 @@ enum SignalNodeState {
     Discrete(SignalNodeId),
 }
 
-pub trait SignalProvider {
+pub trait SignalProvider: std::fmt::Debug {
     type Item;
 
     fn get_node(&self) -> &SignalNodeId;
@@ -191,7 +191,6 @@ pub trait SignalProvider {
 
 //This wrapper type is required to make the trait resolution allow any constant to be used as a signal with AsSignal, which in addition to being a nice convenience feature is necessary for the idiom macro to work
 // TODO: try to reduce amount of Rc required
-#[derive(Debug)]
 pub struct Signal<Provider: SignalProvider + ?Sized>(Rc<Provider>);
 impl<Provider: SignalProvider + ?Sized> Clone for Signal<Provider> {
     fn clone(&self) -> Self {
@@ -226,6 +225,31 @@ impl<Provider: SignalProvider + 'static> From<Signal<Provider>>
     }
 }
 
+// We use the insane autoref-specialization technique to get an "optional" Debug trait on T
+pub trait SignalDebug {
+    fn dbg(&self) -> Option<&dyn std::fmt::Debug>;
+}
+
+impl<T: std::fmt::Debug> SignalDebug for T {
+    fn dbg(&self) -> Option<&dyn std::fmt::Debug> {
+        Some(self)
+    }
+}
+
+pub trait SignalNoDebug {
+    fn dbg(&self) -> Option<&dyn std::fmt::Debug> {
+        None
+    }
+}
+
+impl<T> SignalNoDebug for &T {}
+
+macro_rules! opt_debug {
+    ($e:expr) => {
+        (&$e).dbg()
+    };
+}
+
 // This is absolutely optimizable to ensure const signals do not need to allocate a node
 // A sketch of some of the components needed to do so are included
 // But I leave actually implementing the type level optimizations to after prototyping
@@ -233,6 +257,21 @@ pub struct ConstProvider<T>(T, SignalNodeId);
 impl<T> ConstProvider<T> {
     pub fn new(x: T) -> Self {
         Self(x, new_node(NodeColor::Ready))
+    }
+}
+
+impl<T> std::fmt::Debug for ConstProvider<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("ConstSignal");
+        dbg.field("node", &self.1);
+
+        if let Some(v) = opt_debug!(self.0) {
+            dbg.field("value", v);
+        } else {
+            dbg.field("value", &format_args!("{}", std::any::type_name::<T>()));
+        }
+
+        dbg.finish()
     }
 }
 
@@ -285,6 +324,18 @@ pub struct ZipProvider<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized>
     provider2: Rc<P2>,
     node: SignalNodeId,
     result: RefCell<Option<(P1::Item, P2::Item)>>,
+}
+
+impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> std::fmt::Debug
+    for ZipProvider<P1, P2>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ZipSignal")
+            .field("node", &self.node)
+            .field("provider1", &self.provider1)
+            .field("provider2", &self.provider2)
+            .finish()
+    }
 }
 
 impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> SignalProvider
@@ -373,7 +424,55 @@ pub struct SignalMapProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> 
     func: F,
     res: RefCell<Option<T2>>,
     node: SignalNodeId,
+    eq: fn(&T2, &T2) -> bool,
 }
+
+impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> std::fmt::Debug
+    for SignalMapProvider<P, T2, F>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("MapSignal");
+        dbg.field("node", &self.node)
+            .field("provider", &self.provider)
+            .field("f", &format_args!("{}", std::any::type_name::<F>()));
+
+        if let Some(r) = &*self.res.borrow()
+            && let Some(v) = opt_debug!(*r)
+        {
+            dbg.field("res", v);
+        } else {
+            dbg.field("res", &format_args!("{}", std::any::type_name::<T2>()));
+        }
+
+        dbg.finish()
+    }
+}
+/*
+trait QuickEq {
+    fn qeq(&self) -> bool;
+}
+
+impl<T: Copy + PartialEq> QuickEq for (&T, &T) {
+    fn qeq(&self) -> bool {
+        PartialEq::eq(self.0, self.1)
+    }
+}
+
+trait SlowEq {
+    fn qeq(&self) -> bool {
+        return false;
+    }
+}
+
+impl<T> SlowEq for &(&T, &T) {}
+
+macro_rules! opt_eq {
+    ($e:expr, $rhs:expr) => {
+        (&($e, $rhs)).qeq()
+    };
+}
+*/
+
 impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> SignalProvider
     for SignalMapProvider<P, T2, F>
 {
@@ -395,8 +494,16 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> SignalProvider
         match color {
             NodeColor::Changed => {
                 let res = (self.func)(&self.provider.get_ref());
+
+                let changed = if let Some(old) = &*self.res.borrow() {
+                    !(self.eq)(old, &res)
+                } else {
+                    true
+                };
                 *self.res.borrow_mut() = Some(res);
-                notify_children_change(&self.node);
+                if changed {
+                    notify_children_change(&self.node);
+                }
             }
             _ => {}
         }
@@ -413,6 +520,7 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> SignalProvider
 pub fn map<T1, T2, F: Fn(&P::Item) -> T2, P: SignalProvider<Item = T1> + ?Sized>(
     f: F,
     p: Signal<P>,
+    eq: fn(&T2, &T2) -> bool,
 ) -> Signal<SignalMapProvider<P, T2, F>> {
     let node = new_node(NodeColor::Changed);
     let provider = p.0;
@@ -422,6 +530,7 @@ pub fn map<T1, T2, F: Fn(&P::Item) -> T2, P: SignalProvider<Item = T1> + ?Sized>
         func: f,
         res: RefCell::new(None),
         node,
+        eq,
     }))
 }
 
@@ -430,6 +539,27 @@ pub struct SignalMapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, 
     func: F,
     res: RefCell<Option<T2>>,
     node: SignalNodeId,
+}
+
+impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> std::fmt::Debug
+    for SignalMapMutProvider<P, T2, F>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("MapMutSignal");
+        dbg.field("node", &self.node)
+            .field("provider", &self.provider)
+            .field("f", &format_args!("{}", std::any::type_name::<F>()));
+
+        if let Some(r) = &*self.res.borrow()
+            && let Some(v) = opt_debug!(*r)
+        {
+            dbg.field("res", v);
+        } else {
+            dbg.field("res", &format_args!("{}", std::any::type_name::<T2>()));
+        }
+
+        dbg.finish()
+    }
 }
 
 impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalProvider
@@ -453,6 +583,7 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalPr
             NodeColor::Changed => {
                 let init = self.res.borrow_mut().take();
                 let res = (self.func)(&self.provider.get_ref(), init);
+
                 *self.res.borrow_mut() = Some(res);
                 notify_children_change(&self.node);
             }
@@ -483,16 +614,21 @@ pub fn map_mut<T1, T2, F: Fn(&P::Item, Option<T2>) -> T2, P: SignalProvider<Item
 }
 
 pub trait SignalMap<Elem> {
-    // type Elem
-    fn map<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>>;
+    fn map<T: Copy + PartialEq>(
+        self,
+        f: impl Fn(&Elem) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>>;
     fn map_mut<T>(self, f: impl Fn(&Elem, Option<T>) -> T)
     -> Signal<impl SignalProvider<Item = T>>;
+    fn map_ex<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>>;
 }
-impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem> for Signal<P> {
-    // type Elem = T;
 
-    fn map<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>> {
-        map(f, self)
+impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem> for Signal<P> {
+    fn map<T: Copy + PartialEq>(
+        self,
+        f: impl Fn(&Elem) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>> {
+        map(f, self, PartialEq::eq)
     }
     fn map_mut<T>(
         self,
@@ -500,6 +636,13 @@ impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem> for Signal<P
     ) -> Signal<impl SignalProvider<Item = T>> {
         map_mut(f, self)
     }
+    fn map_ex<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>> {
+        map(f, self, always_fail_eq)
+    }
+}
+
+fn always_fail_eq<T>(_: &T, _: &T) -> bool {
+    false
 }
 
 pub trait SignalTupleZip: Tuple {
@@ -547,6 +690,7 @@ where
         map(
             |xs: &Output::TupleList| xs.clone().into_tuple(),
             self.into_tuple_list().zip(),
+            always_fail_eq,
         )
     }
 }
@@ -562,6 +706,21 @@ pub struct SignalJoinProvider<
     res: RefCell<Option<T>>,
     phantom: PhantomData<P1>,
 }
+
+impl<
+    T: Clone,
+    P1: SignalProvider<Item = T> + ?Sized,
+    P2: SignalProvider<Item = Signal<P1>> + ?Sized,
+> std::fmt::Debug for SignalJoinProvider<T, P1, P2>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JoinSignal")
+            .field("inner", &self.innerprovider)
+            .field("node", &self.node)
+            .finish()
+    }
+}
+
 impl<
     T: Clone,
     P1: SignalProvider<Item = T> + ?Sized,
@@ -600,7 +759,9 @@ impl<
                                 add_dependency(&innersig.get_node(), self.node.clone());
                             }
                         }
-                        self.node.0.borrow_mut().color = NodeColor::Check;
+                        // TODO: Setting this to Check causes a problem with Res not being updated below. Does leaving
+                        // the color as Changed cause a performance issue?
+                        //self.node.0.borrow_mut().color = NodeColor::Check;
                     }
                     _ => {}
                 }
@@ -643,7 +804,6 @@ pub fn join<
     }))
 }
 
-#[derive(Debug)]
 pub struct MutableSignalProvider<T> {
     node: SignalNodeId,
     val: RefCell<T>,
@@ -654,6 +814,21 @@ impl<T> MutableSignalProvider<T> {
             node: new_node(NodeColor::Changed),
             val: RefCell::new(v),
         }
+    }
+}
+
+impl<T> std::fmt::Debug for MutableSignalProvider<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("MutableSignal");
+        dbg.field("node", &self.node);
+
+        if let Some(v) = opt_debug!(self.val) {
+            dbg.field("value", v);
+        } else {
+            dbg.field("value", &format_args!("{}", std::any::type_name::<T>()));
+        }
+
+        dbg.finish()
     }
 }
 
@@ -692,6 +867,18 @@ impl<'a, T> Drop for SignalRefMut<'a, T> {
 impl<T: Default> Default for Signal<MutableSignalProvider<T>> {
     fn default() -> Self {
         Self(Rc::new(MutableSignalProvider::new(T::default())))
+    }
+}
+
+impl<Provider: SignalProvider + ?Sized> core::fmt::Debug for Signal<Provider>
+where
+    Provider::Item: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Signal")
+            .field("node", self.0.get_node())
+            .field("value", &*self.0.get_ref())
+            .finish()
     }
 }
 
@@ -835,6 +1022,22 @@ pub struct DynamicSignalProvider<T, F: Fn() -> T> {
     val: RefCell<Option<T>>,
 }
 
+impl<T, F: Fn() -> T> std::fmt::Debug for DynamicSignalProvider<T, F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("DynamicSignal");
+        dbg.field("f", &format_args!("{}", std::any::type_name::<F>()))
+            .field("node", &self.node);
+
+        if let Some(v) = opt_debug!(self.val) {
+            dbg.field("value", v);
+        } else {
+            dbg.field("value", &format_args!("{}", std::any::type_name::<T>()));
+        }
+
+        dbg.finish()
+    }
+}
+
 impl<T, F: Fn() -> T> SignalProvider for DynamicSignalProvider<T, F> {
     type Item = T;
     fn get_node(&self) -> &SignalNodeId {
@@ -925,6 +1128,7 @@ pub fn zip_pair<
     map(
         move |arg: &(P1::Item, P2::Item)| f(arg.0.clone(), arg.1.clone()),
         zip(p1, p2),
+        always_fail_eq,
     )
 }
 
@@ -957,14 +1161,24 @@ fn reactive_fold() {
 // It is not designed for playing "authored" animations with keyframes on a timeline.
 // It's designed to make ergonomic reactive content simple without requiring any extra event plumbing or timekeeping
 // For keyframed animations, consider using a state machine to trigger them and then just using signal composition to work with animation times
-#[derive(Debug)]
-pub enum AnimationOutput<Output: std::fmt::Debug> {
+pub enum AnimationOutput<Output> {
     Finish(Output),
     Continue(Output),
 }
+
+impl<Output: std::fmt::Debug> std::fmt::Debug for AnimationOutput<Output> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Finish(arg0) => f.debug_tuple("Finish").field(arg0).finish(),
+            Self::Continue(arg0) => f.debug_tuple("Continue").field(arg0).finish(),
+        }
+    }
+}
+
 pub trait Animator<T> {
-    type Output: Clone + std::fmt::Debug;
-    type State: std::fmt::Debug;
+    type Output: Clone;
+    type State;
+
     fn init(&self, x: T) -> Self::State;
     fn compute(
         &self,
@@ -988,12 +1202,57 @@ pub struct AnimProvider<
     input: Rc<Source>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, derive_more::Display)]
 pub struct Microseconds(pub u64);
 
 impl Microseconds {
     pub fn diff_to_f32(&self, other: &Microseconds) -> f32 {
         ((self.0 - other.0) as f32) / 1_000_000f32
+    }
+}
+
+impl<
+    T: Clone,
+    Anim: Animator<T>,
+    Source: SignalProvider<Item = T> + ?Sized,
+    Time: SignalProvider<Item = Microseconds>,
+> std::fmt::Debug for AnimProvider<T, Anim, Source, Time>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("AnimSignal");
+        dbg.field("node", &self.node);
+
+        if let Some(r) = &*self.val.borrow()
+            && let Some(v) = opt_debug!(*r)
+        {
+            dbg.field("value", v);
+        } else {
+            dbg.field(
+                "value",
+                &format_args!("{}", std::any::type_name::<Anim::Output>()),
+            );
+        }
+
+        if let Some((a, b, r)) = &*self.state.borrow()
+            && let Some(v) = opt_debug!(*r)
+        {
+            dbg.field("state", &format_args!("{}, {}, {:?}", a, b, v));
+        } else if let Some((a, b, _)) = &*self.state.borrow() {
+            dbg.field(
+                "state",
+                &format_args!("{}, {}, {}", a, b, std::any::type_name::<Anim::State>()),
+            );
+        }
+
+        if let Some(v) = opt_debug!(self.anim) {
+            dbg.field("anim", v);
+        } else {
+            dbg.field("anim", &format_args!("{}", std::any::type_name::<Anim>()));
+        }
+
+        dbg.field("time", &self.time)
+            .field("input", &self.input)
+            .finish()
     }
 }
 
@@ -1010,7 +1269,7 @@ impl<
     }
 
     fn update_if_necessary(&self) {
-        eprintln!("animprovider state {:?}", *self.state.borrow());
+        //eprintln!("animprovider state {:?}", *self.state.borrow());
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
@@ -1027,7 +1286,7 @@ impl<
                                 let mut animstate = self.anim.init(inval.clone()); // FIXME: is clone ok
                                 let animres = self.anim.compute(inval, &mut animstate, None);
                                 let mut active = false;
-                                eprintln!("animres is now {:?}", animres);
+                                //eprintln!("animres is now {:?}", animres);
                                 match animres {
                                     AnimationOutput::Finish(val) => {
                                         remove_dependency(self.time.get_node(), &self.node);
@@ -1042,7 +1301,7 @@ impl<
                                         notify_children_change(&self.node);
                                     }
                                 }
-                                eprintln!("active is initialized with {:?}", active);
+                                //eprintln!("active is initialized with {:?}", active);
                                 *state = Some((active, timeval, animstate));
                             }
                             Some((active, prevtime, animstate)) => {
@@ -1053,7 +1312,7 @@ impl<
                                 };
                                 *prevtime = timeval;
                                 let animres = self.anim.compute(inval, animstate, delta_t);
-                                eprintln!("animres is now {:?}", animres);
+                                //eprintln!("animres is now {:?}", animres);
                                 match animres {
                                     AnimationOutput::Finish(val) => {
                                         remove_dependency(self.time.get_node(), &self.node);
@@ -1281,6 +1540,31 @@ impl<
     P1: SignalProvider + ?Sized,
     P2: SignalProvider + ?Sized,
     OP: SignalOp<P1::Item, P2::Item, Output>,
+> std::fmt::Debug for SignalOpProvider<P1, P2, Output, OP>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("SignalOpProvider");
+        dbg.field("node", &self.node)
+            .field("provider1", &self.provider1)
+            .field("provider2", &self.provider2);
+
+        if let Some(r) = &*self.res.borrow()
+            && let Some(v) = opt_debug!(*r)
+        {
+            dbg.field("res", v);
+        } else {
+            dbg.field("res", &format_args!("{}", std::any::type_name::<Output>()));
+        }
+
+        dbg.finish()
+    }
+}
+
+impl<
+    Output,
+    P1: SignalProvider + ?Sized,
+    P2: SignalProvider + ?Sized,
+    OP: SignalOp<P1::Item, P2::Item, Output>,
 > SignalProvider for SignalOpProvider<P1, P2, Output, OP>
 where
     P1::Item: Clone,
@@ -1307,6 +1591,7 @@ where
                     self.provider1.get_ref().clone(),
                     self.provider2.get_ref().clone(),
                 );
+
                 *self.res.borrow_mut() = Some(res);
                 notify_children_change(&self.node);
             }
@@ -1450,7 +1735,7 @@ pub fn cond<T: Clone>(
     a: DynSignal<T>,
     b: DynSignal<T>,
 ) -> Signal<impl SignalProvider<Item = T>> {
-    join(c.map(move |cc| if *cc { a.clone() } else { b.clone() }))
+    join(c.map_ex(move |cc| if *cc { a.clone() } else { b.clone() }))
 }
 
 #[macro_export]
@@ -1488,6 +1773,25 @@ pub struct SignalVecMapProvider<
     node: SignalNodeId,
 }
 
+impl<
+    T1: Clone + 'static,
+    T2: Clone + 'static,
+    Key: Eq + Hash + 'static,
+    F: (Fn(&T1) -> T2) + 'static,
+    Ex: (Fn(&T1) -> Key) + 'static,
+    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
+    Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
+    const CHUNK_SIZE: usize,
+> std::fmt::Debug for SignalVecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignalVecMapProvider")
+            .field("node", &self.node)
+            .field("provider", &self.provider)
+            .finish()
+    }
+}
+
 fn assert_static<T: 'static>() {}
 
 impl<
@@ -1519,8 +1823,11 @@ impl<
         match color {
             NodeColor::Changed => {
                 let res = self.map.borrow_mut().map(&self.provider.get_ref());
+                let changed = !self.res.borrow().ptr_eq(&res);
                 *self.res.borrow_mut() = res;
-                notify_children_change(&self.node);
+                if changed {
+                    notify_children_change(&self.node);
+                }
             }
             _ => {}
         }
@@ -1596,6 +1903,22 @@ pub struct SignalVecFoldProvider<
     fold: RefCell<imbl::vector::PersistentFold<T, F, Ptr, CHUNK_SIZE>>,
     res: RefCell<T>,
     node: SignalNodeId,
+}
+
+impl<
+    T: Clone,
+    F: FnMut(T, T) -> T,
+    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
+    Ptr: imbl::shared_ptr::SharedPointerKind,
+    const CHUNK_SIZE: usize,
+> std::fmt::Debug for SignalVecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignalVecFoldProvider")
+            .field("node", &self.node)
+            .field("provider", &self.provider)
+            .finish()
+    }
 }
 
 impl<

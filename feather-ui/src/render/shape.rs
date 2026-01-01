@@ -428,7 +428,7 @@ impl<const KIND: u8> Instance<KIND> {
             })
             .into_dyn_signal();
 
-        let choice = join((dim.clone(), corners.clone(), border.clone()).zip().map(
+        let choice = join((dim.clone(), corners.clone(), border.clone()).zip().map_ex(
             move |(dim, corners, border)| {
                 if dim.width <= 0.0 || dim.height <= 0.0 {
                     return empty.clone();
@@ -463,7 +463,7 @@ impl<const KIND: u8> Instance<KIND> {
             Size2D::<i32, crate::Pixel>::default(),
         )));
 
-        let region_choice = join((dim.clone(), corners.clone(), border.clone()).zip().map(
+        let region_choice = join((dim.clone(), corners.clone(), border.clone()).zip().map_ex(
             move |(dim, corners, border)| {
                 let perimeter = [
                     dim.height - corners[0] - corners[3],

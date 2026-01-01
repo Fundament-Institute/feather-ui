@@ -111,7 +111,12 @@ fn stage<'a, T: Prerender + 'static>(
         l || r
     });
 
-    let unsized_area = (myarea.clone(), presize, predim.clone(), limits.clone())
+    let unsized_area = (
+        myarea.clone(),
+        presize.clone(),
+        predim.clone(),
+        limits.clone(),
+    )
         .zip::<(crate::URect, PxRect, crate::PxDim, PxLimits)>()
         .map(|(a, p, o, l)| super::limit_area(map_unsized_area(*a, p.dim()) * *o, *l));
 
@@ -120,7 +125,7 @@ fn stage<'a, T: Prerender + 'static>(
         .map(|(a, o, l)| super::limit_area(*a * *o, *l));
 
     // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
-    let evaluated_area = reactive::cond(is_unsized, unsized_area.into(), sized_area.into());
+    let evaluated_area = reactive::cond(is_unsized.clone(), unsized_area.into(), sized_area.into());
     let dpi2 = dpi.clone();
 
     let anchor = props.anchor();
@@ -129,20 +134,36 @@ fn stage<'a, T: Prerender + 'static>(
     (
         evaluated_area.into(),
         Box::new(move |offset, final_dim| {
-            // We had to evaluate the full area first because our final area calculation can
-            // change the dimensions in unsized cases.
-            let child_dim = zip_pair(final_dim.clone(), limits.clone(), |dim, limits| {
-                super::limit_dim_sized(dim, limits)
-            });
-            let final_area = zip_pair(offset.clone(), child_dim.clone(), |o, dim| {
-                crate::Rect::offsetdim(o, dim)
-            })
-            .into_dyn_signal();
+            let unsized_area = (
+                myarea.clone(),
+                presize.clone(),
+                final_dim.clone(),
+                limits.clone(),
+                offset.clone(),
+            )
+                .zip()
+                .map(|(a, p, dim, l, o)| {
+                    super::limit_area(map_unsized_area(*a, p.dim()) * *dim, *l) + *o
+                });
 
+            let sized_area = (
+                myarea.clone(),
+                final_dim.clone(),
+                limits.clone(),
+                offset.clone(),
+            )
+                .zip()
+                .map(|(a, dim, l, o)| super::limit_area(*a * *dim, *l) + *o);
+
+            // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
+            let final_area =
+                reactive::cond(is_unsized.clone(), unsized_area.into(), sized_area.into());
+
+            let child_area = final_area.clone();
             let nodes = reactive::map_vec(
                 move |(_, f, rlimits)| {
-                    let dim = zip_pair(child_dim.clone(), rlimits.clone(), |dim, limits| {
-                        super::limit_dim_sized(dim, limits * dim)
+                    let dim = zip_pair(child_area.clone(), rlimits.clone(), |area, limits| {
+                        super::limit_dim_sized(area.dim(), limits * area.dim())
                     });
 
                     Rc::new(f(
@@ -164,8 +185,8 @@ fn stage<'a, T: Prerender + 'static>(
             // Calculate the anchor using the final evaluated dimensions, after all unsized
             // axis and limits are calculated.
             let anchored_area = (final_area.clone(), anchor.clone(), dpi2.clone())
-                .zip::<(PxRect, crate::DPoint, RelDim)>()
-                .map(|(e, a, d)| *e - (a.resolve(*d) * e.dim()))
+                .zip()
+                .map(|(area, anchor, d)| *area - (anchor.resolve(*d) * area.dim()))
                 .into_dyn_signal();
 
             rtree::Node::new(

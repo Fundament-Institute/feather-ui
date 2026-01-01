@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::component::window::WindowNodeTrack;
+use crate::event::StreamCallback;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::layout::Staged;
 use crate::reactive::{
@@ -17,6 +19,35 @@ use guillotiere::euclid::Point3D;
 use std::rc::Rc;
 use winit::dpi::PhysicalPosition;
 
+// Nonsense taken from `dtolnay/typeid` crate that lets us take a non-'static typeid.
+#[must_use]
+#[inline(always)]
+pub fn typeid_of<T>() -> std::any::TypeId
+where
+    T: ?Sized,
+{
+    trait NonStaticAny {
+        fn get_type_id(&self) -> std::any::TypeId
+        where
+            Self: 'static;
+    }
+
+    impl<T: ?Sized> NonStaticAny for PhantomData<T> {
+        #[inline(always)]
+        fn get_type_id(&self) -> std::any::TypeId
+        where
+            Self: 'static,
+        {
+            std::any::TypeId::of::<T>()
+        }
+    }
+
+    let phantom_data = PhantomData::<T>;
+    NonStaticAny::get_type_id(unsafe {
+        std::mem::transmute::<&dyn NonStaticAny, &(dyn NonStaticAny + 'static)>(&phantom_data)
+    })
+}
+
 pub struct Node {
     pub area: DynSignal<PxRect>, /* This is the calculated area of the node from the layout relative to the
                                   * topleft corner of the parent. */
@@ -27,7 +58,7 @@ pub struct Node {
     pub mask: AtomicU64,
     pub children: Option<DynSignal<imbl::Vector<Rc<Node>>>>,
     pub staged: Option<Box<dyn Staged>>,
-    pub callback: RefCell<Option<Box<dyn crate::event::StreamCallback<RawEvent>>>>,
+    pub callback: RefCell<Option<(Box<dyn StreamCallback<RawEvent>>, std::any::TypeId)>>,
 }
 
 // A tuple like this is necessary to build a chain of parent nodes down the
@@ -257,7 +288,7 @@ impl Node {
         if cell.is_some() {
             let mask = self.mask.load(Ordering::Relaxed);
             if (kind as u64 & mask) != 0 {
-                let e = cell.as_mut().unwrap().send(event.clone());
+                let e = cell.as_mut().unwrap().0.send(event.clone());
                 if e.claim {
                     self.postprocess(event, window, root);
                 }
@@ -380,28 +411,39 @@ impl Node {
     }
 }
 
-impl<'l> crate::event::EventStream<'static, RawEvent> for Node {
-    type Subscription<H: crate::event::StreamCallback<RawEvent> + 'static> = Node;
+pub struct NodeSubscription<H>(std::rc::Weak<Node>, PhantomData<H>);
 
-    fn subscribe<H: crate::event::StreamCallback<RawEvent> + 'static>(
-        self,
-        h: H,
-    ) -> Self::Subscription<H> {
-        self.callback.replace(Some(Box::new(h)));
-        self
+impl crate::event::EventStream<'static, RawEvent> for Rc<Node> {
+    type Subscription<H: StreamCallback<RawEvent> + 'static> = NodeSubscription<H>;
+
+    fn subscribe<H: StreamCallback<RawEvent> + 'static>(self, h: H) -> Self::Subscription<H> {
+        let boxed: Box<dyn StreamCallback<RawEvent>> = Box::new(h);
+
+        self.callback.replace(Some((boxed, typeid_of::<H>())));
+        NodeSubscription(Rc::downgrade(&self), PhantomData)
     }
 }
-
-impl<H: crate::event::StreamCallback<RawEvent>> crate::event::Unsubscribe<RawEvent, Node, H>
-    for Node
+impl<H: StreamCallback<RawEvent> + 'static> crate::event::Unsubscribe<RawEvent, Rc<Node>, H>
+    for NodeSubscription<H>
 {
-    fn unsubscribe(self) -> (Node, H)
-    where
-        H: Sized,
-    {
-        // SAFETY: Because Nodes are put into Rc objects immediately after creation, this can never
-        // be called under normal circumstances.
-        unreachable!()
+    fn unsubscribe(self) -> (Rc<Node>, H) {
+        let node = self
+            .0
+            .upgrade()
+            .expect("Tried to unsubscribe from node that doesn't exist!");
+        let (boxed, ty) = node
+            .callback
+            .borrow_mut()
+            .take()
+            .expect("Tried to unsubscribe from Node, but subscription was invalid!");
+
+        // This ensures the pointer we extract out is the type we expect
+        assert_eq!(ty, typeid_of::<H>());
+        let raw = Box::into_raw(boxed) as *mut H;
+
+        // Using from_raw here is important because manually deallocating will segfault if H is zero-sized.
+        let h = unsafe { Box::<H>::from_raw(raw) };
+        (node, *h)
     }
 }
 /*

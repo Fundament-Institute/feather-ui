@@ -49,7 +49,7 @@ impl Desc for dyn Prop {
                 let sized = sized.clone();
                 let final_area = sized.clone().map(|d| PxRect::from(*d)).into_dyn_signal();
 
-                let presize = child.clone().map(move |c| {
+                let presize = child.clone().map_ex(move |c| {
                     let (_, f) = c.stage(dim.clone(), dpi.clone());
 
                     Rc::new(f(
@@ -64,7 +64,7 @@ impl Desc for dyn Prop {
                     Some(
                         presize
                             .clone()
-                            .map(|node| imbl::vector![node.clone()])
+                            .map_ex(|node| imbl::vector![node.clone()])
                             .into_dyn_signal(),
                     ),
                     Some(Box::new(crate::layout::Concrete::<()> {
