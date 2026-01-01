@@ -244,7 +244,7 @@ impl Window {
         let children = self
             .child
             .clone()
-            .map(move |child| child.layout(driver.clone(), dpi.clone()));
+            .map_ex(move |child| child.layout(driver.clone(), dpi.clone()));
 
         Box::new(
             layout::Node::<DynSignal<Size2D<u32, crate::Pixel>>, dyn root::Prop, ()> {

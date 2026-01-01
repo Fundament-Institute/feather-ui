@@ -77,7 +77,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
         const_signal(0.0).into(),
         const_signal(0.0).into(),
         const_signal(wide::f32x4::zeroed()).into(),
-        const_signal(sRGB::new(1.0, 1.0, 1.0, 1.0)).into(),
+        const_signal(sRGB::new(1.0, 1.0, 1.0, 0.5)).into(),
         const_signal(sRGB::transparent()).into(),
         const_signal(DAbsPoint::zero()).into(),
     );

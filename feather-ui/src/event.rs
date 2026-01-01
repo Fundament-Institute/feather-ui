@@ -3,6 +3,8 @@
 
 use std::{any::Any, cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
+use either::Either;
+
 use crate::reactive::{SignalMap, SignalProvider};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
@@ -26,7 +28,7 @@ pub trait StreamCallback<T> {
     fn send(&mut self, x: T) -> EventRes;
 }
 
-pub trait Unsubscribe<T, S: ?Sized, H: StreamCallback<T>> {
+pub trait Unsubscribe<T, S: ?Sized, H: StreamCallback<T> + ?Sized> {
     fn unsubscribe(self) -> (S, H)
     where
         S: Sized,
@@ -115,7 +117,7 @@ struct MapStream<'l, T, R, F: Fn(T) -> R, S: EventStream<'l, T>> {
 impl<'l, T: 'l, R: 'l, F: 'l + Fn(T) -> R, S: EventStream<'l, T>> EventStream<'l, R>
     for MapStream<'l, T, R, F, S>
 {
-    type Subscription<H: 'l + StreamCallback<R> + 'l> = MapSubscription<'l, T, R, F, H, S>;
+    type Subscription<H: StreamCallback<R> + 'l> = MapSubscription<'l, T, R, F, H, S>;
 
     fn subscribe<H: StreamCallback<R> + 'l>(self, h: H) -> Self::Subscription<H> {
         Self::Subscription {
@@ -239,7 +241,7 @@ struct ClaimStream<'l, T, S: EventStream<'l, T>> {
 }
 
 impl<'l, T: 'l, S: EventStream<'l, T>> EventStream<'l, T> for ClaimStream<'l, T, S> {
-    type Subscription<H: 'l + StreamCallback<T> + 'l> = ClaimSubscription<'l, T, H, S>;
+    type Subscription<H: StreamCallback<T> + 'l> = ClaimSubscription<'l, T, H, S>;
 
     fn subscribe<H: StreamCallback<T>>(self, h: H) -> Self::Subscription<H> {
         Self::Subscription {
@@ -682,7 +684,7 @@ pub(crate) fn statemachine<
             s: sig,
             phantom: PhantomData,
         },
-        sig2.map(move |x| machine2.borrow_mut().get(x.clone())),
+        sig2.map_ex(move |x| machine2.borrow_mut().get(x.clone())),
     )
 }
 
@@ -817,6 +819,167 @@ impl<
                 s: self.s,
                 phantom: PhantomData,
             }),
+        }
+    }
+}
+
+struct ForwardCallback<'l, T: 'l, H: 'l + StreamCallback<T>> {
+    h: H,
+    phantom: PhantomData<&'l T>,
+}
+
+impl<'l, T: 'l, H: 'l + StreamCallback<T>> StreamCallback<T> for ForwardCallback<'l, T, H> {
+    fn send(&mut self, x: T) -> EventRes {
+        self.h.send(x)
+    }
+}
+
+trait BounceReceiver<S> {
+    fn receive(origin: S);
+}
+
+enum BounceState<'a, T: 'a, S: EventStream<'a, T>> {
+    None(PhantomData<&'a T>),
+    Initialized(S),
+    Pending(Box<dyn FnOnce(S) -> *mut () + 'a>),
+    Subscribed(*mut ()),
+}
+
+struct BounceSubscription<'a, T: 'a, H: 'a + StreamCallback<T>, S: EventStream<'a, T>> {
+    origin: Rc<RefCell<BounceState<'a, T, S>>>,
+    phantom: PhantomData<H>,
+}
+
+impl<'a, T: 'a, H: 'a + StreamCallback<T>, S: EventStream<'a, T>> BounceSubscription<'a, T, H, S> {
+    fn extract(&mut self) -> Option<H> {
+        let mut state = BounceState::None(PhantomData);
+        std::mem::swap(&mut *self.origin.borrow_mut(), &mut state);
+
+        let (s, h) = match state {
+            BounceState::None(_) | BounceState::Initialized(_) | BounceState::Pending(_) => {
+                (state, None)
+            }
+            BounceState::Subscribed(origin) => {
+                let boxed = unsafe {
+                    Box::from_raw(origin as *mut <S as EventStream<'a, T>>::Subscription<H>)
+                };
+
+                let (s, h) = boxed.unsubscribe();
+                (BounceState::Initialized(s), Some(h))
+            }
+        };
+
+        state = s;
+        std::mem::swap(&mut *self.origin.borrow_mut(), &mut state);
+        h
+    }
+}
+
+// This custom drop ensures we never leave an invalid dangling pointer in the shared state.
+impl<'a, T: 'a, H: 'a + StreamCallback<T>, S: EventStream<'a, T>> Drop
+    for BounceSubscription<'a, T, H, S>
+{
+    fn drop(&mut self) {
+        let _ = self.extract();
+    }
+}
+
+impl<'a, T, H: StreamCallback<T>, S: EventStream<'a, T>> Unsubscribe<T, BounceStream<'a, T, S>, H>
+    for BounceSubscription<'a, T, H, S>
+{
+    fn unsubscribe(mut self) -> (BounceStream<'a, T, S>, H) {
+        let h = self
+            .extract()
+            .expect("Tried to unsubscribe from invalid state!");
+        (
+            BounceStream {
+                origin: self.origin.clone(),
+            },
+            h,
+        )
+    }
+}
+
+struct BounceStream<'l, T, S: EventStream<'l, T>> {
+    origin: Rc<RefCell<BounceState<'l, T, S>>>,
+}
+
+impl<'l, T, S: EventStream<'l, T>> BounceStream<'l, T, S> {
+    pub fn new() -> (Self, AntiStream<'l, T, S>) {
+        let origin = Rc::new(RefCell::new(BounceState::None(PhantomData)));
+        let weak = Rc::downgrade(&origin);
+        (Self { origin }, AntiStream { origin: weak })
+    }
+}
+
+struct AntiStream<'l, T, S: EventStream<'l, T>> {
+    origin: std::rc::Weak<RefCell<BounceState<'l, T, S>>>,
+}
+
+impl<'l, T, S: EventStream<'l, T>> AntiStream<'l, T, S> {
+    /// Consumes the AntiStream, which sends the eventstream to the corresponding BounceStream.
+    fn connect(self, target: S) -> eyre::Result<()> {
+        if let Some(origin) = self.origin.upgrade() {
+            let mut state = BounceState::None(PhantomData);
+            std::mem::swap(&mut *origin.borrow_mut(), &mut state);
+            state = match state {
+                BounceState::Initialized(_) | BounceState::Subscribed(_) => {
+                    return Err(eyre::eyre!("This stream was already connected!"));
+                }
+                BounceState::None(_) => BounceState::Initialized(target),
+                BounceState::Pending(f) => {
+                    let p = f(target);
+                    BounceState::Subscribed(p)
+                }
+            };
+            std::mem::swap(&mut *origin.borrow_mut(), &mut state);
+            Ok(())
+        } else {
+            Err(eyre::eyre!("Original stream has been deleted!"))
+        }
+    }
+}
+
+//Box<dyn FnOnce(S) -> *mut ()>
+trait BouncePending<'l, T: 'l, S: EventStream<'l, T>> {
+    fn subscribe(self, s: S) -> *mut ();
+}
+
+struct BouncePendingImpl<'l, H: 'l>(H, PhantomData<&'l ()>);
+
+impl<'l, T: 'l, H: 'l + StreamCallback<T>, S: EventStream<'l, T>> BouncePending<'l, T, S>
+    for BouncePendingImpl<'l, H>
+{
+    fn subscribe(self, s: S) -> *mut () {
+        Box::into_raw(Box::new(s.subscribe(self.0))) as *mut ()
+    }
+}
+
+impl<'l, T: 'l, S: EventStream<'l, T>> EventStream<'l, T> for BounceStream<'l, T, S> {
+    type Subscription<H: StreamCallback<T> + 'l> = BounceSubscription<'l, T, H, S>;
+
+    fn subscribe<H: StreamCallback<T> + 'l>(self, h: H) -> Self::Subscription<H> {
+        let mut state = BounceState::None(PhantomData);
+        std::mem::swap(&mut *self.origin.borrow_mut(), &mut state);
+        state = match state {
+            // Pending is safe to recover from, because the lambda knows how to drop itself
+            BounceState::None(_) | BounceState::Pending(_) => {
+                BounceState::Pending(Box::new(move |s: S| {
+                    Box::into_raw(Box::new(s.subscribe(h))) as *mut ()
+                }))
+            }
+            BounceState::Initialized(s) => {
+                BounceState::Subscribed(Box::into_raw(Box::new(s.subscribe(h))) as *mut ())
+            }
+            // Subscribe is NOT safe to recover from, because we don't know how to drop the internal pointer
+            BounceState::Subscribed(_) => panic!("BounceStream was already subscribed to!"),
+        };
+
+        std::mem::swap(&mut *self.origin.borrow_mut(), &mut state);
+
+        Self::Subscription {
+            origin: self.origin,
+            phantom: PhantomData,
         }
     }
 }

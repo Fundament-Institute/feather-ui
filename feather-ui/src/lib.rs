@@ -2048,7 +2048,7 @@ impl<AppData: 'static, T> App<AppData, T> {
             ..Default::default()
         };
 
-        let outline_tree = appstate.map(outline);
+        let outline_tree = appstate.map_ex(outline);
         let instance = wgpu::Instance::new(&desc);
         //let on_driver = Rc::new(driver_init);
         let driver = std::sync::Weak::<graphics::Driver>::new();
@@ -2086,7 +2086,7 @@ impl<AppData: 'static, T> App<AppData, T> {
         let windows = Rc::new(RefCell::new(HashMap::new()));
         let windows2 = windows.clone();
 
-        let layouts = outline_tree.map(move |outline| {
+        let layouts = outline_tree.map_ex(move |outline| {
             let windows2 = windows2.clone();
             map_vec(
                 move |w| {
@@ -2247,7 +2247,11 @@ impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<Feathe
             let mut resized = false;
             let _ = match event {
                 WindowEvent::CloseRequested => {
-                    Window::on_window_event(state, root.clone(), event, self.driver.clone())
+                    // TODO: Figure out how to handle close events properly
+                    if Window::on_window_event(state, root.clone(), event, self.driver.clone()) {
+                        event_loop.exit()
+                    }
+                    true
                 }
                 WindowEvent::RedrawRequested => {
                     // TODO: this doesn't properly update all window aspects
