@@ -45,10 +45,6 @@ impl<T: CloneStableDeref> PartialEq for Identity<T> {
         let other_ptr: *const _ = other.0.deref();
         std::ptr::addr_eq(self_ptr, other_ptr)
     }
-
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
 }
 impl<T: CloneStableDeref> Eq for Identity<T> {}
 impl<T: CloneStableDeref> PartialOrd for Identity<T> {
@@ -57,40 +53,11 @@ impl<T: CloneStableDeref> PartialOrd for Identity<T> {
         let other_ptr: *const _ = other.0.deref();
         self_ptr.cast::<()>().partial_cmp(&other_ptr.cast::<()>())
     }
-
-    fn lt(&self, other: &Self) -> bool {
-        self.partial_cmp(other)
-            .is_some_and(std::cmp::Ordering::is_lt)
-    }
-
-    fn le(&self, other: &Self) -> bool {
-        self.partial_cmp(other)
-            .is_some_and(std::cmp::Ordering::is_le)
-    }
-
-    fn gt(&self, other: &Self) -> bool {
-        self.partial_cmp(other)
-            .is_some_and(std::cmp::Ordering::is_gt)
-    }
-
-    fn ge(&self, other: &Self) -> bool {
-        self.partial_cmp(other)
-            .is_some_and(std::cmp::Ordering::is_ge)
-    }
 }
 impl<T: CloneStableDeref> Hash for Identity<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let self_ptr: *const _ = self.0.deref();
         self_ptr.hash(state);
-    }
-
-    fn hash_slice<H: std::hash::Hasher>(data: &[Self], state: &mut H)
-    where
-        Self: Sized,
-    {
-        for piece in data {
-            piece.hash(state)
-        }
     }
 }
 
@@ -1202,6 +1169,7 @@ pub struct AnimProvider<
     input: Rc<Source>,
 }
 
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug, derive_more::Display)]
 pub struct Microseconds(pub u64);
 

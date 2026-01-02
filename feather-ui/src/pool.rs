@@ -97,6 +97,7 @@ impl ArenaAllocPool {
     }
 }
 
+#[repr(transparent)]
 pub struct PoolRc<T>(std::rc::Rc<T>);
 
 thread_local! {
@@ -226,6 +227,7 @@ impl std::fmt::Debug for PoolRcK {
     }
 }
 
+#[repr(transparent)]
 pub struct ArenaBox<T>(ManuallyDrop<Box<T>>);
 
 impl<T> ArenaBox<T> {

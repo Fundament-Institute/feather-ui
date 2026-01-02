@@ -66,6 +66,7 @@ impl std::fmt::Display for LuaSourceID {
     }
 }
 
+#[repr(transparent)]
 struct LuaEnum<T>(T);
 
 impl<T: TryFrom<u8>> FromLua for LuaEnum<T>
@@ -269,6 +270,7 @@ impl FromLua for DValue {
     }
 }
 
+#[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 struct LuaPoint<U>(Point2D<f32, U>);
 
@@ -527,6 +529,7 @@ impl FromLua for DPoint {
     }
 }
 
+#[repr(transparent)]
 struct LimitPoint(DPoint);
 
 impl FromLua for LimitPoint {
@@ -592,6 +595,7 @@ impl FromLua for sRGB {
     }
 }
 
+#[repr(transparent)]
 struct LuaFontFamily(cosmic_text::FamilyOwned);
 
 impl Default for LuaFontFamily {
@@ -686,6 +690,7 @@ macro_rules! gen_from_lua {
     };
 }
 
+#[repr(transparent)]
 #[derive(Clone)]
 struct LuaDomain(std::sync::Arc<crate::CrossReferenceDomain>);
 

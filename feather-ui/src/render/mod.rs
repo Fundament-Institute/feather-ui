@@ -66,6 +66,7 @@ pub trait Pipeline: Any + std::fmt::Debug + Send + Sync {
     fn destroy(&mut self, driver: &graphics::Driver) {}
 }
 
+#[repr(transparent)]
 pub struct Chain<const N: usize>(pub [Rc<dyn Renderable>; N]);
 
 impl<const N: usize> Renderable for Chain<N> {

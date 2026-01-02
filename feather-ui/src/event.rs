@@ -397,90 +397,103 @@ impl<'l, T: Clone, Priority: Ord, S: EventStream<'l, T>> Bubbler<'l, T, Priority
     }
 }
 
-trait DynamicStreamCallback<T>: StreamCallback<T> + Any {}
-impl<T, H> DynamicStreamCallback<T> for H
-where
-    H: StreamCallback<T> + 'static,
-    H: Any,
-{
+// TODO: Switch to https://github.com/servo/rust-smallvec, possibly after it hits v2
+struct DupCallback<'l, T> {
+    queue:
+        Rc<RefCell<HashMap<*const (dyn StreamCallback<T> + 'l), Box<dyn StreamCallback<T> + 'l>>>>,
 }
 
-// TODO: Find an alternative to smolset due to `retain()` bug
-#[derive(Clone)]
-struct DupCallback<T> {
-    handlers: Rc<
-        RefCell<HashMap<*const dyn DynamicStreamCallback<T>, Box<dyn DynamicStreamCallback<T>>>>,
-    >,
+impl<'l, T> DupCallback<'l, T> {
+    fn new() -> Self {
+        Self {
+            queue: Rc::new(HashMap::new().into()),
+        }
+    }
 }
 
-impl<T: Clone> StreamCallback<T> for DupCallback<T> {
+impl<'l, T: Clone> StreamCallback<T> for DupCallback<'l, T> {
     fn send(&mut self, x: T) -> EventRes {
         let mut claim = false;
-        let mut handlers = self.handlers.borrow_mut();
-        (*handlers).retain(|_k, handler| {
-            let res = handler.as_mut().send(x.clone());
+        self.queue.borrow_mut().retain(|_, h| {
+            let res = h.send(x.clone());
             claim |= res.claim;
             !res.cancel
         });
         EventRes {
-            cancel: handlers.is_empty(),
+            cancel: self.queue.borrow().is_empty(),
             claim: claim,
         }
     }
 }
 
-struct DupSubscription<
-    T: Clone + 'static,
-    H: StreamCallback<T> + 'static,
-    S: EventStream<'static, T>,
-> {
-    callbackid: *const dyn DynamicStreamCallback<T>,
-    state: Rc<RefCell<DupState<T, S>>>,
-    phantom: PhantomData<H>,
-}
-
-enum DupState<T: Clone + 'static, S: EventStream<'static, T>> {
+enum DupState<'l, T: Clone + 'l, S: EventStream<'l, T>> {
     NoSubscriptions(S),
-    Active(S::Subscription<DupCallback<T>>, DupCallback<T>),
+    Active(
+        S::Subscription<DupCallback<'l, T>>,
+        std::rc::Weak<
+            RefCell<HashMap<*const (dyn StreamCallback<T> + 'l), Box<dyn StreamCallback<T> + 'l>>>,
+        >,
+    ),
     Invalid,
 }
 
-impl<T: Clone + 'static, H: StreamCallback<T> + 'static, S: EventStream<'static, T>>
-    Unsubscribe<T, DupStream<T, S>, H> for DupSubscription<T, H, S>
-{
-    fn unsubscribe(self) -> (DupStream<T, S>, H)
-    where
-        DupStream<T, S>: Sized,
-    {
-        let typed_handler = {
-            let state = self.state.borrow_mut();
-            match &*state {
-                DupState::NoSubscriptions(_) => panic!(),
-                state_mut @ DupState::Active(s, dup_callback) => {
-                    // dup_callback is a &DupCallback<_>
-                    let handler = dup_callback
-                        .handlers
-                        .borrow_mut()
-                        .remove(&self.callbackid)
-                        .expect("not subscribed?");
-                    (handler as Box<dyn Any>)
-                        .downcast::<H>()
-                        .expect("type error")
-                }
-                DupState::Invalid => panic!(),
+impl<'l, T: Clone + 'l, S: EventStream<'l, T>> DupState<'l, T, S> {
+    fn deactivate(&mut self) {
+        let mut state = DupState::Invalid;
+        std::mem::swap(self, &mut state);
+        match state {
+            DupState::Active(s, _) => {
+                let (dup, _) = s.unsubscribe();
+                state = Self::NoSubscriptions(dup);
             }
-        };
+            _ => (),
+        }
+        std::mem::swap(self, &mut state);
+    }
 
-        let stream = DupStream { state: self.state };
-        (stream, *typed_handler)
+    fn unsubscribe<H>(&mut self, k: *const (dyn StreamCallback<T> + 'l)) -> Option<H> {
+        match self {
+            DupState::NoSubscriptions(_) | DupState::Invalid => None,
+            DupState::Active(_, callback) => {
+                let c = callback.upgrade()?;
+                let boxed = c.borrow_mut().remove(&k)?;
+
+                if c.borrow().is_empty() {
+                    self.deactivate();
+                }
+
+                let raw = Box::into_raw(boxed) as *mut H;
+                Some(*unsafe { Box::<H>::from_raw(raw) })
+            }
+        }
     }
 }
 
-struct DupStream<T: Clone + 'static, S: EventStream<'static, T>> {
-    state: Rc<RefCell<DupState<T, S>>>,
+struct DupSubscription<'l, T: Clone + 'l, H: StreamCallback<T> + 'l, S: EventStream<'l, T>> {
+    state: Rc<RefCell<DupState<'l, T, S>>>,
+    key: *const (dyn StreamCallback<T> + 'l),
+    phantom: PhantomData<H>,
 }
 
-impl<T: Clone, S: EventStream<'static, T>> Clone for DupStream<T, S> {
+impl<'l, T: Clone + 'l, H: StreamCallback<T> + 'l, S: EventStream<'l, T>>
+    Unsubscribe<T, DupStream<'l, T, S>, H> for DupSubscription<'l, T, H, S>
+{
+    fn unsubscribe(self) -> (DupStream<'l, T, S>, H) {
+        let h = self
+            .state
+            .borrow_mut()
+            .unsubscribe(self.key)
+            .expect("Tried to unsubscribe from invalid DupState!");
+
+        (DupStream { state: self.state }, h)
+    }
+}
+
+struct DupStream<'l, T: Clone + 'l, S: EventStream<'l, T>> {
+    state: Rc<RefCell<DupState<'l, T, S>>>,
+}
+
+impl<'l, T: Clone, S: EventStream<'l, T>> Clone for DupStream<'l, T, S> {
     fn clone(&self) -> Self {
         Self {
             state: self.state.clone(),
@@ -488,59 +501,38 @@ impl<T: Clone, S: EventStream<'static, T>> Clone for DupStream<T, S> {
     }
 }
 
-/*
-trait EventStreamOps<T>: EventStream<T> {
-    // ... other methods ...
+impl<'l, T: Clone + 'l, S: EventStream<'l, T>> EventStream<'l, T> for DupStream<'l, T, S> {
+    type Subscription<H: StreamCallback<T> + 'l> = DupSubscription<'l, T, H, S>;
 
-    fn dup(self) -> impl EventStream<T> + Clone
-    where
-        T: Clone,
-        Self: Sized,
-        // This constraint only applies when using dup()
-        Self: for<'a> EventStream<T, Subscription<&'a mut (dyn StreamCallback<T> + 'static)> = impl Unsubscribe<T, Self, &'a mut (dyn StreamCallback<T> + 'static)>>
-    {
-        // Implementation
-    }
-}
-*/
+    fn subscribe<H: StreamCallback<T> + 'l>(self, h: H) -> Self::Subscription<H> {
+        let boxed: Box<dyn StreamCallback<T> + 'l> = Box::new(h);
+        let p = boxed.as_ref() as *const dyn StreamCallback<T>;
+        let mut state = DupState::Invalid;
+        std::mem::swap(&mut *self.state.borrow_mut(), &mut state);
+        match state {
+            DupState::NoSubscriptions(s) => {
+                let callback = DupCallback::new();
+                callback.queue.borrow_mut().insert(p, boxed);
 
-impl<T: Clone + 'static, S: EventStream<'static, T>> EventStream<'static, T> for DupStream<T, S> {
-    type Subscription<H: StreamCallback<T> + 'static> = DupSubscription<T, H, S>;
-
-    fn subscribe<H: StreamCallback<T> + 'static>(self, h: H) -> Self::Subscription<H> {
-        use std::ops::Deref;
-        use std::ops::DerefMut;
-        let callback: Box<dyn DynamicStreamCallback<T>> = Box::new(h);
-        let callbackid: *const dyn DynamicStreamCallback<T> = callback.deref();
-        let mut state = self.state.borrow_mut();
-        match state.deref_mut() {
-            DupState::Active(_s, h) => {
-                h.handlers.borrow_mut().insert(callbackid, callback);
+                let queue = Rc::downgrade(&callback.queue);
+                state = DupState::Active(s.subscribe(callback), queue);
             }
-            DupState::Invalid => panic!(),
-            state_mut @ DupState::NoSubscriptions(_) => {
-                let mut handlers = HashMap::new();
-                handlers.insert(callbackid, callback);
-                let mycallback = DupCallback {
-                    handlers: Rc::new(RefCell::new(handlers)),
-                };
-                let DupState::NoSubscriptions(s) = std::mem::replace(state_mut, DupState::Invalid)
-                else {
-                    panic!()
-                };
-                let subscription = s.subscribe(mycallback.clone());
-                let DupState::Invalid =
-                    std::mem::replace(state_mut, DupState::Active(subscription, mycallback))
-                else {
-                    panic!()
-                };
+            DupState::Active(_, ref mut queue) => {
+                let q = queue
+                    .upgrade()
+                    .expect("Tried to subscribe to nonexistent callback!");
+                q.borrow_mut().insert(p, boxed);
             }
+            DupState::Invalid => panic!("Tried to subscribe to invalid dupstream!"),
         }
-        return DupSubscription {
-            callbackid: callbackid,
+
+        std::mem::swap(&mut *self.state.borrow_mut(), &mut state);
+
+        DupSubscription {
             state: self.state.clone(),
+            key: p,
             phantom: PhantomData,
-        };
+        }
     }
 }
 
@@ -560,10 +552,7 @@ trait EventStreamClone<'l, T: Clone>: EventStream<'l, T> {
     fn bubble<Priority: Ord>(self) -> Bubbler<'l, T, Priority, Self>
     where
         Self: Sized;
-}
-
-trait EventStreamDup<T: Clone + 'static>: EventStream<'static, T> + 'static {
-    fn dup(self) -> impl EventStream<'static, T> + Clone;
+    fn dup(self) -> impl EventStream<'l, T> + Clone;
 }
 
 // core operations with no lifetime constraints
@@ -618,7 +607,7 @@ where
 }
 
 // operations requiring T: Clone
-impl<'l, S, T: Clone> EventStreamClone<'l, T> for S
+impl<'l, S, T: Clone + 'l> EventStreamClone<'l, T> for S
 where
     S: EventStream<'l, T>,
 {
@@ -628,14 +617,7 @@ where
     {
         todo!()
     }
-}
-
-// operations requiring T: 'static
-impl<S, T: Clone + 'static> EventStreamDup<T> for S
-where
-    S: EventStream<'static, T> + 'static,
-{
-    fn dup(self) -> impl EventStream<'static, T> + Clone {
+    fn dup(self) -> impl EventStream<'l, T> + Clone {
         DupStream {
             state: Rc::new(RefCell::new(DupState::NoSubscriptions(self))),
         }
@@ -645,19 +627,6 @@ where
 pub trait StateMachine<InputEvent, InputState: Clone, OutputEvent, OutputState: Clone> {
     fn update(&mut self, ie: InputEvent, is: InputState) -> impl IntoIterator<Item = OutputEvent>;
     fn get(&self, is: InputState) -> OutputState;
-}
-
-fn split_parity(
-    num: impl EventStream<'static, i32> + 'static,
-) -> (
-    impl EventStream<'static, i32>,
-    impl EventStream<'static, i32>,
-) {
-    let nums = num.dup();
-    (
-        nums.clone().filter(|n| n % 2 == 0),
-        nums.clone().filter(|n| n % 2 == 1),
-    )
 }
 
 pub(crate) fn statemachine<
@@ -823,21 +792,6 @@ impl<
     }
 }
 
-struct ForwardCallback<'l, T: 'l, H: 'l + StreamCallback<T>> {
-    h: H,
-    phantom: PhantomData<&'l T>,
-}
-
-impl<'l, T: 'l, H: 'l + StreamCallback<T>> StreamCallback<T> for ForwardCallback<'l, T, H> {
-    fn send(&mut self, x: T) -> EventRes {
-        self.h.send(x)
-    }
-}
-
-trait BounceReceiver<S> {
-    fn receive(origin: S);
-}
-
 enum BounceState<'a, T: 'a, S: EventStream<'a, T>> {
     None(PhantomData<&'a T>),
     Initialized(S),
@@ -852,26 +806,18 @@ struct BounceSubscription<'a, T: 'a, H: 'a + StreamCallback<T>, S: EventStream<'
 
 impl<'a, T: 'a, H: 'a + StreamCallback<T>, S: EventStream<'a, T>> BounceSubscription<'a, T, H, S> {
     fn extract(&mut self) -> Option<H> {
-        let mut state = BounceState::None(PhantomData);
-        std::mem::swap(&mut *self.origin.borrow_mut(), &mut state);
-
-        let (s, h) = match state {
-            BounceState::None(_) | BounceState::Initialized(_) | BounceState::Pending(_) => {
-                (state, None)
-            }
-            BounceState::Subscribed(origin) => {
+        match *self.origin.borrow_mut() {
+            BounceState::None(_) | BounceState::Initialized(_) | BounceState::Pending(_) => None,
+            ref mut state @ BounceState::Subscribed(origin) => {
                 let boxed = unsafe {
                     Box::from_raw(origin as *mut <S as EventStream<'a, T>>::Subscription<H>)
                 };
 
                 let (s, h) = boxed.unsubscribe();
-                (BounceState::Initialized(s), Some(h))
+                *state = BounceState::Initialized(s);
+                Some(h)
             }
-        };
-
-        state = s;
-        std::mem::swap(&mut *self.origin.borrow_mut(), &mut state);
-        h
+        }
     }
 }
 
@@ -940,7 +886,6 @@ impl<'l, T, S: EventStream<'l, T>> AntiStream<'l, T, S> {
     }
 }
 
-//Box<dyn FnOnce(S) -> *mut ()>
 trait BouncePending<'l, T: 'l, S: EventStream<'l, T>> {
     fn subscribe(self, s: S) -> *mut ();
 }
@@ -963,7 +908,7 @@ impl<'l, T: 'l, S: EventStream<'l, T>> EventStream<'l, T> for BounceStream<'l, T
         std::mem::swap(&mut *self.origin.borrow_mut(), &mut state);
         state = match state {
             // Pending is safe to recover from, because the lambda knows how to drop itself
-            BounceState::None(_) | BounceState::Pending(_) => {
+            (BounceState::None(_) | BounceState::Pending(_)) => {
                 BounceState::Pending(Box::new(move |s: S| {
                     Box::into_raw(Box::new(s.subscribe(h))) as *mut ()
                 }))
@@ -982,4 +927,15 @@ impl<'l, T: 'l, S: EventStream<'l, T>> EventStream<'l, T> for BounceStream<'l, T
             phantom: PhantomData,
         }
     }
+}
+
+#[cfg(test)]
+fn split_parity<'l>(
+    num: impl EventStream<'l, i32> + 'l,
+) -> (impl EventStream<'l, i32>, impl EventStream<'l, i32>) {
+    let nums = num.dup();
+    (
+        nums.clone().filter(|n| n % 2 == 0),
+        nums.clone().filter(|n| n % 2 == 1),
+    )
 }
