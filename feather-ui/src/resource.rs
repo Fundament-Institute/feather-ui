@@ -86,6 +86,7 @@ impl PartialEq for dyn Location {
 
 impl Eq for dyn Location {}
 
+#[repr(transparent)]
 #[cfg(feature = "svg")]
 #[derive(Debug)]
 // resvg requires the DPI when it parses the XML, and we can't store the XML
@@ -1035,6 +1036,7 @@ pub fn load_icon(location: &dyn Location) -> Result<winit::window::Icon, Error> 
     feature = "tiff",
     feature = "webp"
 ))]
+#[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct ImageRef(pub Arc<image::DynamicImage>);
 
