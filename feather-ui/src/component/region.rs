@@ -13,11 +13,11 @@ use std::sync::Arc;
 pub struct Region<T> {
     pub layer: Option<(DynSignal<crate::color::sRGB32>, DynSignal<f32>)>,
     props: Rc<T>,
-    children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>,
+    children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>,
 }
 
 impl<T: fixed::Prop + 'static> Region<T> {
-    pub fn new(props: T, children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>) -> Self {
+    pub fn new(props: T, children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>) -> Self {
         Self {
             props: props.into(),
             children,
@@ -29,7 +29,7 @@ impl<T: fixed::Prop + 'static> Region<T> {
         props: T,
         color: DynSignal<sRGB32>,
         rotation: DynSignal<f32>,
-        children: DynSignal<imbl::Vector<Arc<ChildOf<dyn fixed::Prop>>>>,
+        children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>,
     ) -> Self {
         Self {
             props: props.into(),
@@ -52,7 +52,7 @@ where
         dpi: MutableSignal<crate::RelDim>,
     ) -> Self::R {
         let children = map_vec(
-            move |child: &Arc<ChildOf<dyn fixed::Prop>>| child.layout(driver.clone(), dpi.clone()),
+            move |child: &Rc<ChildOf<dyn fixed::Prop>>| child.layout(driver.clone(), dpi.clone()),
             |x| crate::reactive::Identity(x.clone()),
             self.children.clone(),
         );
@@ -62,6 +62,8 @@ where
             children: children.into(),
             renderable: None,
             layer: self.layer.clone(),
+            machine: None,
         }
+        .into()
     }
 }

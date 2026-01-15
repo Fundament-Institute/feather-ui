@@ -5,12 +5,10 @@ use crate::color::sRGB;
 use crate::layout::base;
 use crate::reactive::{self, DynSignal, MutableSignal};
 use crate::{PxPoint, layout};
-use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
 // This draws a line between two points relative to the parent
-#[derive_where(Clone)]
 pub struct Line<T> {
     pub start: DynSignal<PxPoint>,
     pub end: DynSignal<PxPoint>,
@@ -34,6 +32,7 @@ where
                 self.end.clone(),
                 self.fill.clone(),
             )),
+            machine: None,
         }
     }
 }

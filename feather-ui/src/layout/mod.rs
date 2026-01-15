@@ -24,7 +24,7 @@ use crate::{
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-type StageThunk<'a> = Box<dyn Fn(DynSignal<PxPoint>, DynSignal<PxDim>) -> rtree::Node>;
+type StageThunk<'a> = Box<dyn Fn(DynSignal<PxPoint>, DynSignal<PxDim>) -> Rc<rtree::Node>>;
 
 /// Represents an arbitrary layout node that hasn't been staged yet. The vast
 /// majority of the time, components should simply use the standard [`Node`]
@@ -67,10 +67,30 @@ where
     }
 }
 
+pub type DeferMachine<P> = (
+    crate::event::AntiStream<'static, crate::input::RawEvent, Rc<rtree::Node>>,
+    reactive::Signal<reactive::SignalDeferProvider<P>>,
+);
+
+#[inline]
+pub fn resolve_defer_machine<P: reactive::SignalProvider + ?Sized>(
+    node: rtree::Node,
+    defer: &Option<DeferMachine<P>>,
+    target: reactive::Signal<P>,
+) -> Rc<rtree::Node> {
+    let n = Rc::new(node);
+    if let Some((machine, state)) = defer {
+        machine.connect(n.clone()).unwrap();
+        state.resolve(target).expect("State already resolved!");
+    }
+    n
+}
+
 pub trait Desc {
     type Props: ?Sized;
     type Child: ?Sized;
     type Children;
+    type Provider: reactive::SignalProvider + ?Sized;
 
     fn stage<'a, T: Prerender + 'static>(
         props: &Self::Props,
@@ -78,15 +98,14 @@ pub trait Desc {
         children: DynSignal<Self::Children>,
         renderable: Option<T>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
+        defer: Option<DeferMachine<Self::Provider>>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
 
 /// The standard layout node. Expects the layout properties, which must be
 /// compatible with the layout description `D` provided, which also determines
 /// the type that contains the children. A unique ID must be provided, and a
-/// renderable is optional - it will be passed to staging if provided. The
-/// layer, if provided will create a new layer operation with the given color
-/// and rotation. This is normally used to do correct transparency.
+/// renderable is optional - it will be passed to staging if provided.
 ///
 /// # Examples
 /// See [`super::component::Component`]
@@ -94,6 +113,7 @@ pub struct Node<T, D: Desc + ?Sized, R> {
     pub props: Rc<T>,
     pub children: DynSignal<D::Children>,
     pub renderable: Option<R>,
+    pub machine: Option<DeferMachine<D::Provider>>,
 }
 
 impl<T, D: Desc + ?Sized, R: Prerender + Clone + 'static> Layout for Node<T, D, R>
@@ -116,6 +136,7 @@ where
             self.children.clone(),
             self.renderable.clone(),
             dpi,
+            self.machine.clone(),
         )
     }
 }

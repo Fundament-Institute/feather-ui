@@ -37,13 +37,15 @@ impl crate::layout::Desc for dyn Empty {
     type Props = dyn Empty;
     type Child = dyn Empty;
     type Children = ();
+    type Provider = dyn crate::reactive::SignalProvider<Item = (crate::PxRect, crate::RelDim)>;
 
     fn stage<'a, T: crate::render::Prerender + 'static>(
         _: &Self::Props,
         predim: DynSignal<crate::PxDim>,
         _: DynSignal<Self::Children>,
         renderable: Option<T>,
-        _: MutableSignal<crate::RelDim>,
+        dpi: MutableSignal<crate::RelDim>,
+        defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
         let area = predim.map(|dim| crate::PxRect::from(*dim)).into();
 
@@ -54,14 +56,18 @@ impl crate::layout::Desc for dyn Empty {
                     zip_pair(offset, final_dim, |o, dim| crate::Rect::offsetdim(o, dim))
                         .into_dyn_signal();
 
-                crate::rtree::Node::new(
-                    final_area.clone(),
-                    None,
-                    None,
-                    Some(Box::new(crate::layout::Concrete::new(
-                        renderable.as_ref(),
-                        final_area,
-                    ))),
+                super::resolve_defer_machine(
+                    crate::rtree::Node::new(
+                        final_area.clone(),
+                        None,
+                        None,
+                        Some(Box::new(crate::layout::Concrete::new(
+                            renderable.as_ref(),
+                            final_area.clone(),
+                        ))),
+                    ),
+                    &defer,
+                    crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
                 )
             }),
         )

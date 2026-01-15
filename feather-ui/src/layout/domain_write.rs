@@ -4,11 +4,9 @@
 use super::Desc;
 use super::base::{Empty, RLimits};
 use crate::component::ComponentMarker;
-use crate::layout::DynLayout;
 use crate::reactive::SignalMap;
 use crate::reactive::{self, DynSignal, zip_pair};
 use crate::{CrossReferenceDomain, RelDim, render};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 // A DomainWrite layout spawns a renderable that writes it's area to the target
@@ -38,14 +36,16 @@ impl super::fixed::Child for Arc<CrossReferenceDomain> {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
-    type Children = PhantomData<dyn DynLayout<Self::Child>>;
+    type Children = ();
+    type Provider = dyn crate::reactive::SignalProvider<Item = (crate::PxRect, crate::RelDim)>;
 
     fn stage<'a, T: render::Prerender + 'static>(
         props: &Self::Props,
         predim: DynSignal<crate::PxDim>,
         _: DynSignal<Self::Children>,
         renderable: Option<T>,
-        _: reactive::MutableSignal<RelDim>,
+        dpi: reactive::MutableSignal<RelDim>,
+        defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
         let area = predim.map(|dim| crate::PxRect::from(*dim)).into();
 
@@ -58,20 +58,24 @@ impl Desc for dyn Prop {
                     zip_pair(offset, final_dim, |o, dim| crate::Rect::offsetdim(o, dim))
                         .into_dyn_signal();
 
-                crate::rtree::Node::new(
-                    final_area.clone(),
-                    None,
-                    None,
-                    Some(Box::new(crate::layout::Concrete {
-                        area: final_area.clone(),
-                        renderable: Some(render::domain::Write {
-                            id: id.clone(),
-                            domain: domain.clone(),
-                            base: renderable.as_ref().map(|x| x.prerender(final_area.clone())),
-                            area: final_area,
-                        }),
-                        layer: None,
-                    })),
+                super::resolve_defer_machine(
+                    crate::rtree::Node::new(
+                        final_area.clone(),
+                        None,
+                        None,
+                        Some(Box::new(crate::layout::Concrete {
+                            area: final_area.clone(),
+                            renderable: Some(render::domain::Write {
+                                id: id.clone(),
+                                domain: domain.clone(),
+                                base: renderable.as_ref().map(|x| x.prerender(final_area.clone())),
+                                area: final_area.clone(),
+                            }),
+                            layer: None,
+                        })),
+                    ),
+                    &defer,
+                    crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
                 )
             }),
         )

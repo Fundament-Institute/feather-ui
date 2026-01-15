@@ -2,7 +2,7 @@ use imbl::GenericVector;
 use smolset::SmolSet;
 use stable_deref_trait::CloneStableDeref;
 use std::{
-    cell::Ref,
+    cell::{OnceCell, Ref},
     cmp::{PartialEq, PartialOrd},
     hash::Hash,
     marker::PhantomData,
@@ -79,12 +79,12 @@ impl std::fmt::Debug for SignalNode {
     }
 }
 
-fn notify_check(nodeid: &SignalNodeId) {
+fn notify_check_node(nodeid: &SignalNodeId) {
     let mut node = nodeid.0.borrow_mut();
     match node.color {
         NodeColor::Ready => {
             node.color = NodeColor::Check;
-            node.children.iter().for_each(notify_check);
+            node.children.iter().for_each(notify_check_node);
         }
         _ => {}
     }
@@ -93,19 +93,27 @@ fn notify_check(nodeid: &SignalNodeId) {
     }
 }
 
-fn notify_change(nodeid: &SignalNodeId) {
+pub fn notify_check(signal: &Signal<impl SignalProvider + ?Sized>) {
+    notify_check_node(signal.0.get_node())
+}
+
+fn notify_change_node(nodeid: &SignalNodeId) {
     let mut node = nodeid.0.borrow_mut();
     node.color = NodeColor::Changed;
-    node.children.iter().for_each(notify_check);
+    node.children.iter().for_each(notify_check_node);
+}
+
+pub fn notify_change(signal: &Signal<impl SignalProvider + ?Sized>) {
+    notify_change_node(signal.0.get_node())
 }
 
 fn notify_children_change(nodeid: &SignalNodeId) {
     let node = nodeid.0.borrow();
     for child in node.children.iter() {
         assert!(!Rc::ptr_eq(&nodeid.0, &child.0));
-        notify_change(child);
+        notify_change_node(child);
     }
-    node.children.iter().for_each(notify_change);
+    node.children.iter().for_each(notify_change_node);
 }
 
 fn add_dependency(parent: &SignalNodeId, child: SignalNodeId) {
@@ -386,16 +394,28 @@ pub fn zip<
     }))
 }
 
-pub struct SignalMapProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> {
+pub struct SignalMapProvider<
+    P: SignalProvider + ?Sized,
+    T2,
+    F: Fn(&P::Item) -> T2,
+    F2: Fn(&T2, &T2) -> bool,
+    F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
+> {
     provider: Rc<P>,
     func: F,
     res: RefCell<Option<T2>>,
     node: SignalNodeId,
-    eq: fn(&T2, &T2) -> bool,
+    eq: F2,
+    debug: F3,
 }
 
-impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> std::fmt::Debug
-    for SignalMapProvider<P, T2, F>
+impl<
+    P: SignalProvider + ?Sized,
+    T2,
+    F: Fn(&P::Item) -> T2,
+    F2: Fn(&T2, &T2) -> bool,
+    F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
+> std::fmt::Debug for SignalMapProvider<P, T2, F, F2, F3>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("MapSignal");
@@ -404,7 +424,7 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> std::fmt::Debug
             .field("f", &format_args!("{}", std::any::type_name::<F>()));
 
         if let Some(r) = &*self.res.borrow()
-            && let Some(v) = opt_debug!(*r)
+            && let Some(v) = (self.debug)(r)
         {
             dbg.field("res", v);
         } else {
@@ -414,34 +434,14 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> std::fmt::Debug
         dbg.finish()
     }
 }
-/*
-trait QuickEq {
-    fn qeq(&self) -> bool;
-}
 
-impl<T: Copy + PartialEq> QuickEq for (&T, &T) {
-    fn qeq(&self) -> bool {
-        PartialEq::eq(self.0, self.1)
-    }
-}
-
-trait SlowEq {
-    fn qeq(&self) -> bool {
-        return false;
-    }
-}
-
-impl<T> SlowEq for &(&T, &T) {}
-
-macro_rules! opt_eq {
-    ($e:expr, $rhs:expr) => {
-        (&($e, $rhs)).qeq()
-    };
-}
-*/
-
-impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> SignalProvider
-    for SignalMapProvider<P, T2, F>
+impl<
+    P: SignalProvider + ?Sized,
+    T2,
+    F: Fn(&P::Item) -> T2,
+    F2: Fn(&T2, &T2) -> bool,
+    F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
+> SignalProvider for SignalMapProvider<P, T2, F, F2, F3>
 {
     type Item = T2;
 
@@ -484,11 +484,19 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item) -> T2> SignalProvider
     }
 }
 
-pub fn map<T1, T2, F: Fn(&P::Item) -> T2, P: SignalProvider<Item = T1> + ?Sized>(
+pub fn map<
+    T1,
+    T2,
+    P: SignalProvider<Item = T1> + ?Sized,
+    F: Fn(&P::Item) -> T2,
+    F2: Fn(&T2, &T2) -> bool,
+    F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
+>(
     f: F,
     p: Signal<P>,
-    eq: fn(&T2, &T2) -> bool,
-) -> Signal<SignalMapProvider<P, T2, F>> {
+    eq: F2,
+    debug: F3,
+) -> Signal<SignalMapProvider<P, T2, F, F2, F3>> {
     let node = new_node(NodeColor::Changed);
     let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
@@ -498,6 +506,7 @@ pub fn map<T1, T2, F: Fn(&P::Item) -> T2, P: SignalProvider<Item = T1> + ?Sized>
         res: RefCell::new(None),
         node,
         eq,
+        debug,
     }))
 }
 
@@ -588,6 +597,22 @@ pub trait SignalMap<Elem> {
     fn map_mut<T>(self, f: impl Fn(&Elem, Option<T>) -> T)
     -> Signal<impl SignalProvider<Item = T>>;
     fn map_ex<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>>;
+    fn map_debug<T: std::fmt::Debug>(
+        self,
+        f: impl Fn(&Elem) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>>;
+}
+
+fn always_fail_eq<T>(_: &T, _: &T) -> bool {
+    false
+}
+
+fn never_debug<T>(_: &T) -> Option<&dyn std::fmt::Debug> {
+    None
+}
+
+fn always_debug<T: std::fmt::Debug>(t: &T) -> Option<&dyn std::fmt::Debug> {
+    Some(t)
 }
 
 impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem> for Signal<P> {
@@ -595,7 +620,7 @@ impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem> for Signal<P
         self,
         f: impl Fn(&Elem) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
-        map(f, self, PartialEq::eq)
+        map(f, self, PartialEq::eq, never_debug)
     }
     fn map_mut<T>(
         self,
@@ -604,14 +629,15 @@ impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem> for Signal<P
         map_mut(f, self)
     }
     fn map_ex<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>> {
-        map(f, self, always_fail_eq)
+        map(f, self, always_fail_eq, never_debug)
+    }
+    fn map_debug<T: std::fmt::Debug>(
+        self,
+        f: impl Fn(&Elem) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>> {
+        map(f, self, always_fail_eq, always_debug)
     }
 }
-
-fn always_fail_eq<T>(_: &T, _: &T) -> bool {
-    false
-}
-
 pub trait SignalTupleZip: Tuple {
     fn zip<Output>(self) -> Signal<impl SignalProvider<Item = Output>>
     where
@@ -658,6 +684,7 @@ where
             |xs: &Output::TupleList| xs.clone().into_tuple(),
             self.into_tuple_list().zip(),
             always_fail_eq,
+            never_debug,
         )
     }
 }
@@ -827,7 +854,7 @@ pub struct SignalRefMut<'a, T>(std::cell::RefMut<'a, T>, Rc<MutableSignalProvide
 
 impl<'a, T> Drop for SignalRefMut<'a, T> {
     fn drop(&mut self) {
-        notify_change(&self.1.node);
+        notify_change_node(&self.1.node);
     }
 }
 
@@ -873,20 +900,28 @@ impl<T> Signal<MutableSignalProvider<T>> {
             .try_borrow_mut()
             .map(|x| SignalRefMut(x, self.0.clone()))
     }
-    pub fn replace(&mut self, x: T) {
-        self.0.val.replace(x);
-        notify_change(&self.0.node);
+    pub fn replace(&mut self, x: T) -> T {
+        let old = self.0.val.replace(x);
+        notify_change_node(&self.0.node);
+        old
     }
-    pub fn replace_with(&mut self, f: impl FnOnce(&mut T) -> T) {
-        self.0.val.replace_with(f);
-        notify_change(&self.0.node);
+    pub fn replace_with(&mut self, f: impl FnOnce(&mut T) -> T) -> T {
+        let old = self.0.val.replace_with(f);
+        notify_change_node(&self.0.node);
+        old
     }
     pub fn set_with(&mut self, f: impl FnOnce(&mut T)) {
         f(&mut self.0.val.borrow_mut());
-        notify_change(&self.0.node);
+        notify_change_node(&self.0.node);
     }
     pub fn swap(&mut self, rhs: &mut Self) {
         self.0.val.swap(&rhs.0.val);
+    }
+}
+
+impl<P: SignalProvider + ?Sized> Signal<SignalDeferProvider<P>> {
+    pub fn resolve(&self, target: Signal<P>) -> Result<(), Rc<P>> {
+        self.0.provider.set(target.0.clone())
     }
 }
 
@@ -982,6 +1017,7 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
 thread_local! {
 static DYNAMIC_DEPS: std::cell::RefCell<Option<SmolSet<[SignalNodeId; 4]>>> = std::cell::RefCell::new(None);
 }
+
 pub struct DynamicSignalProvider<T, F: Fn() -> T> {
     node: SignalNodeId,
     lastdeps: RefCell<SmolSet<[SignalNodeId; 4]>>,
@@ -1096,6 +1132,7 @@ pub fn zip_pair<
         move |arg: &(P1::Item, P2::Item)| f(arg.0.clone(), arg.1.clone()),
         zip(p1, p2),
         always_fail_eq,
+        never_debug,
     )
 }
 
@@ -1945,6 +1982,42 @@ pub fn fold_vec<
         provider,
         fold: RefCell::new(imbl::vector::PersistentFold::new(f, z.clone())),
         res: RefCell::new(z),
+        node,
+    }))
+}
+
+#[derive(Debug)]
+pub struct SignalDeferProvider<P: SignalProvider + ?Sized> {
+    provider: std::cell::OnceCell<Rc<P>>,
+    node: SignalNodeId,
+}
+
+impl<P: SignalProvider + ?Sized> SignalProvider for SignalDeferProvider<P> {
+    type Item = P::Item;
+
+    fn get_node(&self) -> &SignalNodeId {
+        &self.node
+    }
+
+    fn get_ref(&self) -> DynRef<'_, Self::Item> {
+        let p = self
+            .provider
+            .get()
+            .expect("Tried to get value before deferred signal was resolved!");
+        p.get_ref()
+    }
+
+    fn update_if_necessary(&self) {
+        if let Some(p) = self.provider.get() {
+            p.update_if_necessary();
+        }
+    }
+}
+
+pub fn defer<T1, P: SignalProvider<Item = T1> + ?Sized>() -> Signal<SignalDeferProvider<P>> {
+    let node = new_node(NodeColor::Changed);
+    Signal(Rc::new(SignalDeferProvider {
+        provider: OnceCell::new(),
         node,
     }))
 }

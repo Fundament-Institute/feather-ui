@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::StateMachine;
-use crate::component::Layout;
-use crate::input::{MouseButton, MouseState, RawEvent, RawEventKind};
+use crate::input::{MouseButton, MouseState, RawEvent};
 use crate::layout::leaf;
-use crate::{
-    AbsPoint, AbsVector, Dispatchable, InputResult, PxPoint, Slot, SourceID, UnResolve, layout,
-};
+use crate::reactive::{self, Signal, SignalDeferProvider, SignalProvider};
+use crate::{AbsPoint, AbsVector, PxPoint, PxRect, RelDim, UnResolve, event, layout};
 use core::f32;
-use derive_where::derive_where;
 use enum_variant_type::EnumVariantType;
 use feather_macro::Dispatch;
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -28,62 +24,70 @@ pub enum MouseAreaEvent {
     OnClick(MouseButton, AbsPoint),
     OnDblClick(MouseButton, AbsPoint),
     OnDrag(MouseButton, AbsVector),
+}
+
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum MouseAreaState {
+    #[default]
     Default,
     Hover,
     Active,
+    Drag,
 }
 
 #[derive(Default, Clone, PartialEq)]
-struct MouseAreaState {
+struct MouseAreaInternal {
     lastdown: HashMap<(DeviceId, u64), (PxPoint, bool)>,
     hover: bool,
     deadzone: f32,
+    state: MouseAreaState,
 }
 
-impl MouseAreaState {
-    fn hover_event(buttons: u16, hover: bool) -> MouseAreaEvent {
+impl MouseAreaInternal {
+    fn hover_state(buttons: u16, hover: bool) -> MouseAreaState {
         let active = (buttons & MouseButton::Left as u16) != 0;
         match (active, hover) {
-            (true, true) => MouseAreaEvent::Active,
-            (true, false) => MouseAreaEvent::Hover,
-            (false, true) => MouseAreaEvent::Hover,
-            (false, false) => MouseAreaEvent::Default,
+            (true, true) => MouseAreaState::Active,
+            (true, false) => MouseAreaState::Hover,
+            (false, true) => MouseAreaState::Hover,
+            (false, false) => MouseAreaState::Default,
         }
     }
 }
 
-impl super::EventRouter for MouseAreaState {
-    type Input = RawEvent;
-    type Output = MouseAreaEvent;
+impl event::StateMachine<RawEvent, (PxRect, RelDim), MouseAreaEvent, MouseAreaState>
+    for MouseAreaInternal
+{
+    fn update(
+        &mut self,
+        event: RawEvent,
+        input: &(PxRect, RelDim),
+    ) -> (impl IntoIterator<Item = MouseAreaEvent>, event::EventRes) {
+        let (area, dpi) = input;
 
-    fn process(
-        mut this: crate::AccessCell<Self>,
-        input: Self::Input,
-        area: crate::PxRect,
-        _: crate::PxRect,
-        dpi: crate::RelDim,
-        _: &std::sync::Weak<crate::Driver>,
-    ) -> InputResult<SmallVec<[Self::Output; 1]>> {
-        match input {
+        match event {
             RawEvent::Key {
                 down,
                 logical_key: winit::keyboard::Key::Named(code),
                 ..
             } => {
                 if (code == NamedKey::Enter || code == NamedKey::Accept) && down {
-                    return InputResult::Consume(
-                        [MouseAreaEvent::OnClick(
+                    (
+                        smallvec![MouseAreaEvent::OnClick(
                             crate::input::MouseButton::Left,
                             AbsPoint::zero(),
-                        )]
-                        .into(),
-                    );
+                        )],
+                        event::CONSUME,
+                    )
+                } else {
+                    (smallvec![], event::CONSUME)
                 }
             }
             RawEvent::MouseOn { all_buttons, .. } | RawEvent::MouseOff { all_buttons, .. } => {
-                this.hover = matches!(input, RawEvent::MouseOff { .. });
-                let hover = Self::hover_event(all_buttons, this.hover);
-                return InputResult::Consume([hover].into());
+                self.hover = matches!(event, RawEvent::MouseOff { .. });
+                self.state = Self::hover_state(all_buttons, self.hover);
+                (smallvec![], event::CONSUME)
             }
             RawEvent::MouseMove {
                 device_id,
@@ -91,10 +95,10 @@ impl super::EventRouter for MouseAreaState {
                 all_buttons,
                 ..
             } => {
-                let hover = Self::hover_event(all_buttons, this.hover);
+                self.state = Self::hover_state(all_buttons, self.hover);
                 for i in 0..5 {
-                    let deadzone = this.deadzone;
-                    if let Some((last_pos, drag)) = this.lastdown.get_mut(&(device_id, (1 << i))) {
+                    let deadzone = self.deadzone;
+                    if let Some((last_pos, drag)) = self.lastdown.get_mut(&(device_id, (1 << i))) {
                         let diff = pos - *last_pos;
                         if !*drag && diff.dot(diff) > deadzone {
                             *drag = true;
@@ -110,15 +114,15 @@ impl super::EventRouter for MouseAreaState {
                         };
                         if *drag {
                             *last_pos = pos;
-                            return InputResult::Consume(SmallVec::from_iter([
-                                hover,
-                                MouseAreaEvent::OnDrag(b, diff.unresolve(dpi)),
-                            ]));
+                            return (
+                                smallvec![MouseAreaEvent::OnDrag(b, diff.unresolve(*dpi))],
+                                event::CONSUME,
+                            );
                         }
                     }
                 }
 
-                return InputResult::Consume([hover].into());
+                (smallvec![], event::CONSUME)
             }
             RawEvent::Mouse {
                 device_id,
@@ -127,53 +131,54 @@ impl super::EventRouter for MouseAreaState {
                 button,
                 ..
             } => {
-                let hover = Self::hover_event(button as u16, this.hover);
+                self.state = Self::hover_state(button as u16, self.hover);
                 match state {
                     MouseState::Down => {
                         if area.contains(pos) {
-                            this.lastdown
+                            self.lastdown
                                 .insert((device_id, button as u64), (pos, false));
-                            return InputResult::Consume([hover].into());
                         }
+                        (smallvec![], event::CONSUME)
                     }
                     MouseState::Up => {
                         if let Some((last_pos, drag)) =
-                            this.lastdown.remove(&(device_id, button as u64))
+                            self.lastdown.remove(&(device_id, button as u64))
                             && area.contains(pos)
                         {
-                            return InputResult::Consume(SmallVec::from_iter([
-                                if drag {
+                            (
+                                smallvec![if drag {
                                     let diff = pos - last_pos;
-                                    MouseAreaEvent::OnDrag(button, diff.unresolve(dpi))
+                                    MouseAreaEvent::OnDrag(button, diff.unresolve(*dpi))
                                 } else {
-                                    MouseAreaEvent::OnClick(button, pos.unresolve(dpi))
-                                },
-                                hover,
-                            ]));
+                                    MouseAreaEvent::OnClick(button, pos.unresolve(*dpi))
+                                }],
+                                event::CONSUME,
+                            )
+                        } else {
+                            (smallvec![], event::CONSUME)
                         }
                     }
                     MouseState::DblClick => {
                         if let Some((last_pos, drag)) =
-                            this.lastdown.remove(&(device_id, button as u64))
+                            self.lastdown.remove(&(device_id, button as u64))
                             && area.contains(pos)
                         {
-                            return InputResult::Consume(if drag {
-                                SmallVec::from_iter([
-                                    MouseAreaEvent::OnClick(button, pos.unresolve(dpi)),
-                                    MouseAreaEvent::OnDblClick(button, pos.unresolve(dpi)),
-                                    hover,
-                                ])
+                            let evts: SmallVec<[_; 1]> = if drag {
+                                smallvec![
+                                    MouseAreaEvent::OnClick(button, pos.unresolve(*dpi)),
+                                    MouseAreaEvent::OnDblClick(button, pos.unresolve(*dpi)),
+                                ]
                             } else {
-                                SmallVec::from_iter([
-                                    if drag {
-                                        let diff = pos - last_pos;
-                                        MouseAreaEvent::OnDrag(button, diff.unresolve(dpi))
-                                    } else {
-                                        MouseAreaEvent::OnClick(button, pos.unresolve(dpi))
-                                    },
-                                    hover,
-                                ])
-                            });
+                                smallvec![if drag {
+                                    let diff = pos - last_pos;
+                                    MouseAreaEvent::OnDrag(button, diff.unresolve(*dpi))
+                                } else {
+                                    MouseAreaEvent::OnClick(button, pos.unresolve(*dpi))
+                                },]
+                            };
+                            (evts, event::CONSUME)
+                        } else {
+                            (smallvec![], event::CONSUME)
                         }
                     }
                 }
@@ -186,129 +191,121 @@ impl super::EventRouter for MouseAreaState {
                 ..
             } => match state {
                 crate::input::TouchState::Start => {
-                    let hover = Self::hover_event(MouseButton::Left as u16, this.hover);
+                    self.state = Self::hover_state(MouseButton::Left as u16, self.hover);
                     if area.contains(pos.xy()) {
-                        this.lastdown
+                        self.lastdown
                             .insert((device_id, index as u64), (pos.xy(), false));
-                        return InputResult::Consume([hover].into());
                     }
+                    (smallvec![], event::CONSUME)
                 }
                 crate::input::TouchState::Move => {
-                    let deadzone = this.deadzone;
-                    let hover = Self::hover_event(MouseButton::Left as u16, this.hover);
+                    let deadzone = self.deadzone;
+                    self.state = Self::hover_state(MouseButton::Left as u16, self.hover);
                     if let Some((last_pos, drag)) =
-                        this.lastdown.get_mut(&(device_id, index as u64))
+                        self.lastdown.get_mut(&(device_id, index as u64))
                     {
                         let diff = pos.xy() - *last_pos;
                         if !*drag && diff.dot(diff) > deadzone {
                             *drag = true;
                         }
                         if *drag {
-                            return InputResult::Consume(SmallVec::from_iter([
-                                hover,
-                                MouseAreaEvent::OnDrag(MouseButton::Left, diff.unresolve(dpi)),
-                            ]));
+                            return (
+                                smallvec![MouseAreaEvent::OnDrag(
+                                    MouseButton::Left,
+                                    diff.unresolve(*dpi)
+                                )],
+                                event::CONSUME,
+                            );
                         }
-                        return InputResult::Consume(SmallVec::new());
                     }
+                    (smallvec![], event::CONSUME)
                 }
                 crate::input::TouchState::End => {
-                    let hover = Self::hover_event(0, this.hover);
-                    if let Some((last_pos, drag)) = this.lastdown.remove(&(device_id, index as u64))
+                    self.state = Self::hover_state(0, self.hover);
+                    if let Some((last_pos, drag)) = self.lastdown.remove(&(device_id, index as u64))
                         && area.contains(pos.xy())
                     {
                         let diff = pos.xy() - last_pos;
-                        return InputResult::Consume(SmallVec::from_iter([
-                            if drag {
-                                MouseAreaEvent::OnDrag(MouseButton::Left, diff.unresolve(dpi))
+                        (
+                            smallvec![if drag {
+                                MouseAreaEvent::OnDrag(MouseButton::Left, diff.unresolve(*dpi))
                             } else {
-                                MouseAreaEvent::OnClick(MouseButton::Left, pos.xy().unresolve(dpi))
-                            },
-                            hover,
-                        ]));
+                                MouseAreaEvent::OnClick(MouseButton::Left, pos.xy().unresolve(*dpi))
+                            }],
+                            event::CONSUME,
+                        )
+                    } else {
+                        (smallvec![], event::CONSUME)
                     }
                 }
             },
-            _ => (),
-        }
-        InputResult::Forward(SmallVec::new())
-    }
-}
-
-#[derive_where(Clone)]
-pub struct MouseArea<T> {
-    pub id: Arc<SourceID>,
-    props: Rc<T>,
-    deadzone: f32, // A deadzone of infinity disables drag events
-    slots: [Option<Slot>; MouseAreaEvent::SIZE],
-}
-
-impl<T: leaf::Prop> MouseArea<T> {
-    pub fn new(
-        id: Arc<SourceID>,
-        props: T,
-        deadzone: Option<f32>,
-        slots: [Option<Slot>; MouseAreaEvent::SIZE],
-    ) -> Self {
-        Self {
-            id,
-            props: props.into(),
-            deadzone: deadzone.unwrap_or(f32::INFINITY),
-            slots,
+            _ => (smallvec![], event::FORWARD),
         }
     }
-}
 
-impl<T: leaf::Prop> crate::StateMachineChild for MouseArea<T> {
-    fn id(&self) -> Arc<SourceID> {
-        self.id.clone()
+    fn get(&self, _: &(PxRect, RelDim)) -> MouseAreaState {
+        self.state
     }
-    fn init(
-        &self,
-        _: &std::sync::Weak<crate::Driver>,
-    ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
-        Ok(Box::new(StateMachine {
-            state: MouseAreaState {
-                lastdown: HashMap::new(),
-                hover: false,
-                deadzone: f32::INFINITY,
-            },
+}
+/*
             input_mask: RawEventKind::Mouse as u64
                 | RawEventKind::MouseMove as u64
                 | RawEventKind::Touch as u64
                 | RawEventKind::Key as u64,
-            output: self.slots.clone(),
-            changed: true,
-        }))
+} */
+
+pub struct MouseArea<T, P1: SignalProvider<Item = f32> + ?Sized> {
+    props: Rc<T>,
+    deadzone: Signal<P1>, // A deadzone of infinity disables drag events
+    machine: crate::layout::DeferMachine<<dyn leaf::Prop as crate::layout::Desc>::Provider>,
+}
+
+impl<'a, T: leaf::Prop, P1: SignalProvider<Item = f32> + ?Sized> MouseArea<T, P1> {
+    pub fn new(
+        props: T,
+        deadzone: Signal<P1>,
+    ) -> (
+        Self,
+        impl event::EventStream<'static, MouseAreaEvent>,
+        Signal<impl SignalProvider<Item = MouseAreaState>>,
+    ) {
+        let (bounce, anti) = event::BounceStream::new();
+
+        let state: Signal<SignalDeferProvider<dyn SignalProvider<Item = (PxRect, RelDim)>>> =
+            reactive::defer();
+
+        let (stream, output) =
+            event::statemachine(MouseAreaInternal::default(), bounce, state.clone());
+        (
+            Self {
+                props: props.into(),
+                deadzone: deadzone,
+                machine: (anti, state),
+            },
+            stream,
+            output,
+        )
     }
 }
 
-impl<T: leaf::Prop + 'static> super::Component for MouseArea<T>
+impl<'l, T: leaf::Prop + 'static, P1: SignalProvider<Item = f32> + ?Sized> super::Component
+    for MouseArea<T, P1>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {
     type Props = T;
-    type R = layout::Node<T, dyn leaf::Prop>;
+    type R = layout::Node<T, dyn leaf::Prop, ()>;
 
     fn layout(
         &self,
-        manager: &mut crate::StateManager,
-        _: &crate::graphics::Driver,
-        _: &Arc<SourceID>,
+        _: Arc<crate::graphics::Driver>,
+        _: reactive::MutableSignal<crate::RelDim>,
     ) -> Self::R {
-        // TODO: allow layout to return a Result
-        manager
-            .get_mut::<StateMachine<MouseAreaState, { MouseAreaEvent::SIZE }>>(&self.id)
-            .map(|state| {
-                state.state.deadzone = self.deadzone;
-            })
-            .unwrap();
-
-        Box::new(layout::Node::<T, dyn leaf::Prop> {
+        layout::Node::<T, dyn leaf::Prop, ()> {
             props: self.props.clone(),
-            children: Default::default(),
+            children: reactive::empty_signal().into_dyn_signal(),
             renderable: None,
-            layer: None,
-        })
+            machine: Some(self.machine.clone()),
+        }
     }
 }
