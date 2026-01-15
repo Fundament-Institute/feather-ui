@@ -2014,12 +2014,14 @@ impl<AppData: 'static, T> App<AppData, T> {
                 props: Rc::new(()),
                 children: empty_signal().into(),
                 renderable: None,
+                machine: None,
             });
 
         layout::Node {
             props: Rc::new(const_signal(Size2D::zero()).into_dyn_signal()),
             children: const_signal(empty_child).into_dyn_signal(),
             renderable: None,
+            machine: None,
         }
     }
 
@@ -2124,14 +2126,14 @@ impl<AppData: 'static, T> App<AppData, T> {
                     );
 
                     (
-                        Rc::new(f(
+                        f(
                             const_signal(PxPoint::zero()).into_dyn_signal(),
                             state
                                 .surface_dim
                                 .clone()
                                 .map(|x| x.to_f32())
                                 .into_dyn_signal(),
-                        )),
+                        ),
                         (*w).clone(),
                     )
                 } else {

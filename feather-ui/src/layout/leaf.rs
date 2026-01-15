@@ -3,9 +3,9 @@
 
 use super::base::Empty;
 use super::{Concrete, Desc, Layout, base, map_unsized_area};
+use crate::layout::DeferMachine;
 use crate::reactive::{DynSignal, SignalMap, SignalTupleZip, zip_pair};
 use crate::{DRect, PxDim, PxLimits, PxPerimeter, PxRect, RelDim, rtree};
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Anchor {}
@@ -26,7 +26,8 @@ impl Padded for DRect {}
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
-    type Children = PhantomData<dyn Layout<Props = Self::Child>>;
+    type Children = ();
+    type Provider = dyn crate::reactive::SignalProvider<Item = (PxRect, crate::RelDim)>;
 
     fn stage<'a, T: crate::render::Prerender + 'static>(
         props: &Self::Props,
@@ -34,6 +35,7 @@ impl Desc for dyn Prop {
         _: DynSignal<Self::Children>,
         renderable: Option<T>,
         dpi: crate::reactive::MutableSignal<RelDim>,
+        defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
         let limits = zip_pair(props.limits(), dpi.clone(), |limits, dpi| {
             limits.resolve(dpi)
@@ -59,11 +61,18 @@ impl Desc for dyn Prop {
                     .map(|(e, a, d)| *e - (a.resolve(*d) * e.dim()))
                     .into_dyn_signal();
 
-                rtree::Node::new(
-                    anchored_area.clone(),
-                    None,
-                    Default::default(),
-                    Some(Box::new(Concrete::new(renderable.as_ref(), anchored_area))),
+                super::resolve_defer_machine(
+                    rtree::Node::new(
+                        anchored_area.clone(),
+                        None,
+                        Default::default(),
+                        Some(Box::new(Concrete::new(
+                            renderable.as_ref(),
+                            anchored_area.clone(),
+                        ))),
+                    ),
+                    &defer,
+                    crate::reactive::zip(anchored_area, dpi.clone()).into_dyn_signal(),
                 )
             }),
         )
@@ -78,6 +87,7 @@ pub struct Sized<T, R: Clone> {
     pub props: Rc<T>,
     pub size: DynSignal<crate::PxDim>,
     pub renderable: Option<R>,
+    pub machine: Option<DeferMachine<<dyn Prop as Desc>::Provider>>,
 }
 
 #[inline]
@@ -114,6 +124,7 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
         &self,
         predim: DynSignal<crate::PxDim>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
+        //_: crate::reactive::ConstSignal<std::sync::Weak<Driver>>,
     ) -> (DynSignal<PxRect>, super::StageThunk<'a>) {
         let limits = zip_pair(self.props.limits(), dpi.clone(), |limits, dpi| {
             limits.resolve(dpi)
@@ -136,6 +147,8 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
         let evaluated_area = zip_pair(mapped_area, limits.clone(), |a, l| super::limit_area(a, l));
         let renderable = self.renderable.clone();
         let anchor = self.props.anchor();
+        let defer = self.machine.clone();
+
         (
             evaluated_area.into(),
             Box::new(move |offset, final_dim| {
@@ -164,11 +177,15 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
                     .map(|(area, a, d)| *area - (a.resolve(*d) * area.dim()))
                     .into_dyn_signal();
 
-                rtree::Node::new(
-                    anchored_area.clone(),
-                    None,
-                    Default::default(),
-                    Some(Box::new(Concrete::new(renderable.as_ref(), anchored_area))),
+                super::resolve_defer_machine(
+                    rtree::Node::new(
+                        anchored_area.clone(),
+                        None,
+                        Default::default(),
+                        Some(Box::new(Concrete::new(renderable.as_ref(), anchored_area))),
+                    ),
+                    &defer,
+                    crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
                 )
             }),
         )

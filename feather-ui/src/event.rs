@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use std::{any::Any, cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
-use either::Either;
-
-use crate::reactive::{SignalMap, SignalProvider};
+use crate::reactive::{Signal, SignalMap, SignalProvider};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct EventRes {
     pub cancel: bool,
     pub claim: bool,
 }
+
+pub const CONSUME: EventRes = EventRes {
+    cancel: false,
+    claim: true,
+};
+
+pub const FORWARD: EventRes = EventRes {
+    cancel: false,
+    claim: false,
+};
 
 impl std::ops::BitOr for EventRes {
     type Output = EventRes;
@@ -370,7 +378,7 @@ impl<T, F: FnMut(T)> StreamCallback<T> for EachCallback<T, F> {
     }
 }
 
-struct EachSubscription<'l, T: 'l, F: 'l + FnMut(T), S: EventStream<'l, T>> {
+pub struct EachSubscription<'l, T: 'l, F: 'l + FnMut(T), S: EventStream<'l, T>> {
     origin: S::Subscription<EachCallback<T, F>>,
     phantom: PhantomData<&'l ()>,
 }
@@ -383,7 +391,7 @@ impl<'l, T, F: FnMut(T), S: EventStream<'l, T>> EachSubscription<'l, T, F, S> {
 }
 
 // FIXME: meaningless contents to make rust build it -- erry
-struct Bubbler<'l, T: Clone, Priority: Ord, S: EventStream<'l, T>> {
+pub struct Bubbler<'l, T: Clone, Priority: Ord, S: EventStream<'l, T>> {
     t: T,
     pri: Priority,
     s: S,
@@ -397,7 +405,7 @@ impl<'l, T: Clone, Priority: Ord, S: EventStream<'l, T>> Bubbler<'l, T, Priority
     }
 }
 
-// TODO: Switch to https://github.com/servo/rust-smallvec, possibly after it hits v2
+// TODO: replace with smallmap form https://github.com/rinde/more_collections
 struct DupCallback<'l, T> {
     queue:
         Rc<RefCell<HashMap<*const (dyn StreamCallback<T> + 'l), Box<dyn StreamCallback<T> + 'l>>>>,
@@ -536,7 +544,7 @@ impl<'l, T: Clone + 'l, S: EventStream<'l, T>> EventStream<'l, T> for DupStream<
     }
 }
 
-trait EventStreamExt<'l, T>: EventStream<'l, T> {
+pub trait EventStreamExt<'l, T>: EventStream<'l, T> {
     fn map<R: 'l>(self, f: impl Fn(T) -> R + 'l) -> impl EventStream<'l, R>;
     fn filter(self, f: impl Fn(&T) -> bool + 'l) -> impl EventStream<'l, T>;
     fn claim(self) -> impl EventStream<'l, T>;
@@ -548,7 +556,7 @@ trait EventStreamExt<'l, T>: EventStream<'l, T> {
         Self: Sized;
 }
 
-trait EventStreamClone<'l, T: Clone>: EventStream<'l, T> {
+pub trait EventStreamClone<'l, T: Clone>: EventStream<'l, T> {
     fn bubble<Priority: Ord>(self) -> Bubbler<'l, T, Priority, Self>
     where
         Self: Sized;
@@ -624,76 +632,84 @@ where
     }
 }
 
-pub trait StateMachine<InputEvent, InputState: Clone, OutputEvent, OutputState: Clone> {
-    fn update(&mut self, ie: InputEvent, is: InputState) -> impl IntoIterator<Item = OutputEvent>;
-    fn get(&self, is: InputState) -> OutputState;
+pub trait StateMachine<InputEvent, InputState, OutputEvent, OutputState> {
+    fn update(
+        &mut self,
+        event: InputEvent,
+        input: &InputState,
+    ) -> (impl IntoIterator<Item = OutputEvent>, EventRes);
+    fn get(&self, input: &InputState) -> OutputState;
 }
 
 pub(crate) fn statemachine<
     'a,
     InputEvent: 'a,
-    InputState: Clone + 'a,
+    InputState: 'a,
     OutputEvent: 'a,
     OutputState: Clone + 'a,
 >(
-    machine: Rc<RefCell<impl StateMachine<InputEvent, InputState, OutputEvent, OutputState> + 'a>>,
+    machine: impl StateMachine<InputEvent, InputState, OutputEvent, OutputState> + 'a,
     events: impl EventStream<'a, InputEvent>,
-    state: crate::reactive::Signal<impl SignalProvider<Item = InputState> + ?Sized + 'a>,
+    state: Signal<impl SignalProvider<Item = InputState> + ?Sized + 'a>,
 ) -> (
     impl EventStream<'a, OutputEvent>,
-    crate::reactive::Signal<impl crate::reactive::SignalProvider<Item = OutputState>>,
+    Signal<impl SignalProvider<Item = OutputState>>,
 ) {
-    let sig = state;
-    let sig2 = sig.clone();
-    let machine2 = machine.clone();
+    let input = state;
+    let m = Rc::new(RefCell::new(machine));
+    let machine2 = m.clone();
+    let output = input.clone().map_ex(move |x| machine2.borrow_mut().get(x));
     (
         StateMachineStream {
             origin: events,
-            m: machine,
-            s: sig,
+            m,
+            input,
+            output: output.clone(),
             phantom: PhantomData,
         },
-        sig2.map_ex(move |x| machine2.borrow_mut().get(x.clone())),
+        output,
     )
 }
 
 struct StateMachineCallback<
     'a,
     InputEvent: 'a,
-    InputState: Clone + 'a,
+    InputState: 'a,
     OutputEvent: 'a,
     OutputState: Clone + 'a,
     M: StateMachine<InputEvent, InputState, OutputEvent, OutputState> + 'a,
     H: StreamCallback<OutputEvent>,
-    P: crate::reactive::SignalProvider<Item = InputState> + ?Sized,
+    IP: SignalProvider<Item = InputState> + ?Sized + 'a,
+    OP: SignalProvider<Item = OutputState> + ?Sized + 'a,
 > {
     m: Rc<RefCell<M>>,
     h: H,
-    s: crate::reactive::Signal<P>,
-    phantom: PhantomData<&'a (InputEvent, OutputEvent, OutputState)>,
+    input: Signal<IP>,
+    output: Signal<OP>,
+    phantom: PhantomData<&'a (InputEvent, OutputEvent)>,
 }
 
 impl<
     'a,
     InputEvent: 'a,
-    IS: Clone + 'a,
+    IS: 'a,
     OutputEvent: 'a,
     OS: Clone + 'a,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
     H: StreamCallback<OutputEvent>,
-    P: crate::reactive::SignalProvider<Item = IS> + ?Sized,
+    IP: SignalProvider<Item = IS> + ?Sized,
+    OP: SignalProvider<Item = OS> + ?Sized,
 > StreamCallback<InputEvent>
-    for StateMachineCallback<'a, InputEvent, IS, OutputEvent, OS, M, H, P>
+    for StateMachineCallback<'a, InputEvent, IS, OutputEvent, OS, M, H, IP, OP>
 {
     fn send(&mut self, x: InputEvent) -> EventRes {
-        let mut res = EventRes {
-            cancel: false,
-            claim: false,
-        };
         let mut machine = self.m.borrow_mut();
-        for e in machine.update(x, crate::reactive::sample(&self.s).clone()) {
+        let input = crate::reactive::sample(&self.input);
+        let (events, mut res) = machine.update(x, &input);
+        for e in events {
             res = res | self.h.send(e);
         }
+        crate::reactive::notify_change(&self.output);
         res
     }
 }
@@ -701,47 +717,50 @@ impl<
 struct StateMachineSubscription<
     'a,
     InputEvent: 'a,
-    IS: Clone + 'a,
+    IS: 'a,
     OutputEvent: 'a,
     OS: Clone + 'a,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
     H: StreamCallback<OutputEvent> + 'a,
-    P: crate::reactive::SignalProvider<Item = IS> + ?Sized + 'a,
+    IP: SignalProvider<Item = IS> + ?Sized + 'a,
+    OP: SignalProvider<Item = OS> + ?Sized + 'a,
     S: EventStream<'a, InputEvent>,
 > {
     origin: <S as EventStream<'a, InputEvent>>::Subscription<
-        StateMachineCallback<'a, InputEvent, IS, OutputEvent, OS, M, H, P>,
+        StateMachineCallback<'a, InputEvent, IS, OutputEvent, OS, M, H, IP, OP>,
     >,
 }
 
 impl<
     'a,
     InputEvent: 'a,
-    IS: Clone + 'a,
+    IS: 'a,
     OutputEvent: 'a,
     OS: Clone + 'a,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'a,
     H: StreamCallback<OutputEvent> + 'a,
-    P: crate::reactive::SignalProvider<Item = IS> + ?Sized + 'a,
+    IP: SignalProvider<Item = IS> + ?Sized + 'a,
+    OP: SignalProvider<Item = OS> + ?Sized + 'a,
     S: EventStream<'a, InputEvent>,
-> Unsubscribe<OutputEvent, StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, P, S>, H>
-    for StateMachineSubscription<'a, InputEvent, IS, OutputEvent, OS, M, H, P, S>
+> Unsubscribe<OutputEvent, StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, IP, OP, S>, H>
+    for StateMachineSubscription<'a, InputEvent, IS, OutputEvent, OS, M, H, IP, OP, S>
 {
     fn unsubscribe(
         self,
     ) -> (
-        StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, P, S>,
+        StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, IP, OP, S>,
         H,
     )
     where
-        StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, P, S>: Sized,
+        StateMachineStream<'a, InputEvent, IS, OutputEvent, OS, M, IP, OP, S>: Sized,
     {
         let (s, h) = self.origin.unsubscribe();
         (
             StateMachineStream {
                 origin: s,
                 m: h.m,
-                s: h.s,
+                input: h.input,
+                output: h.output,
                 phantom: PhantomData,
             },
             h.h,
@@ -752,40 +771,44 @@ impl<
 struct StateMachineStream<
     'l,
     InputEvent: 'l,
-    IS: Clone + 'l,
+    IS: 'l,
     OutputEvent: 'l,
     OS: Clone + 'l,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'l,
-    P: crate::reactive::SignalProvider<Item = IS> + ?Sized,
+    IP: SignalProvider<Item = IS> + ?Sized,
+    OP: SignalProvider<Item = OS> + ?Sized,
     S: EventStream<'l, InputEvent>,
 > {
     origin: S,
     m: Rc<RefCell<M>>,
-    s: crate::reactive::Signal<P>,
+    input: Signal<IP>,
+    output: Signal<OP>,
     phantom: PhantomData<&'l (InputEvent, OutputEvent, OS)>,
 }
 
 impl<
     'l,
     InputEvent: 'l,
-    IS: Clone + 'l,
+    IS: 'l,
     OutputEvent: 'l,
     OS: Clone + 'l,
     M: StateMachine<InputEvent, IS, OutputEvent, OS> + 'l,
-    P: crate::reactive::SignalProvider<Item = IS> + ?Sized + 'l,
+    IP: SignalProvider<Item = IS> + ?Sized + 'l,
+    OP: SignalProvider<Item = OS> + ?Sized + 'l,
     S: EventStream<'l, InputEvent>,
 > EventStream<'l, OutputEvent>
-    for StateMachineStream<'l, InputEvent, IS, OutputEvent, OS, M, P, S>
+    for StateMachineStream<'l, InputEvent, IS, OutputEvent, OS, M, IP, OP, S>
 {
     type Subscription<H: 'l + StreamCallback<OutputEvent> + 'l> =
-        StateMachineSubscription<'l, InputEvent, IS, OutputEvent, OS, M, H, P, S>;
+        StateMachineSubscription<'l, InputEvent, IS, OutputEvent, OS, M, H, IP, OP, S>;
 
     fn subscribe<H: StreamCallback<OutputEvent> + 'l>(self, h: H) -> Self::Subscription<H> {
         Self::Subscription {
             origin: self.origin.subscribe(StateMachineCallback {
                 m: self.m,
                 h: h,
-                s: self.s,
+                input: self.input,
+                output: self.output,
                 phantom: PhantomData,
             }),
         }
@@ -799,7 +822,7 @@ enum BounceState<'a, T: 'a, S: EventStream<'a, T>> {
     Subscribed(*mut ()),
 }
 
-struct BounceSubscription<'a, T: 'a, H: 'a + StreamCallback<T>, S: EventStream<'a, T>> {
+pub struct BounceSubscription<'a, T: 'a, H: 'a + StreamCallback<T>, S: EventStream<'a, T>> {
     origin: Rc<RefCell<BounceState<'a, T, S>>>,
     phantom: PhantomData<H>,
 }
@@ -846,7 +869,7 @@ impl<'a, T, H: StreamCallback<T>, S: EventStream<'a, T>> Unsubscribe<T, BounceSt
     }
 }
 
-struct BounceStream<'l, T, S: EventStream<'l, T>> {
+pub struct BounceStream<'l, T, S: EventStream<'l, T>> {
     origin: Rc<RefCell<BounceState<'l, T, S>>>,
 }
 
@@ -858,13 +881,14 @@ impl<'l, T, S: EventStream<'l, T>> BounceStream<'l, T, S> {
     }
 }
 
-struct AntiStream<'l, T, S: EventStream<'l, T>> {
+#[derive(Clone)]
+pub struct AntiStream<'l, T, S: EventStream<'l, T>> {
     origin: std::rc::Weak<RefCell<BounceState<'l, T, S>>>,
 }
 
 impl<'l, T, S: EventStream<'l, T>> AntiStream<'l, T, S> {
     /// Consumes the AntiStream, which sends the eventstream to the corresponding BounceStream.
-    fn connect(self, target: S) -> eyre::Result<()> {
+    pub fn connect(&self, target: S) -> eyre::Result<()> {
         if let Some(origin) = self.origin.upgrade() {
             let mut state = BounceState::None(PhantomData);
             std::mem::swap(&mut *origin.borrow_mut(), &mut state);
@@ -908,7 +932,7 @@ impl<'l, T: 'l, S: EventStream<'l, T>> EventStream<'l, T> for BounceStream<'l, T
         std::mem::swap(&mut *self.origin.borrow_mut(), &mut state);
         state = match state {
             // Pending is safe to recover from, because the lambda knows how to drop itself
-            (BounceState::None(_) | BounceState::Pending(_)) => {
+            BounceState::None(_) | BounceState::Pending(_) => {
                 BounceState::Pending(Box::new(move |s: S| {
                     Box::into_raw(Box::new(s.subscribe(h))) as *mut ()
                 }))

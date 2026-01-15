@@ -251,6 +251,7 @@ impl Window {
                 props: Rc::new(size),
                 children: children.into(),
                 renderable: None,
+                machine: None,
             },
         )
     }

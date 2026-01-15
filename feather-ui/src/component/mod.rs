@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 pub mod line;
-//pub mod mouse_area;
+pub mod mouse_area;
 pub mod region;
 pub mod shape;
 pub mod window;
@@ -114,6 +114,16 @@ where
         value
     }
 }
+
+/*impl<U: ?Sized> DynComponent<U> for () {
+    fn layout(
+        &self,
+        _: Arc<graphics::Driver>,
+        _: MutableSignal<crate::RelDim>,
+    ) -> Rc<dyn DynLayout<U>> {
+        panic!("Component was already processed!")
+    }
+}*/
 
 #[derive(Clone)]
 pub struct UI {

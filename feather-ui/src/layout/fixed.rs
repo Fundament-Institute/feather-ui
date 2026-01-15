@@ -29,6 +29,7 @@ fn stage<'a, T: Prerender + 'static>(
     renderable: Option<T>,
     dpi: reactive::MutableSignal<RelDim>,
     layer: Option<(DynSignal<crate::color::sRGB32>, DynSignal<f32>)>,
+    defer: Option<super::DeferMachine<<dyn Prop as Desc>::Provider>>,
 ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
     // If we have an unsized outer_area, any sized object with relative dimensions
     // must evaluate to 0 (or to the minimum limited size). An
@@ -166,10 +167,10 @@ fn stage<'a, T: Prerender + 'static>(
                         super::limit_dim_sized(area.dim(), limits * area.dim())
                     });
 
-                    Rc::new(f(
+                    f(
                         crate::const_signal(crate::PxPoint::zero()).into(),
                         dim.into(),
-                    ))
+                    )
                 },
                 |x| reactive::Identity(x.1.clone()),
                 child_tuple.clone(),
@@ -189,27 +190,31 @@ fn stage<'a, T: Prerender + 'static>(
                 .map(|(area, anchor, d)| *area - (anchor.resolve(*d) * area.dim()))
                 .into_dyn_signal();
 
-            rtree::Node::new(
-                anchored_area.clone(),
-                Some(zindex.clone()),
-                Some(nodes.into()),
-                Some(Box::new(Concrete {
-                    renderable: renderable
-                        .as_ref()
-                        .map(|x| x.prerender(anchored_area.clone())),
-                    area: anchored_area.clone(),
-                    layer: if let Some(sig) = &layer {
-                        Some(Rc::new(crate::render::compositor::Layer::new(
-                            anchored_area.clone(),
-                            anchored_area,
-                            sig.0.clone(),
-                            sig.1.clone(),
-                            false,
-                        )))
-                    } else {
-                        None
-                    },
-                })),
+            super::resolve_defer_machine(
+                rtree::Node::new(
+                    anchored_area.clone(),
+                    Some(zindex.clone()),
+                    Some(nodes.into()),
+                    Some(Box::new(Concrete {
+                        renderable: renderable
+                            .as_ref()
+                            .map(|x| x.prerender(anchored_area.clone())),
+                        area: anchored_area.clone(),
+                        layer: if let Some(sig) = &layer {
+                            Some(Rc::new(crate::render::compositor::Layer::new(
+                                anchored_area.clone(),
+                                anchored_area,
+                                sig.0.clone(),
+                                sig.1.clone(),
+                                false,
+                            )))
+                        } else {
+                            None
+                        },
+                    })),
+                ),
+                &defer,
+                crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
             )
         }),
     )
@@ -219,6 +224,7 @@ impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Child;
     type Children = imbl::Vector<Rc<dyn DynLayout<Self::Child>>>;
+    type Provider = dyn crate::reactive::SignalProvider<Item = (PxRect, crate::RelDim)>;
 
     fn stage<'a, T: Prerender + 'static>(
         props: &Self::Props,
@@ -226,8 +232,9 @@ impl Desc for dyn Prop {
         children: DynSignal<Self::Children>,
         renderable: Option<T>,
         dpi: reactive::MutableSignal<RelDim>,
+        defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        stage(props, predim, children, renderable, dpi, None)
+        stage(props, predim, children, renderable, dpi, None, defer)
     }
 }
 
@@ -237,6 +244,7 @@ pub struct Layer<T, R: Clone> {
     pub children: DynSignal<imbl::Vector<Rc<dyn DynLayout<dyn Child>>>>,
     pub renderable: Option<R>,
     pub layer: Option<(DynSignal<crate::color::sRGB32>, DynSignal<f32>)>,
+    pub machine: Option<super::DeferMachine<<dyn Prop as Desc>::Provider>>,
 }
 
 impl<T: Prop + 'static, R: Prerender + Clone + 'static> super::Layout for Layer<T, R> {
@@ -257,6 +265,7 @@ impl<T: Prop + 'static, R: Prerender + Clone + 'static> super::Layout for Layer<
             self.renderable.clone(),
             dpi,
             self.layer.clone(),
+            self.machine.clone(),
         )
     }
 }
