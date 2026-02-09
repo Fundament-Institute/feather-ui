@@ -69,7 +69,7 @@ pub trait Loader: std::fmt::Debug + Send + Sync {
         driver: &crate::graphics::Driver,
         data: (Vec<u8>, Size2D<u32, Pixel>),
         resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error>;
+    ) -> Result<(atlas::Region, atlas::Size), crate::RenderError>;
 }
 
 impl Hash for dyn Location {
@@ -466,7 +466,7 @@ impl Loader for JxlImage {
         driver: &crate::graphics::Driver,
         data: (Vec<u8>, Size2D<u32, Pixel>),
         resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error> {
+    ) -> Result<(atlas::Region, atlas::Size), crate::RenderError> {
         let region = driver.atlas.write().reserve(
             &driver.device,
             atlas::Size::new(data.1.width as i32, data.1.height as i32),
@@ -549,7 +549,7 @@ impl Loader for SvgXml {
         driver: &crate::graphics::Driver,
         data: (Vec<u8>, Size2D<u32, Pixel>),
         resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error> {
+    ) -> Result<(atlas::Region, atlas::Size), crate::RenderError> {
         let size = atlas::Size::new(data.1.width as i32, data.1.height as i32);
         let region = driver.atlas.write().reserve(
             &driver.device,
@@ -880,7 +880,7 @@ impl Loader for load_image::Image {
         driver: &crate::graphics::Driver,
         data: (Vec<u8>, Size2D<u32, Pixel>),
         resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error> {
+    ) -> Result<(atlas::Region, atlas::Size), crate::RenderError> {
         let region = driver.atlas.write().reserve(
             &driver.device,
             atlas::Size::new(data.1.width as i32, data.1.height as i32),
@@ -976,7 +976,7 @@ impl Loader for image::DynamicImage {
         driver: &crate::graphics::Driver,
         data: (Vec<u8>, Size2D<u32, Pixel>),
         resize: bool,
-    ) -> Result<(atlas::Region, atlas::Size), Error> {
+    ) -> Result<(atlas::Region, atlas::Size), crate::RenderError> {
         let region = driver.atlas.write().reserve(
             &driver.device,
             atlas::Size::new(data.1.width as i32, data.1.height as i32),

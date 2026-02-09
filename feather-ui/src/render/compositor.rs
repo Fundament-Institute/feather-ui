@@ -192,7 +192,7 @@ impl LayerTarget {
         dim: atlas::Size,
         atlas: u8,
         driver: &crate::graphics::Driver,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RenderError> {
         if self.region.id == guillotiere::AllocId::deserialize(u32::MAX) {
             self.region = driver.layer_atlas[atlas as usize].write().reserve(
                 &driver.device,
@@ -266,7 +266,7 @@ impl Layer {
             .into_dyn_signal();
 
         let target = if force {
-            MutableSignal::new(Some(RwLock::new(Default::default()))).into_dyn_signal()
+            MutableSignal::new(Some(RwLock::new(Default::default())), ()).into_dyn_signal()
         } else {
             (
                 color.clone(),
@@ -889,8 +889,8 @@ impl<'a> CompositorView<'a> {
     pub fn with_clip<T>(
         &mut self,
         clip: PxRect,
-        f: impl FnOnce(&mut Self) -> Result<T, crate::Error>,
-    ) -> Result<T, crate::Error> {
+        f: impl FnOnce(&mut Self) -> Result<T, crate::RenderError>,
+    ) -> Result<T, crate::RenderError> {
         if let Some(prev) = self.clipstack.last() {
             self.clipstack.push(clip.intersect(*prev));
         } else {

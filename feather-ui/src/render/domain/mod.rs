@@ -21,7 +21,7 @@ impl<T: Renderable> Renderable for Write<T> {
         parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut crate::render::CompositorView<'_>,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RenderError> {
         if let Some(idref) = self.id.upgrade() {
             self.domain
                 .write_area(idref, *sample(&self.area) + parent_pos);

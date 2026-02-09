@@ -624,6 +624,13 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
         textstate.props = self.props.clone();
         textstate.align = self.align;
 
+        // Extract buffer so we can initialize a signal with it
+        let buffer = self
+            .props
+            .textedit()
+            .buffer
+            .replace(cosmic_text::Buffer::new());
+
         if self.props.textedit().obj.reflow.load(Ordering::Acquire)
             || self.props.textedit().dpi != dpi
         {

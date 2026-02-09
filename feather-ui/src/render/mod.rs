@@ -12,7 +12,7 @@ pub mod domain;
 //pub mod image;
 pub mod line;
 pub mod shape;
-//pub mod text;
+pub mod text;
 //pub mod textbox;
 
 /// Used instead of a direct Fn() trait because closure types are unique, which causes problems.
@@ -28,7 +28,7 @@ pub trait Renderable {
         parent_pos: crate::PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
-    ) -> Result<(), crate::Error>;
+    ) -> Result<(), crate::RenderError>;
 }
 
 // This implementation is used for components that never actually pass in a Renderable, so prerender never gets called.
@@ -46,9 +46,9 @@ impl Renderable for () {
         _: crate::PxPoint,
         _: &crate::graphics::Driver,
         _: &mut CompositorView<'_>,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RenderError> {
         debug_assert!(false);
-        Err(crate::Error::InternalFailure)
+        Err(crate::RenderError::InternalFailure)
     }
 }
 
@@ -75,7 +75,7 @@ impl<const N: usize> Renderable for Chain<N> {
         parent_pos: crate::PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RenderError> {
         for x in &self.0 {
             x.render(parent_pos, driver, compositor)?;
         }

@@ -9,7 +9,7 @@ use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator};
 use wgpu::util::DeviceExt;
 use wgpu::{BindGroupLayoutEntry, Extent3d, TextureDescriptor, TextureFormat, TextureUsages};
 
-use crate::{Pixel, ResizeTextureAtlasErr};
+use crate::{Pixel, RenderError};
 
 pub type Size = guillotiere::euclid::Size2D<i32, Pixel>;
 
@@ -434,7 +434,7 @@ impl Atlas {
         mipmap: Option<&wgpu::Queue>, /* This is a little silly but works because we can have
                                        * two immutable references at once */
         clear: Option<&wgpu::Queue>,
-    ) -> Result<(), ResizeTextureAtlasErr> {
+    ) -> Result<(), RenderError> {
         if region.id == AllocId::deserialize(u32::MAX) {
             *region = self.reserve(device, dim, mipmap, clear)?;
         } else if region.uv.size() != dim {
@@ -451,7 +451,7 @@ impl Atlas {
         dim: Size,
         mipmap: Option<&wgpu::Queue>,
         clear: Option<&wgpu::Queue>,
-    ) -> Result<Region, ResizeTextureAtlasErr> {
+    ) -> Result<Region, RenderError> {
         if dim.height == 0 {
             assert_ne!(dim.height, 0);
         }
@@ -480,7 +480,7 @@ impl Atlas {
         region.id = AllocId::deserialize(u32::MAX);
     }
 
-    fn grow(&mut self, device: &wgpu::Device) -> ResizeTextureAtlasErr {
+    fn grow(&mut self, device: &wgpu::Device) -> RenderError {
         if (self.extent * 2) <= device.limits().max_texture_dimension_2d {
             self.extent *= 2;
             if let Some(allocator) = self.allocators.first_mut() {
@@ -489,13 +489,13 @@ impl Atlas {
                     self.extent as i32,
                 ));
             } else {
-                return ResizeTextureAtlasErr(0, AtlasKind::Primary);
+                return RenderError::AtlasResizeFailure;
             }
         } else {
             self.allocators.push(Self::create_allocator(self.extent));
         }
 
-        ResizeTextureAtlasErr(self.allocators.len() as u32, self.kind)
+        RenderError::ResizeTextureAtlas(self.allocators.len() as u32, self.kind)
     }
 
     fn queue_mip(&mut self, region: &Region, device: &wgpu::Device, queue: &wgpu::Queue) {

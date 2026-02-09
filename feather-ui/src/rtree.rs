@@ -93,7 +93,7 @@ impl Node {
             );
 
             let extent = reactive::join(fold_vec(
-                |l, r| zip_pair(l, r, |x, y| x.extend(y)).into(),
+                |l, r| zip_pair(l, r, |x, y| x.extend(*y)).into(),
                 areas,
                 const_signal(PxRect::zero()).into(),
             ))
@@ -131,7 +131,7 @@ impl Node {
         );
 
         let extent = reactive::join(fold_vec(
-            |l, r| zip_pair(l, r, |x, y| x.extend(y)).into(),
+            |l, r| zip_pair(l, r, |x, y| x.extend(*y)).into(),
             areas,
             const_signal(PxRect::zero()).into(),
         ))
@@ -140,7 +140,7 @@ impl Node {
         let tops = map_vec(|v| v.top.clone(), |v| Identity(v.clone()), children.clone());
 
         let top = reactive::join(fold_vec(
-            |l, r| zip_pair(l, r, |x, y| x.min(y)).into(),
+            |l, r| reactive::cmp::min(l, r).into(),
             tops,
             0.to_signal().into_dyn_signal(),
         ));
@@ -152,7 +152,7 @@ impl Node {
         );
 
         let bottom = reactive::join(fold_vec(
-            |l, r| zip_pair(l, r, |x, y| x.max(y)).into(),
+            |l, r| reactive::cmp::max(l, r).into(),
             bottoms,
             0.to_signal().into_dyn_signal(),
         ));
@@ -176,7 +176,7 @@ impl Node {
         driver: &crate::graphics::Driver,
         compositor: &mut crate::CompositorView<'_>,
         dependents: &mut Vec<std::rc::Weak<Layer>>,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RenderError> {
         if let Some(staged) = self.staged.as_ref() {
             // let extent = *crate::sample(&self.extent);
 
@@ -304,7 +304,7 @@ impl Node {
 
     pub(crate) fn offset(self: Rc<Self>, parent: DynSignal<PxVector>) -> DynSignal<PxVector> {
         zip_pair(parent, self.area.clone(), |l, r| {
-            (r.topleft() + l).to_vector()
+            (r.topleft() + *l).to_vector()
         })
         .into_dyn_signal()
     }

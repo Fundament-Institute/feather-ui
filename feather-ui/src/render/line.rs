@@ -56,7 +56,7 @@ impl super::Renderable for Instance {
         _: crate::PxPoint,
         _: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RenderError> {
         compositor.append_data(*sample(&self.values));
         Ok(())
     }

@@ -5,6 +5,7 @@ pub mod line;
 pub mod mouse_area;
 pub mod region;
 pub mod shape;
+pub mod text;
 pub mod window;
 
 use crate::component::window::Window;
@@ -76,7 +77,11 @@ pub trait Component {
     type Props;
     type R: Layout<Props = Self::Props> + 'static;
 
-    fn layout(&self, driver: Arc<graphics::Driver>, dpi: MutableSignal<crate::RelDim>) -> Self::R;
+    fn layout(
+        &self,
+        driver: Arc<graphics::Driver>,
+        dpi: MutableSignal<crate::RelDim>,
+    ) -> Self::R;
 }
 
 impl<T: Component> ComponentMarker for T {}

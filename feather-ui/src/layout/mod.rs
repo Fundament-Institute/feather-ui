@@ -9,7 +9,7 @@ pub mod fixed;
 pub mod leaf;
 //pub mod list;
 pub mod root;
-//pub mod text;
+pub mod text;
 
 use guillotiere::euclid::{Point2D, Vector2D};
 use wide::f32x4;
@@ -18,8 +18,8 @@ use crate::reactive::{self};
 use crate::render::compositor::{CompositorView, Layer};
 use crate::render::{Prerender, Renderable};
 use crate::{
-    DynSignal, Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, UNSIZED_AXIS, URect, UnsizedDim,
-    rtree,
+    DynSignal, Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, RenderError, UNSIZED_AXIS,
+    URect, UnsizedDim, rtree,
 };
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -67,6 +67,7 @@ where
     }
 }
 
+#[must_use]
 pub type DeferMachine<P> = (
     crate::event::AntiStream<'static, crate::input::RawEvent, Rc<rtree::Node>>,
     reactive::Signal<reactive::SignalDeferProvider<P>>,
@@ -149,7 +150,7 @@ pub trait Staged {
         compositor: &mut CompositorView<'_>,
         children: Option<&imbl::Vector<Rc<rtree::Node>>>,
         dependents: &mut Vec<std::rc::Weak<Layer>>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), RenderError>;
 }
 
 pub(crate) struct Concrete<T: Renderable> {
@@ -172,7 +173,7 @@ impl<T: Renderable> Concrete<T> {
         parent_pos: PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RenderError> {
         if let Some(r) = &self.renderable {
             r.render(parent_pos, driver, compositor)?;
         }
@@ -186,7 +187,7 @@ impl<T: Renderable> Concrete<T> {
         compositor: &mut CompositorView<'_>,
         children: &imbl::Vector<Rc<rtree::Node>>,
         dependents: &mut Vec<std::rc::Weak<Layer>>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RenderError> {
         for child in children {
             // The r-tree node will determine whether it should be culled in its render function
             child.render(parent_pos, driver, compositor, dependents)?;
@@ -203,7 +204,7 @@ impl<T: Renderable> Staged for Concrete<T> {
         compositor: &mut CompositorView<'_>,
         children: Option<&imbl::Vector<Rc<rtree::Node>>>,
         dependents: &mut Vec<std::rc::Weak<Layer>>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RenderError> {
         let area = reactive::sample(&self.area);
         if let Some(layer) = &self.layer {
             let mut deps = Vec::new();

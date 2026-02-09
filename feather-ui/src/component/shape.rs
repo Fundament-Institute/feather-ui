@@ -59,7 +59,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
         props: props.into(),
         border,
         blur,
-        corners: zip_pair(corners, offset, |c, o| [c[0], c[1], c[2], o]).into(),
+        corners: zip_pair(corners, offset, |c, o| [c[0], c[1], c[2], *o]).into(),
         fill,
         outline,
         size,
@@ -101,7 +101,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
         border,
         blur,
         corners: zip_pair(arcs, inner_radius, |arcs, r| {
-            [arcs[0] + arcs[1] * 0.5, arcs[1] * 0.5, r, 0.0]
+            [arcs[0] + arcs[1] * 0.5, arcs[1] * 0.5, *r, 0.0]
         })
         .into(),
         fill,
@@ -139,11 +139,11 @@ where
         leaf::Sized::<T, _> {
             props: self.props.clone(),
             size: zip_pair(self.size.clone(), dpi.clone(), |s, dpi| {
-                s.resolve(dpi).to_vector().to_size().cast_unit()
+                s.resolve(*dpi).to_vector().to_size().cast_unit()
             })
             .into_dyn_signal(),
             renderable: Some(crate::render::shape::PreInstance::<KIND> {
-                padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(dpi)).into(),
+                padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)).into(),
                 border: self.border.clone(),
                 blur: self.blur.clone(),
                 fill: self.fill.clone(),
