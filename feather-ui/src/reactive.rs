@@ -1,8 +1,9 @@
+use cosmic_text::Wrap;
 use imbl::GenericVector;
 use smolset::SmolSet;
 use stable_deref_trait::CloneStableDeref;
 use std::{
-    cell::{OnceCell, Ref},
+    cell::{OnceCell, Ref, RefMut},
     cmp::{PartialEq, PartialOrd},
     hash::Hash,
     marker::PhantomData,
@@ -13,7 +14,7 @@ use tuple_list::{Tuple, TupleList};
 
 use std::cell::RefCell;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum NodeColor {
     Ready,
     Changed,
@@ -23,6 +24,7 @@ enum NodeColor {
 pub enum DynRef<'a, T> {
     Ref(&'a T),
     Cell(Ref<'a, T>),
+    //Mut(RefMut<'a, T>),
 }
 
 impl<'a, T> Deref for DynRef<'a, T> {
@@ -32,9 +34,19 @@ impl<'a, T> Deref for DynRef<'a, T> {
         match self {
             DynRef::Ref(v) => *v,
             DynRef::Cell(v) => &*v,
+            //DynRef::Mut(v) => &*v,
         }
     }
 }
+
+/*impl<'a, T> std::ops::DerefMut for DynRef<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            DynRef::Mut(v) => &mut *v,
+            _ => panic!("Attempted to mutate immutable signal"),
+        }
+    }
+}*/
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
@@ -670,10 +682,7 @@ where
     }
 }
 
-impl<Input> SignalTupleZip for Input
-where
-    Input: Tuple,
-{
+impl<Input: Tuple> SignalTupleZip for Input {
     fn zip<Output>(self) -> Signal<impl SignalProvider<Item = Output>>
     where
         Output: Tuple + Clone,
@@ -798,20 +807,64 @@ pub fn join<
     }))
 }
 
-pub struct MutableSignalProvider<T> {
+pub trait SignalProviderMut: SignalProvider {
+    fn refcell(&self) -> &RefCell<Self::Item>;
+}
+
+pub struct MutableSignalProvider<T, Inputs: Tuple> {
     node: SignalNodeId,
     val: RefCell<T>,
+    inputs: Inputs::TupleList,
 }
-impl<T> MutableSignalProvider<T> {
-    pub fn new(v: T) -> Self {
+
+pub trait MutableInputs<T>: TupleList {
+    fn add_dependency(&self, node: SignalNodeId);
+    fn update_check(&self, val: &mut T, node: SignalNodeId);
+}
+
+impl<T> MutableInputs<T> for () {
+    fn add_dependency(&self, _: SignalNodeId) {}
+    fn update_check(&self, _: &mut T, _: SignalNodeId) {}
+}
+
+impl<'a, T, Head: SignalProvider + ?Sized + 'a, F: Fn(&mut T, &Signal<Head>), Tail> MutableInputs<T>
+    for ((Signal<Head>, F), Tail)
+where
+    Tail: MutableInputs<T> + 'a,
+    Self: TupleList,
+{
+    fn add_dependency(&self, node: SignalNodeId) {
+        add_dependency(self.0.0.0.get_node(), node.clone());
+        self.1.add_dependency(node);
+    }
+    fn update_check(&self, val: &mut T, node: SignalNodeId) {
+        let ((signal, handler), tail) = self;
+        if signal.0.get_node().0.borrow().color != NodeColor::Ready {
+            signal.0.update_if_necessary();
+            handler(val, &signal);
+            node.0.borrow_mut().color = NodeColor::Changed;
+        }
+        tail.update_check(val, node);
+    }
+}
+
+impl<T, Inputs: Tuple> MutableSignalProvider<T, Inputs>
+where
+    Inputs::TupleList: MutableInputs<T>,
+{
+    pub fn new(v: T, inputs: Inputs) -> Self {
+        let node = new_node(NodeColor::Changed);
+        let list = inputs.into_tuple_list();
+        list.add_dependency(node.clone());
         Self {
-            node: new_node(NodeColor::Changed),
+            inputs: list,
+            node,
             val: RefCell::new(v),
         }
     }
 }
 
-impl<T> std::fmt::Debug for MutableSignalProvider<T> {
+impl<T, Inputs: Tuple> std::fmt::Debug for MutableSignalProvider<T, Inputs> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("MutableSignal");
         dbg.field("node", &self.node);
@@ -826,13 +879,27 @@ impl<T> std::fmt::Debug for MutableSignalProvider<T> {
     }
 }
 
-impl<T> SignalProvider for MutableSignalProvider<T> {
+impl<T, Inputs: Tuple> SignalProviderMut for MutableSignalProvider<T, Inputs>
+where
+    Inputs::TupleList: MutableInputs<T>,
+{
+    fn refcell(&self) -> &RefCell<T> {
+        &self.val
+    }
+}
+
+impl<T, Inputs: Tuple> SignalProvider for MutableSignalProvider<T, Inputs>
+where
+    Inputs::TupleList: MutableInputs<T>,
+{
     type Item = T;
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
 
     fn update_if_necessary(&self) {
+        self.inputs
+            .update_check(&mut self.val.borrow_mut(), self.node.clone());
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Changed => {
@@ -840,27 +907,45 @@ impl<T> SignalProvider for MutableSignalProvider<T> {
                 self.node.0.borrow_mut().color = NodeColor::Ready;
             }
             NodeColor::Check => {
-                panic!("Should never be unsure about whether or not a mutable signal changed");
+                self.node.0.borrow_mut().color = NodeColor::Ready;
             }
             NodeColor::Ready => {}
         }
     }
+
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, T> {
         DynRef::Cell(self.val.borrow())
     }
 }
 
-pub struct SignalRefMut<'a, T>(std::cell::RefMut<'a, T>, Rc<MutableSignalProvider<T>>);
+pub struct SignalRefMut<'a, P: SignalProvider + ?Sized>(pub std::cell::RefMut<'a, P::Item>, Rc<P>);
 
-impl<'a, T> Drop for SignalRefMut<'a, T> {
-    fn drop(&mut self) {
-        notify_change_node(&self.1.node);
+impl<'a, P: SignalProvider + ?Sized> std::ops::Deref for SignalRefMut<'_, P> {
+    type Target = P::Item;
+
+    #[inline]
+    fn deref(&self) -> &P::Item {
+        &self.0
     }
 }
 
-impl<T: Default> Default for Signal<MutableSignalProvider<T>> {
+impl<'a, P: SignalProvider + ?Sized> std::ops::DerefMut for SignalRefMut<'_, P> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut P::Item {
+        &mut self.0
+    }
+}
+
+impl<'a, P: SignalProvider + ?Sized> Drop for SignalRefMut<'a, P> {
+    fn drop(&mut self) {
+        notify_change_node(self.1.get_node());
+    }
+}
+
+impl<T: Default> Default for Signal<MutableSignalProvider<T, ()>> {
     fn default() -> Self {
-        Self(Rc::new(MutableSignalProvider::new(T::default())))
+        Self(Rc::new(MutableSignalProvider::new(T::default(), ())))
     }
 }
 
@@ -876,46 +961,63 @@ where
     }
 }
 
-impl<T> Signal<MutableSignalProvider<T>> {
-    pub fn new(x: T) -> Self {
-        Self(Rc::new(MutableSignalProvider::new(x)))
-    }
+impl<MutProvider: SignalProviderMut + ?Sized> Signal<MutProvider> {
     // Instead of using `borrow` most things should use map() or sample()
     /*pub fn borrow(&self) -> Ref<'_, T> {
         self.0.update_if_necessary();
         self.0.val.borrow()
     }*/
-    pub fn borrow_mut(&mut self) -> SignalRefMut<'_, T> {
+    #[inline]
+    pub fn borrow_mut(&self) -> SignalRefMut<'_, MutProvider> {
         self.0.update_if_necessary();
-        SignalRefMut(self.0.val.borrow_mut(), self.0.clone())
+        SignalRefMut(self.0.refcell().borrow_mut(), self.0.clone())
     }
     /*pub fn try_borrow(&self) -> Result<Ref<'_, T>, std::cell::BorrowError> {
         self.0.update_if_necessary();
         self.0.val.try_borrow()
     }*/
-    pub fn try_borrow_mut(&mut self) -> Result<SignalRefMut<'_, T>, std::cell::BorrowMutError> {
+    #[inline]
+    pub fn try_borrow_mut(
+        &self,
+    ) -> Result<SignalRefMut<'_, MutProvider>, std::cell::BorrowMutError> {
         self.0.update_if_necessary();
         self.0
-            .val
+            .refcell()
             .try_borrow_mut()
             .map(|x| SignalRefMut(x, self.0.clone()))
     }
-    pub fn replace(&mut self, x: T) -> T {
-        let old = self.0.val.replace(x);
-        notify_change_node(&self.0.node);
+    #[inline]
+    pub fn replace(&self, x: MutProvider::Item) -> MutProvider::Item {
+        let old = self.0.refcell().replace(x);
+        notify_change_node(self.0.get_node());
         old
     }
-    pub fn replace_with(&mut self, f: impl FnOnce(&mut T) -> T) -> T {
-        let old = self.0.val.replace_with(f);
-        notify_change_node(&self.0.node);
+    #[inline]
+    pub fn replace_with(
+        &self,
+        f: impl FnOnce(&mut MutProvider::Item) -> MutProvider::Item,
+    ) -> MutProvider::Item {
+        let old = self.0.refcell().replace_with(f);
+        notify_change_node(self.0.get_node());
         old
     }
-    pub fn set_with(&mut self, f: impl FnOnce(&mut T)) {
-        f(&mut self.0.val.borrow_mut());
-        notify_change_node(&self.0.node);
+    #[inline]
+    pub fn set_with(&self, f: impl FnOnce(&mut MutProvider::Item)) {
+        f(&mut self.0.refcell().borrow_mut());
+        notify_change_node(self.0.get_node());
     }
-    pub fn swap(&mut self, rhs: &mut Self) {
-        self.0.val.swap(&rhs.0.val);
+    #[inline]
+    pub fn swap(&self, rhs: &Self) {
+        self.0.refcell().swap(&rhs.0.refcell());
+    }
+}
+
+impl<T, Inputs: Tuple> Signal<MutableSignalProvider<T, Inputs>>
+where
+    Inputs::TupleList: MutableInputs<T>,
+{
+    pub fn new(x: T, inputs: Inputs) -> Self {
+        Self(Rc::new(MutableSignalProvider::new(x, inputs)))
     }
 }
 
@@ -926,7 +1028,8 @@ impl<P: SignalProvider + ?Sized> Signal<SignalDeferProvider<P>> {
 }
 
 pub type DynSignal<T> = Signal<dyn SignalProvider<Item = T>>; // Removing the stuff to handle smarter const folding to write less code
-pub type MutableSignal<T> = Signal<MutableSignalProvider<T>>;
+pub type MutableSignal<T, Inputs = ()> = Signal<MutableSignalProvider<T, Inputs>>;
+pub type DynMutableSignal<T> = Signal<dyn SignalProviderMut<Item = T>>;
 
 // A mechanism for declaring that something that isn't a signal cares about checking when a signal changes
 pub struct Sampler<Provider: SignalProvider + ?Sized> {
@@ -1120,7 +1223,7 @@ pub fn zip_pair<
     T1: Clone,
     T2: Clone,
     R: Clone,
-    F: Fn(P1::Item, P2::Item) -> R,
+    F: Fn(&P1::Item, &P2::Item) -> R,
     P1: SignalProvider<Item = T1> + ?Sized,
     P2: SignalProvider<Item = T2> + ?Sized,
 >(
@@ -1129,7 +1232,7 @@ pub fn zip_pair<
     f: F,
 ) -> Signal<impl SignalProvider<Item = R>> {
     map(
-        move |arg: &(P1::Item, P2::Item)| f(arg.0.clone(), arg.1.clone()),
+        move |arg: &(P1::Item, P2::Item)| f(&arg.0, &arg.1),
         zip(p1, p2),
         always_fail_eq,
         never_debug,
@@ -2021,3 +2124,38 @@ pub fn defer<T1, P: SignalProvider<Item = T1> + ?Sized>() -> Signal<SignalDeferP
         node,
     }))
 }
+
+/*
+// This is used to assign a fallback equality check that always returns false, which is only
+// valid to do in a partial ordering - as a result, `WrapEq` must NEVER implement `Eq`.
+#[repr(transparent)]
+pub struct WrapEq<T>(T);
+
+impl<T> PartialEq for WrapEq<T> {
+    fn eq(&self, other: &Self) -> bool {
+        return false;
+    }
+}
+
+impl<T> From<T> for WrapEq<T> {
+    fn from(value: T) -> Self {
+        Self(value)
+    }
+}
+
+// This is used to assign a fallback debug output, which simply prints the typename.
+#[repr(transparent)]
+pub struct WrapDebug<T>(T);
+
+impl<T> std::fmt::Debug for WrapDebug<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(std::any::type_name::<T>())
+    }
+}
+
+impl<T> From<T> for WrapDebug<T> {
+    fn from(value: T) -> Self {
+        Self(value)
+    }
+}
+*/

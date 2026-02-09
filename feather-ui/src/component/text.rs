@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::color::sRGB;
-use crate::component::{EventRouter, StateMachine};
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
-use crate::{SourceID, graphics};
+use crate::reactive::SignalTupleZip;
+use crate::reactive::{DynSignal, MutableSignal, SignalMap, zip_pair};
+use crate::{graphics, reactive};
 use cosmic_text::{LineIter, Metrics};
 use derive_where::derive_where;
 use std::cell::RefCell;
@@ -13,59 +14,36 @@ use std::convert::Infallible;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(Clone)]
-pub struct TextState {
-    buffer: Rc<RefCell<cosmic_text::Buffer>>,
-    text: String,
-    align: Option<cosmic_text::Align>,
-}
-
-impl EventRouter for TextState {
-    type Input = Infallible;
-    type Output = Infallible;
-}
-
-impl PartialEq for TextState {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.buffer, &other.buffer)
-            && self.text == other.text
-            && self.align == other.align
-    }
-}
-
 #[derive_where(Clone)]
 pub struct Text<T> {
-    pub id: Arc<SourceID>,
     pub props: Rc<T>,
-    pub font_size: f32,
-    pub line_height: f32,
-    pub text: String,
-    pub font: cosmic_text::FamilyOwned,
-    pub color: sRGB,
-    pub weight: cosmic_text::Weight,
-    pub style: cosmic_text::Style,
-    pub wrap: cosmic_text::Wrap,
-    pub align: Option<cosmic_text::Align>, /* Alignment overrides whether text is LTR or RTL so
-                                            * we usually only want to set it if we're centering
-                                            * text */
+    pub font_size: DynSignal<f32>,
+    pub line_height: DynSignal<f32>,
+    pub text: DynSignal<String>,
+    pub font: DynSignal<cosmic_text::FamilyOwned>,
+    pub color: DynSignal<sRGB>,
+    pub weight: DynSignal<cosmic_text::Weight>,
+    pub style: DynSignal<cosmic_text::Style>,
+    pub wrap: DynSignal<cosmic_text::Wrap>,
+    pub align: DynSignal<Option<cosmic_text::Align>>, /* Alignment overrides whether text is LTR or RTL so
+                                                       * we usually only want to set it if we're centering
+                                                       * text */
 }
 
 impl<T: leaf::Padded + 'static> Text<T> {
     pub fn new(
-        id: Arc<SourceID>,
         props: T,
-        font_size: f32,
-        line_height: f32,
-        text: String,
-        font: cosmic_text::FamilyOwned,
-        color: sRGB,
-        weight: cosmic_text::Weight,
-        style: cosmic_text::Style,
-        wrap: cosmic_text::Wrap,
-        align: Option<cosmic_text::Align>,
+        font_size: DynSignal<f32>,
+        line_height: DynSignal<f32>,
+        text: DynSignal<String>,
+        font: DynSignal<cosmic_text::FamilyOwned>,
+        color: DynSignal<sRGB>,
+        weight: DynSignal<cosmic_text::Weight>,
+        style: DynSignal<cosmic_text::Style>,
+        wrap: DynSignal<cosmic_text::Wrap>,
+        align: DynSignal<Option<cosmic_text::Align>>,
     ) -> Self {
         Self {
-            id,
             props: props.into(),
             font_size,
             line_height,
@@ -76,50 +54,9 @@ impl<T: leaf::Padded + 'static> Text<T> {
             style,
             wrap,
             align,
-        }
-    }
-}
-
-impl<T: leaf::Padded + 'static> crate::StateMachineChild for Text<T> {
-    fn id(&self) -> Arc<SourceID> {
-        self.id.clone()
-    }
-
-    fn init(
-        &self,
-        _: &std::sync::Weak<graphics::Driver>,
-    ) -> Result<Box<dyn super::StateMachineWrapper>, crate::Error> {
-        let statemachine: StateMachine<TextState, 0> = StateMachine {
-            state: TextState {
-                buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics::new(
-                    point_to_pixel(self.font_size, 1.0),
-                    point_to_pixel(self.line_height, 1.0),
-                )))),
-                text: String::new(),
-                align: None,
-            },
-            input_mask: 0,
-            output: [],
-            changed: true,
-        };
-        Ok(Box::new(statemachine))
-    }
-}
-
-impl<T: Default + leaf::Padded + 'static> Default for Text<T> {
-    fn default() -> Self {
-        Self {
-            id: Default::default(),
-            props: Default::default(),
-            font_size: Default::default(),
-            line_height: Default::default(),
-            text: Default::default(),
-            font: cosmic_text::FamilyOwned::SansSerif,
-            color: sRGB::new(1.0, 1.0, 1.0, 1.0),
-            weight: Default::default(),
-            style: Default::default(),
-            wrap: cosmic_text::Wrap::None,
-            align: None,
+            buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics::new(
+                1.0, 1.0,
+            )))),
         }
     }
 }
@@ -145,65 +82,175 @@ where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
     type Props = T;
+    type R = layout::text::Node<T>;
 
     fn layout(
         &self,
-        manager: &mut crate::StateManager,
-        driver: &graphics::Driver,
-        window: &Arc<SourceID>,
-    ) -> Rc<dyn Layout<T>> {
-        let dpi = manager
-            .get::<super::window::WindowStateMachine>(window)
-            .map(|x| x.state.dpi)
-            .unwrap_or(crate::BASE_DPI);
-        let mut font_system = driver.font_system.write();
+        driver2: Arc<crate::graphics::Driver>,
+        dpi: MutableSignal<crate::RelDim>,
+    ) -> Self::R {
+        let inner_dim = reactive::defer::<crate::UnsizedDim, _>();
+        let wdriver = Arc::downgrade(&driver2);
 
-        let metrics = cosmic_text::Metrics::new(
-            point_to_pixel(self.font_size, dpi.width),
-            point_to_pixel(self.line_height, dpi.height),
-        );
+        (
+            self.text.clone(),
+            self.font_size.clone(),
+            self.line_height.clone(),
+            dpi.clone(),
+            self.wrap.clone(),
+            self.font.clone(),
+            self.color.clone(),
+            self.weight.clone(),
+            self.style.clone(),
+            self.align.clone(),
+            inner_dim.clone(),
+            self.props.padding(),
+            self.props.limits(),
+        )
+            .zip()
+            .map_mut(
+                |(
+                    text,
+                    font_size,
+                    line_height,
+                    dpi,
+                    wrap,
+                    family,
+                    color,
+                    weight,
+                    style,
+                    align,
+                    inner,
+                    padding,
+                    limits,
+                ): &(
+                    String,
+                    f32,
+                    f32,
+                    crate::RelDim,
+                    cosmic_text::Wrap,
+                    cosmic_text::FamilyOwned,
+                    crate::color::sRGB,
+                    cosmic_text::Weight,
+                    cosmic_text::Style,
+                    Option<cosmic_text::Align>,
+                    crate::UnsizedDim,
+                    crate::DAbsRect,
+                    crate::DLimits,
+                ),
+                 buffer: Option<cosmic_text::Buffer>|
+                 -> cosmic_text::Buffer {
+                    let driver = wdriver.upgrade().unwrap();
+                    let mut font_system = driver.font_system.write();
 
-        let textstate = manager
-            .get_mut::<StateMachine<TextState, 0>>(&self.id)
-            .unwrap();
-        let textstate = &mut textstate.state;
-        textstate
-            .buffer
-            .borrow_mut()
-            .set_metrics(&mut font_system, metrics);
-        textstate
-            .buffer
-            .borrow_mut()
-            .set_wrap(&mut font_system, self.wrap);
+                    let metrics = cosmic_text::Metrics::new(
+                        point_to_pixel(*font_size, dpi.width),
+                        point_to_pixel(*line_height, dpi.height),
+                    );
 
-        if self.align != textstate.align || !buffer_eq(&self.text, &textstate.buffer.borrow()) {
-            textstate.buffer.borrow_mut().set_text(
-                &mut font_system,
-                &self.text,
-                &cosmic_text::Attrs::new()
-                    .family(self.font.as_family())
-                    .color(self.color.into())
-                    .weight(self.weight)
-                    .style(self.style),
-                cosmic_text::Shaping::Advanced,
-                self.align,
+                    let buffer = buffer
+                        .unwrap_or_else(|| cosmic_text::Buffer::new(&mut font_system, metrics));
+                    buffer.set_metrics(&mut font_system, metrics);
+                    buffer.set_wrap(&mut font_system, *wrap);
+
+                    let attrs = cosmic_text::Attrs::new()
+                        .family(family.as_family())
+                        .color((*color).into())
+                        .weight(*weight)
+                        .style(*style);
+                    if *align != buffer.lines[0].align()
+                        || buffer.lines[0].attrs_list().get_span(0) != attrs
+                        || !buffer_eq(&text, &buffer)
+                    {
+                        buffer.set_text(
+                            &mut font_system,
+                            &self.text,
+                            &attrs,
+                            cosmic_text::Shaping::Advanced,
+                            self.align,
+                        );
+                    }
+
+                    let mut font_system = driver.font_system.write();
+
+                    let (limitx, limity) = {
+                        let max = limits.max();
+                        (
+                            max.width.is_finite().then_some(max.width),
+                            max.height.is_finite().then_some(max.height),
+                        )
+                    };
+
+                    let dim = inner - padding.total();
+                    let (unsized_x, unsized_y) = check_unsized_dim(dim);
+
+                    text_buffer.set_size(
+                        &mut font_system,
+                        if unsized_x {
+                            limitx
+                        } else {
+                            Some(dim.width.max(0.0))
+                        },
+                        if unsized_y {
+                            limity
+                        } else {
+                            Some(dim.height.max(0.0))
+                        },
+                    );
+
+                    // If we have indeterminate area, calculate the size
+                    if unsized_x || unsized_y {
+                        let mut h = 0.0;
+                        let mut w: f32 = 0.0;
+                        //let mut realign = self.realign;
+
+                        // TODO: In order to extract the width and height back out of the text buffer, we have to unconditionally
+                        // set the width/height here. If we replace buffer with a wrapper that can hold a realign and w/h values,
+                        // then we can restore this optimization.
+                        let realign = true;
+
+                        for run in text_buffer.layout_runs() {
+                            w = w.max(run.line_w);
+                            // If a line is RTL and we're unsized, we ALWAYS have to re-evaluate it!
+                            realign = realign || run.rtl;
+                            h += run.line_height;
+                        }
+
+                        // Apply adjusted limits to inner size calculation
+                        w = w.max(limits.min().width).min(limits.max().width);
+                        h = h.max(limits.min().height).min(limits.max().height);
+
+                        // If we are centered or right aligned, we have to set the size again now that
+                        // we know how big it really is. This is true even if all the text
+                        // was originally marked as RTL - the layout will still be wrong because
+                        // it didn't know how big the text would be.
+                        if realign {
+                            text_buffer.set_size(&mut driver.font_system.write(), Some(w), Some(h))
+                        }
+
+                        // Set w and h
+                        self.w = w + padding.total().width;
+                        self.h = h + padding.total().height;
+                    };
+
+                    buffer
+                },
             );
 
-            textstate.text = self.text.clone();
-            textstate.align = self.align;
-        }
+        let render = Rc::new(crate::render::text::Instance::new(
+            textstate.clone(),
+            zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)),
+            area,
+            driver,
+        ));
 
-        let render = Rc::new(crate::render::text::Instance {
-            text_buffer: textstate.buffer.clone(),
-            padding: self.props.padding().as_perimeter(dpi).into(),
-        });
-
-        Box::new(layout::text::Node::<T> {
+        layout::text::Node::<T> {
             props: self.props.clone(),
-            id: Arc::downgrade(&self.id),
             buffer: textstate.buffer.clone(),
-            renderable: render.clone(),
-            realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
-        })
+            renderable: render,
+            //realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
+            driver: std::sync::Arc::downgrade(&driver),
+            machine: None,
+        }
     }
 }

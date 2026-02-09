@@ -7,10 +7,12 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use cosmic_text::{Affinity, AttrsList, Cursor, Metrics};
+use either::Either;
 use smallvec::SmallVec;
 
 use crate::BASE_DPI;
 use crate::graphics::point_to_pixel;
+use crate::reactive::{DynMutableSignal, sample};
 
 /// Represents a single change, recording the (`start`,`end`) range of the new
 /// string, and the old string that used to be contained in that range. `start`
@@ -26,7 +28,7 @@ pub struct Change {
 
 #[derive(Debug)]
 pub struct EditBuffer {
-    pub(crate) buffer: Rc<RefCell<cosmic_text::Buffer>>,
+    pub(crate) buffer: RefCell<Either<cosmic_text::Buffer, DynMutableSignal<cosmic_text::Buffer>>>,
     pub(crate) count: AtomicUsize,
     pub(crate) reflow: AtomicBool,
     cursor: AtomicUsize,
@@ -38,9 +40,7 @@ pub struct EditBuffer {
 impl Default for EditBuffer {
     fn default() -> Self {
         Self {
-            buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics::new(
-                1.0, 1.0,
-            )))),
+            buffer: Either::Left(cosmic_text::Buffer::new_empty(Metrics::new(1.0, 1.0))).into(),
             count: Default::default(),
             reflow: Default::default(),
             cursor: Default::default(),
@@ -49,26 +49,11 @@ impl Default for EditBuffer {
         }
     }
 }
-impl Clone for EditBuffer {
-    fn clone(&self) -> Self {
-        Self {
-            buffer: self.buffer.clone(),
-            count: self.count.load(Ordering::Relaxed).into(),
-            reflow: self.reflow.load(Ordering::Relaxed).into(),
-            cursor: self.cursor.load(Ordering::Relaxed).into(),
-            select: self.select.load(Ordering::Relaxed).into(),
-            dpi: self.dpi.clone(),
-        }
-    }
-}
 
 impl EditBuffer {
     pub fn new(text: &str, cursor: (usize, usize)) -> Self {
         let this = Self {
-            buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics {
-                font_size: 1.0,
-                line_height: 1.0,
-            }))),
+            buffer: Either::Left(cosmic_text::Buffer::new_empty(Metrics::new(1.0, 1.0))).into(),
             count: 0.into(),
             reflow: true.into(),
             cursor: cursor.0.into(),
@@ -78,45 +63,60 @@ impl EditBuffer {
         this.set_content(text);
         this
     }
-    pub fn get_content(&self) -> String {
+
+    fn as_string(b: &cosmic_text::Buffer) -> String {
         let mut s = String::new();
         s.reserve(
-            self.buffer
-                .borrow()
-                .lines
+            b.lines
                 .iter()
                 .fold(0, |c, l| c + l.text().len() + l.ending().as_str().len()),
         );
-        for line in &self.buffer.borrow().lines {
+        for line in &b.lines {
             s.push_str(line.text());
             s.push_str(line.ending().as_str());
         }
         s
     }
 
+    pub fn get_content(&self) -> String {
+        match self.buffer.borrow().as_ref() {
+            Either::Left(b) => Self::as_string(b),
+            Either::Right(s) => Self::as_string(&sample(&s)),
+        }
+    }
+
+    fn with_buffer_mut<R>(&self, f: impl FnOnce(&mut cosmic_text::Buffer) -> R) -> R {
+        match self.buffer.borrow_mut().as_mut() {
+            Either::Left(b) => f(b),
+            Either::Right(s) => f(&mut s.borrow_mut()),
+        }
+    }
+
     pub fn set_content(&self, content: &str) {
-        let mut buffer = self.buffer.borrow_mut();
-        buffer.lines.clear();
-        for (range, ending) in cosmic_text::LineIter::new(content) {
-            buffer.lines.push(cosmic_text::BufferLine::new(
-                &content[range],
-                ending,
-                AttrsList::new(&cosmic_text::Attrs::new()),
-                cosmic_text::Shaping::Advanced,
-            ));
-        }
-        if buffer.lines.is_empty() {
-            buffer.lines.push(cosmic_text::BufferLine::new(
-                "",
-                cosmic_text::LineEnding::default(),
-                AttrsList::new(&cosmic_text::Attrs::new()),
-                cosmic_text::Shaping::Advanced,
-            ));
-        }
+        self.with_buffer_mut(|buffer| {
+            buffer.lines.clear();
+            for (range, ending) in cosmic_text::LineIter::new(content) {
+                buffer.lines.push(cosmic_text::BufferLine::new(
+                    &content[range],
+                    ending,
+                    AttrsList::new(&cosmic_text::Attrs::new()),
+                    cosmic_text::Shaping::Advanced,
+                ));
+            }
+            if buffer.lines.is_empty() {
+                buffer.lines.push(cosmic_text::BufferLine::new(
+                    "",
+                    cosmic_text::LineEnding::default(),
+                    AttrsList::new(&cosmic_text::Attrs::new()),
+                    cosmic_text::Shaping::Advanced,
+                ));
+            }
+        });
         self.reflow.store(true, Ordering::Release);
         self.count.fetch_add(1, Ordering::Release);
     }
 
+    // TODO: make this operate on the internal buffer lines to avoid expensive string operations
     pub fn edit(
         &self,
         multisplice: &[(ops::Range<usize>, String)],
@@ -233,26 +233,26 @@ impl EditBuffer {
         dpi: crate::RelDim,
         attrs: cosmic_text::Attrs<'_>,
     ) {
-        let mut text_buffer = self.buffer.borrow_mut();
+        self.with_buffer_mut(|text_buffer| {
+            let metrics = cosmic_text::Metrics::new(
+                point_to_pixel(font_size, dpi.width),
+                point_to_pixel(line_height, dpi.height),
+            );
 
-        let metrics = cosmic_text::Metrics::new(
-            point_to_pixel(font_size, dpi.width),
-            point_to_pixel(line_height, dpi.height),
-        );
+            if text_buffer.metrics() != metrics {
+                text_buffer.set_metrics(font_system, metrics);
+            }
+            *self.dpi.borrow_mut() = dpi;
 
-        if text_buffer.metrics() != metrics {
-            text_buffer.set_metrics(font_system, metrics);
-        }
-        *self.dpi.borrow_mut() = dpi;
-
-        if text_buffer.wrap() != wrap {
-            text_buffer.set_wrap(font_system, wrap);
-        }
-        for line in &mut text_buffer.lines {
-            line.set_attrs_list(AttrsList::new(&attrs));
-            line.set_align(align);
-        }
-        text_buffer.shape_until_scroll(font_system, false);
+            if text_buffer.wrap() != wrap {
+                text_buffer.set_wrap(font_system, wrap);
+            }
+            for line in &mut text_buffer.lines {
+                line.set_attrs_list(AttrsList::new(&attrs));
+                line.set_align(align);
+            }
+            text_buffer.shape_until_scroll(font_system, false);
+        });
         self.reflow.store(false, Ordering::Release);
     }
 }

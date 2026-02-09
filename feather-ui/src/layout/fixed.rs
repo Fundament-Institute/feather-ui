@@ -55,12 +55,12 @@ fn stage<'a, T: Prerender + 'static>(
     // calculations will interact with the limits later on.
 
     let limits = zip_pair(props.limits(), dpi.clone(), |limits, dpi| {
-        limits.resolve(dpi)
+        limits.resolve(*dpi)
     });
 
     let myarea =
         zip_pair::<crate::DRect, RelDim, _, _, _, _>(props.area(), dpi.clone(), |p, dpi| {
-            p.resolve(dpi)
+            p.resolve(*dpi)
         });
 
     let inner_dim = (myarea.clone(), predim.clone(), limits.clone())
@@ -99,7 +99,9 @@ fn stage<'a, T: Prerender + 'static>(
     );
 
     let presize = reactive::join(reactive::fold_vec(
-        |l, r| zip_pair(l.clone(), r.clone(), |u: PxRect, v: PxRect| u.extend(v)).into_dyn_signal(),
+        |l, r| {
+            zip_pair(l.clone(), r.clone(), |u: &PxRect, v: &PxRect| u.extend(*v)).into_dyn_signal()
+        },
         child_presize,
         crate::const_signal(PxRect::zero()).into_dyn_signal(),
     ));
@@ -135,7 +137,7 @@ fn stage<'a, T: Prerender + 'static>(
     (
         evaluated_area.into(),
         Box::new(move |offset, final_dim| {
-            let unsized_area = (
+            let unsized_final = (
                 myarea.clone(),
                 presize.clone(),
                 final_dim.clone(),
@@ -147,7 +149,7 @@ fn stage<'a, T: Prerender + 'static>(
                     super::limit_area(map_unsized_area(*a, p.dim()) * *dim, *l) + *o
                 });
 
-            let sized_area = (
+            let sized_final = (
                 myarea.clone(),
                 final_dim.clone(),
                 limits.clone(),
@@ -158,13 +160,13 @@ fn stage<'a, T: Prerender + 'static>(
 
             // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
             let final_area =
-                reactive::cond(is_unsized.clone(), unsized_area.into(), sized_area.into());
+                reactive::cond(is_unsized.clone(), unsized_final.into(), sized_final.into());
 
             let child_area = final_area.clone();
             let nodes = reactive::map_vec(
                 move |(_, f, rlimits)| {
                     let dim = zip_pair(child_area.clone(), rlimits.clone(), |area, limits| {
-                        super::limit_dim_sized(area.dim(), limits * area.dim())
+                        super::limit_dim_sized(area.dim(), *limits * area.dim())
                     });
 
                     f(

@@ -91,13 +91,13 @@ impl WindowState {
             false,
         );
 
-        let config = MutableSignal::new(config);
+        let config = MutableSignal::new(config, ());
         let mut windowstate = Self {
             modifiers: 0,
             all_buttons: 0,
             last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
             config: config.clone(),
-            dpi: MutableSignal::new(RelDim::splat(window.scale_factor() as f32)),
+            dpi: MutableSignal::new(RelDim::splat(window.scale_factor() as f32), ()),
             surface_dim: config
                 .map(|c| Size2D::<u32, crate::Pixel>::new(c.width, c.height))
                 .into(),
@@ -263,8 +263,8 @@ impl Window {
         child: Box<dyn DynComponent<dyn crate::layout::base::Empty>>,
     ) -> Self {
         Self {
-            attributes: MutableSignal::new(attributes),
-            child: MutableSignal::new(Arc::from(child)),
+            attributes: MutableSignal::new(attributes, ()),
+            child: MutableSignal::new(Arc::from(child), ()),
         }
     }
 

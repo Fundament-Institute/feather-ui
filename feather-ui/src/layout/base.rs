@@ -53,7 +53,7 @@ impl crate::layout::Desc for dyn Empty {
             area,
             Box::new(move |offset, final_dim| {
                 let final_area =
-                    zip_pair(offset, final_dim, |o, dim| crate::Rect::offsetdim(o, dim))
+                    zip_pair(offset, final_dim, |o, dim| crate::Rect::offsetdim(*o, *dim))
                         .into_dyn_signal();
 
                 super::resolve_defer_machine(

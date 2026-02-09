@@ -38,10 +38,10 @@ impl Desc for dyn Prop {
         defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
         let limits = zip_pair(props.limits(), dpi.clone(), |limits, dpi| {
-            limits.resolve(dpi)
+            limits.resolve(*dpi)
         });
 
-        let myarea = zip_pair(props.area(), dpi.clone(), |p, dpi| p.resolve(dpi));
+        let myarea = zip_pair(props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
 
         let evaluated_area = (myarea.clone(), predim.clone(), limits.clone())
             .zip::<(crate::URect, crate::PxDim, PxLimits)>()
@@ -53,6 +53,7 @@ impl Desc for dyn Prop {
             Box::new(move |offset, final_dim| {
                 let final_area = (myarea.clone(), offset, final_dim, limits.clone())
                     .zip()
+                    // .map(|(padding, a, o, dim, limits)| super::limit_area(map_unsized_area(*a, padding.total()) * *dim, *limits) + *o)
                     .map(|(a, o, dim, limits)| super::limit_area(*a * *dim, *limits) + *o)
                     .into_dyn_signal();
 
@@ -110,7 +111,7 @@ fn calc_sized_area(padding: PxPerimeter, area: crate::URect, size: PxDim, outer:
             v[3] += adjust;
             presize
         }
-        _ => map_unsized_area(area, size + padding.topleft() + padding.bottomright()) * outer,
+        _ => map_unsized_area(area, size + padding.total()) * outer,
     }
 }
 
@@ -124,16 +125,15 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
         &self,
         predim: DynSignal<crate::PxDim>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
-        //_: crate::reactive::ConstSignal<std::sync::Weak<Driver>>,
     ) -> (DynSignal<PxRect>, super::StageThunk<'a>) {
         let limits = zip_pair(self.props.limits(), dpi.clone(), |limits, dpi| {
-            limits.resolve(dpi)
+            limits.resolve(*dpi)
         });
 
         let padding = zip_pair(self.props.padding(), dpi.clone(), |p, dpi| {
-            p.as_perimeter(dpi)
+            p.as_perimeter(*dpi)
         });
-        let area = zip_pair(self.props.area(), dpi.clone(), |p, dpi| p.resolve(dpi));
+        let area = zip_pair(self.props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
 
         // The way we handle unsized here is different from how we normally handle it.
         // If both axes are unsized, we simply set the area to the internal
@@ -144,7 +144,9 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
             .map(|(padding, area, size, outer)| calc_sized_area(*padding, *area, *size, *outer));
 
         let size = self.size.clone();
-        let evaluated_area = zip_pair(mapped_area, limits.clone(), |a, l| super::limit_area(a, l));
+        let evaluated_area = zip_pair(mapped_area, limits.clone(), |a, l| {
+            super::limit_area(*a, *l)
+        });
         let renderable = self.renderable.clone();
         let anchor = self.props.anchor();
         let defer = self.machine.clone();

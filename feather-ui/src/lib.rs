@@ -29,6 +29,7 @@ pub mod lua;
 pub mod persist;
 //mod propbag;
 mod pool;
+mod quadtree;
 pub mod reactive;
 pub mod render;
 pub mod resource;
@@ -80,19 +81,6 @@ pub use mlua;
 
 const MAX_ALLOCA: usize = 1 << 20;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ResizeTextureAtlasErr(u32, crate::render::atlas::AtlasKind);
-
-impl From<ResizeTextureAtlasErr> for Error {
-    fn from(value: ResizeTextureAtlasErr) -> Self {
-        if value.0.is_zero() {
-            Self::InternalFailure
-        } else {
-            Self::ResizeTextureAtlas(value)
-        }
-    }
-}
-
 use std::any::TypeId;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -104,16 +92,6 @@ pub enum Error {
     InvalidEnumTag(u64),
     #[error("Event handler didn't handle this method.")]
     UnhandledEvent,
-    #[error("Frame aborted due to pending Texture Atlas resize.")]
-    ResizeTextureAtlas(ResizeTextureAtlasErr),
-    #[error("Internal texture atlas reservation failure.")]
-    AtlasReservationFailure,
-    #[error("Internal texture atlas cache lookup failure.")]
-    AtlasCacheFailure,
-    #[error("Internal glyph render failure.")]
-    GlyphRenderFailure,
-    #[error("Internal glyph cache lookup failure.")]
-    GlyphCacheFailure,
     #[error("An assumption about internal state was incorrect.")]
     InternalFailure,
     #[error("A filesystem error occurred: {0}")]
@@ -128,6 +106,22 @@ pub enum Error {
     OutOfRange(usize),
     #[error("Type mismatch occurred when attempting a downcast that should never fail!")]
     RuntimeTypeMismatch,
+    #[error("Rendering error: {0}")]
+    RenderError(RenderError),
+}
+
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RenderError {
+    #[error("Internal texture atlas resizing failure.")]
+    AtlasResizeFailure,
+    #[error("Frame aborted due to pending Texture Atlas resize.")]
+    ResizeTextureAtlas(u32, crate::render::atlas::AtlasKind),
+    #[error("Internal glyph cache lookup failure.")]
+    GlyphCacheFailure,
+    #[error("Internal glyph render failure.")]
+    GlyphRenderFailure,
+    #[error("An assumption about internal state was incorrect.")]
+    InternalFailure,
 }
 
 impl From<std::io::Error> for Error {
@@ -654,6 +648,16 @@ impl<U> Perimeter<U> {
         Size2D::<f32, U> {
             width: ltrb[2],
             height: ltrb[3],
+            _unit: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn total(&self) -> Size2D<f32, U> {
+        let ltrb = self.v.as_array_ref();
+        Size2D::<f32, U> {
+            width: ltrb[0] + ltrb[2],
+            height: ltrb[1] + ltrb[3],
             _unit: PhantomData,
         }
     }
@@ -1902,7 +1906,7 @@ pub struct App<AppData, T: 'static> {
                 Identity<Rc<Window>>,
                 (
                     WindowState,
-                    reactive::Sampler<MutableSignalProvider<WindowAttributes>>,
+                    reactive::Sampler<MutableSignalProvider<WindowAttributes, ()>>,
                 ),
             >,
         >,
@@ -2284,10 +2288,7 @@ impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<Feathe
                                 &mut state.layers,
                             ) {
                                 match e {
-                                    Error::ResizeTextureAtlas(ResizeTextureAtlasErr(
-                                        layers,
-                                        kind,
-                                    )) => {
+                                    RenderError::ResizeTextureAtlas(layers, kind) => {
                                         // Resize the texture atlas with the requested
                                         // number of layers (the extent has already been
                                         // changed)
@@ -2478,9 +2479,10 @@ fn test_basic() {
     ));
 
     let (mut app, event_loop) = App::<TestApp, ()>::new(
-        reactive::MutableSignal::new(TestApp {}).into_dyn_signal(),
+        reactive::MutableSignal::new(TestApp {}, ()).into_dyn_signal(),
         move |x| component::UI {
-            children: reactive::MutableSignal::new(imbl::vector![window.clone()]).into_dyn_signal(),
+            children: reactive::MutableSignal::new(imbl::vector![window.clone()], ())
+                .into_dyn_signal(),
         },
         Some(Box::new(|_, evt: &ActiveEventLoop, _| evt.exit())),
         None,

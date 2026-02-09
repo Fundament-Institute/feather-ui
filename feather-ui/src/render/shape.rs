@@ -8,7 +8,7 @@ use crate::graphics::{self, Vec2f, Vec4f};
 use crate::reactive::{DynSignal, SignalMap, SignalTupleZip, const_signal, join, zip_pair};
 use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
-use crate::{Canonicalize, PxDim, PxPoint, ResizeTextureAtlasErr, shaders};
+use crate::{Canonicalize, PxDim, PxPoint, RenderError, shaders};
 use core::f32;
 use guillotiere::euclid::Size2D;
 use num_traits::Zero;
@@ -51,14 +51,14 @@ enum InstanceResult {
     Empty,
     Single(compositor::Data),
     Rect([compositor::Data; 9]),
-    Error(ResizeTextureAtlasErr),
+    Error(RenderError),
 }
 
 pub struct Instance<const KIND: u8> {
     values: DynSignal<InstanceResult>,
     cache: crate::reactive::Sampler<
         dyn crate::reactive::SignalProvider<
-                Item = Result<(Data, Size2D<i32, crate::Pixel>), ResizeTextureAtlasErr>,
+                Item = Result<(Data, Size2D<i32, crate::Pixel>), RenderError>,
             >,
     >,
 }
@@ -79,7 +79,7 @@ impl<const KIND: u8> Instance<KIND> {
         });
 
         let intcorners = zip_pair(corners.clone(), border.clone(), |c, b| {
-            c.map(|x| x.max(b)).map(|x| x.ceil() as i32)
+            c.map(|x| x.max(*b)).map(|x| x.ceil() as i32)
         });
 
         // If the border is larger than the corner itself, pretend the size of that
@@ -118,28 +118,28 @@ impl<const KIND: u8> Instance<KIND> {
                     // need an additional transparent pixel of buffer to cover all possible sampling
                     // scenarios.
                     match old {
-                        None | Some(Ok(_)) => driver2.with_pipeline::<Shape<KIND>, Result<
-                            (Data, atlas::Size),
-                            ResizeTextureAtlasErr,
-                        >>(|pipeline| {
-                            pipeline.update(
-                                &driver2,
-                                *inner + atlas::Size::new(4, 4),
-                                Data {
-                                    pos: [2.0; 2].into(),
-                                    dim: inner.to_f32().to_array().into(),
-                                    border: *border,
-                                    blur: *blur,
-                                    // We use corners raised to the nearest pixel so we can cut out the
-                                    // corners neatly
-                                    corners: intcorners.map(|x| x as f32).into(),
-                                    fill: fill.as_32bit().rgba,
-                                    outline: outline.as_32bit().rgba,
+                        None | Some(Ok(_)) => driver2
+                            .with_pipeline::<Shape<KIND>, Result<(Data, atlas::Size), RenderError>>(
+                                |pipeline| {
+                                    pipeline.update(
+                                        &driver2,
+                                        *inner + atlas::Size::new(4, 4),
+                                        Data {
+                                            pos: [2.0; 2].into(),
+                                            dim: inner.to_f32().to_array().into(),
+                                            border: *border,
+                                            blur: *blur,
+                                            // We use corners raised to the nearest pixel so we can cut out the
+                                            // corners neatly
+                                            corners: intcorners.map(|x| x as f32).into(),
+                                            fill: fill.as_32bit().rgba,
+                                            outline: outline.as_32bit().rgba,
+                                        },
+                                        old.map(|x| x.unwrap()),
+                                        true,
+                                    )
                                 },
-                                old.map(|x| x.unwrap()),
-                                true,
-                            )
-                        }),
+                            ),
                         Some(Err(e)) => Err(e),
                     }
                 },
@@ -349,31 +349,31 @@ impl<const KIND: u8> Instance<KIND> {
             outline.clone(),
         )
             .zip()
-            .map_mut(move |(dim, corners, border, blur, fill, outline), old| {
-                match old {
-                None | Some(Ok(_)) => driver2.with_pipeline::<Shape<KIND>, Result<
-                    (Data, atlas::Size),
-                    ResizeTextureAtlasErr,
-                >>(|pipeline| {
-                    pipeline.update(
-                        &driver2,
-                        dim.ceil().cast(),
-                        Data {
-                            pos: [0.0; 2].into(),
-                            dim: dim.to_array().into(),
-                            border: *border,
-                            blur: *blur,
-                            corners: corners.into(),
-                            fill: fill.as_32bit().rgba,
-                            outline: outline.as_32bit().rgba,
-                        },
-                        old.map(|x| x.unwrap()),
-                        false,
-                    )
-                }),
-                Some(Err(e)) => Err(e),
-            }
-            });
+            .map_mut(
+                move |(dim, corners, border, blur, fill, outline), old| match old {
+                    None | Some(Ok(_)) => driver2
+                        .with_pipeline::<Shape<KIND>, Result<(Data, atlas::Size), RenderError>>(
+                            |pipeline| {
+                                pipeline.update(
+                                    &driver2,
+                                    dim.ceil().cast(),
+                                    Data {
+                                        pos: [0.0; 2].into(),
+                                        dim: dim.to_array().into(),
+                                        border: *border,
+                                        blur: *blur,
+                                        corners: corners.into(),
+                                        fill: fill.as_32bit().rgba,
+                                        outline: outline.as_32bit().rgba,
+                                    },
+                                    old.map(|x| x.unwrap()),
+                                    false,
+                                )
+                            },
+                        ),
+                    Some(Err(e)) => Err(e),
+                },
+            );
 
         let driver2 = driver.clone();
         let region = reservation.clone().map(move |key| {
@@ -502,7 +502,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
         parent_pos: crate::PxPoint,
         driver: &graphics::Driver,
         compositor: &mut CompositorView<'_>,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RenderError> {
         // Be sure we only draw our cache if it actually changed, or is in an error state.
         if let Some(cache) = self.cache.partial_sample(|x| x.is_err()) {
             match &*cache {
@@ -523,7 +523,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             }
             InstanceResult::Rect(data) => {
                 for datum in data {
-                    compositor.append_data(*datum);
+                    compositor.append_data(datum.offset(parent_pos));
                 }
             }
             InstanceResult::Error(e) => {
@@ -603,7 +603,7 @@ impl<const KIND: u8> Shape<KIND> {
         data: Data,
         old: Option<(Data, atlas::Size)>,
         clear: bool,
-    ) -> Result<(Data, atlas::Size), ResizeTextureAtlasErr> {
+    ) -> Result<(Data, atlas::Size), RenderError> {
         // If we have an old value, see if it's the same as the one we passed in. If it isn't, we have to
         // delete the old value from the refcount.
         if let Some((data_old, uvdim_old)) = old {

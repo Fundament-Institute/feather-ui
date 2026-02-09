@@ -9,9 +9,12 @@ use guillotiere::AllocId;
 
 use crate::color::{Premultiplied, sRGB32};
 use crate::graphics::{GlyphCache, GlyphRegion};
+use crate::reactive::{
+    DynSignal, MutableSignal, Signal, SignalMap, SignalProvider, SignalTupleZip,
+};
 use crate::render::atlas::{Atlas, Size};
 use crate::render::compositor::{CompositorView, DataFlags};
-use crate::{Error, PxRect};
+use crate::{PxRect, RenderError};
 
 use swash::scale::{Render, ScaleContext, Source, StrikeWith};
 use swash::zeno::{Format, Vector};
@@ -20,11 +23,47 @@ pub use swash::scale::image::{Content, Image};
 pub use swash::zeno::{Angle, Command, Placement, Transform};
 
 pub struct Instance {
-    pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
-    pub padding: std::cell::Cell<crate::PxPerimeter>,
+    //pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
+    //pub padding: std::cell::Cell<crate::PxPerimeter>,
+    pub cliprect: MutableSignal<PxRect>, // Holds the last known clipping rect
+    pub values: DynSignal<Result<Vec<super::compositor::Data>, RenderError>>,
 }
 
 impl Instance {
+    pub fn new(
+        text_buffer: Signal<impl SignalProvider<Item = cosmic_text::Buffer> + 'static>,
+        padding: Signal<impl SignalProvider<Item = crate::PxPerimeter> + 'static>,
+        area: Signal<impl SignalProvider<Item = crate::PxRect> + 'static>,
+        driver: crate::Arc<crate::Driver>,
+    ) -> Self {
+        let cliprect = MutableSignal::new(PxRect::zero(), ());
+        Self {
+            cliprect: cliprect.clone(),
+            values: (text_buffer, padding, area, cliprect)
+                .zip()
+                .map_mut(
+                    move |(buffer, padding, area, cliprect),
+                     old: Option<Result<Vec<super::compositor::Data>, RenderError>>| {
+                        Self::evaluate(
+                            old.unwrap_or(Ok(Vec::default())).unwrap_or_default(),
+                            buffer,
+                            area.topleft().add_size(&padding.topleft()),
+                            1.0,
+                            area.intersect(*cliprect),
+                            cosmic_text::Color::rgb(255, 255, 255),
+                            &mut driver.font_system.write(),
+                            &mut driver.glyphs.write(),
+                            &driver.device,
+                            &driver.queue,
+                            &mut driver.atlas.write(),
+                            &mut driver.swash_cache.write(),
+                        )
+                    },
+                )
+                .into_dyn_signal(),
+        }
+    }
+
     pub fn get_glyph(key: CacheKey, glyphs: &GlyphCache) -> Option<&GlyphRegion> {
         glyphs.get(&key)
     }
@@ -78,14 +117,14 @@ impl Instance {
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
         cache: &mut ScaleContext,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RenderError> {
         if glyphs.get(&key).is_some() {
             // We can't actually return this borrow because of https://github.com/rust-lang/rust/issues/58910
             return Ok(());
         }
 
         let Some(mut image) = Self::draw_glyph(font_system, cache, key) else {
-            return Err(Error::GlyphRenderFailure);
+            return Err(RenderError::GlyphRenderFailure);
         };
 
         let region = if image.data.is_empty() {
@@ -172,7 +211,7 @@ impl Instance {
         bounds_max_x: i32,
         bounds_max_y: i32,
         glyph: &GlyphRegion,
-    ) -> Result<Option<super::compositor::Data>, Error> {
+    ) -> Result<Option<super::compositor::Data>, RenderError> {
         if glyph.region.uv.area() == 0 {
             return Ok(None);
         }
@@ -240,20 +279,21 @@ impl Instance {
     }
 
     fn evaluate(
+        mut values: Vec<super::compositor::Data>,
         buffer: &cosmic_text::Buffer,
         pos: crate::PxPoint,
         scale: f32,
         mut bounds: PxRect,
         color: cosmic_text::Color,
-        compositor: &mut super::compositor::CompositorView<'_>,
         font_system: &mut FontSystem,
         glyphs: &mut GlyphCache,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         atlas: &mut Atlas,
         cache: &mut ScaleContext,
-    ) -> Result<(), Error> {
-        bounds = bounds.intersect(compositor.current_clip());
+    ) -> Result<Vec<super::compositor::Data>, RenderError> {
+        values.clear();
+
         let bounds_top = bounds.topleft().y as i32;
         let bounds_bottom = bounds.bottomright().y as i32;
         let bounds_min_x = (bounds.topleft().x as i32).max(0);
@@ -303,14 +343,14 @@ impl Instance {
                     bounds_max_x,
                     bounds_max_y,
                     Self::get_glyph(physical_glyph.cache_key, glyphs)
-                        .ok_or(Error::GlyphCacheFailure)?,
+                        .ok_or(RenderError::GlyphCacheFailure)?,
                 )? {
-                    compositor.preprocessed(data);
+                    values.push(data);
                 }
             }
         }
 
-        Ok(())
+        Ok(values)
     }
 }
 
@@ -320,22 +360,17 @@ impl super::Renderable for Instance {
         parent_pos: crate::PxPoint,
         driver: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
-    ) -> Result<(), Error> {
-        let padding = self.padding.get();
+    ) -> Result<(), RenderError> {
+        // We set the cliprect first, so any change in the cliprect triggers a relayout when we sample it.
+        let cliprect = compositor.current_clip() - parent_pos;
+        if *crate::sample(&self.cliprect) != cliprect {
+            self.cliprect.replace(cliprect);
+        }
 
-        Self::evaluate(
-            &self.text_buffer.borrow(),
-            area.topleft().add_size(&padding.topleft()),
-            1.0,
-            area,
-            cosmic_text::Color::rgb(255, 255, 255),
-            compositor,
-            &mut driver.font_system.write(),
-            &mut driver.glyphs.write(),
-            &driver.device,
-            &driver.queue,
-            &mut driver.atlas.write(),
-            &mut driver.swash_cache.write(),
-        )
+        for data in crate::sample(&self.values).as_ref().map_err(|e| *e)? {
+            compositor.preprocessed(data.offset(parent_pos));
+        }
+
+        Ok(())
     }
 }

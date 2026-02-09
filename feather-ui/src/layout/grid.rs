@@ -58,7 +58,7 @@ impl Desc for dyn Prop {
         let myarea = props.area().resolve(window.dpi);
         let (unsized_x, unsized_y) = check_unsized(myarea);
         let padding = props.padding().as_perimeter(window.dpi);
-        let allpadding = padding.topleft() + padding.bottomright();
+        let allpadding = padding.total();
         let minmax = limits.v.as_array_mut();
         if unsized_x {
             minmax[2] -= allpadding.width;
@@ -70,9 +70,7 @@ impl Desc for dyn Prop {
         }
 
         let outer_safe = zero_unsized(outer_area);
-        let inner_dim = super::eval_dim(myarea, outer_area.dim(), limits)
-            - padding.topleft()
-            - padding.bottomright();
+        let inner_dim = super::eval_dim(myarea, outer_area.dim(), limits) - padding.total();
 
         //let (outer_column, outer_row) = ;
 

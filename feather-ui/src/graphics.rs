@@ -8,7 +8,7 @@ use crate::render::compositor::Compositor;
 use crate::render::shape::Shape;
 use crate::render::{atlas, compositor};
 use crate::resource::{Loader, Location, MAX_VARIANCE};
-use crate::{Error, Mat4x4, render};
+use crate::{Error, Mat4x4, RenderError, render};
 use guillotiere::AllocId;
 use parking_lot::RwLock;
 use smallvec::SmallVec;
@@ -331,7 +331,7 @@ impl Driver {
             uvsize = r.uv.size();
             Ok(())
         }) {
-            Err(Error::ResizeTextureAtlas(crate::ResizeTextureAtlasErr(layers, kind))) => {
+            Err(Error::RenderError(RenderError::ResizeTextureAtlas(layers, kind))) => {
                 // Resize the texture atlas with the requested number of layers (the extent has
                 // already been changed)
                 match kind {
@@ -390,7 +390,9 @@ impl Driver {
                 &loader
             };
             let (raw, dim) = refload.preload(size, dpi)?;
-            refload.load(self, (raw, dim), resize)?
+            refload
+                .load(self, (raw, dim), resize)
+                .map_err(|e| Error::RenderError(e))?
         };
 
         let key = ResourceInstance {

@@ -22,7 +22,7 @@ impl super::Renderable for Instance {
         _: crate::PxPoint,
         _: &crate::graphics::Driver,
         compositor: &mut compositor::CompositorView<'_>,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RenderError> {
         let domain = self.domain.clone();
         let start_id = self.start.clone();
         let end_id = self.end.clone();
