@@ -20,10 +20,7 @@ pub struct Text<T> {
     pub font_size: DynSignal<f32>,
     pub line_height: DynSignal<f32>,
     pub text: DynSignal<String>,
-    pub font: DynSignal<cosmic_text::FamilyOwned>,
-    pub color: DynSignal<sRGB>,
-    pub weight: DynSignal<cosmic_text::Weight>,
-    pub style: DynSignal<cosmic_text::Style>,
+    pub attributes: DynSignal<cosmic_text::AttrsOwned>,
     pub wrap: DynSignal<cosmic_text::Wrap>,
     pub align: DynSignal<Option<cosmic_text::Align>>, /* Alignment overrides whether text is LTR or RTL so
                                                        * we usually only want to set it if we're centering
@@ -36,10 +33,7 @@ impl<T: leaf::Padded + 'static> Text<T> {
         font_size: DynSignal<f32>,
         line_height: DynSignal<f32>,
         text: DynSignal<String>,
-        font: DynSignal<cosmic_text::FamilyOwned>,
-        color: DynSignal<sRGB>,
-        weight: DynSignal<cosmic_text::Weight>,
-        style: DynSignal<cosmic_text::Style>,
+        attributes: DynSignal<cosmic_text::AttrsOwned>,
         wrap: DynSignal<cosmic_text::Wrap>,
         align: DynSignal<Option<cosmic_text::Align>>,
     ) -> Self {
@@ -48,15 +42,9 @@ impl<T: leaf::Padded + 'static> Text<T> {
             font_size,
             line_height,
             text,
-            font,
-            color,
-            weight,
-            style,
+            attributes,
             wrap,
             align,
-            buffer: Rc::new(RefCell::new(cosmic_text::Buffer::new_empty(Metrics::new(
-                1.0, 1.0,
-            )))),
         }
     }
 }
@@ -98,10 +86,7 @@ where
             self.line_height.clone(),
             dpi.clone(),
             self.wrap.clone(),
-            self.font.clone(),
-            self.color.clone(),
-            self.weight.clone(),
-            self.style.clone(),
+            self.attributes.clone(),
             self.align.clone(),
             inner_dim.clone(),
             self.props.padding(),
@@ -115,10 +100,7 @@ where
                     line_height,
                     dpi,
                     wrap,
-                    family,
-                    color,
-                    weight,
-                    style,
+                    attrs,
                     align,
                     inner,
                     padding,
@@ -129,10 +111,7 @@ where
                     f32,
                     crate::RelDim,
                     cosmic_text::Wrap,
-                    cosmic_text::FamilyOwned,
-                    crate::color::sRGB,
-                    cosmic_text::Weight,
-                    cosmic_text::Style,
+                    cosmic_text::AttrsOwned,
                     Option<cosmic_text::Align>,
                     crate::UnsizedDim,
                     crate::DAbsRect,
@@ -153,21 +132,16 @@ where
                     buffer.set_metrics(&mut font_system, metrics);
                     buffer.set_wrap(&mut font_system, *wrap);
 
-                    let attrs = cosmic_text::Attrs::new()
-                        .family(family.as_family())
-                        .color((*color).into())
-                        .weight(*weight)
-                        .style(*style);
                     if *align != buffer.lines[0].align()
-                        || buffer.lines[0].attrs_list().get_span(0) != attrs
+                        || buffer.lines[0].attrs_list().get_span(0) != attrs.as_attrs()
                         || !buffer_eq(&text, &buffer)
                     {
                         buffer.set_text(
                             &mut font_system,
-                            &self.text,
-                            &attrs,
+                            &text,
+                            &attrs.as_attrs(),
                             cosmic_text::Shaping::Advanced,
-                            self.align,
+                            *align,
                         );
                     }
 

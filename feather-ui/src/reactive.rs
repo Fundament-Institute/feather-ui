@@ -21,10 +21,91 @@ enum NodeColor {
     Check,
 }
 
+// This is similar to OnceCell, but tracks active usages and will drop the inner value when usages drop to 0
+pub struct MultiCell<T> {
+    borrow: std::cell::Cell<i32>,
+    inner: std::cell::UnsafeCell<Option<T>>,
+}
+
+impl<T> std::default::Default for MultiCell<T> {
+    fn default() -> Self {
+        Self {
+            borrow: std::cell::Cell::new(0),
+            inner: Default::default(),
+        }
+    }
+}
+
+impl<T> MultiCell<T> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+struct MultiRef<'b, T> {
+    value: std::ptr::NonNull<Option<T>>,
+    borrow: &'b std::cell::Cell<i32>,
+}
+
+impl<T> Deref for MultiRef<'_, T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &T {
+        // SAFETY: the value must be non-null as long as we hold our borrow.
+        unsafe { self.value.as_ref().as_ref().unwrap_unchecked() }
+    }
+}
+
+impl<T> Drop for MultiRef<'_, T> {
+    fn drop(&mut self) {
+        let borrow = self.borrow.get() - 1;
+        self.borrow.set(borrow);
+
+        if borrow == 0 {
+            unsafe {
+                self.value.as_mut().take();
+            }
+        }
+    }
+}
+
+impl<T> MultiCell<T> {
+    fn get_or_init(&self, t: T) -> MultiRef<'_, T> {
+        let opt = self.inner.get();
+        let borrow = self.borrow.get();
+        if borrow == 0 {
+            debug_assert!(unsafe { &*opt }.is_none());
+            unsafe { *opt = Some(t) };
+        }
+
+        self.borrow.set(borrow + 1);
+        MultiRef {
+            value: unsafe { std::ptr::NonNull::new_unchecked(self.inner.get()) },
+            borrow: &self.borrow,
+        }
+    }
+}
+
+// This UnsafeRef strips the lifetime information from the type and allows casting back
+// into a DynRef<> type with *any* arbitrary lifetime. Obviously, this is EXTREMELY unsafe and is only used
+// internally for managing signal references.
+#[repr(transparent)]
+struct UnsafeRef<T>(DynRef<'static, ()>, PhantomData<T>);
+
+impl<T> Deref for UnsafeRef<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { std::mem::transmute::<_, &DynRef<'_, T>>(&self.0) }
+    }
+}
+
 pub enum DynRef<'a, T> {
     Ref(&'a T),
     Cell(Ref<'a, T>),
-    //Mut(RefMut<'a, T>),
+    Multi(MultiRef<'a, T>),
+    Flatten(MultiRef<'a, UnsafeRef<T>>),
 }
 
 impl<'a, T> Deref for DynRef<'a, T> {
@@ -34,19 +115,17 @@ impl<'a, T> Deref for DynRef<'a, T> {
         match self {
             DynRef::Ref(v) => *v,
             DynRef::Cell(v) => &*v,
-            //DynRef::Mut(v) => &*v,
+            DynRef::Multi(v) => &*v,
+            DynRef::Flatten(v) => &*v,
         }
     }
 }
 
-/*impl<'a, T> std::ops::DerefMut for DynRef<'a, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match self {
-            DynRef::Mut(v) => &mut *v,
-            _ => panic!("Attempted to mutate immutable signal"),
-        }
+impl<'a, T> From<DynRef<'a, T>> for UnsafeRef<T> {
+    fn from(value: DynRef<'a, T>) -> Self {
+        UnsafeRef(unsafe { std::mem::transmute(value) }, PhantomData)
     }
-}*/
+}
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
@@ -171,8 +250,6 @@ pub trait SignalProvider: std::fmt::Debug {
 
     fn get_node(&self) -> &SignalNodeId;
     fn get_ref(&self) -> DynRef<'_, Self::Item>;
-    // TODO: does this have equivelent performance in the base case? If so it can eliminate storing intermediates in Join and Zip
-    // fn with_ref(&self, &mut dyn FnMut(&Self::Item));
     fn update_if_necessary(&self);
 }
 
@@ -271,7 +348,7 @@ impl<T> SignalProvider for ConstProvider<T> {
         &self.1
     }
 
-    fn get_ref(&self) -> DynRef<'_, T> {
+    fn get_ref(&self) -> DynRef<'_, Self::Item> {
         DynRef::Ref(&self.0)
     }
 }
@@ -309,8 +386,8 @@ impl<T: Default> Default for Signal<ConstProvider<T>> {
 pub struct ZipProvider<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> {
     provider1: Rc<P1>,
     provider2: Rc<P2>,
+    res: MultiCell<(UnsafeRef<P1::Item>, UnsafeRef<P2::Item>)>,
     node: SignalNodeId,
-    result: RefCell<Option<(P1::Item, P2::Item)>>,
 }
 
 impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> std::fmt::Debug
@@ -327,66 +404,41 @@ impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> std::fmt::Debug
 
 impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> SignalProvider
     for ZipProvider<P1, P2>
-where
-    P1::Item: Clone,
-    P2::Item: Clone,
 {
-    type Item = (P1::Item, P2::Item);
+    type Item = (UnsafeRef<P1::Item>, P2::Item);
 
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
 
     fn update_if_necessary(&self) {
-        let updated = {
-            let color = self.node.0.borrow().color;
-            match color {
-                NodeColor::Ready => false,
-                _ => {
-                    self.provider1.update_if_necessary();
-                    self.provider2.update_if_necessary();
-                    true
-                }
-            }
-        };
-        if updated {
-            if self.result.borrow().is_none() {
-                let new_color = self.node.0.borrow().color;
-                assert!(
-                    matches!(new_color, NodeColor::Changed),
-                    "color is incorrect, must be Changed but is {new_color:?}"
-                );
-            } else {
-                // assert!(matches!(
-                //     self.node.0.borrow().color,
-                //     NodeColor::Changed | NodeColor::Ready
-                // ));
+        match self.node.0.borrow().color {
+            _ => {
+                self.provider1.update_if_necessary();
+                self.provider2.update_if_necessary();
             }
         }
-        let color = self.node.0.borrow().color;
-        match color {
-            NodeColor::Changed => {
-                *self.result.borrow_mut() = Some((
-                    self.provider1.get_ref().clone(),
-                    self.provider2.get_ref().clone(),
-                ));
-                notify_children_change(&self.node);
-            }
-            _ => {}
+        if self.node.0.borrow().color == NodeColor::Changed {
+            notify_children_change(&self.node);
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
-    fn get_ref(&self) -> DynRef<'_, (P1::Item, P2::Item)> {
-        DynRef::Cell(Ref::map(self.result.borrow(), |x| {
-            x.as_ref().expect("must be updated before getting value")
-        }))
+    #[inline]
+    fn get_ref(&self) -> DynRef<'_, Self::Item> {
+        // We can get away with this precisely because, while the borrow is held, the underlying memory location cannot change. Therefore, we can re-use
+        // the same memory location inside our struct for multiple borrows as long as a non-zero number of borrows exist.
+        DynRef::Multi(self.res.get_or_init((
+            self.provider1.get_ref().into(),
+            self.provider2.get_ref().into(),
+        )))
+        todo!()
     }
 }
 
 pub fn zip<
-    T1: Clone,
-    T2: Clone,
+    T1,
+    T2,
     P1: SignalProvider<Item = T1> + ?Sized,
     P2: SignalProvider<Item = T2> + ?Sized,
 >(
@@ -401,9 +453,111 @@ pub fn zip<
     Signal(Rc::new(ZipProvider {
         provider1,
         provider2,
+        res: Default::default(),
         node,
-        result: RefCell::new(None),
     }))
+}
+
+pub trait SignalTupleListZip {
+    type Result: TupleList + for<'a> SplitBorrow<'a>;
+
+    fn zip(self) -> Signal<impl SignalProvider<Item = Self::Result>>;
+}
+
+pub fn empty_signal() -> Signal<ConstProvider<()>> {
+    Signal(Rc::new(ConstProvider::new(())))
+}
+
+impl SignalTupleListZip for () {
+    type Result = ();
+
+    fn zip(self) -> Signal<impl SignalProvider<Item = ()>> {
+        empty_signal()
+    }
+}
+
+impl<HeadT, Head: SignalProvider<Item = HeadT> + ?Sized, Tail: SignalTupleListZip>
+    SignalTupleListZip for (Signal<Head>, Tail)
+where
+    (UnsafeRef<HeadT>, Tail::Result): TupleList + for<'a> SplitBorrow<'a>,
+{
+    type Result = (UnsafeRef<HeadT>, Tail::Result);
+
+    fn zip(self) -> Signal<impl SignalProvider<Item = Self::Result>> {
+        zip(self.0, self.1.zip())
+    }
+}
+
+/// Borrow each member of a tuple
+pub trait SplitBorrow<'a> {
+    type SplitBorrowResult: TupleList;
+
+    fn borrow(&'a self) -> Self::SplitBorrowResult;
+}
+
+impl<'a> SplitBorrow<'a> for () {
+    type SplitBorrowResult = ();
+
+    fn borrow(&'a self) -> Self::SplitBorrowResult {}
+}
+
+impl<'a, Head, Tail> SplitBorrow<'a> for (Head, Tail)
+where
+    Head: 'a,
+    Tail: SplitBorrow<'a>,
+    (&'a Head, Tail::SplitBorrowResult): TupleList,
+{
+    type SplitBorrowResult = (&'a Head, Tail::SplitBorrowResult);
+
+    fn borrow(&'a self) -> Self::SplitBorrowResult {
+        (&self.0, self.1.borrow())
+    }
+}
+
+/*
+trait SplitBorrowTuple: Tuple {
+    fn borrow<'a>(&'a self) -> <Self::TupleList as SplitBorrow<'a>>::SplitBorrowResult
+    where
+        Self::TupleList: SplitBorrow<'a>;
+}
+
+impl<T: Tuple> SplitBorrowTuple for T {
+    fn borrow<'a>(&'a self) -> <Self::TupleList as SplitBorrow<'a>>::SplitBorrowResult
+    where
+        Self::TupleList: SplitBorrow<'a>,
+    {
+        self.into_tuple_list()
+    }
+}*/
+
+pub trait SignalTupleZip: Tuple {
+    fn zip<'a, Output: Tuple>(
+        self,
+    ) -> Signal<impl SignalProvider<Item = <Output::TupleList as SplitBorrow<'a>>::SplitBorrowResult>>
+    where
+        Self::TupleList: SignalTupleListZip,
+        Output::TupleList: SplitBorrow<'a>;
+}
+
+impl<T: Tuple> SignalTupleZip for T
+where
+    T::TupleList: SignalTupleListZip,
+{
+    fn zip<'a, Output: Tuple>(
+        self,
+    ) -> Signal<impl SignalProvider<Item = <Output::TupleList as SplitBorrow<'a>>::SplitBorrowResult>>
+    where
+        Output::TupleList: SplitBorrow<'a>,
+    {
+        let p = self.into_tuple_list().zip();
+
+        map(
+            |xs: &<T::TupleList as SignalTupleListZip>::Result| xs.borrow().into_tuple(),
+            p,
+            always_fail_eq,
+            never_debug,
+        )
+    }
 }
 
 pub struct SignalMapProvider<
@@ -489,9 +643,10 @@ impl<
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, T2> {
         DynRef::Cell(Ref::map(self.res.borrow(), |x| {
-            x.as_ref().expect("must be updated before getting value")
+            x.as_ref().expect("Must be updated before getting value, or there was an attempt to use this value during a map operation.")
         }))
     }
 }
@@ -505,12 +660,12 @@ pub fn map<
     F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
 >(
     f: F,
-    p: Signal<P>,
+    signal: Signal<P>,
     eq: F2,
     debug: F3,
 ) -> Signal<SignalMapProvider<P, T2, F, F2, F3>> {
     let node = new_node(NodeColor::Changed);
-    let provider = p.0;
+    let provider = signal.0;
     add_dependency(provider.get_node(), node.clone());
     Signal(Rc::new(SignalMapProvider {
         provider,
@@ -554,6 +709,7 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalPr
     for SignalMapMutProvider<P, T2, F>
 {
     type Item = T2;
+
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -579,6 +735,8 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalPr
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
+
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, T2> {
         DynRef::Cell(Ref::map(self.res.borrow(), |x| {
             x.as_ref().expect("Must be updated before getting value, or there was an attempt to use this value during a map operation.")
@@ -601,17 +759,19 @@ pub fn map_mut<T1, T2, F: Fn(&P::Item, Option<T2>) -> T2, P: SignalProvider<Item
     }))
 }
 
-pub trait SignalMap<Elem> {
+pub trait SignalMap<Elem, P: SignalProvider<Item = Elem> + ?Sized> {
     fn map<T: Copy + PartialEq>(
         self,
-        f: impl Fn(&Elem) -> T,
+        f: impl Fn(&P::Item) -> T,
     ) -> Signal<impl SignalProvider<Item = T>>;
-    fn map_mut<T>(self, f: impl Fn(&Elem, Option<T>) -> T)
-    -> Signal<impl SignalProvider<Item = T>>;
-    fn map_ex<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>>;
+    fn map_mut<T>(
+        self,
+        f: impl Fn(&P::Item, Option<T>) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>>;
+    fn map_ex<T>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>>;
     fn map_debug<T: std::fmt::Debug>(
         self,
-        f: impl Fn(&Elem) -> T,
+        f: impl Fn(&P::Item) -> T,
     ) -> Signal<impl SignalProvider<Item = T>>;
 }
 
@@ -627,74 +787,27 @@ fn always_debug<T: std::fmt::Debug>(t: &T) -> Option<&dyn std::fmt::Debug> {
     Some(t)
 }
 
-impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem> for Signal<P> {
+impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem, P> for Signal<P> {
     fn map<T: Copy + PartialEq>(
         self,
-        f: impl Fn(&Elem) -> T,
+        f: impl Fn(&P::Item) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, PartialEq::eq, never_debug)
     }
     fn map_mut<T>(
         self,
-        f: impl Fn(&Elem, Option<T>) -> T,
+        f: impl Fn(&P::Item, Option<T>) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
         map_mut(f, self)
     }
-    fn map_ex<T>(self, f: impl Fn(&Elem) -> T) -> Signal<impl SignalProvider<Item = T>> {
+    fn map_ex<T>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, always_fail_eq, never_debug)
     }
     fn map_debug<T: std::fmt::Debug>(
         self,
-        f: impl Fn(&Elem) -> T,
+        f: impl Fn(&P::Item) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, always_fail_eq, always_debug)
-    }
-}
-pub trait SignalTupleZip: Tuple {
-    fn zip<Output>(self) -> Signal<impl SignalProvider<Item = Output>>
-    where
-        Output: Tuple + Clone,
-        Self::TupleList: SignalTupleListZip<Output::TupleList>,
-        Output::TupleList: Clone;
-}
-pub trait SignalTupleListZip<Output: TupleList + Clone> {
-    fn zip(self) -> Signal<impl SignalProvider<Item = Output>>;
-}
-
-pub fn empty_signal() -> Signal<ConstProvider<()>> {
-    Signal(Rc::new(ConstProvider::new(())))
-}
-
-impl SignalTupleListZip<()> for () {
-    fn zip(self) -> Signal<impl SignalProvider<Item = ()>> {
-        empty_signal()
-    }
-}
-
-impl<HeadT: Clone, Head: SignalProvider<Item = HeadT> + ?Sized, Tail, TailOut: TupleList + Clone>
-    SignalTupleListZip<(HeadT, TailOut)> for (Signal<Head>, Tail)
-where
-    Tail: SignalTupleListZip<TailOut>,
-    (HeadT, TailOut): TupleList,
-{
-    fn zip(self) -> Signal<impl SignalProvider<Item = (HeadT, TailOut)>> {
-        zip(self.0, self.1.zip())
-    }
-}
-
-impl<Input: Tuple> SignalTupleZip for Input {
-    fn zip<Output>(self) -> Signal<impl SignalProvider<Item = Output>>
-    where
-        Output: Tuple + Clone,
-        Input::TupleList: SignalTupleListZip<Output::TupleList>,
-        Output::TupleList: Clone,
-    {
-        map(
-            |xs: &Output::TupleList| xs.clone().into_tuple(),
-            self.into_tuple_list().zip(),
-            always_fail_eq,
-            never_debug,
-        )
     }
 }
 
@@ -705,8 +818,9 @@ pub struct SignalJoinProvider<
 > {
     provider: Rc<P2>,
     innerprovider: RefCell<Option<Rc<P1>>>,
+    res: MultiCell<UnsafeRef<Rc<P1>>>,
+    res2: MultiCell<UnsafeRef<T>>,
     node: SignalNodeId,
-    res: RefCell<Option<T>>,
     phantom: PhantomData<P1>,
 }
 
@@ -731,6 +845,7 @@ impl<
 > SignalProvider for SignalJoinProvider<T, P1, P2>
 {
     type Item = T;
+
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -773,7 +888,6 @@ impl<
                 let color = self.node.0.borrow().color;
                 match color {
                     NodeColor::Changed => {
-                        *self.res.borrow_mut() = Some(innersig.get_ref().clone());
                         notify_children_change(&self.node);
                     }
                     _ => {}
@@ -783,11 +897,14 @@ impl<
         }
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, T> {
-        // Can't return the underlying reference here because it would require storing the intermediate DynRef
-        DynRef::Cell(Ref::map(self.res.borrow(), |x| {
-            x.as_ref().expect("Must be updated before getting value, or there was an attempt to use this value during a map operation.")
-        }))
+        let test = self.res.get_or_init(
+        DynRef::Cell(Ref::map(self.innerprovider.borrow(), |x| {
+            x.as_ref().expect("Must be updated before getting value.")
+        })).into());
+        
+        DynRef::Flatten(self.res2.get_or_init(test.get_ref().into()))
     }
 }
 
@@ -801,8 +918,9 @@ pub fn join<
     Signal(Rc::new(SignalJoinProvider {
         provider: p.0,
         innerprovider: RefCell::new(None),
+        res: Default::default(),
+        res2: Default::default(),
         node: new_node(NodeColor::Changed),
-        res: RefCell::new(None),
         phantom: PhantomData,
     }))
 }
@@ -893,6 +1011,7 @@ where
     Inputs::TupleList: MutableInputs<T>,
 {
     type Item = T;
+
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -914,7 +1033,7 @@ where
     }
 
     #[inline]
-    fn get_ref(&self) -> DynRef<'_, T> {
+    fn get_ref(&self) -> DynRef<'_, Self::Item> {
         DynRef::Cell(self.val.borrow())
     }
 }
@@ -954,6 +1073,7 @@ where
     Provider::Item: core::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+
         f.debug_struct("Signal")
             .field("node", self.0.get_node())
             .field("value", &*self.0.get_ref())
@@ -2102,18 +2222,18 @@ impl<P: SignalProvider + ?Sized> SignalProvider for SignalDeferProvider<P> {
         &self.node
     }
 
+    fn update_if_necessary(&self) {
+        if let Some(p) = self.provider.get() {
+            p.update_if_necessary();
+        }
+    }
+
     fn get_ref(&self) -> DynRef<'_, Self::Item> {
         let p = self
             .provider
             .get()
             .expect("Tried to get value before deferred signal was resolved!");
         p.get_ref()
-    }
-
-    fn update_if_necessary(&self) {
-        if let Some(p) = self.provider.get() {
-            p.update_if_necessary();
-        }
     }
 }
 
