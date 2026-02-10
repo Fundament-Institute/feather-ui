@@ -381,44 +381,79 @@ impl<T: Default> Default for Signal<ConstProvider<T>> {
     }
 }
 
-//TODO: use macros to generate ZipProviders for multiple tuple lengths
 //TODO: constant fusion optimization to eliminate unnecessary intermediate storage
-pub struct ZipProvider<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> {
-    provider1: Rc<P1>,
-    provider2: Rc<P2>,
-    res: MultiCell<(UnsafeRef<P1::Item>, UnsafeRef<P2::Item>)>,
+
+pub trait ProviderTupleList
+where
+    Self: Clone,
+{
+    type RefResult: TupleList;
+    //type ScopeResult<'a>: TupleList;
+
+    fn update_if_necessary(&self);
+    fn build_ref(&self) -> Self::RefResult;
+    fn add_dependency(&self, node: SignalNodeId);
+}
+
+impl ProviderTupleList for () {
+    type RefResult = ();
+
+    fn update_if_necessary(&self) {}
+    fn build_ref(&self) -> Self::RefResult {
+        ()
+    }
+    fn add_dependency(&self, node: SignalNodeId) {}
+}
+
+impl<Head, Tail> ProviderTupleList for (Rc<Head>, Tail)
+where
+    Head: SignalProvider + ?Sized,
+    Tail: ProviderTupleList,
+    (UnsafeRef<Head::Item>, Tail::RefResult): TupleList,
+{
+    type RefResult = (UnsafeRef<Head::Item>, Tail::RefResult);
+
+    fn update_if_necessary(&self) {
+        self.0.update_if_necessary();
+        self.1.update_if_necessary();
+    }
+    fn build_ref(&self) -> Self::RefResult {
+        (self.0.get_ref().into(), self.1.build_ref())
+    }
+    fn add_dependency(&self, node: SignalNodeId) {
+        add_dependency(self.0.get_node(), node.clone());
+        self.1.add_dependency(node);
+    }
+}
+
+pub struct ZipProvider<PList: ProviderTupleList> {
+    providers: PList,
+    res: MultiCell<<PList::RefResult as TupleList>::Tuple>,
     node: SignalNodeId,
 }
 
-impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> std::fmt::Debug
-    for ZipProvider<P1, P2>
-{
+impl<PList: ProviderTupleList> std::fmt::Debug for ZipProvider<PList> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ZipSignal")
             .field("node", &self.node)
-            .field("provider1", &self.provider1)
-            .field("provider2", &self.provider2)
             .finish()
     }
 }
 
-impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> SignalProvider
-    for ZipProvider<P1, P2>
-{
-    type Item = (UnsafeRef<P1::Item>, P2::Item);
+impl<PList: ProviderTupleList> SignalProvider for ZipProvider<PList> {
+    type Item = <PList::RefResult as TupleList>::Tuple;
 
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
 
     fn update_if_necessary(&self) {
-        match self.node.0.borrow().color {
-            _ => {
-                self.provider1.update_if_necessary();
-                self.provider2.update_if_necessary();
-            }
+        let color = self.node.0.borrow().color;
+        if color != NodeColor::Ready {
+            self.providers.update_if_necessary();
         }
-        if self.node.0.borrow().color == NodeColor::Changed {
+        let color = self.node.0.borrow().color;
+        if color == NodeColor::Changed {
             notify_children_change(&self.node);
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
@@ -428,108 +463,291 @@ impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized> SignalProvider
     fn get_ref(&self) -> DynRef<'_, Self::Item> {
         // We can get away with this precisely because, while the borrow is held, the underlying memory location cannot change. Therefore, we can re-use
         // the same memory location inside our struct for multiple borrows as long as a non-zero number of borrows exist.
-        DynRef::Multi(self.res.get_or_init((
-            self.provider1.get_ref().into(),
-            self.provider2.get_ref().into(),
-        )))
-        todo!()
+        DynRef::Multi(
+            self.res
+                .get_or_init(self.providers.build_ref().into_tuple()),
+        )
     }
 }
 
-pub fn zip<
-    T1,
-    T2,
-    P1: SignalProvider<Item = T1> + ?Sized,
-    P2: SignalProvider<Item = T2> + ?Sized,
->(
-    p1: Signal<P1>,
-    p2: Signal<P2>,
-) -> Signal<ZipProvider<P1, P2>> {
-    let provider1 = p1.0;
-    let provider2 = p2.0;
+pub trait SignalTupleList {
+    type Result: TupleList + ProviderTupleList;
+
+    fn as_providers(&self) -> Self::Result;
+}
+
+impl SignalTupleList for () {
+    type Result = ();
+
+    fn as_providers(&self) -> Self::Result {
+        ()
+    }
+}
+
+impl<Head, Tail> SignalTupleList for (Signal<Head>, Tail)
+where
+    Head: SignalProvider + ?Sized,
+    Tail: SignalTupleList,
+    (Rc<Head>, Tail::Result): TupleList + ProviderTupleList,
+{
+    type Result = (Rc<Head>, Tail::Result);
+
+    fn as_providers(&self) -> Self::Result {
+        (self.0.0.clone(), self.1.as_providers())
+    }
+}
+
+pub fn zip<T: Tuple>(t: T) -> Signal<ZipProvider<<T::TupleList as SignalTupleList>::Result>>
+where
+    T::TupleList: SignalTupleList,
+{
     let node = new_node(NodeColor::Changed);
-    add_dependency(provider1.get_node(), node.clone());
-    add_dependency(provider2.get_node(), node.clone());
+    let providers = t.into_tuple_list().as_providers();
+    providers.add_dependency(node.clone());
     Signal(Rc::new(ZipProvider {
-        provider1,
-        provider2,
+        providers,
         res: Default::default(),
         node,
     }))
 }
 
-pub trait SignalTupleListZip {
-    type Result: TupleList + for<'a> SplitBorrow<'a>;
+pub trait UnsafeRefCloneTupleList {
+    type Result: TupleList;
 
-    fn zip(self) -> Signal<impl SignalProvider<Item = Self::Result>>;
+    fn get_val(&self) -> Self::Result;
 }
 
-pub fn empty_signal() -> Signal<ConstProvider<()>> {
-    Signal(Rc::new(ConstProvider::new(())))
-}
-
-impl SignalTupleListZip for () {
+impl UnsafeRefCloneTupleList for () {
     type Result = ();
 
-    fn zip(self) -> Signal<impl SignalProvider<Item = ()>> {
-        empty_signal()
+    fn get_val(&self) -> Self::Result {
+        ()
     }
 }
 
-impl<HeadT, Head: SignalProvider<Item = HeadT> + ?Sized, Tail: SignalTupleListZip>
-    SignalTupleListZip for (Signal<Head>, Tail)
+impl<Head, Tail> UnsafeRefCloneTupleList for (UnsafeRef<Head>, Tail)
 where
-    (UnsafeRef<HeadT>, Tail::Result): TupleList + for<'a> SplitBorrow<'a>,
+    Head: Clone,
+    Tail: UnsafeRefCloneTupleList,
+    (Head, Tail::Result): TupleList,
 {
-    type Result = (UnsafeRef<HeadT>, Tail::Result);
+    type Result = (Head, Tail::Result);
 
-    fn zip(self) -> Signal<impl SignalProvider<Item = Self::Result>> {
-        zip(self.0, self.1.zip())
+    fn get_val(&self) -> Self::Result {
+        (self.0.clone(), self.1.get_val())
     }
 }
 
-/// Borrow each member of a tuple
-pub trait SplitBorrow<'a> {
-    type SplitBorrowResult: TupleList;
+pub trait UnsafeRefTupleList<'a> {
+    type Result: TupleList;
 
-    fn borrow(&'a self) -> Self::SplitBorrowResult;
+    fn borrow(&'a self) -> Self::Result;
 }
 
-impl<'a> SplitBorrow<'a> for () {
-    type SplitBorrowResult = ();
+impl UnsafeRefTupleList<'_> for () {
+    type Result = ();
 
-    fn borrow(&'a self) -> Self::SplitBorrowResult {}
+    fn borrow(&self) -> Self::Result {
+        ()
+    }
 }
 
-impl<'a, Head, Tail> SplitBorrow<'a> for (Head, Tail)
+impl<'a, Head, Tail> UnsafeRefTupleList<'a> for (UnsafeRef<Head>, Tail)
 where
     Head: 'a,
-    Tail: SplitBorrow<'a>,
-    (&'a Head, Tail::SplitBorrowResult): TupleList,
+    Tail: UnsafeRefTupleList<'a>,
+    (&'a Head, Tail::Result): TupleList,
 {
-    type SplitBorrowResult = (&'a Head, Tail::SplitBorrowResult);
+    type Result = (&'a Head, Tail::Result);
 
-    fn borrow(&'a self) -> Self::SplitBorrowResult {
+    fn borrow(&'a self) -> Self::Result {
         (&self.0, self.1.borrow())
     }
 }
 
-/*
-trait SplitBorrowTuple: Tuple {
-    fn borrow<'a>(&'a self) -> <Self::TupleList as SplitBorrow<'a>>::SplitBorrowResult
-    where
-        Self::TupleList: SplitBorrow<'a>;
+struct ZipValueProvider<PList: ProviderTupleList>
+where
+    PList::RefResult: UnsafeRefCloneTupleList,
+{
+    providers: PList,
+    res: RefCell<
+        Option<<<PList::RefResult as UnsafeRefCloneTupleList>::Result as TupleList>::Tuple>,
+    >,
+    node: SignalNodeId,
 }
 
-impl<T: Tuple> SplitBorrowTuple for T {
-    fn borrow<'a>(&'a self) -> <Self::TupleList as SplitBorrow<'a>>::SplitBorrowResult
-    where
-        Self::TupleList: SplitBorrow<'a>,
-    {
-        self.into_tuple_list()
+impl<PList: ProviderTupleList> std::fmt::Debug for ZipValueProvider<PList>
+where
+    PList::RefResult: UnsafeRefCloneTupleList,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ZipSignal")
+            .field("node", &self.node)
+            .finish()
     }
+}
+
+impl<PList: ProviderTupleList> SignalProvider for ZipValueProvider<PList>
+where
+    PList::RefResult: UnsafeRefCloneTupleList,
+{
+    type Item = <<PList::RefResult as UnsafeRefCloneTupleList>::Result as TupleList>::Tuple;
+
+    fn get_node(&self) -> &SignalNodeId {
+        &self.node
+    }
+
+    fn update_if_necessary(&self) {
+        let color = self.node.0.borrow().color;
+        if color != NodeColor::Ready {
+            self.providers.update_if_necessary();
+        }
+        let color = self.node.0.borrow().color;
+        match color {
+            NodeColor::Changed => {
+                *self.res.borrow_mut() = Some(self.providers.build_ref().get_val().into_tuple());
+                notify_children_change(&self.node);
+            }
+            _ => {}
+        }
+        self.node.0.borrow_mut().color = NodeColor::Ready;
+    }
+
+    fn get_ref(&self) -> DynRef<'_, Self::Item> {
+        DynRef::Cell(Ref::map(self.res.borrow(), |x| {
+            x.as_ref().expect("Must be updated before getting value.")
+        }))
+    }
+}
+
+pub struct ZipMapProvider<
+    PList: ProviderTupleList,
+    R,
+    F: Fn(<<PList::RefResult as UnsafeRefTupleList>::Result as TupleList>::Tuple) -> R,
+> where
+    for<'a> <PList as ProviderTupleList>::RefResult: UnsafeRefTupleList<'a>,
+{
+    providers: PList,
+    func: F,
+    res: RefCell<Option<R>>,
+    node: SignalNodeId,
+}
+
+impl<
+    PList: ProviderTupleList,
+    R,
+    F: Fn(<<PList::RefResult as UnsafeRefTupleList>::Result as TupleList>::Tuple) -> R,
+> std::fmt::Debug for ZipMapProvider<PList, R, F>
+where
+    for<'a> <PList as ProviderTupleList>::RefResult: UnsafeRefTupleList<'a>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ZipMapProvider")
+            .field("node", &self.node)
+            .finish()
+    }
+}
+
+impl<
+    PList: ProviderTupleList,
+    R,
+    F: Fn(<<PList::RefResult as UnsafeRefTupleList>::Result as TupleList>::Tuple) -> R,
+> SignalProvider for ZipMapProvider<PList, R, F>
+where
+    for<'a> <PList as ProviderTupleList>::RefResult: UnsafeRefTupleList<'a>,
+{
+    type Item = R;
+
+    fn get_node(&self) -> &SignalNodeId {
+        &self.node
+    }
+
+    fn update_if_necessary(&self) {
+        let color = self.node.0.borrow().color;
+        if color != NodeColor::Ready {
+            self.providers.update_if_necessary();
+        }
+        let color = self.node.0.borrow().color;
+        match color {
+            NodeColor::Changed => {
+                *self.res.borrow_mut() = Some((self.func)(
+                    self.providers.build_ref().borrow().into_tuple(),
+                ));
+                notify_children_change(&self.node);
+            }
+            _ => {}
+        }
+        self.node.0.borrow_mut().color = NodeColor::Ready;
+    }
+
+    fn get_ref(&self) -> DynRef<'_, Self::Item> {
+        DynRef::Cell(Ref::map(self.res.borrow(), |x| {
+            x.as_ref().expect("Must be updated before getting value.")
+        }))
+    }
+}
+
+impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
+    pub fn value(&self) -> Signal<ZipValueProvider<PList>>
+    where
+        <PList as ProviderTupleList>::RefResult: UnsafeRefCloneTupleList,
+    {
+        let node = new_node(NodeColor::Changed);
+        add_dependency(self.0.get_node(), node.clone());
+        Signal(Rc::new(ZipValueProvider::<PList> {
+            providers: self.0.providers.clone(),
+            node,
+            res: Default::default(),
+        }))
+    }
+
+    pub fn map_ref<
+        R,
+        F: Fn(<<<PList as ProviderTupleList>::RefResult as UnsafeRefTupleList>::Result as TupleList>::Tuple) -> R,
+    >(
+        &self,
+        f: F,
+    ) -> Signal<impl SignalProvider<Item = R>>
+    where
+        Self: Sized,
+        <PList as ProviderTupleList>::RefResult: for<'a> UnsafeRefTupleList<'a>,
+    {
+        let node = new_node(NodeColor::Changed);
+        add_dependency(self.0.get_node(), node.clone());
+        Signal(Rc::new(ZipMapProvider::<PList, R, F> {
+            providers: self.0.providers.clone(),
+            func: f,
+            node,
+            res: Default::default(),
+        }))
+    }
+}
+
+/*pub fn zip_map<
+    T: Tuple,
+    T2: Clone,
+    R: Clone,
+    F: Fn(&P1::Item, &P2::Item) -> R,
+    P1: SignalProvider<Item = T1> + ?Sized,
+    P2: SignalProvider<Item = T2> + ?Sized,
+>(
+    t: T,
+    f: F,
+) -> Signal<impl SignalProvider<Item = R>>
+where
+    T::TupleList: SignalTupleList,
+{
+    map(
+        move |arg| f(&arg.0, &arg.1.0),
+        zip(t),
+        always_fail_eq,
+        never_debug,
+    )
 }*/
 
+pub trait SignalTupleZip: Tuple {}
+
+/*
 pub trait SignalTupleZip: Tuple {
     fn zip<'a, Output: Tuple>(
         self,
@@ -558,7 +776,7 @@ where
             never_debug,
         )
     }
-}
+}*/
 
 pub struct SignalMapProvider<
     P: SignalProvider + ?Sized,
@@ -900,10 +1118,12 @@ impl<
     #[inline]
     fn get_ref(&self) -> DynRef<'_, T> {
         let test = self.res.get_or_init(
-        DynRef::Cell(Ref::map(self.innerprovider.borrow(), |x| {
-            x.as_ref().expect("Must be updated before getting value.")
-        })).into());
-        
+            DynRef::Cell(Ref::map(self.innerprovider.borrow(), |x| {
+                x.as_ref().expect("Must be updated before getting value.")
+            }))
+            .into(),
+        );
+
         DynRef::Flatten(self.res2.get_or_init(test.get_ref().into()))
     }
 }
@@ -1073,7 +1293,6 @@ where
     Provider::Item: core::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-
         f.debug_struct("Signal")
             .field("node", self.0.get_node())
             .field("value", &*self.0.get_ref())
@@ -1339,6 +1558,10 @@ impl<T: Clone, Provider: SignalProvider<Item = T>> DynamicSignalGettable<T> for 
 //TODO: UNIT TESTS
 
 //FIXME: Lifetimes needed to establish invariant that signals don't outlive the functions needed to compute them (and signals don't outlive their inputs just in case signal contents have limited lifetimes)
+pub fn empty_signal() -> Signal<ConstProvider<()>> {
+    Signal(Rc::new(ConstProvider::new(())))
+}
+
 pub fn zip_pair<
     T1: Clone,
     T2: Clone,
@@ -1352,8 +1575,8 @@ pub fn zip_pair<
     f: F,
 ) -> Signal<impl SignalProvider<Item = R>> {
     map(
-        move |arg: &(P1::Item, P2::Item)| f(&arg.0, &arg.1),
-        zip(p1, p2),
+        move |arg| f(&arg.0, &arg.1),
+        zip((p1, p2)),
         always_fail_eq,
         never_debug,
     )
@@ -1368,19 +1591,6 @@ pub fn sample_val<T: Clone, P: SignalProvider<Item = T> + ?Sized>(signal: Signal
     let p = signal;
     p.0.update_if_necessary();
     p.0.get_ref().clone()
-}
-
-#[test]
-fn reactive_fold() {
-    let mut vals = Iterator::map(1..=100, MutableSignal::new).collect::<Vec<_>>();
-    let sum = vals.iter().fold(0.to_signal().into_dyn_signal(), |a, b| {
-        zip_pair(a, b.clone(), |x: i32, y: i32| x + y).into_dyn_signal()
-    });
-    let modifications = vec![(1, 1, 5049), (1, 2, 5050), (5, -1, 5043)];
-    for (idx, val, expectation) in modifications {
-        vals[idx].replace(val);
-        assert!(*sample(&sum) == expectation);
-    }
 }
 
 // Animated signals:
@@ -1976,15 +2186,6 @@ macro_rules! switch {
     };
 }
 
-#[test]
-fn add() {
-    let a = 1.to_signal();
-    let b = 2.to_signal();
-    let input_signal = a + b;
-    let problem = *sample(&input_signal);
-    assert_eq!(problem, 3);
-}
-
 pub struct SignalVecMapProvider<
     T1,
     T2,
@@ -2090,34 +2291,6 @@ pub fn map_vec<
         res: Default::default(),
         node,
     }))
-}
-
-#[test]
-fn test_reactive_map_vec() {
-    let v = const_signal(imbl::vector![1, 2, 3, 4]);
-
-    let result = map_vec(|x| *x * *x, |x| *x, v.clone());
-
-    for i in sample(&result).iter() {
-        println!("{i}");
-    }
-
-    let rv = const_signal(imbl::vector![
-        Rc::new(1),
-        Rc::new(2),
-        Rc::new(3),
-        Rc::new(4)
-    ]);
-
-    let result = map_vec(
-        |x| *x.as_ref() * *x.as_ref(),
-        |x| Identity(x.clone()),
-        rv.clone(),
-    );
-
-    for i in sample(&result).iter() {
-        println!("{i}");
-    }
 }
 
 pub struct SignalVecFoldProvider<
@@ -2279,3 +2452,53 @@ impl<T> From<T> for WrapDebug<T> {
     }
 }
 */
+
+#[test]
+fn add() {
+    let a = 1.to_signal();
+    let b = 2.to_signal();
+    let input_signal = a + b;
+    let problem = *sample(&input_signal);
+    assert_eq!(problem, 3);
+}
+
+#[test]
+fn reactive_fold() {
+    let mut vals = Iterator::map(1..=100, MutableSignal::new).collect::<Vec<_>>();
+    let sum = vals.iter().fold(0.to_signal().into_dyn_signal(), |a, b| {
+        zip_pair(a, b.clone(), |x: i32, y: i32| x + y).into_dyn_signal()
+    });
+    let modifications = vec![(1, 1, 5049), (1, 2, 5050), (5, -1, 5043)];
+    for (idx, val, expectation) in modifications {
+        vals[idx].replace(val);
+        assert!(*sample(&sum) == expectation);
+    }
+}
+
+#[test]
+fn test_reactive_map_vec() {
+    let v = const_signal(imbl::vector![1, 2, 3, 4]);
+
+    let result = map_vec(|x| *x * *x, |x| *x, v.clone());
+
+    for i in sample(&result).iter() {
+        println!("{i}");
+    }
+
+    let rv = const_signal(imbl::vector![
+        Rc::new(1),
+        Rc::new(2),
+        Rc::new(3),
+        Rc::new(4)
+    ]);
+
+    let result = map_vec(
+        |x| *x.as_ref() * *x.as_ref(),
+        |x| Identity(x.clone()),
+        rv.clone(),
+    );
+
+    for i in sample(&result).iter() {
+        println!("{i}");
+    }
+}

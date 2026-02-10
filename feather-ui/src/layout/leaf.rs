@@ -43,8 +43,7 @@ impl Desc for dyn Prop {
 
         let myarea = zip_pair(props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
 
-        let evaluated_area = (myarea.clone(), predim.clone(), limits.clone())
-            .zip::<(crate::URect, crate::PxDim, PxLimits)>()
+        let evaluated_area = crate::reactive::zip((myarea.clone(), predim.clone(), limits.clone()))
             .map(|(a, dim, l)| super::limit_area(*a * *dim, *l));
 
         let anchor = props.anchor();

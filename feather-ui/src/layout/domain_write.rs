@@ -75,7 +75,9 @@ impl Desc for dyn Prop {
                         })),
                     ),
                     &defer,
-                    crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
+                    crate::reactive::zip((final_area, dpi.clone()))
+                        .value()
+                        .into_dyn_signal(),
                 )
             }),
         )
