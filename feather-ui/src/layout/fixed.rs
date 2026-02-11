@@ -5,7 +5,7 @@ use super::{Concrete, Desc, base, check_unsized, map_unsized_area};
 use crate::{
     PxLimits, PxRect, RelDim,
     layout::{DynLayout, zero_unsized},
-    reactive::{self, DynSignal, SignalMap, SignalTupleZip, zip_pair},
+    reactive::{self, DynSignal, SignalMap, SignalZip, zip_pair},
     render::Prerender,
     rtree,
 };
@@ -64,8 +64,8 @@ fn stage<'a, T: Prerender + 'static>(
         });
 
     let inner_dim = (myarea.clone(), predim.clone(), limits.clone())
-        .zip::<(crate::URect, crate::PxDim, PxLimits)>()
-        .map(|(a, o, l)| super::eval_dim(*a, *o, *l));
+        .zip()
+        .flatmap(|(a, o, l)| super::eval_dim(*a, *o, *l));
 
     let inner_sized = inner_dim
         .clone()
@@ -81,7 +81,7 @@ fn stage<'a, T: Prerender + 'static>(
             (
                 (stage, rlimits.clone(), inner_dim.clone())
                     .zip()
-                    .map(|(area, l, inner)| super::limit_area(*area, *l * *inner))
+                    .flatmap(|(area, l, inner)| super::limit_area(*area, *l * *inner))
                     .into_dyn_signal(),
                 Rc::<super::StageThunk>::from(a),
                 rlimits,
@@ -120,12 +120,12 @@ fn stage<'a, T: Prerender + 'static>(
         predim.clone(),
         limits.clone(),
     )
-        .zip::<(crate::URect, PxRect, crate::PxDim, PxLimits)>()
-        .map(|(a, p, o, l)| super::limit_area(map_unsized_area(*a, p.dim()) * *o, *l));
+        .zip()
+        .flatmap(|(a, p, o, l)| super::limit_area(map_unsized_area(*a, p.dim()) * *o, *l));
 
     let sized_area = (myarea.clone(), predim.clone(), limits.clone())
-        .zip::<(crate::URect, crate::PxDim, PxLimits)>()
-        .map(|(a, o, l)| super::limit_area(*a * *o, *l));
+        .zip()
+        .flatmap(|(a, o, l)| super::limit_area(*a * *o, *l));
 
     // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
     let evaluated_area = reactive::cond(is_unsized.clone(), unsized_area.into(), sized_area.into());
@@ -145,7 +145,7 @@ fn stage<'a, T: Prerender + 'static>(
                 offset.clone(),
             )
                 .zip()
-                .map(|(a, p, dim, l, o)| {
+                .flatmap(|(a, p, dim, l, o)| {
                     super::limit_area(map_unsized_area(*a, p.dim()) * *dim, *l) + *o
                 });
 
@@ -156,7 +156,7 @@ fn stage<'a, T: Prerender + 'static>(
                 offset.clone(),
             )
                 .zip()
-                .map(|(a, dim, l, o)| super::limit_area(*a * *dim, *l) + *o);
+                .flatmap(|(a, dim, l, o)| super::limit_area(*a * *dim, *l) + *o);
 
             // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
             let final_area =
@@ -189,7 +189,7 @@ fn stage<'a, T: Prerender + 'static>(
             // axis and limits are calculated.
             let anchored_area = (final_area.clone(), anchor.clone(), dpi2.clone())
                 .zip()
-                .map(|(area, anchor, d)| *area - (anchor.resolve(*d) * area.dim()))
+                .flatmap(|(area, anchor, d)| *area - (anchor.resolve(*d) * area.dim()))
                 .into_dyn_signal();
 
             super::resolve_defer_machine(
@@ -216,7 +216,7 @@ fn stage<'a, T: Prerender + 'static>(
                     })),
                 ),
                 &defer,
-                crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
+                (final_area, dpi.clone()).zip().value().into_dyn_signal(),
             )
         }),
     )

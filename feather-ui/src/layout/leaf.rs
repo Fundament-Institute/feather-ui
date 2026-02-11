@@ -4,7 +4,7 @@
 use super::base::Empty;
 use super::{Concrete, Desc, Layout, base, map_unsized_area};
 use crate::layout::DeferMachine;
-use crate::reactive::{DynSignal, SignalMap, SignalTupleZip, zip_pair};
+use crate::reactive::{DynSignal, SignalMap, SignalZip, zip_pair};
 use crate::{DRect, PxDim, PxLimits, PxPerimeter, PxRect, RelDim, rtree};
 use std::rc::Rc;
 
@@ -44,7 +44,7 @@ impl Desc for dyn Prop {
         let myarea = zip_pair(props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
 
         let evaluated_area = crate::reactive::zip((myarea.clone(), predim.clone(), limits.clone()))
-            .map(|(a, dim, l)| super::limit_area(*a * *dim, *l));
+            .flatmap(|(a, dim, l)| super::limit_area(*a * *dim, *l));
 
         let anchor = props.anchor();
         (
@@ -52,13 +52,13 @@ impl Desc for dyn Prop {
             Box::new(move |offset, final_dim| {
                 let final_area = (myarea.clone(), offset, final_dim, limits.clone())
                     .zip()
-                    // .map(|(padding, a, o, dim, limits)| super::limit_area(map_unsized_area(*a, padding.total()) * *dim, *limits) + *o)
-                    .map(|(a, o, dim, limits)| super::limit_area(*a * *dim, *limits) + *o)
+                    // .flatmap(|(padding, a, o, dim, limits)| super::limit_area(map_unsized_area(*a, padding.total()) * *dim, *limits) + *o)
+                    .flatmap(|(a, o, dim, limits)| super::limit_area(*a * *dim, *limits) + *o)
                     .into_dyn_signal();
 
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
-                    .zip::<(PxRect, crate::DPoint, RelDim)>()
-                    .map(|(e, a, d)| *e - (a.resolve(*d) * e.dim()))
+                    .zip()
+                    .flatmap(|(e, a, d)| *e - (a.resolve(*d) * e.dim()))
                     .into_dyn_signal();
 
                 super::resolve_defer_machine(
@@ -72,7 +72,7 @@ impl Desc for dyn Prop {
                         ))),
                     ),
                     &defer,
-                    crate::reactive::zip(anchored_area, dpi.clone()).into_dyn_signal(),
+                    (anchored_area, dpi.clone()).zip().value().into_dyn_signal(),
                 )
             }),
         )
@@ -140,7 +140,9 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
         // ratio relative to the size of the other axis.
         let mapped_area = (padding.clone(), area.clone(), self.size.clone(), predim)
             .zip()
-            .map(|(padding, area, size, outer)| calc_sized_area(*padding, *area, *size, *outer));
+            .flatmap(|(padding, area, size, outer)| {
+                calc_sized_area(*padding, *area, *size, *outer)
+            });
 
         let size = self.size.clone();
         let evaluated_area = zip_pair(mapped_area, limits.clone(), |a, l| {
@@ -162,7 +164,7 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
                     limits.clone(),
                 )
                     .zip()
-                    .map(move |(padding, area, size, o, outer, limits)| {
+                    .flatmap(move |(padding, area, size, o, outer, limits)| {
                         calc_sized_area(
                             *padding,
                             *area,
@@ -174,8 +176,8 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
 
                 // debug_assert!(anchored_area.v.is_finite().all());
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
-                    .zip::<(PxRect, crate::DPoint, RelDim)>()
-                    .map(|(area, a, d)| *area - (a.resolve(*d) * area.dim()))
+                    .zip()
+                    .flatmap(|(area, a, d)| *area - (a.resolve(*d) * area.dim()))
                     .into_dyn_signal();
 
                 super::resolve_defer_machine(
@@ -186,7 +188,7 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
                         Some(Box::new(Concrete::new(renderable.as_ref(), anchored_area))),
                     ),
                     &defer,
-                    crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
+                    (final_area, dpi.clone()).zip().value().into_dyn_signal(),
                 )
             }),
         )

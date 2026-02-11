@@ -17,12 +17,12 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(start: DynSignal<PxPoint>, end: DynSignal<PxPoint>, color: DynSignal<sRGB>) -> Self {
-        use crate::reactive::SignalTupleZip;
+        use crate::reactive::SignalZip;
 
         Self {
             values: (start, end, color)
-                .zip::<(PxPoint, PxPoint, sRGB)>()
-                .map(|(p1, p2, color)| {
+                .zip()
+                .flatmap(|(p1, p2, color)| {
                     let p = *p2 - *p1;
                     Data::new(
                         ((*p1 + p2.to_vector()) * 0.5)

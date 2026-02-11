@@ -5,7 +5,7 @@ use super::compositor;
 use crate::color::sRGB;
 //use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
-use crate::reactive::{DynSignal, SignalMap, SignalTupleZip, const_signal, join, zip_pair};
+use crate::reactive::{DynSignal, SignalMap, SignalZip, const_signal, join, zip_pair};
 use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
 use crate::{Canonicalize, PxDim, PxPoint, RenderError, shaders};
@@ -110,7 +110,7 @@ impl<const KIND: u8> Instance<KIND> {
             inner.clone(),
         )
             .zip()
-            .map_mut(
+            .flatmap_mut(
                 move |(intcorners, border, blur, fill, outline, inner), old| {
                     // We reserve an additional 2 pixel border around each side of our rect for
                     // sampling purposes. It must be 2 pixels because we have to inflate
@@ -165,7 +165,7 @@ impl<const KIND: u8> Instance<KIND> {
             inner.clone(),
         )
             .zip()
-            .map(
+            .flatmap(
                 |(region, intcorners, corners, dim, area, padding, fill, inner)| {
                     match region {
                         Ok(r) => {
@@ -349,7 +349,7 @@ impl<const KIND: u8> Instance<KIND> {
             outline.clone(),
         )
             .zip()
-            .map_mut(
+            .flatmap_mut(
                 move |(dim, corners, border, blur, fill, outline), old| match old {
                     None | Some(Ok(_)) => driver2
                         .with_pipeline::<Shape<KIND>, Result<(Data, atlas::Size), RenderError>>(
@@ -394,7 +394,7 @@ impl<const KIND: u8> Instance<KIND> {
 
         let data = (area.clone(), padding.clone(), dim.clone(), region.clone())
             .zip()
-            .map(|(area, padding, dim, region)| match region {
+            .flatmap(|(area, padding, dim, region)| match region {
                 Ok(r) => InstanceResult::Single(compositor::Data::new(
                     area.topleft().add_size(&padding.topleft()),
                     *dim,
@@ -413,7 +413,7 @@ impl<const KIND: u8> Instance<KIND> {
         let empty = const_signal(InstanceResult::Empty).into_dyn_signal();
         let blank = (area.clone(), padding.clone(), dim.clone(), fill.clone())
             .zip()
-            .map(|(area, padding, dim, fill)| {
+            .flatmap(|(area, padding, dim, fill)| {
                 InstanceResult::Single(compositor::Data::new(
                     area.topleft().add_size(&padding.topleft()),
                     *dim,

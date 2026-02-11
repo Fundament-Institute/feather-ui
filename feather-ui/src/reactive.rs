@@ -388,7 +388,6 @@ where
     Self: Clone,
 {
     type RefResult: TupleList;
-    //type ScopeResult<'a>: TupleList;
 
     fn update_if_necessary(&self);
     fn build_ref(&self) -> Self::RefResult;
@@ -538,6 +537,22 @@ where
     }
 }
 
+pub trait TupleBorrow<'a>: Tuple {
+    type Result: Tuple;
+
+    fn borrow(&'a self) -> Self::Result;
+}
+
+impl<'a, T1: 'a> TupleBorrow<'a> for (UnsafeRef<T1>,) {
+    type Result = (&'a T1,);
+
+    fn borrow(&'a self) -> Self::Result {
+        (self.0.deref(),)
+    }
+}
+/*
+//It's not possible to use UnsafeRefTupleList in a generic way because of limitations in the rust borrow checker.
+
 pub trait UnsafeRefTupleList<'a> {
     type Result: TupleList;
 
@@ -563,7 +578,7 @@ where
     fn borrow(&'a self) -> Self::Result {
         (&self.0, self.1.borrow())
     }
-}
+}*/
 
 struct ZipValueProvider<PList: ProviderTupleList>
 where
@@ -620,6 +635,7 @@ where
     }
 }
 
+/*
 pub struct ZipMapProvider<
     PList: ProviderTupleList,
     R,
@@ -685,7 +701,7 @@ where
             x.as_ref().expect("Must be updated before getting value.")
         }))
     }
-}
+}*/
 
 impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
     pub fn value(&self) -> Signal<ZipValueProvider<PList>>
@@ -701,9 +717,11 @@ impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
         }))
     }
 
-    pub fn map_ref<
+    // It's impossible to write this function because current borrow checker limitations make it impossible to write a function signature
+    // generic over all lifetimes that gets stored somewhere.
+    /*pub fn flatmap<
         R,
-        F: Fn(<<<PList as ProviderTupleList>::RefResult as UnsafeRefTupleList>::Result as TupleList>::Tuple) -> R,
+        F: for<'a> Fn(<<<PList as ProviderTupleList>::RefResult as UnsafeRefTupleList<'a>>::Result as TupleList>::Tuple) -> R,
     >(
         &self,
         f: F,
@@ -720,63 +738,78 @@ impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
             node,
             res: Default::default(),
         }))
-    }
+    }*/
 }
 
-/*pub fn zip_map<
-    T: Tuple,
-    T2: Clone,
-    R: Clone,
-    F: Fn(&P1::Item, &P2::Item) -> R,
-    P1: SignalProvider<Item = T1> + ?Sized,
-    P2: SignalProvider<Item = T2> + ?Sized,
->(
-    t: T,
-    f: F,
-) -> Signal<impl SignalProvider<Item = R>>
-where
-    T::TupleList: SignalTupleList,
-{
-    map(
-        move |arg| f(&arg.0, &arg.1.0),
-        zip(t),
-        always_fail_eq,
-        never_debug,
+macro_rules! gen_flatmap {
+    ($($x:ident),*) => (
+        impl<$($x: SignalProvider + ?Sized),*> Signal<ZipProvider<tuple_list::tuple_list_type!($(Rc<$x>),*)>> {
+            pub fn flatmap<R, F: Fn(($(&$x::Item),*)) -> R>(&self, f: F) -> Signal<impl SignalProvider<Item = R> + use<R, F, $($x),*>> {
+                map(
+                    move |($($x),*)| f(($(&*$x),*)),
+                    self.clone(),
+                    never_eq,
+                    never_debug,
+                )
+            }
+            pub fn flatmap_mut<R, F: Fn(($(&$x::Item),*), Option<R>) -> R>(
+                &self,
+                f: F,
+            ) -> Signal<impl SignalProvider<Item = R> + use<R, F, $($x),*>> {
+                map_mut(move |($($x),*), o| f(($(&*$x),*), o), self.clone())
+            }
+        }
     )
-}*/
-
-pub trait SignalTupleZip: Tuple {}
-
-/*
-pub trait SignalTupleZip: Tuple {
-    fn zip<'a, Output: Tuple>(
-        self,
-    ) -> Signal<impl SignalProvider<Item = <Output::TupleList as SplitBorrow<'a>>::SplitBorrowResult>>
-    where
-        Self::TupleList: SignalTupleListZip,
-        Output::TupleList: SplitBorrow<'a>;
 }
 
-impl<T: Tuple> SignalTupleZip for T
-where
-    T::TupleList: SignalTupleListZip,
-{
-    fn zip<'a, Output: Tuple>(
-        self,
-    ) -> Signal<impl SignalProvider<Item = <Output::TupleList as SplitBorrow<'a>>::SplitBorrowResult>>
-    where
-        Output::TupleList: SplitBorrow<'a>,
-    {
-        let p = self.into_tuple_list().zip();
+gen_flatmap!(P1, P2, P3);
+gen_flatmap!(P1, P2, P3, P4);
+gen_flatmap!(P1, P2, P3, P4, P5);
+gen_flatmap!(P1, P2, P3, P4, P5, P6);
+gen_flatmap!(P1, P2, P3, P4, P5, P6, P7);
+gen_flatmap!(P1, P2, P3, P4, P5, P6, P7, P8);
+gen_flatmap!(P1, P2, P3, P4, P5, P6, P7, P8, P9);
+gen_flatmap!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10);
+gen_flatmap!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11);
+gen_flatmap!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12);
 
+impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized>
+    Signal<ZipProvider<(Rc<P1>, (Rc<P2>, ()))>>
+{
+    pub fn flatmap<R, F: Fn((&P1::Item, &P2::Item)) -> R>(
+        &self,
+        f: F,
+    ) -> Signal<impl SignalProvider<Item = R> + use<R, F, P1, P2>> {
         map(
-            |xs: &<T::TupleList as SignalTupleListZip>::Result| xs.borrow().into_tuple(),
-            p,
-            always_fail_eq,
+            move |(a1, a2)| f((&*a1, &*a2)),
+            self.clone(),
+            never_eq,
             never_debug,
         )
     }
-}*/
+
+    pub fn flatmap_mut<R, F: Fn((&P1::Item, &P2::Item), Option<R>) -> R>(
+        &self,
+        f: F,
+    ) -> Signal<impl SignalProvider<Item = R> + use<R, F, P1, P2>> {
+        map_mut(move |(a1, a2), o| f((&*a1, &*a2), o), self.clone())
+    }
+}
+
+pub trait SignalZip<Input: Tuple>
+where
+    <Input as tuple_list::Tuple>::TupleList: SignalTupleList,
+{
+    fn zip(self) -> Signal<ZipProvider<<<Input as Tuple>::TupleList as SignalTupleList>::Result>>;
+}
+impl<Input: Tuple> SignalZip<Input> for Input
+where
+    <Input as tuple_list::Tuple>::TupleList: SignalTupleList,
+{
+    fn zip(self) -> Signal<ZipProvider<<<Input as Tuple>::TupleList as SignalTupleList>::Result>> {
+        zip(self)
+    }
+}
 
 pub struct SignalMapProvider<
     P: SignalProvider + ?Sized,
@@ -870,18 +903,18 @@ impl<
 }
 
 pub fn map<
-    T1,
-    T2,
-    P: SignalProvider<Item = T1> + ?Sized,
-    F: Fn(&P::Item) -> T2,
-    F2: Fn(&T2, &T2) -> bool,
-    F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
+    T,
+    R,
+    P: SignalProvider<Item = T> + ?Sized,
+    F: Fn(&P::Item) -> R,
+    FEq: Fn(&R, &R) -> bool,
+    FDebug: Fn(&R) -> Option<&dyn std::fmt::Debug>,
 >(
     f: F,
     signal: Signal<P>,
-    eq: F2,
-    debug: F3,
-) -> Signal<SignalMapProvider<P, T2, F, F2, F3>> {
+    eq: FEq,
+    debug: FDebug,
+) -> Signal<SignalMapProvider<P, R, F, FEq, FDebug>> {
     let node = new_node(NodeColor::Changed);
     let provider = signal.0;
     add_dependency(provider.get_node(), node.clone());
@@ -962,10 +995,10 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalPr
     }
 }
 
-pub fn map_mut<T1, T2, F: Fn(&P::Item, Option<T2>) -> T2, P: SignalProvider<Item = T1> + ?Sized>(
+pub fn map_mut<T, R, F: Fn(&P::Item, Option<R>) -> R, P: SignalProvider<Item = T> + ?Sized>(
     f: F,
     p: Signal<P>,
-) -> Signal<SignalMapMutProvider<P, T2, F>> {
+) -> Signal<SignalMapMutProvider<P, R, F>> {
     let node = new_node(NodeColor::Changed);
     let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
@@ -993,7 +1026,7 @@ pub trait SignalMap<Elem, P: SignalProvider<Item = Elem> + ?Sized> {
     ) -> Signal<impl SignalProvider<Item = T>>;
 }
 
-fn always_fail_eq<T>(_: &T, _: &T) -> bool {
+fn never_eq<T>(_: &T, _: &T) -> bool {
     false
 }
 
@@ -1019,18 +1052,18 @@ impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem, P> for Signa
         map_mut(f, self)
     }
     fn map_ex<T>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>> {
-        map(f, self, always_fail_eq, never_debug)
+        map(f, self, never_eq, never_debug)
     }
     fn map_debug<T: std::fmt::Debug>(
         self,
         f: impl Fn(&P::Item) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
-        map(f, self, always_fail_eq, always_debug)
+        map(f, self, never_eq, always_debug)
     }
 }
 
 pub struct SignalJoinProvider<
-    T: Clone,
+    T,
     P1: SignalProvider<Item = T> + ?Sized,
     P2: SignalProvider<Item = Signal<P1>> + ?Sized,
 > {
@@ -1042,11 +1075,8 @@ pub struct SignalJoinProvider<
     phantom: PhantomData<P1>,
 }
 
-impl<
-    T: Clone,
-    P1: SignalProvider<Item = T> + ?Sized,
-    P2: SignalProvider<Item = Signal<P1>> + ?Sized,
-> std::fmt::Debug for SignalJoinProvider<T, P1, P2>
+impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<P1>> + ?Sized>
+    std::fmt::Debug for SignalJoinProvider<T, P1, P2>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("JoinSignal")
@@ -1056,11 +1086,8 @@ impl<
     }
 }
 
-impl<
-    T: Clone,
-    P1: SignalProvider<Item = T> + ?Sized,
-    P2: SignalProvider<Item = Signal<P1>> + ?Sized,
-> SignalProvider for SignalJoinProvider<T, P1, P2>
+impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<P1>> + ?Sized>
+    SignalProvider for SignalJoinProvider<T, P1, P2>
 {
     type Item = T;
 
@@ -1129,7 +1156,7 @@ impl<
 }
 
 pub fn join<
-    T: Clone,
+    T,
     P1: SignalProvider<Item = T> + ?Sized,
     P2: SignalProvider<Item = Signal<P1>> + ?Sized,
 >(
@@ -1563,9 +1590,9 @@ pub fn empty_signal() -> Signal<ConstProvider<()>> {
 }
 
 pub fn zip_pair<
-    T1: Clone,
-    T2: Clone,
-    R: Clone,
+    T1,
+    T2,
+    R,
     F: Fn(&P1::Item, &P2::Item) -> R,
     P1: SignalProvider<Item = T1> + ?Sized,
     P2: SignalProvider<Item = T2> + ?Sized,
@@ -1577,7 +1604,7 @@ pub fn zip_pair<
     map(
         move |arg| f(&arg.0, &arg.1),
         zip((p1, p2)),
-        always_fail_eq,
+        never_eq,
         never_debug,
     )
 }
@@ -2203,8 +2230,8 @@ pub struct SignalVecMapProvider<
 }
 
 impl<
-    T1: Clone + 'static,
-    T2: Clone + 'static,
+    T1: 'static,
+    T2: 'static,
     Key: Eq + Hash + 'static,
     F: (Fn(&T1) -> T2) + 'static,
     Ex: (Fn(&T1) -> Key) + 'static,

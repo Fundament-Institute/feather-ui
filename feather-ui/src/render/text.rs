@@ -9,9 +9,7 @@ use guillotiere::AllocId;
 
 use crate::color::{Premultiplied, sRGB32};
 use crate::graphics::{GlyphCache, GlyphRegion};
-use crate::reactive::{
-    DynSignal, MutableSignal, Signal, SignalMap, SignalProvider, SignalTupleZip,
-};
+use crate::reactive::{DynSignal, MutableSignal, Signal, SignalMap, SignalProvider, SignalZip};
 use crate::render::atlas::{Atlas, Size};
 use crate::render::compositor::{CompositorView, DataFlags};
 use crate::{PxRect, RenderError};
@@ -41,7 +39,7 @@ impl Instance {
             cliprect: cliprect.clone(),
             values: (text_buffer, padding, area, cliprect)
                 .zip()
-                .map_mut(
+                .flatmap_mut(
                     move |(buffer, padding, area, cliprect),
                      old: Option<Result<Vec<super::compositor::Data>, RenderError>>| {
                         Self::evaluate(

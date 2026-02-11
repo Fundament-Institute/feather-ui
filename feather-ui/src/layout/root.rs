@@ -7,7 +7,7 @@ use super::{Desc, base};
 use crate::{
     Pixel, PxRect,
     layout::DynLayout,
-    reactive::{self, DynSignal, SignalMap, const_signal},
+    reactive::{self, DynSignal, SignalMap, SignalZip, const_signal},
 };
 use std::rc::Rc;
 
@@ -77,7 +77,7 @@ impl Desc for dyn Prop {
                         })),
                     ),
                     &defer,
-                    crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
+                    (final_area, dpi.clone()).zip().value().into_dyn_signal(),
                 )
             }),
         )
