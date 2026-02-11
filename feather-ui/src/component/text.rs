@@ -4,8 +4,7 @@
 use crate::color::sRGB;
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, Layout, leaf};
-use crate::reactive::SignalTupleZip;
-use crate::reactive::{DynSignal, MutableSignal, SignalMap, zip_pair};
+use crate::reactive::{DynSignal, MutableSignal, SignalMap, SignalZip, zip_pair};
 use crate::{graphics, reactive};
 use cosmic_text::{LineIter, Metrics};
 use derive_where::derive_where;
@@ -93,7 +92,7 @@ where
             self.props.limits(),
         )
             .zip()
-            .map_mut(
+            .flatmap_mut(
                 |(
                     text,
                     font_size,
@@ -105,17 +104,17 @@ where
                     inner,
                     padding,
                     limits,
-                ): &(
-                    String,
-                    f32,
-                    f32,
-                    crate::RelDim,
-                    cosmic_text::Wrap,
-                    cosmic_text::AttrsOwned,
-                    Option<cosmic_text::Align>,
-                    crate::UnsizedDim,
-                    crate::DAbsRect,
-                    crate::DLimits,
+                ): (
+                    &String,
+                    &f32,
+                    &f32,
+                    &crate::RelDim,
+                    &cosmic_text::Wrap,
+                    &cosmic_text::AttrsOwned,
+                    &Option<cosmic_text::Align>,
+                    &crate::UnsizedDim,
+                    &crate::DAbsRect,
+                    &crate::DLimits,
                 ),
                  buffer: Option<cosmic_text::Buffer>|
                  -> cosmic_text::Buffer {

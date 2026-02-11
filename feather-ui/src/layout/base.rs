@@ -3,7 +3,7 @@
 
 use crate::{
     DAbsRect, DPoint, DRect, ZERO_DRECT,
-    reactive::{DynSignal, MutableSignal, SignalMap, ToSignal, const_signal, zip_pair},
+    reactive::{DynSignal, MutableSignal, SignalMap, SignalZip, ToSignal, const_signal, zip_pair},
 };
 use std::rc::Rc;
 
@@ -67,7 +67,7 @@ impl crate::layout::Desc for dyn Empty {
                         ))),
                     ),
                     &defer,
-                    crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
+                    (final_area, dpi.clone()).zip().value().into_dyn_signal(),
                 )
             }),
         )

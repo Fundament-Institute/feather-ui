@@ -9,7 +9,7 @@ use derive_where::derive_where;
 use crate::{
     PxRect,
     layout::check_unsized_dim,
-    reactive::{DynSignal, MutableSignal, SignalMap, SignalTupleZip, zip, zip_pair},
+    reactive::{DynSignal, MutableSignal, SignalMap,SignalZip, zip, zip_pair},
     render, rtree,
 };
 
@@ -71,8 +71,8 @@ impl<T: leaf::Padded> Layout for Node<T> {
         let driver = self.driver.clone();
 
         let inner_dim = (myarea.clone(), predim.clone(), limits.clone())
-            .zip::<(crate::URect, crate::PxDim, crate::PxLimits)>()
-            .map(|(a, o, l)| super::eval_dim(*a, *o, *l));
+            .zip()
+            .flatmap(|(a, o, l)| super::eval_dim(*a, *o, *l));
 
         //let sized_area = (myarea.clone(), predim.clone(), limits.clone())
         //   .zip::<(crate::URect, crate::PxDim, PxLimits)>()
@@ -105,8 +105,8 @@ impl<T: leaf::Padded> Layout for Node<T> {
             predim.clone(),
             limits.clone(),
         )
-            .zip::<(crate::URect, PxRect, crate::PxDim, crate::PxLimits)>()
-            .map(|(a, p, o, l)| super::limit_area(super::map_unsized_area(*a, p.dim()) * *o, *l));
+            .zip()
+            .flatmap(|(a, p, o, l)| super::limit_area(super::map_unsized_area(*a, p.dim()) * *o, *l));
 
         (
             unsized_area.into(),
@@ -119,7 +119,7 @@ impl<T: leaf::Padded> Layout for Node<T> {
                     limits.clone(),
                 )
                     .zip()
-                    .map(|(padding, a, o, dim, limits)| {
+                    .flatmap(|(padding, a, o, dim, limits)| {
                         super::limit_area(
                             super::map_unsized_area(*a, padding.total()) * *dim,
                             *limits,
@@ -129,8 +129,8 @@ impl<T: leaf::Padded> Layout for Node<T> {
 
                 // debug_assert!(anchored_area.v.is_finite().all());
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
-                    .zip::<(PxRect, crate::DPoint, crate::RelDim)>()
-                    .map(|(area, a, d)| *area - (a.resolve(*d) * area.dim()))
+                    .zip()
+                    .flatmap(|(area, a, d)| *area - (a.resolve(*d) * area.dim()))
                     .into_dyn_signal();
 
                 super::resolve_defer_machine(
@@ -144,7 +144,7 @@ impl<T: leaf::Padded> Layout for Node<T> {
                         ))),
                     ),
                     &defer,
-                    crate::reactive::zip(final_area, dpi.clone()).into_dyn_signal(),
+                    (final_area, dpi.clone()).zip().value().into_dyn_signal(),
                 )
             }),
         )

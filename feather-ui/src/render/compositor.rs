@@ -3,7 +3,7 @@
 
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
-use crate::reactive::{self, DynSignal, MutableSignal, SignalMap, SignalTupleZip, cmp};
+use crate::reactive::{self, DynSignal, MutableSignal, SignalMap, SignalZip, cmp};
 use crate::render::atlas::{self, PxBox};
 use crate::{PxDim, PxPoint, PxRect, PxVector, RelDim};
 use derive_where::derive_where;
@@ -274,7 +274,7 @@ impl Layer {
                 cmp::eq(area.clone(), dest.clone()).into_dyn_signal(),
             )
                 .zip()
-                .map_mut(|(c, r, s), old| {
+                .flatmap_mut(|(c, r, s), old| {
                     if *c == sRGB32::white() && r.is_zero() && *s {
                         None
                     } else if let Some(o) = old {
