@@ -5,17 +5,16 @@ use super::compositor;
 use crate::color::sRGB;
 //use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
-use crate::reactive::{DynSignal, SignalMap, SignalZip, const_signal, join, zip_pair};
+use crate::reactive::{self, DynSignal, SignalMap, SignalZip, const_signal, join, zip_pair};
 use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
-use crate::{Canonicalize, PxDim, PxPoint, RenderError, shaders};
+use crate::{Canonicalize, Pixel, PxDim, PxPoint, PxRect, RenderError, shaders};
 use core::f32;
 use guillotiere::euclid::Size2D;
 use num_traits::Zero;
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use std::num::NonZero;
-use std::sync::Arc;
 use wgpu::BindGroupLayout;
 
 #[derive(Clone)]
@@ -26,13 +25,13 @@ pub struct PreInstance<const KIND: u8> {
     pub fill: DynSignal<sRGB>,
     pub outline: DynSignal<sRGB>,
     pub corners: DynSignal<[f32; 4]>,
-    pub driver: Arc<graphics::Driver>,
+    pub driver: std::sync::Weak<graphics::Driver>,
 }
 
 impl<const KIND: u8> crate::render::Prerender for PreInstance<KIND> {
     type R = Instance<KIND>;
 
-    fn prerender(&self, area: crate::DynSignal<crate::PxRect>) -> Self::R {
+    fn prerender(&self, area: DynSignal<PxRect>) -> Self::R {
         Instance::<KIND>::new(
             self.padding.clone(),
             self.border.clone(),
@@ -56,10 +55,8 @@ enum InstanceResult {
 
 pub struct Instance<const KIND: u8> {
     values: DynSignal<InstanceResult>,
-    cache: crate::reactive::Sampler<
-        dyn crate::reactive::SignalProvider<
-                Item = Result<(Data, Size2D<i32, crate::Pixel>), RenderError>,
-            >,
+    cache: reactive::Sampler<
+        dyn reactive::SignalProvider<Item = Result<(Data, Size2D<i32, Pixel>), RenderError>>,
     >,
 }
 
@@ -71,8 +68,8 @@ impl<const KIND: u8> Instance<KIND> {
         fill: DynSignal<sRGB>,
         outline: DynSignal<sRGB>,
         corners: DynSignal<[f32; 4]>,
-        area: DynSignal<crate::PxRect>,
-        driver: Arc<graphics::Driver>,
+        area: DynSignal<PxRect>,
+        driver2: std::sync::Weak<graphics::Driver>,
     ) -> Self {
         let dim = zip_pair(area.clone(), padding.clone(), |a, p| {
             a.dim() - p.bottomright() - p.topleft()
@@ -100,7 +97,7 @@ impl<const KIND: u8> Instance<KIND> {
             )
         });
 
-        let driver2 = driver.clone();
+        let wdriver = driver2.clone();
         let opt_reservation = (
             intcorners.clone(),
             border.clone(),
@@ -112,17 +109,18 @@ impl<const KIND: u8> Instance<KIND> {
             .zip()
             .flatmap_mut(
                 move |(intcorners, border, blur, fill, outline, inner), old| {
+                    let driver = wdriver.upgrade().unwrap();
                     // We reserve an additional 2 pixel border around each side of our rect for
                     // sampling purposes. It must be 2 pixels because we have to inflate
                     // the rect by 1 pixel for fractional draws already, which means we
                     // need an additional transparent pixel of buffer to cover all possible sampling
                     // scenarios.
                     match old {
-                        None | Some(Ok(_)) => driver2
+                        None | Some(Ok(_)) => driver
                             .with_pipeline::<Shape<KIND>, Result<(Data, atlas::Size), RenderError>>(
                                 |pipeline| {
                                     pipeline.update(
-                                        &driver2,
+                                        &driver,
                                         *inner + atlas::Size::new(4, 4),
                                         Data {
                                             pos: [2.0; 2].into(),
@@ -145,12 +143,15 @@ impl<const KIND: u8> Instance<KIND> {
                 },
             );
 
-        let driver2 = driver.clone();
+        let wdriver = driver2.clone();
         let opt_region = opt_reservation.clone().map(move |key| {
             key.map(|k| {
-                driver2.with_pipeline::<Shape<KIND>, (atlas::PxBox, u8)>(|pipeline| {
-                    pipeline.get(&k).expect("This lookup should never fail!")
-                })
+                wdriver
+                    .upgrade()
+                    .unwrap()
+                    .with_pipeline::<Shape<KIND>, (atlas::PxBox, u8)>(|pipeline| {
+                        pipeline.get(&k).expect("This lookup should never fail!")
+                    })
             })
         });
 
@@ -235,7 +236,7 @@ impl<const KIND: u8> Instance<KIND> {
                                 inner.height - intcorners[3],
                             );
 
-                            let sides = crate::PxRect::new(
+                            let sides = PxRect::new(
                                 corners[0].max(corners[3]),
                                 corners[0].max(corners[1]),
                                 corners[1].max(corners[2]),
@@ -339,7 +340,7 @@ impl<const KIND: u8> Instance<KIND> {
             )
             .into_dyn_signal();
 
-        let driver2 = driver.clone();
+        let wdriver = driver2.clone();
         let reservation = (
             dim.clone(),
             corners.clone(),
@@ -351,36 +352,43 @@ impl<const KIND: u8> Instance<KIND> {
             .zip()
             .flatmap_mut(
                 move |(dim, corners, border, blur, fill, outline), old| match old {
-                    None | Some(Ok(_)) => driver2
-                        .with_pipeline::<Shape<KIND>, Result<(Data, atlas::Size), RenderError>>(
-                            |pipeline| {
-                                pipeline.update(
-                                    &driver2,
-                                    dim.ceil().cast(),
-                                    Data {
-                                        pos: [0.0; 2].into(),
-                                        dim: dim.to_array().into(),
-                                        border: *border,
-                                        blur: *blur,
-                                        corners: corners.into(),
-                                        fill: fill.as_32bit().rgba,
-                                        outline: outline.as_32bit().rgba,
-                                    },
-                                    old.map(|x| x.unwrap()),
-                                    false,
-                                )
-                            },
-                        ),
+                    None | Some(Ok(_)) => {
+                        let driver = wdriver.upgrade().unwrap();
+
+                        driver
+                            .with_pipeline::<Shape<KIND>, Result<(Data, atlas::Size), RenderError>>(
+                                |pipeline| {
+                                    pipeline.update(
+                                        &driver,
+                                        dim.ceil().cast(),
+                                        Data {
+                                            pos: [0.0; 2].into(),
+                                            dim: dim.to_array().into(),
+                                            border: *border,
+                                            blur: *blur,
+                                            corners: corners.into(),
+                                            fill: fill.as_32bit().rgba,
+                                            outline: outline.as_32bit().rgba,
+                                        },
+                                        old.map(|x| x.unwrap()),
+                                        false,
+                                    )
+                                },
+                            )
+                    }
                     Some(Err(e)) => Err(e),
                 },
             );
 
-        let driver2 = driver.clone();
+        let wdriver = driver2.clone();
         let region = reservation.clone().map(move |key| {
             key.map(|k| {
-                driver2.with_pipeline::<Shape<KIND>, (atlas::PxBox, u8)>(|pipeline| {
-                    pipeline.get(&k).expect("This lookup should never fail!")
-                })
+                wdriver
+                    .upgrade()
+                    .unwrap()
+                    .with_pipeline::<Shape<KIND>, (atlas::PxBox, u8)>(|pipeline| {
+                        pipeline.get(&k).expect("This lookup should never fail!")
+                    })
             })
         });
 
@@ -458,10 +466,7 @@ impl<const KIND: u8> Instance<KIND> {
             },
         ));
 
-        let none_reservation = const_signal(Ok((
-            Data::default(),
-            Size2D::<i32, crate::Pixel>::default(),
-        )));
+        let none_reservation = const_signal(Ok((Data::default(), Size2D::<i32, Pixel>::default())));
 
         let region_choice = join((dim.clone(), corners.clone(), border.clone()).zip().map_ex(
             move |(dim, corners, border)| {
@@ -515,7 +520,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             }
         }
 
-        let data = crate::reactive::sample(&self.values);
+        let data = reactive::sample(&self.values);
         match &*data {
             InstanceResult::Empty => (),
             InstanceResult::Single(data) => {

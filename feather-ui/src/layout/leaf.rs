@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::base::Empty;
-use super::{Concrete, Desc, Layout, base, map_unsized_area};
+use super::{Concrete, Desc, Layout, base};
 use crate::layout::DeferMachine;
-use crate::reactive::{DynSignal, SignalMap, SignalZip, zip_pair};
-use crate::{DRect, PxDim, PxLimits, PxPerimeter, PxRect, RelDim, rtree};
+use crate::reactive::{DynSignal, SignalZip, zip_pair};
+use crate::{DRect, PxDim, PxPerimeter, PxRect, RelDim, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Anchor {}
@@ -44,7 +44,7 @@ impl Desc for dyn Prop {
         let myarea = zip_pair(props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
 
         let evaluated_area = crate::reactive::zip((myarea.clone(), predim.clone(), limits.clone()))
-            .flatmap(|(a, dim, l)| super::limit_area(*a * *dim, *l));
+            .flatmap(|(a, dim, l)| super::limit_area(a.resolve(*dim, PxDim::zero()), *l));
 
         let anchor = props.anchor();
         (
@@ -53,7 +53,9 @@ impl Desc for dyn Prop {
                 let final_area = (myarea.clone(), offset, final_dim, limits.clone())
                     .zip()
                     // .flatmap(|(padding, a, o, dim, limits)| super::limit_area(map_unsized_area(*a, padding.total()) * *dim, *limits) + *o)
-                    .flatmap(|(a, o, dim, limits)| super::limit_area(*a * *dim, *limits) + *o)
+                    .flatmap(|(a, o, dim, limits)| {
+                        super::limit_area(a.resolve(*dim, PxDim::zero()), *limits) + *o
+                    })
                     .into_dyn_signal();
 
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
@@ -92,25 +94,25 @@ pub struct Sized<T, R: Clone> {
 
 #[inline]
 fn calc_sized_area(padding: PxPerimeter, area: crate::URect, size: PxDim, outer: PxDim) -> PxRect {
-    let (unsized_x, unsized_y) = super::check_unsized(area);
+    let (unsized_x, unsized_y) = area.is_unsized();
     let aspect_ratio = size.width / size.height; // Will be NAN if both are 0, which disables any attempt to preserve aspect ratio
     match (unsized_x, unsized_y, aspect_ratio.is_finite()) {
         (true, false, false) => {
-            let mut presize = map_unsized_area(area, PxDim::zero()) * outer;
+            let mut presize = area.resolve(outer, PxDim::zero());
             let adjust = presize.dim().height * aspect_ratio;
             let v = presize.v.as_array_mut();
             v[2] += adjust;
             presize
         }
         (false, true, false) => {
-            let mut presize = map_unsized_area(area, PxDim::zero()) * outer;
+            let mut presize = area.resolve(outer, PxDim::zero());
             // Be careful, the aspect ratio here is being divided instead of multiplied
             let adjust = presize.dim().width / aspect_ratio;
             let v = presize.v.as_array_mut();
             v[3] += adjust;
             presize
         }
-        _ => map_unsized_area(area, size + padding.total()) * outer,
+        _ => area.resolve(outer, size + padding.total()),
     }
 }
 

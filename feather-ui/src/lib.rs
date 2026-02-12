@@ -47,12 +47,11 @@ use crate::reactive::{
 };
 use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
-use bytemuck::NoUninit;
+use bytemuck::Zeroable;
 use core::f32;
 use dyn_clone::DynClone;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
-use num_traits::Zero;
 use parking_lot::RwLock;
 use std::any::Any;
 use std::cell::RefCell;
@@ -326,10 +325,6 @@ pub type RelRect = Rect<Relative>;
 /// relative component
 pub type ResRect = Rect<Resolved>;
 
-unsafe impl<U: Copy + 'static> NoUninit for Rect<U> {}
-
-pub const ZERO_RECT: AbsRect = AbsRect::zero();
-
 impl<U> Rect<U> {
     #[inline]
     pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
@@ -490,6 +485,11 @@ impl<U> Rect<U> {
     }
 
     #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.v.abs() == f32x4::ZERO
+    }
+
+    #[inline]
     pub const fn unit() -> Self {
         Self {
             v: f32x4::new([0.0, 0.0, 1.0, 1.0]),
@@ -510,6 +510,16 @@ impl<U> Rect<U> {
             v: self.v,
             _unit: PhantomData,
         }
+    }
+}
+
+unsafe impl<U> Zeroable for Rect<U> {}
+unsafe impl<U: Copy + 'static> bytemuck::Pod for Rect<U> {}
+
+impl<U> Hash for Rect<U> {
+    fn hash<H: core::hash::Hasher>(&self, h: &mut H) {
+        let v = self.v.as_array_ref();
+        h.write_i128(bytemuck::cast(*v));
     }
 }
 
@@ -962,23 +972,15 @@ pub struct DPoint {
     pub rel: RelPoint,
 }
 
-pub const ZERO_DPOINT: DPoint = DPoint {
-    px: PxPoint {
-        x: 0.0,
-        y: 0.0,
+const fn zero_point<T: Zeroable, U>() -> Point2D<T, U> {
+    Point2D {
+        x: unsafe { core::mem::zeroed() },
+        y: unsafe { core::mem::zeroed() },
         _unit: PhantomData,
-    },
-    dp: AbsPoint {
-        x: 0.0,
-        y: 0.0,
-        _unit: PhantomData,
-    },
-    rel: RelPoint {
-        x: 0.0,
-        y: 0.0,
-        _unit: PhantomData,
-    },
-};
+    }
+}
+
+pub const ZERO_DPOINT: DPoint = DPoint::zero();
 
 impl DPoint {
     const fn resolve(&self, dpi: RelDim) -> UPoint {
@@ -988,6 +990,14 @@ impl DPoint {
             self.rel.x,
             self.rel.y,
         ]))
+    }
+
+    pub const fn zero() -> Self {
+        Self {
+            px: zero_point(),
+            dp: zero_point(),
+            rel: zero_point(),
+        }
     }
 }
 
@@ -1063,6 +1073,22 @@ pub struct URect {
 }
 
 impl URect {
+    #[must_use]
+    #[inline]
+    pub const fn zero() -> Self {
+        Self {
+            abs: ResRect::zero(),
+            rel: RelRect::zero(),
+        }
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.abs.is_zero() && self.rel.is_zero()
+    }
+
+    #[must_use]
     #[inline]
     pub fn topleft(&self) -> UPoint {
         let abs = self.abs.v.as_array_ref();
@@ -1070,6 +1096,7 @@ impl URect {
         UPoint(f32x4::new([abs[0], abs[1], rel[0], rel[1]]))
     }
 
+    #[must_use]
     #[inline]
     pub fn bottomright(&self) -> UPoint {
         let abs = self.abs.v.as_array_ref();
@@ -1077,58 +1104,79 @@ impl URect {
         UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
     }
 
+    /// Returns true if an axis is unsized, which means it is defined as the size of
+    /// it's children's maximum extent.
+    #[must_use]
     #[inline]
-    pub fn resolve(&self, rect: PxRect) -> PxRect {
+    pub fn is_unsized(&self) -> (bool, bool) {
+        (
+            self.bottomright().rel().x == UNSIZED_AXIS,
+            self.bottomright().rel().y == UNSIZED_AXIS,
+        )
+    }
+
+    #[must_use]
+    #[inline]
+    fn map_unsized(&self, adjust: PxDim) -> (f32x4, f32x4) {
+        let (unsized_x, unsized_y) = self.is_unsized();
+        let mut abs = self.abs.v;
+        let mut rel = self.rel.v;
+        let v_abs = abs.as_array_mut();
+        let v_rel = rel.as_array_mut();
+        // Unsized objects must always have a single anchor point to make sense, so we
+        // copy over from topleft.
+        if unsized_x {
+            v_rel[2] = v_rel[0];
+            // Fix the bottomright abs area in unsized scenarios, because it was relative to
+            // the topleft instead of being independent.
+            v_abs[2] += v_abs[0] + adjust.width;
+        }
+        if unsized_y {
+            v_rel[3] = v_rel[1];
+            v_abs[3] += v_abs[1] + adjust.height;
+        }
+        (abs, rel)
+    }
+
+    // A URect can always be potentially unsized, so any resolution step must handle that unless is_unsized()
+    // has been manually verified.
+    #[must_use]
+    #[inline]
+    pub fn resolve(&self, dim: PxDim, adjust: PxDim) -> PxRect {
+        let (abs, rel) = self.map_unsized(adjust);
+
+        PxRect {
+            v: abs + rel * splat_size(dim),
+            _unit: PhantomData,
+        }
+    }
+
+    /// Can only be called if is_unsized() is (false, false)
+    #[must_use]
+    #[inline]
+    pub fn resolve_sized(&self, dim: PxDim) -> PxRect {
+        debug_assert!(!self.is_unsized().0);
+        debug_assert!(!self.is_unsized().1);
+
+        PxRect {
+            v: self.abs.v + self.rel.v * splat_size(dim),
+            _unit: PhantomData,
+        }
+    }
+
+    /// Resolves this URect to a perimeter (cannot have unsized axis)
+    #[must_use]
+    #[inline]
+    pub fn to_perimeter(&self, rect: PxRect) -> PxPerimeter {
+        debug_assert!(!self.is_unsized().0);
+        debug_assert!(!self.is_unsized().1);
+
         let ltrb = rect.v.as_array_ref();
         let topleft = f32x4::new([ltrb[0], ltrb[1], ltrb[0], ltrb[1]]);
         let bottomright = f32x4::new([ltrb[2], ltrb[3], ltrb[2], ltrb[3]]);
 
-        PxRect {
-            v: topleft + self.abs.v + self.rel.v * (bottomright - topleft),
-            _unit: PhantomData,
-        }
-    }
-
-    #[inline]
-    pub fn to_perimeter(&self, rect: PxRect) -> PxPerimeter {
         PxPerimeter {
-            v: self.resolve(rect).v,
-            _unit: PhantomData,
-        }
-    }
-}
-
-pub const ZERO_URECT: URect = URect {
-    abs: ResRect::zero(),
-    rel: RelRect::zero(),
-};
-
-pub const FILL_URECT: URect = URect {
-    abs: ResRect::zero(),
-    rel: RelRect::unit(),
-};
-
-pub const AUTO_URECT: URect = URect {
-    abs: ResRect::zero(),
-    rel: RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
-};
-
-impl Mul<PxRect> for URect {
-    type Output = PxRect;
-
-    #[inline]
-    fn mul(self, rhs: PxRect) -> Self::Output {
-        self.resolve(rhs)
-    }
-}
-
-impl Mul<PxDim> for URect {
-    type Output = PxRect;
-
-    #[inline]
-    fn mul(self, rhs: PxDim) -> Self::Output {
-        Self::Output {
-            v: self.abs.v + self.rel.v * splat_size(rhs),
+            v: topleft + self.abs.v + self.rel.v * (bottomright - topleft),
             _unit: PhantomData,
         }
     }
@@ -1222,6 +1270,10 @@ impl DRect {
             dp: AbsRect::zero(),
             rel: RelRect::zero(),
         }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.px.is_zero() && self.dp.is_zero() && self.rel.is_zero()
     }
 
     /// Returns a DRect with a relative component mapped to the entire available

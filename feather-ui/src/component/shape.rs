@@ -119,7 +119,7 @@ where
 
     fn layout(
         &self,
-        driver: Arc<crate::graphics::Driver>,
+        driver: &Arc<crate::graphics::Driver>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> Self::R {
         let corners = if KIND == ShapeKind::RoundRect as u8 {
@@ -149,7 +149,7 @@ where
                 fill: self.fill.clone(),
                 outline: self.outline.clone(),
                 corners,
-                driver,
+                driver: Arc::downgrade(driver),
             }),
             machine: None,
         }

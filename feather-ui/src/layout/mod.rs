@@ -18,8 +18,8 @@ use crate::reactive::{self};
 use crate::render::compositor::{CompositorView, Layer};
 use crate::render::{Prerender, Renderable};
 use crate::{
-    DynSignal, Error, PxDim, PxLimits, PxPoint, PxRect, RelLimits, RenderError, UNSIZED_AXIS,
-    URect, UnsizedDim, rtree,
+    DynSignal, PxDim, PxLimits, PxPoint, PxRect, RelLimits, RenderError, UNSIZED_AXIS, URect,
+    UnsizedDim, rtree,
 };
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -67,7 +67,6 @@ where
     }
 }
 
-#[must_use]
 pub type DeferMachine<P> = (
     crate::event::AntiStream<'static, crate::input::RawEvent, Rc<rtree::Node>>,
     reactive::Signal<reactive::SignalDeferProvider<P>>,
@@ -311,27 +310,6 @@ impl<T: Renderable> Staged for Concrete<T> {
 
 #[must_use]
 #[inline]
-pub(crate) fn map_unsized_area(mut area: URect, adjust: PxDim) -> URect {
-    let (unsized_x, unsized_y) = check_unsized(area);
-    let abs = area.abs.v.as_array_mut();
-    let rel = area.rel.v.as_array_mut();
-    // Unsized objects must always have a single anchor point to make sense, so we
-    // copy over from topleft.
-    if unsized_x {
-        rel[2] = rel[0];
-        // Fix the bottomright abs area in unsized scenarios, because it was relative to
-        // the topleft instead of being independent.
-        abs[2] += abs[0] + adjust.width;
-    }
-    if unsized_y {
-        rel[3] = rel[1];
-        abs[3] += abs[1] + adjust.height;
-    }
-    area
-}
-
-#[must_use]
-#[inline]
 pub(crate) fn zero_unsized(v: UnsizedDim) -> PxDim {
     let (unsized_x, unsized_y) = check_unsized_dim(v);
     PxDim {
@@ -384,7 +362,7 @@ pub(crate) fn limit_dim_sized(v: crate::PxDim, limits: PxLimits) -> PxDim {
 #[must_use]
 #[inline]
 pub(crate) fn eval_dim(area: URect, dim: PxDim, limits: PxLimits) -> UnsizedDim {
-    let (unsized_x, unsized_y) = check_unsized(area);
+    let (unsized_x, unsized_y) = area.is_unsized();
     UnsizedDim::new(
         if unsized_x {
             area.bottomright().rel().x
@@ -440,17 +418,6 @@ pub(crate) fn apply_limit(dim: UnsizedDim, limits: PxLimits, rlimits: RelLimits)
         v: (rlimits.v.is_finite().blend(px, f32x4::ONE) * rlimits.v).copysign(sign),
         _unit: PhantomData,
     }
-}
-
-// Returns true if an axis is unsized, which means it is defined as the size of
-// it's children's maximum extent.
-#[must_use]
-#[inline]
-pub(crate) fn check_unsized(area: URect) -> (bool, bool) {
-    (
-        area.bottomright().rel().x == UNSIZED_AXIS,
-        area.bottomright().rel().y == UNSIZED_AXIS,
-    )
 }
 
 // Returns true if an axis is unsized, which means it is defined as the size of

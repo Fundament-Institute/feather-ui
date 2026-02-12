@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use super::{Concrete, Desc, base, check_unsized, map_unsized_area};
+use super::{Concrete, Desc, base};
 use crate::{
-    PxLimits, PxRect, RelDim,
+    PxRect, RelDim,
     layout::{DynLayout, zero_unsized},
     reactive::{self, DynSignal, SignalMap, SignalZip, zip_pair},
     render::Prerender,
@@ -110,7 +110,7 @@ fn stage<'a, T: Prerender + 'static>(
 
     // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
     let is_unsized = myarea.clone().map(|x| {
-        let (l, r) = check_unsized(*x);
+        let (l, r) = x.is_unsized();
         l || r
     });
 
@@ -121,11 +121,11 @@ fn stage<'a, T: Prerender + 'static>(
         limits.clone(),
     )
         .zip()
-        .flatmap(|(a, p, o, l)| super::limit_area(map_unsized_area(*a, p.dim()) * *o, *l));
+        .flatmap(|(a, p, o, l)| super::limit_area(a.resolve(*o, p.dim()), *l));
 
     let sized_area = (myarea.clone(), predim.clone(), limits.clone())
         .zip()
-        .flatmap(|(a, o, l)| super::limit_area(*a * *o, *l));
+        .flatmap(|(a, o, l)| super::limit_area(a.resolve_sized(*o), *l));
 
     // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
     let evaluated_area = reactive::cond(is_unsized.clone(), unsized_area.into(), sized_area.into());
@@ -145,9 +145,7 @@ fn stage<'a, T: Prerender + 'static>(
                 offset.clone(),
             )
                 .zip()
-                .flatmap(|(a, p, dim, l, o)| {
-                    super::limit_area(map_unsized_area(*a, p.dim()) * *dim, *l) + *o
-                });
+                .flatmap(|(a, p, dim, l, o)| super::limit_area(a.resolve(*dim, p.dim()), *l) + *o);
 
             let sized_final = (
                 myarea.clone(),
@@ -156,7 +154,7 @@ fn stage<'a, T: Prerender + 'static>(
                 offset.clone(),
             )
                 .zip()
-                .flatmap(|(a, dim, l, o)| super::limit_area(*a * *dim, *l) + *o);
+                .flatmap(|(a, dim, l, o)| super::limit_area(a.resolve_sized(*dim), *l) + *o);
 
             // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
             let final_area =

@@ -32,7 +32,7 @@ impl<T: list::Prop + 'static> super::Component for ListBox<T> {
 
     fn layout(
         &self,
-        driver: Arc<crate::graphics::Driver>,
+        driver: &Arc<crate::graphics::Driver>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> Rc<dyn Layout<T>> {
         let children = map_vec(

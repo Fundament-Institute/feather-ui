@@ -23,7 +23,7 @@ where
     type Props = T;
     type R = layout::Node<T, dyn base::Empty, crate::render::line::Instance>;
 
-    fn layout(&self, _: Arc<crate::graphics::Driver>, _: MutableSignal<crate::RelDim>) -> Self::R {
+    fn layout(&self, _: &Arc<crate::graphics::Driver>, _: MutableSignal<crate::RelDim>) -> Self::R {
         layout::Node::<T, dyn base::Empty, crate::render::line::Instance> {
             props: self.props.clone(),
             children: reactive::empty_signal().into(),

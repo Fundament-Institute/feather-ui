@@ -4,7 +4,7 @@
 use crate::{
     PxPoint,
     color::sRGB,
-    reactive::{DynSignal, SignalMap, sample},
+    reactive::{DynSignal, sample},
 };
 
 use super::compositor::CompositorView;
