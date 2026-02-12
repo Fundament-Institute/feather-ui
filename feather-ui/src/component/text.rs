@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::color::sRGB;
 use crate::graphics::point_to_pixel;
-use crate::layout::{self, Layout, leaf};
-use crate::reactive::{DynSignal, MutableSignal, SignalMap, SignalZip, zip_pair};
-use crate::{graphics, reactive};
-use cosmic_text::{LineIter, Metrics};
+use crate::layout::{self, leaf};
+use crate::reactive;
+use crate::reactive::{DynSignal, MutableSignal, SignalZip, zip_pair};
+use cosmic_text::LineIter;
 use derive_where::derive_where;
-use std::cell::RefCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -69,17 +66,18 @@ where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
     type Props = T;
-    type R = layout::text::Node<T>;
+    type R = layout::text::Node<T, crate::render::text::PreInstance>;
 
     fn layout(
         &self,
-        driver2: Arc<crate::graphics::Driver>,
+        driver2: &Arc<crate::graphics::Driver>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> Self::R {
         let inner_dim = reactive::defer::<crate::UnsizedDim, _>();
-        let wdriver = Arc::downgrade(&driver2);
+        let inner_limits = reactive::defer::<crate::PxLimits, _>();
+        let wdriver = Arc::downgrade(driver2);
 
-        (
+        let text_buffer = (
             self.text.clone(),
             self.font_size.clone(),
             self.line_height.clone(),
@@ -89,7 +87,7 @@ where
             self.align.clone(),
             inner_dim.clone(),
             self.props.padding(),
-            self.props.limits(),
+            inner_limits,
         )
             .zip()
             .flatmap_mut(
@@ -114,19 +112,19 @@ where
                     &Option<cosmic_text::Align>,
                     &crate::UnsizedDim,
                     &crate::DAbsRect,
-                    &crate::DLimits,
+                    &crate::PxLimits,
                 ),
                  buffer: Option<cosmic_text::Buffer>|
                  -> cosmic_text::Buffer {
                     let driver = wdriver.upgrade().unwrap();
                     let mut font_system = driver.font_system.write();
-
+                    let padding = padding.as_perimeter(*dpi);
                     let metrics = cosmic_text::Metrics::new(
                         point_to_pixel(*font_size, dpi.width),
                         point_to_pixel(*line_height, dpi.height),
                     );
 
-                    let buffer = buffer
+                    let mut buffer = buffer
                         .unwrap_or_else(|| cosmic_text::Buffer::new(&mut font_system, metrics));
                     buffer.set_metrics(&mut font_system, metrics);
                     buffer.set_wrap(&mut font_system, *wrap);
@@ -155,9 +153,9 @@ where
                     };
 
                     let dim = inner - padding.total();
-                    let (unsized_x, unsized_y) = check_unsized_dim(dim);
+                    let (unsized_x, unsized_y) = layout::check_unsized_dim(dim);
 
-                    text_buffer.set_size(
+                    buffer.set_size(
                         &mut font_system,
                         if unsized_x {
                             limitx
@@ -175,17 +173,16 @@ where
                     if unsized_x || unsized_y {
                         let mut h = 0.0;
                         let mut w: f32 = 0.0;
-                        //let mut realign = self.realign;
 
                         // TODO: In order to extract the width and height back out of the text buffer, we have to unconditionally
                         // set the width/height here. If we replace buffer with a wrapper that can hold a realign and w/h values,
                         // then we can restore this optimization.
-                        let realign = true;
+                        //let mut realign = self.realign;
 
-                        for run in text_buffer.layout_runs() {
+                        for run in buffer.layout_runs() {
                             w = w.max(run.line_w);
                             // If a line is RTL and we're unsized, we ALWAYS have to re-evaluate it!
-                            realign = realign || run.rtl;
+                            //realign = realign || run.rtl;
                             h += run.line_height;
                         }
 
@@ -197,33 +194,30 @@ where
                         // we know how big it really is. This is true even if all the text
                         // was originally marked as RTL - the layout will still be wrong because
                         // it didn't know how big the text would be.
-                        if realign {
-                            text_buffer.set_size(&mut driver.font_system.write(), Some(w), Some(h))
-                        }
-
-                        // Set w and h
-                        self.w = w + padding.total().width;
-                        self.h = h + padding.total().height;
+                        //if realign {
+                        buffer.set_size(&mut driver.font_system.write(), Some(w), Some(h));
+                        //}
                     };
 
                     buffer
                 },
             );
 
-        let render = Rc::new(crate::render::text::Instance::new(
-            textstate.clone(),
-            zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)),
-            area,
-            driver,
-        ));
+        let render = crate::render::text::PreInstance {
+            text_buffer,
+            padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)),
+            driver: Arc::downgrade(driver2),
+        };
 
-        layout::text::Node::<T> {
+        layout::text::Node {
             props: self.props.clone(),
-            buffer: textstate.buffer.clone(),
-            renderable: render,
+            buffer: text_buffer.into(),
+            renderable: render.into(),
             //realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
-            driver: std::sync::Arc::downgrade(&driver),
+            driver: Arc::downgrade(driver2),
             machine: None,
+            inner_dim: inner_dim,
+            inner_limits: inner_limits,
         }
     }
 }

@@ -77,11 +77,7 @@ pub trait Component {
     type Props;
     type R: Layout<Props = Self::Props> + 'static;
 
-    fn layout(
-        &self,
-        driver: Arc<graphics::Driver>,
-        dpi: MutableSignal<crate::RelDim>,
-    ) -> Self::R;
+    fn layout(&self, driver: &Arc<graphics::Driver>, dpi: MutableSignal<crate::RelDim>) -> Self::R;
 }
 
 impl<T: Component> ComponentMarker for T {}
@@ -91,7 +87,7 @@ pub type ChildOf<D> = dyn DynComponent<<D as Desc>::Child>;
 pub trait DynComponent<T: ?Sized> {
     fn layout(
         &self,
-        driver: Arc<graphics::Driver>,
+        driver: &Arc<graphics::Driver>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> Rc<dyn DynLayout<T>>;
 }
@@ -103,7 +99,7 @@ where
 {
     fn layout(
         &self,
-        driver: Arc<graphics::Driver>,
+        driver: &Arc<graphics::Driver>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> Rc<dyn DynLayout<U>> {
         Rc::new(Component::layout(self, driver, dpi))
@@ -123,7 +119,7 @@ where
 /*impl<U: ?Sized> DynComponent<U> for () {
     fn layout(
         &self,
-        _: Arc<graphics::Driver>,
+        _: &Arc<graphics::Driver>,
         _: MutableSignal<crate::RelDim>,
     ) -> Rc<dyn DynLayout<U>> {
         panic!("Component was already processed!")

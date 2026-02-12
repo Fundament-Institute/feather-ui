@@ -298,7 +298,7 @@ where
 
     fn layout(
         &self,
-        _: Arc<crate::graphics::Driver>,
+        _: &Arc<crate::graphics::Driver>,
         _: reactive::MutableSignal<crate::RelDim>,
     ) -> Self::R {
         layout::Node::<T, dyn leaf::Prop, ()> {

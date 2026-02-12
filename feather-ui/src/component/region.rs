@@ -48,11 +48,14 @@ where
 
     fn layout(
         &self,
-        driver: Arc<crate::graphics::Driver>,
+        driver: &Arc<crate::graphics::Driver>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> Self::R {
+        let wdriver = Arc::downgrade(&driver);
         let children = map_vec(
-            move |child: &Rc<ChildOf<dyn fixed::Prop>>| child.layout(driver.clone(), dpi.clone()),
+            move |child: &Rc<ChildOf<dyn fixed::Prop>>| {
+                child.layout(&wdriver.upgrade().unwrap(), dpi.clone())
+            },
             |x| crate::reactive::Identity(x.clone()),
             self.children.clone(),
         );

@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use cosmic_text::{CacheKey, FontSystem};
 use guillotiere::AllocId;
 
 use crate::color::{Premultiplied, sRGB32};
 use crate::graphics::{GlyphCache, GlyphRegion};
-use crate::reactive::{DynSignal, MutableSignal, Signal, SignalMap, SignalProvider, SignalZip};
+use crate::reactive::{DynSignal, MutableSignal, Signal, SignalProvider, SignalZip};
 use crate::render::atlas::{Atlas, Size};
 use crate::render::compositor::{CompositorView, DataFlags};
 use crate::{PxRect, RenderError};
@@ -17,22 +14,46 @@ use crate::{PxRect, RenderError};
 use swash::scale::{Render, ScaleContext, Source, StrikeWith};
 use swash::zeno::{Format, Vector};
 
+use derive_where::derive_where;
 pub use swash::scale::image::{Content, Image};
 pub use swash::zeno::{Angle, Command, Placement, Transform};
 
+#[feather_macro::signal_def]
+#[derive_where(Clone)]
+pub struct PreInstance {
+    pub text_buffer: Signal<Item = cosmic_text::Buffer>,
+    pub padding: Signal<Item = crate::PxPerimeter>,
+    pub driver: std::sync::Weak<crate::Driver>,
+}
+
+impl<
+    P1: SignalProvider<Item = cosmic_text::Buffer> + ?Sized + 'static,
+    P2: SignalProvider<Item = crate::PxPerimeter> + ?Sized + 'static,
+> crate::render::Prerender for PreInstance<P1, P2>
+{
+    type R = Instance;
+
+    fn prerender(&self, area: crate::DynSignal<crate::PxRect>) -> Self::R {
+        Instance::new(
+            area,
+            self.text_buffer.clone(),
+            self.padding.clone(),
+            self.driver.clone(),
+        )
+    }
+}
+
 pub struct Instance {
-    //pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
-    //pub padding: std::cell::Cell<crate::PxPerimeter>,
     pub cliprect: MutableSignal<PxRect>, // Holds the last known clipping rect
     pub values: DynSignal<Result<Vec<super::compositor::Data>, RenderError>>,
 }
 
 impl Instance {
     pub fn new(
-        text_buffer: Signal<impl SignalProvider<Item = cosmic_text::Buffer> + 'static>,
-        padding: Signal<impl SignalProvider<Item = crate::PxPerimeter> + 'static>,
-        area: Signal<impl SignalProvider<Item = crate::PxRect> + 'static>,
-        driver: crate::Arc<crate::Driver>,
+        area: Signal<impl SignalProvider<Item = crate::PxRect> + ?Sized + 'static>,
+        text_buffer: Signal<impl SignalProvider<Item = cosmic_text::Buffer> + ?Sized + 'static>,
+        padding: Signal<impl SignalProvider<Item = crate::PxPerimeter> + ?Sized + 'static>,
+        wdriver: std::sync::Weak<crate::Driver>,
     ) -> Self {
         let cliprect = MutableSignal::new(PxRect::zero(), ());
         Self {
@@ -42,6 +63,7 @@ impl Instance {
                 .flatmap_mut(
                     move |(buffer, padding, area, cliprect),
                      old: Option<Result<Vec<super::compositor::Data>, RenderError>>| {
+                        let driver = wdriver.upgrade().unwrap();
                         Self::evaluate(
                             old.unwrap_or(Ok(Vec::default())).unwrap_or_default(),
                             buffer,
@@ -281,7 +303,7 @@ impl Instance {
         buffer: &cosmic_text::Buffer,
         pos: crate::PxPoint,
         scale: f32,
-        mut bounds: PxRect,
+        bounds: PxRect,
         color: cosmic_text::Color,
         font_system: &mut FontSystem,
         glyphs: &mut GlyphCache,

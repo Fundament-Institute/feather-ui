@@ -1,32 +1,43 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
-use derive_where::derive_where;
-
+use crate::reactive::DynDeferSignal;
+use crate::render::Prerender;
 use crate::{
     PxRect,
-    layout::check_unsized_dim,
-    reactive::{DynSignal, MutableSignal, SignalMap,SignalZip, zip, zip_pair},
-    render, rtree,
+    reactive::{DynSignal, Signal, SignalProvider, SignalZip, zip_pair},
+    rtree,
 };
 
-use super::{Layout, check_unsized, leaf, limit_area};
+use super::{Layout, leaf};
 
 //#[derive_where::derive_where(Clone)]
 #[derive(Clone)]
-pub struct Node<T> {
+pub struct Node<
+    T,
+    R: Clone + 'static,
+    P1: SignalProvider<Item = cosmic_text::Buffer> + ?Sized = dyn SignalProvider<
+        Item = cosmic_text::Buffer,
+    >,
+> {
     pub props: Rc<T>,
-    pub buffer: MutableSignal<cosmic_text::Buffer>,
-    pub renderable: Rc<dyn render::Renderable>,
+    pub buffer: Signal<P1>,
+    pub renderable: R,
     //pub realign: bool,
     pub driver: std::sync::Weak<crate::graphics::Driver>,
     pub machine: Option<super::DeferMachine<<dyn leaf::Prop as super::Desc>::Provider>>,
+    pub inner_dim: DynDeferSignal<crate::UnsizedDim>,
+    pub inner_limits: DynDeferSignal<crate::PxLimits>,
 }
 
-impl<T: leaf::Padded> Layout for Node<T> {
+impl<
+    T: leaf::Padded,
+    R: Prerender + Clone + 'static,
+    P1: SignalProvider<Item = cosmic_text::Buffer> + ?Sized,
+> Layout for Node<T, R, P1>
+{
     type Props = T;
 
     fn get_props(&self) -> &T {
@@ -42,15 +53,15 @@ impl<T: leaf::Padded> Layout for Node<T> {
             p.as_perimeter(*dpi)
         });
 
-        let limits = (
+        let inner_limits = (
             self.props.limits(),
             dpi.clone(),
             myarea.clone(),
             padding.clone(),
         )
             .zip()
-            .map(|(limits, dpi, area, padding)| {
-                let (unsized_x, unsized_y) = check_unsized(*area);
+            .flatmap(|(limits, dpi, area, padding)| {
+                let (unsized_x, unsized_y) = area.is_unsized();
                 let mut l = limits.resolve(*dpi);
                 let minmax = l.v.as_array_mut();
                 let allpadding =
@@ -67,10 +78,9 @@ impl<T: leaf::Padded> Layout for Node<T> {
                 l
             });
 
-        let mut text_buffer = self.buffer.borrow_mut();
         let driver = self.driver.clone();
 
-        let inner_dim = (myarea.clone(), predim.clone(), limits.clone())
+        let inner_dim = (myarea.clone(), predim.clone(), inner_limits.clone())
             .zip()
             .flatmap(|(a, o, l)| super::eval_dim(*a, *o, *l));
 
@@ -79,19 +89,19 @@ impl<T: leaf::Padded> Layout for Node<T> {
         //    .map(|(a, o, l)| super::limit_area(*a * *o, *l));
 
         // Resolve the defered inner_dim and limits
+        self.inner_dim.resolve(inner_dim.into());
+        self.inner_limits.resolve(inner_limits.into());
 
-
-        (self.buffer.clone(), )
         // Now we can operate on self.buffer, as any use of it will trigger a recalculation
-        let presize = zip_pair(self.buffer, myarea.clone(), |(_, w, h), area| {
-            let (unsized_x, unsized_y) = check_unsized(area);
+        let presize = zip_pair(self.buffer, myarea.clone(), |buffer, area| {
+            let (unsized_x, unsized_y) = area.is_unsized();
             let mut prearea = *area;
             let ltrb = prearea.v.as_array_mut();
             if unsized_x {
-                ltrb[2] = ltrb[0] + w;
+                ltrb[2] = ltrb[0] + buffer.size().0.unwrap_or_default() + padding.total().width;
             }
             if unsized_y {
-                ltrb[3] = ltrb[1] + h;
+                ltrb[3] = ltrb[1] + buffer.size().1.unwrap_or_default() + padding.total().height;
             }
             prearea
         });
@@ -103,10 +113,10 @@ impl<T: leaf::Padded> Layout for Node<T> {
             myarea.clone(),
             presize.clone(),
             predim.clone(),
-            limits.clone(),
+            inner_limits.clone(),
         )
             .zip()
-            .flatmap(|(a, p, o, l)| super::limit_area(super::map_unsized_area(*a, p.dim()) * *o, *l));
+            .flatmap(|(a, p, o, l)| super::limit_area(a.resolve(*o, p.dim()), *l));
 
         (
             unsized_area.into(),
@@ -116,14 +126,11 @@ impl<T: leaf::Padded> Layout for Node<T> {
                     myarea.clone(),
                     offset,
                     final_dim,
-                    limits.clone(),
+                    inner_limits.clone(),
                 )
                     .zip()
                     .flatmap(|(padding, a, o, dim, limits)| {
-                        super::limit_area(
-                            super::map_unsized_area(*a, padding.total()) * *dim,
-                            *limits,
-                        ) + *o
+                        super::limit_area(a.resolve(*dim, padding.total()), *limits) + *o
                     })
                     .into_dyn_signal();
 
@@ -139,7 +146,7 @@ impl<T: leaf::Padded> Layout for Node<T> {
                         None,
                         Default::default(),
                         Some(Box::new(super::Concrete::new(
-                            self.renderable.clone(),
+                            Some(&self.renderable),
                             anchored_area,
                         ))),
                     ),

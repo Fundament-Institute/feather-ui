@@ -432,3 +432,77 @@ pub fn lua_user_data(input: TokenStream) -> TokenStream {
     }
     .into()
 }
+
+#[proc_macro_attribute]
+pub fn signal_def(args: TokenStream, input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let mut list = std::vec![];
+    match &mut ast.data {
+        syn::Data::Struct(struct_data) => {
+            match &mut struct_data.fields {
+                syn::Fields::Named(fields) => {
+                    for field in fields.named.iter_mut().filter(|x| match &x.ty {
+                        syn::Type::Path(t) => {
+                            if let Some(x) = t.path.segments.last()
+                                && x.ident == format_ident!("Signal")
+                            {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    }) {
+                        match &mut field.ty {
+                            syn::Type::Path(signal) => {
+                                match &mut signal.path.segments.last_mut().unwrap().arguments {
+                                    syn::PathArguments::AngleBracketed(x) => {
+                                        if x.args.len() == 1 {
+                                            match &x.args[0] {
+                                                syn::GenericArgument::AssocType(t) => {
+                                                    list.push(t.ty.clone());
+                                                    let idx = format_ident!("P{}", list.len());
+                                                    x.args[0] = syn::GenericArgument::Type(
+                                                        syn::parse_quote! { #idx },
+                                                    )
+                                                }
+                                                _ => continue,
+                                            }
+                                        } else {
+                                            continue;
+                                        }
+                                    }
+                                    _ => continue,
+                                }
+                            }
+
+                            _ => continue,
+                        };
+                    }
+                }
+                _ => (),
+            }
+
+            let crate_name = format_ident!(
+                "{}",
+                if std::env::var("CARGO_PKG_NAME").unwrap() == "feather-ui" {
+                    "crate"
+                } else {
+                    "feather_ui"
+                }
+            );
+
+            for i in 0..list.len() {
+                let idx = format_ident!("P{}", i + 1);
+                let param = &list[i];
+                ast.generics.params.push(syn::GenericParam::Type(syn::parse_quote! { #idx : #crate_name::reactive::SignalProvider<Item = #param> + ?Sized = dyn SignalProvider<Item = #param> }));
+            }
+        }
+        _ => panic!("`signal_impl` is only for structs"),
+    }
+
+    return quote! {
+        #ast
+    }
+    .into();
+}

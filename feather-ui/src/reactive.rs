@@ -1,9 +1,8 @@
-use cosmic_text::Wrap;
 use imbl::GenericVector;
 use smolset::SmolSet;
 use stable_deref_trait::CloneStableDeref;
 use std::{
-    cell::{OnceCell, Ref, RefMut},
+    cell::{OnceCell, Ref},
     cmp::{PartialEq, PartialOrd},
     hash::Hash,
     marker::PhantomData,
@@ -1396,6 +1395,7 @@ impl<P: SignalProvider + ?Sized> Signal<SignalDeferProvider<P>> {
 pub type DynSignal<T> = Signal<dyn SignalProvider<Item = T>>; // Removing the stuff to handle smarter const folding to write less code
 pub type MutableSignal<T, Inputs = ()> = Signal<MutableSignalProvider<T, Inputs>>;
 pub type DynMutableSignal<T> = Signal<dyn SignalProviderMut<Item = T>>;
+pub type DynDeferSignal<T> = Signal<SignalDeferProvider<dyn SignalProvider<Item = T>>>;
 
 // A mechanism for declaring that something that isn't a signal cares about checking when a signal changes
 pub struct Sampler<Provider: SignalProvider + ?Sized> {

@@ -237,14 +237,14 @@ impl Window {
         &self,
         state: &WindowState,
     ) -> Box<dyn crate::layout::Layout<Props = DynSignal<Size2D<u32, crate::Pixel>>>> {
-        let driver = state.driver.clone();
+        let driver = Arc::downgrade(&state.driver);
         let size = state.surface_dim.clone();
         let dpi = state.dpi.clone();
 
         let children = self
             .child
             .clone()
-            .map_ex(move |child| child.layout(driver.clone(), dpi.clone()));
+            .map_ex(move |child| child.layout(&driver.upgrade().unwrap(), dpi.clone()));
 
         Box::new(
             layout::Node::<DynSignal<Size2D<u32, crate::Pixel>>, dyn root::Prop, ()> {
