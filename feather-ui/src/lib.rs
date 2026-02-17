@@ -26,7 +26,6 @@ pub mod input;
 pub mod layout;
 #[cfg(feature = "lua")]
 pub mod lua;
-pub mod persist;
 //mod propbag;
 mod pool;
 mod quadtree;
@@ -34,6 +33,7 @@ pub mod reactive;
 pub mod render;
 pub mod resource;
 mod rtree;
+pub mod sequence;
 mod shaders;
 pub mod text;
 pub mod util;
@@ -42,8 +42,7 @@ use crate::component::ComponentMarker;
 use crate::component::window::{Window, WindowState};
 use crate::graphics::Driver;
 use crate::reactive::{
-    DynSignal, Identity, MutableSignalProvider, Sampler, const_signal, empty_signal, map_vec,
-    sample,
+    ConstSignal, DynSignal, Identity, MutableProvider, Sampler, empty_signal, sample, sample_val,
 };
 use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
@@ -174,7 +173,7 @@ const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 #[macro_export]
 macro_rules! children {
     () => { [] };
-    ($prop:path, $($param:expr),+ $(,)?) => { $crate::imbl::Vector::from_iter([$(std::sync::Arc::from(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>)),+]) };
+    ($prop:path, $($param:expr),+ $(,)?) => { $crate::imbl::Vector::from_iter([$(std::rc::Rc::from(Box::new($param) as Box<$crate::component::ChildOf<dyn $prop>>)),+]) };
 }
 
 #[macro_export]
@@ -228,6 +227,18 @@ pub type PxDim = Size2D<f32, Pixel>;
 pub type RelDim = Size2D<f32, Relative>;
 /// A 2D dimension (or size) in physical pixels that could potentially be unsized.
 pub type UnsizedDim = Size2D<f32, Unsized>;
+
+pub trait Unsizable {
+    #[must_use]
+    fn is_unsized(&self) -> (bool, bool);
+}
+
+impl Unsizable for UnsizedDim {
+    #[inline]
+    fn is_unsized(&self) -> (bool, bool) {
+        (self.width == UNSIZED_AXIS, self.height == UNSIZED_AXIS)
+    }
+}
 
 /// Internal trait for "unresolving" a set of physical pixels into logical
 /// units.
@@ -1072,6 +1083,16 @@ pub struct URect {
     pub rel: RelRect,
 }
 
+impl Unsizable for URect {
+    #[inline]
+    fn is_unsized(&self) -> (bool, bool) {
+        (
+            self.bottomright().rel().x == UNSIZED_AXIS,
+            self.bottomright().rel().y == UNSIZED_AXIS,
+        )
+    }
+}
+
 impl URect {
     #[must_use]
     #[inline]
@@ -1104,20 +1125,9 @@ impl URect {
         UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
     }
 
-    /// Returns true if an axis is unsized, which means it is defined as the size of
-    /// it's children's maximum extent.
     #[must_use]
     #[inline]
-    pub fn is_unsized(&self) -> (bool, bool) {
-        (
-            self.bottomright().rel().x == UNSIZED_AXIS,
-            self.bottomright().rel().y == UNSIZED_AXIS,
-        )
-    }
-
-    #[must_use]
-    #[inline]
-    fn map_unsized(&self, adjust: PxDim) -> (f32x4, f32x4) {
+    fn map_unsized(&self, sized: PxDim) -> (f32x4, f32x4) {
         let (unsized_x, unsized_y) = self.is_unsized();
         let mut abs = self.abs.v;
         let mut rel = self.rel.v;
@@ -1129,11 +1139,11 @@ impl URect {
             v_rel[2] = v_rel[0];
             // Fix the bottomright abs area in unsized scenarios, because it was relative to
             // the topleft instead of being independent.
-            v_abs[2] += v_abs[0] + adjust.width;
+            v_abs[2] += v_abs[0] + sized.width;
         }
         if unsized_y {
             v_rel[3] = v_rel[1];
-            v_abs[3] += v_abs[1] + adjust.height;
+            v_abs[3] += v_abs[1] + sized.height;
         }
         (abs, rel)
     }
@@ -1142,8 +1152,8 @@ impl URect {
     // has been manually verified.
     #[must_use]
     #[inline]
-    pub fn resolve(&self, dim: PxDim, adjust: PxDim) -> PxRect {
-        let (abs, rel) = self.map_unsized(adjust);
+    pub fn resolve(&self, dim: PxDim, sized: PxDim) -> PxRect {
+        let (abs, rel) = self.map_unsized(sized);
 
         PxRect {
             v: abs + rel * splat_size(dim),
@@ -1595,7 +1605,7 @@ impl Mul<UnsizedDim> for RelLimits {
 
     #[inline]
     fn mul(self, rhs: UnsizedDim) -> Self::Output {
-        let (unsized_x, unsized_y) = crate::layout::check_unsized_dim(rhs);
+        let (unsized_x, unsized_y) = rhs.is_unsized();
         let minmax = self.v.as_array_ref();
         let v = f32x4::new([
             if unsized_x {
@@ -1958,7 +1968,7 @@ pub struct App<AppData, T: 'static> {
                 Identity<Rc<Window>>,
                 (
                     WindowState,
-                    reactive::Sampler<MutableSignalProvider<WindowAttributes, ()>>,
+                    reactive::Sampler<MutableProvider<WindowAttributes, ()>>,
                 ),
             >,
         >,
@@ -2074,8 +2084,8 @@ impl<AppData: 'static, T> App<AppData, T> {
             });
 
         layout::Node {
-            props: Rc::new(const_signal(Size2D::zero()).into_dyn_signal()),
-            children: const_signal(empty_child).into_dyn_signal(),
+            props: Rc::new(ConstSignal::new(Size2D::zero()).into_dyn_signal()),
+            children: ConstSignal::new(empty_child).into_dyn_signal(),
             renderable: None,
             machine: None,
         }
@@ -2146,7 +2156,7 @@ impl<AppData: 'static, T> App<AppData, T> {
 
         let layouts = outline_tree.map_ex(move |outline| {
             let windows2 = windows2.clone();
-            map_vec(
+            outline.children.clone().map_elements(
                 move |w| {
                     (
                         Rc::from(
@@ -2160,12 +2170,11 @@ impl<AppData: 'static, T> App<AppData, T> {
                     )
                 },
                 |w| Identity(w.clone()),
-                outline.children.clone(),
             )
         });
 
         let windows2 = windows.clone();
-        let nodes = map_vec(
+        let nodes = reactive::join(layouts).map_elements(
             move |tuple: &(
                 Rc<dyn layout::Layout<Props = DynSignal<Size2D<u32, crate::Pixel>>>>,
                 Rc<Window>,
@@ -2183,7 +2192,7 @@ impl<AppData: 'static, T> App<AppData, T> {
 
                     (
                         f(
-                            const_signal(PxPoint::zero()).into_dyn_signal(),
+                            ConstSignal::new(PxPoint::zero()).into_dyn_signal(),
                             state
                                 .surface_dim
                                 .clone()
@@ -2197,7 +2206,6 @@ impl<AppData: 'static, T> App<AppData, T> {
                 }
             },
             |(_, w)| Identity(w.clone()),
-            reactive::join(layouts),
         );
 
         let trees = nodes.map_mut::<HashMap<Identity<Rc<Window>>, Rc<rtree::Node>>>(|v, old| {
@@ -2239,7 +2247,7 @@ impl<AppData: 'static, T> App<AppData, T> {
         }
 
         let binding = window.attributes.clone();
-        let attributes = sample(&binding);
+        let attributes = sample_val(binding);
         let mut windows = self.windows.borrow_mut();
         let (w, sampler) = windows.entry(Identity(window)).or_insert_with_key(|r| {
             let state = WindowState::new(
@@ -2516,12 +2524,12 @@ fn test_basic() {
 
     let rect = shape::round_rect(
         crate::FILL_DRECT,
-        const_signal(0.0).into(),
-        const_signal(0.0).into(),
-        const_signal(f32x4::splat(0.0)).into(),
-        const_signal(sRGB::new(1.0, 0.0, 0.0, 1.0)).into(),
-        const_signal(sRGB::transparent()).into(),
-        const_signal(DAbsPoint::zero()).into(),
+        ConstSignal::new(0.0).into(),
+        ConstSignal::new(0.0).into(),
+        ConstSignal::new(f32x4::splat(0.0)).into(),
+        ConstSignal::new(sRGB::new(1.0, 0.0, 0.0, 1.0)).into(),
+        ConstSignal::new(sRGB::transparent()).into(),
+        ConstSignal::new(DAbsPoint::zero()).into(),
     );
     let window = Rc::new(Window::new(
         winit::window::Window::default_attributes()
@@ -2531,10 +2539,9 @@ fn test_basic() {
     ));
 
     let (mut app, event_loop) = App::<TestApp, ()>::new(
-        reactive::MutableSignal::new(TestApp {}, ()).into_dyn_signal(),
+        reactive::MutableSignal::new(TestApp {}).into_dyn_signal(),
         move |x| component::UI {
-            children: reactive::MutableSignal::new(imbl::vector![window.clone()], ())
-                .into_dyn_signal(),
+            children: reactive::MutableSignal::new(imbl::vector![window.clone()]).into_dyn_signal(),
         },
         Some(Box::new(|_, evt: &ActiveEventLoop, _| evt.exit())),
         None,

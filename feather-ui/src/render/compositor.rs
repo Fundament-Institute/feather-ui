@@ -266,7 +266,7 @@ impl Layer {
             .into_dyn_signal();
 
         let target = if force {
-            MutableSignal::new(Some(RwLock::new(Default::default())), ()).into_dyn_signal()
+            MutableSignal::new(Some(RwLock::new(Default::default()))).into_dyn_signal()
         } else {
             (
                 color.clone(),
@@ -955,16 +955,16 @@ impl<'a> CompositorView<'a> {
             2 => &mut self.layer1,
             _ => panic!("Illegal compositor index!"),
         };
-        let dest = reactive::sample(&layer.dest);
-        let color = reactive::sample(&layer.color);
-        let rotation = reactive::sample(&layer.rotation);
+        let dest = *reactive::sample(&layer.dest);
+        let color = *reactive::sample(&layer.color);
+        let rotation = *reactive::sample(&layer.rotation);
         let data = Data::new(
             dest.topleft() + parent_pos.to_vector(),
             dest.dim(),
             uv.min.to_f32().to_array().into(),
             uv.size().to_f32().to_array().into(),
             color.rgba,
-            *rotation,
+            rotation,
             0,
             false,
             true,

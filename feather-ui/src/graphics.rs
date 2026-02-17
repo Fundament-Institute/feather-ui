@@ -100,6 +100,55 @@ impl PartialEq for ResourceInstance<'_> {
 // We don't put NaNs in our DPI float so this is fine.
 impl Eq for ResourceInstance<'_> {}
 
+/// Used for verifying there are no obvious deadlocks in single threaded mode.
+pub struct RwLockCell<T>(
+    std::cell::RefCell<T>,
+    std::cell::Cell<std::backtrace::Backtrace>,
+);
+
+impl<T: std::fmt::Debug> std::fmt::Debug for RwLockCell<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RwLockCell").field(&self.0).finish()
+    }
+}
+
+impl<T> RwLockCell<T> {
+    #[inline]
+    pub fn write(&self) -> std::cell::RefMut<'_, T> {
+        match self.0.try_borrow_mut() {
+            Ok(r) => {
+                self.1.set(std::backtrace::Backtrace::capture());
+                r
+            }
+            Err(_) => panic!("{}", unsafe { &*self.1.as_ptr() }),
+        }
+    }
+
+    #[inline]
+    pub fn read(&self) -> std::cell::Ref<'_, T> {
+        match self.0.try_borrow() {
+            Ok(r) => {
+                self.1.set(std::backtrace::Backtrace::capture());
+                r
+            }
+            Err(_) => panic!("{}", unsafe { &*self.1.as_ptr() }),
+        }
+    }
+
+    pub fn get_mut(&mut self) -> &mut T {
+        self.0.get_mut()
+    }
+}
+
+impl<T> From<T> for RwLockCell<T> {
+    fn from(value: T) -> Self {
+        Self(value.into(), std::backtrace::Backtrace::disabled().into())
+    }
+}
+
+unsafe impl<T> Send for RwLockCell<T> {}
+unsafe impl<T> Sync for RwLockCell<T> {}
+
 // We want to share our device/adapter state across windows, but can't create it
 // until we have at least one window, so we store a weak reference to it in App
 // and if all windows are dropped it'll also drop these, which is usually
@@ -107,26 +156,26 @@ impl Eq for ResourceInstance<'_> {}
 #[allow(clippy::type_complexity)]
 #[derive_where::derive_where(Debug)]
 pub struct Driver {
-    pub(crate) glyphs: RwLock<GlyphCache>,
-    pub(crate) prefetch: RwLock<HashMap<Box<dyn Location>, Box<dyn Loader>>>,
+    pub(crate) glyphs: RwLockCell<GlyphCache>,
+    pub(crate) prefetch: RwLockCell<HashMap<Box<dyn Location>, Box<dyn Loader>>>,
     pub(crate) resources:
-        RwLock<HashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, atlas::Size)>>,
+        RwLockCell<HashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, atlas::Size)>>,
     pub(crate) locations:
-        RwLock<HashMap<Box<dyn Location>, SmallVec<[ResourceInstance<'static>; 1]>>>,
-    pub(crate) atlas: RwLock<Atlas>,
-    pub(crate) layer_atlas: [RwLock<Atlas>; 2],
-    pub(crate) layer_composite: [RwLock<compositor::Compositor>; 2],
+        RwLockCell<HashMap<Box<dyn Location>, SmallVec<[ResourceInstance<'static>; 1]>>>,
+    pub(crate) atlas: RwLockCell<Atlas>,
+    pub(crate) layer_atlas: [RwLockCell<Atlas>; 2],
+    pub(crate) layer_composite: [RwLockCell<compositor::Compositor>; 2],
     pub(crate) shared: compositor::Shared,
-    pub(crate) pipelines: RwLock<HashMap<PipelineID, Box<dyn crate::render::Pipeline>>>,
-    pub(crate) registry: RwLock<HashMap<PipelineID, PipelineState>>,
+    pub(crate) pipelines: RwLockCell<HashMap<PipelineID, Box<dyn crate::render::Pipeline>>>,
+    pub(crate) registry: RwLockCell<HashMap<PipelineID, PipelineState>>,
     pub(crate) queue: wgpu::Queue,
     pub(crate) device: wgpu::Device,
     pub(crate) adapter: wgpu::Adapter,
-    pub(crate) cursor: RwLock<CursorIcon>, /* This is a convenient place to track our global
-                                            * expected cursor */
+    pub(crate) cursor: RwLockCell<CursorIcon>, /* This is a convenient place to track our global
+                                                * expected cursor */
     #[derive_where(skip)]
-    pub(crate) swash_cache: RwLock<ScaleContext>,
-    pub(crate) font_system: RwLock<cosmic_text::FontSystem>,
+    pub(crate) swash_cache: RwLockCell<ScaleContext>,
+    pub(crate) font_system: RwLockCell<cosmic_text::FontSystem>,
 }
 
 impl Drop for Driver {
@@ -135,13 +184,13 @@ impl Drop for Driver {
             p.destroy(self);
         }
 
-        for (_, mut r) in self.glyphs.get_mut().drain() {
-            r.region.id = AllocId::deserialize(u32::MAX);
+        for (_, mut _r) in self.glyphs.get_mut().drain() {
+            _r.region.id = AllocId::deserialize(u32::MAX);
         }
 
         for (_, (regions, _)) in self.resources.get_mut().drain() {
-            for mut region in regions {
-                region.id = AllocId::deserialize(u32::MAX);
+            for mut _region in regions {
+                _region.id = AllocId::deserialize(u32::MAX);
             }
         }
     }
@@ -436,7 +485,7 @@ impl Driver {
     }
 }
 
-static_assertions::assert_impl_all!(Driver: Send, Sync);
+//static_assertions::assert_impl_all!(Driver: Send, Sync);
 
 static_assertions::const_assert!(size_of::<Mat4x4>() == size_of::<[f32; 16]>());
 

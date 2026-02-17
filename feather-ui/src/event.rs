@@ -36,6 +36,12 @@ pub trait StreamCallback<T> {
     fn send(&mut self, x: T) -> EventRes;
 }
 
+impl<U: FnMut(T) -> EventRes, T> StreamCallback<T> for U {
+    fn send(&mut self, x: T) -> EventRes {
+        self(x)
+    }
+}
+
 pub trait Unsubscribe<T, S: ?Sized, H: StreamCallback<T> + ?Sized> {
     fn unsubscribe(self) -> (S, H)
     where
@@ -709,6 +715,7 @@ impl<
         for e in events {
             res = res | self.h.send(e);
         }
+        std::mem::drop(input);
         crate::reactive::notify_change(&self.output);
         res
     }
@@ -876,37 +883,38 @@ pub struct BounceStream<'l, T, S: EventStream<'l, T>> {
 impl<'l, T, S: EventStream<'l, T>> BounceStream<'l, T, S> {
     pub fn new() -> (Self, AntiStream<'l, T, S>) {
         let origin = Rc::new(RefCell::new(BounceState::None(PhantomData)));
-        let weak = Rc::downgrade(&origin);
-        (Self { origin }, AntiStream { origin: weak })
+        (
+            Self {
+                origin: origin.clone(),
+            },
+            AntiStream { origin },
+        )
     }
 }
 
 #[derive(Clone)]
 pub struct AntiStream<'l, T, S: EventStream<'l, T>> {
-    origin: std::rc::Weak<RefCell<BounceState<'l, T, S>>>,
+    origin: Rc<RefCell<BounceState<'l, T, S>>>,
 }
 
 impl<'l, T, S: EventStream<'l, T>> AntiStream<'l, T, S> {
     /// Consumes the AntiStream, which sends the eventstream to the corresponding BounceStream.
     pub fn connect(&self, target: S) -> eyre::Result<()> {
-        if let Some(origin) = self.origin.upgrade() {
-            let mut state = BounceState::None(PhantomData);
-            std::mem::swap(&mut *origin.borrow_mut(), &mut state);
-            state = match state {
-                BounceState::Initialized(_) | BounceState::Subscribed(_) => {
-                    return Err(eyre::eyre!("This stream was already connected!"));
-                }
-                BounceState::None(_) => BounceState::Initialized(target),
-                BounceState::Pending(f) => {
-                    let p = f(target);
-                    BounceState::Subscribed(p)
-                }
-            };
-            std::mem::swap(&mut *origin.borrow_mut(), &mut state);
-            Ok(())
-        } else {
-            Err(eyre::eyre!("Original stream has been deleted!"))
-        }
+        let origin = &self.origin;
+        let mut state = BounceState::None(PhantomData);
+        std::mem::swap(&mut *origin.borrow_mut(), &mut state);
+        state = match state {
+            BounceState::Initialized(_) | BounceState::Subscribed(_) => {
+                return Err(eyre::eyre!("This stream was already connected!"));
+            }
+            BounceState::None(_) => BounceState::Initialized(target),
+            BounceState::Pending(f) => {
+                let p = f(target);
+                BounceState::Subscribed(p)
+            }
+        };
+        std::mem::swap(&mut *origin.borrow_mut(), &mut state);
+        Ok(())
     }
 }
 

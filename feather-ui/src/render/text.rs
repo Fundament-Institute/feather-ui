@@ -18,11 +18,17 @@ use derive_where::derive_where;
 pub use swash::scale::image::{Content, Image};
 pub use swash::zeno::{Angle, Command, Placement, Transform};
 
-#[feather_macro::signal_def]
 #[derive_where(Clone)]
-pub struct PreInstance {
-    pub text_buffer: Signal<Item = cosmic_text::Buffer>,
-    pub padding: Signal<Item = crate::PxPerimeter>,
+pub struct PreInstance<
+    P1: crate::reactive::SignalProvider<Item = cosmic_text::Buffer> + ?Sized = dyn SignalProvider<
+        Item = cosmic_text::Buffer,
+    >,
+    P2: crate::reactive::SignalProvider<Item = crate::PxPerimeter> + ?Sized = dyn SignalProvider<
+        Item = crate::PxPerimeter,
+    >,
+> {
+    pub text_buffer: Signal<P1>,
+    pub padding: Signal<P2>,
     pub driver: std::sync::Weak<crate::Driver>,
 }
 
@@ -43,6 +49,20 @@ impl<
     }
 }
 
+impl<
+    P1: SignalProvider<Item = cosmic_text::Buffer> + 'static,
+    P2: SignalProvider<Item = crate::PxPerimeter> + 'static,
+> From<PreInstance<P1, P2>> for PreInstance
+{
+    fn from(value: PreInstance<P1, P2>) -> Self {
+        Self {
+            text_buffer: value.text_buffer.clone().into_dyn_signal(),
+            padding: value.padding.clone().into_dyn_signal(),
+            driver: value.driver.clone(),
+        }
+    }
+}
+
 pub struct Instance {
     pub cliprect: MutableSignal<PxRect>, // Holds the last known clipping rect
     pub values: DynSignal<Result<Vec<super::compositor::Data>, RenderError>>,
@@ -55,7 +75,7 @@ impl Instance {
         padding: Signal<impl SignalProvider<Item = crate::PxPerimeter> + ?Sized + 'static>,
         wdriver: std::sync::Weak<crate::Driver>,
     ) -> Self {
-        let cliprect = MutableSignal::new(PxRect::zero(), ());
+        let cliprect = MutableSignal::new(PxRect::zero());
         Self {
             cliprect: cliprect.clone(),
             values: (text_buffer, padding, area, cliprect)

@@ -5,7 +5,7 @@ use super::base::Empty;
 use super::{Concrete, Desc, Layout, base};
 use crate::layout::DeferMachine;
 use crate::reactive::{DynSignal, SignalZip, zip_pair};
-use crate::{DRect, PxDim, PxPerimeter, PxRect, RelDim, rtree};
+use crate::{DRect, PxDim, PxPerimeter, PxRect, RelDim, Unsizable, rtree};
 use std::rc::Rc;
 
 pub trait Prop: base::Area + base::Limits + base::Anchor {}
@@ -55,8 +55,7 @@ impl Desc for dyn Prop {
                     // .flatmap(|(padding, a, o, dim, limits)| super::limit_area(map_unsized_area(*a, padding.total()) * *dim, *limits) + *o)
                     .flatmap(|(a, o, dim, limits)| {
                         super::limit_area(a.resolve(*dim, PxDim::zero()), *limits) + *o
-                    })
-                    .into_dyn_signal();
+                    });
 
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
                     .zip()
@@ -173,8 +172,7 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
                             *size,
                             super::limit_dim_sized(*outer, *limits),
                         ) + *o
-                    })
-                    .into_dyn_signal();
+                    });
 
                 // debug_assert!(anchored_area.v.is_finite().all());
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())

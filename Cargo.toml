@@ -5,7 +5,7 @@
 members = [
   "feather-ui",
   # "feather-ui/examples/basic-alc",
-  "feather-ui/examples/calculator-rs",
+  # "feather-ui/examples/calculator-rs",
   # "feather-ui/examples/calculator-alc", # This breaks cargo for some reason
   "feather-macro",
 ]
@@ -34,7 +34,6 @@ cosmic-text = { version = "0.14.2" }
 [workspace.lints]
 
 [patch.crates-io]
-luajit-src = { git = "https://github.com/Fundament-Institute/luajit-src-rs" }
 cosmic-text = { git = "https://github.com/pop-os/cosmic-text", rev = "355b7febb17ecb0522346fcc5aff6ea78e33e78a" }
 #imbl = { git = "https://github.com/Fundament-Institute/imbl" }
 imbl = { path = "../imbl" }

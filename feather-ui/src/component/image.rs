@@ -8,8 +8,6 @@ use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(feather_macro::StateMachineChild)]
-#[derive_where(Clone)]
 pub struct Image<T> {
     pub id: Arc<SourceID>,
     pub props: Rc<T>,

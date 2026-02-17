@@ -483,19 +483,20 @@ pub fn signal_def(args: TokenStream, input: TokenStream) -> TokenStream {
                 _ => (),
             }
 
-            let crate_name = format_ident!(
+            /*let crate_name = format_ident!(
                 "{}",
                 if std::env::var("CARGO_PKG_NAME").unwrap() == "feather-ui" {
                     "crate"
                 } else {
                     "feather_ui"
                 }
-            );
+            );*/
+            let crate_name = format_ident!("feather_ui");
 
             for i in 0..list.len() {
                 let idx = format_ident!("P{}", i + 1);
                 let param = &list[i];
-                ast.generics.params.push(syn::GenericParam::Type(syn::parse_quote! { #idx : #crate_name::reactive::SignalProvider<Item = #param> + ?Sized = dyn SignalProvider<Item = #param> }));
+                ast.generics.params.push(syn::GenericParam::Type(syn::parse_quote! { #idx : #crate_name::reactive::SignalProvider<Item = #param> + ?Sized }));
             }
         }
         _ => panic!("`signal_impl` is only for structs"),

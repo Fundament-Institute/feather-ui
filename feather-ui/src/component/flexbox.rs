@@ -10,8 +10,6 @@ use std::sync::Arc;
 
 use super::ChildOf;
 
-#[derive(feather_macro::StateMachineChild)]
-#[derive_where(Clone)]
 pub struct FlexBox<T> {
     pub id: Arc<SourceID>,
     props: Rc<T>,

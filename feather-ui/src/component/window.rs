@@ -91,13 +91,13 @@ impl WindowState {
             false,
         );
 
-        let config = MutableSignal::new(config, ());
+        let config = MutableSignal::new(config);
         let mut windowstate = Self {
             modifiers: 0,
             all_buttons: 0,
             last_mouse: PhysicalPosition::new(f32::NAN, f32::NAN),
             config: config.clone(),
-            dpi: MutableSignal::new(RelDim::splat(window.scale_factor() as f32), ()),
+            dpi: MutableSignal::new(RelDim::splat(window.scale_factor() as f32)),
             surface_dim: config
                 .map(|c| Size2D::<u32, crate::Pixel>::new(c.width, c.height))
                 .into(),
@@ -172,7 +172,7 @@ impl WindowState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let surface_dim = sample(&self.surface_dim);
+        let surface_dim = *sample(&self.surface_dim);
         self.compositor
             .prepare(&self.driver, &mut encoder, surface_dim.to_f32());
 
@@ -263,8 +263,8 @@ impl Window {
         child: Box<dyn DynComponent<dyn crate::layout::base::Empty>>,
     ) -> Self {
         Self {
-            attributes: MutableSignal::new(attributes, ()),
-            child: MutableSignal::new(Arc::from(child), ()),
+            attributes: MutableSignal::new(attributes),
+            child: MutableSignal::new(Arc::from(child)),
         }
     }
 
@@ -335,7 +335,7 @@ impl Window {
                 let nodes: SmallVec<[Weak<Node>; 4]> = window.nodes(WindowNodeTrack::Focus);
 
                 for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                    let _ = node.inject_event(&evt, evt.kind(), window, &root);
+                    let _ = node.inject_event(&evt, evt.kind(), window, &root, None);
                 }
                 true
             }
@@ -520,7 +520,7 @@ impl Window {
                         if nodes.iter().fold(false, |ok, node| {
                             ok | node
                                 .upgrade()
-                                .map(|n| n.inject_event(&e, e.kind(), window, &root).0)
+                                .map(|n| n.inject_event(&e, e.kind(), window, &root, None).0)
                                 .unwrap_or(false)
                         }) {
                             true
@@ -538,13 +538,13 @@ impl Window {
                             window.nodes(WindowNodeTrack::Capture);
 
                         for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                            let _ = node.inject_event(&e, e.kind(), window, &root);
+                            let _ = node.inject_event(&e, e.kind(), window, &root, None);
                         }
 
                         // While we could recover the offset here, we don't so we can be consistent
                         // about MouseOff not having offset.
                         for node in capture_nodes.iter().filter_map(|x| x.upgrade()) {
-                            let _ = node.inject_event(&e, e.kind(), window, &root);
+                            let _ = node.inject_event(&e, e.kind(), window, &root, None);
                         }
 
                         true
@@ -566,7 +566,7 @@ impl Window {
                     }
                     | RawEvent::Drop {
                         device_id,
-                        pos: PhysicalPosition { x, y },
+                        pos: PxPoint { x, y, .. },
                         ..
                     }
                     | RawEvent::MouseScroll {
@@ -583,7 +583,7 @@ impl Window {
                             .get(WindowNodeTrack::Capture, &device_id)
                             .and_then(|x| x.upgrade())
                         {
-                            return node.clone().inject_event(&e, e.kind(), window, &root).0;
+                            return root.target_event(&e, e.kind(), window, &node).0;
                         }
 
                         root.process(
@@ -620,7 +620,7 @@ impl Window {
                                 window.drain(WindowNodeTrack::Hover);
 
                             for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                                let _ = node.inject_event(&evt, evt.kind(), window, &root);
+                                let _ = node.inject_event(&evt, evt.kind(), window, &root, None);
                             }
                         }
                         // If everything rejected a mousedown, remove all focused elements
@@ -650,7 +650,7 @@ impl Window {
                                 window.drain(WindowNodeTrack::Focus);
 
                             for node in nodes.iter().filter_map(|x| x.upgrade()) {
-                                let _ = node.inject_event(&evt, evt.kind(), window, &root);
+                                let _ = node.inject_event(&evt, evt.kind(), window, &root, None);
                             }
                         }
                         _ => (),

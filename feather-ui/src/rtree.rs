@@ -11,7 +11,7 @@ use crate::event::StreamCallback;
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::layout::Staged;
 use crate::reactive::{
-    self, DynSignal, Identity, ToSignal, const_signal, fold_vec, map_vec, zip_pair,
+    self, ConstSignal, DynSignal, Identity, SignalMap, ToSignal, fold_vec, zip_pair,
 };
 use crate::render::compositor::Layer;
 use crate::{Pixel, PxPoint, PxRect, PxVector, RelDim};
@@ -86,16 +86,14 @@ impl Node {
     ) -> Self {
         let z = z.unwrap_or_else(|| 0.to_signal().into_dyn_signal());
         if let Some(children) = children {
-            let areas = map_vec(
-                |v| v.area.clone(),
-                |v| Identity(v.clone()),
-                children.clone(),
-            );
+            let areas = children
+                .clone()
+                .map_elements(|v| v.area.clone(), |v| Identity(v.clone()));
 
             let extent = reactive::join(fold_vec(
                 |l, r| zip_pair(l, r, |x, y| x.extend(*y)).into(),
                 areas,
-                const_signal(PxRect::zero()).into(),
+                ConstSignal::new(PxRect::zero()).into(),
             ))
             .into_dyn_signal();
 
@@ -124,20 +122,20 @@ impl Node {
     }
 
     pub fn new_subtree(children: DynSignal<imbl::Vector<Rc<Node>>>) -> Self {
-        let areas = map_vec(
-            |v| v.area.clone(),
-            |v| Identity(v.clone()),
-            children.clone(),
-        );
+        let areas = children
+            .clone()
+            .map_elements(|v| v.area.clone(), |v| Identity(v.clone()));
 
         let extent = reactive::join(fold_vec(
             |l, r| zip_pair(l, r, |x, y| x.extend(*y)).into(),
             areas,
-            const_signal(PxRect::zero()).into(),
+            ConstSignal::new(PxRect::zero()).into(),
         ))
         .into_dyn_signal();
 
-        let tops = map_vec(|v| v.top.clone(), |v| Identity(v.clone()), children.clone());
+        let tops = children
+            .clone()
+            .map_elements(|v| v.top.clone(), |v| Identity(v.clone()));
 
         let top = reactive::join(fold_vec(
             |l, r| reactive::cmp::min(l, r).into(),
@@ -145,10 +143,9 @@ impl Node {
             0.to_signal().into_dyn_signal(),
         ));
 
-        let bottoms = map_vec(
+        let bottoms = children.clone().map_elements(
             |v| (v.top.clone() + v.depth.clone()).into_dyn_signal(),
             |v| Identity(v.clone()),
-            children.clone(),
         );
 
         let bottom = reactive::join(fold_vec(
@@ -178,11 +175,11 @@ impl Node {
         dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), crate::RenderError> {
         if let Some(staged) = self.staged.as_ref() {
-            // let extent = *crate::sample(&self.extent);
+            // let extent = *crate::sample(&self.extent).clone();
 
             // TODO: Pass down the clip area through the render stack so the r-tree can clip things correctly
             //if (extent + parent_pos).intersect(clip) {
-            let children = self.children.as_ref().map(|x| crate::sample(x));
+            let children = self.children.as_ref().map(|x| crate::sample(x).clone());
             staged.render(
                 parent_pos,
                 driver,
@@ -209,6 +206,7 @@ impl Node {
         event: &RawEvent,
         window: &mut crate::WindowState,
         root: &Rc<Self>,
+        offset: Option<PxVector>,
     ) {
         match event {
             // If we successfully process a mousemove event, this node gains hover
@@ -232,7 +230,7 @@ impl Node {
                     };
 
                     // We don't care about the result of this event
-                    let _ = old.inject_event(&evt, evt.kind(), window, root);
+                    let _ = old.inject_event(&evt, evt.kind(), window, root, offset);
                 }
 
                 // We delay injecting MouseOn until after an old node gets MouseOff to present
@@ -243,7 +241,7 @@ impl Node {
                     pos: *pos,
                     all_buttons: *all_buttons,
                 };
-                let _ = self.inject_event(&evt, evt.kind(), window, root);
+                let _ = self.inject_event(&evt, evt.kind(), window, root, offset);
             }
             RawEvent::Mouse {
                 device_id,
@@ -283,17 +281,20 @@ impl Node {
         kind: RawEventKind,
         window: &mut crate::WindowState,
         root: &Rc<Self>,
+        offset: Option<PxVector>,
     ) -> (bool, u64) {
         let mut cell = self.callback.borrow_mut();
         if cell.is_some() {
             let mask = self.mask.load(Ordering::Relaxed);
             if (kind as u64 & mask) != 0 {
-                let e = cell.as_mut().unwrap().0.send(event.clone());
-                if e.claim {
-                    self.postprocess(event, window, root);
-                }
+                let e = cell.as_mut().unwrap().0.send(event.reposition(offset));
                 if e.cancel {
                     cell.take();
+                }
+                // Enforce that we drop the reference before calling postprocess, which is allowed to inject an event that we might need to process again.
+                std::mem::drop(cell);
+                if e.claim {
+                    self.postprocess(event, window, root, offset);
                 }
                 return (e.claim, mask);
             }
@@ -302,11 +303,77 @@ impl Node {
         return (false, u64::MAX);
     }
 
-    pub(crate) fn offset(self: Rc<Self>, parent: DynSignal<PxVector>) -> DynSignal<PxVector> {
-        zip_pair(parent, self.area.clone(), |l, r| {
-            (r.topleft() + *l).to_vector()
-        })
-        .into_dyn_signal()
+    fn target_event_inner(
+        self: &Rc<Self>,
+        event: &RawEvent,
+        pos: PxPoint,
+        offset: PxVector,
+        kind: RawEventKind,
+        window: &mut crate::WindowState,
+        root: &Rc<Self>,
+        target: &Rc<Self>,
+    ) -> Option<(bool, u64)> {
+        let area = *crate::sample(&self.area);
+        if area.contains(pos - offset) {
+            if Rc::ptr_eq(target, self) {
+                // ladies and gentlemen, we gottem
+                return Some(self.inject_event(event, kind, window, root, Some(offset)));
+            }
+            let child_offset = (area.topleft() + offset).to_vector();
+
+            if let Some(children) = &self.children {
+                // The ordering of children here is irrelevent, since we are searching for a particular node.
+                for child in crate::sample(&children).iter() {
+                    if let Some(v) = child.target_event_inner(
+                        event,
+                        pos,
+                        child_offset,
+                        kind,
+                        window,
+                        root,
+                        target,
+                    ) {
+                        return Some(v);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// target_event is used for events being sent to a particular node, usually for hover, focus, or capture events,
+    /// where we need to send the offset, but only if the mouse cursor is actually inside the node in question. This
+    /// ignores all normal event processing, and traverses the r-tree solely to search for whether any nodes under the
+    /// event's position are the targeted node. If the search fails or if the event doesn't have a position, the event
+    /// is still injected to the targeted node, but without a position.
+    pub fn target_event(
+        self: &Rc<Self>,
+        event: &RawEvent,
+        kind: RawEventKind,
+        window: &mut crate::WindowState,
+        target: &Rc<Self>,
+    ) -> (bool, u64) {
+        let result = match event {
+            RawEvent::Drop { pos, .. }
+            | RawEvent::Mouse { pos, .. }
+            | RawEvent::MouseOn { pos, .. }
+            | RawEvent::MouseMove { pos, .. }
+            | RawEvent::MouseScroll { pos, .. } => {
+                self.target_event_inner(event, *pos, PxVector::zero(), kind, window, self, target)
+            }
+            RawEvent::Touch { pos, .. } => self.target_event_inner(
+                event,
+                pos.xy(),
+                PxVector::zero(),
+                kind,
+                window,
+                self,
+                target,
+            ),
+            _ => None,
+        };
+
+        result.unwrap_or_else(|| target.inject_event(event, kind, window, self, None))
     }
 
     pub fn process(
@@ -320,7 +387,7 @@ impl Node {
         window: &mut crate::WindowState,
         root: &Rc<Self>,
     ) -> bool {
-        let area = crate::sample(&self.area);
+        let area = *crate::sample(&self.area);
         if (self.mask.load(Ordering::Acquire) & kind as u64) != 0
             && area.contains(position - offset)
         {
@@ -352,7 +419,7 @@ impl Node {
                 }
             }
 
-            let (claimed, m) = self.inject_event(event, kind, window, root);
+            let (claimed, m) = self.inject_event(event, kind, window, root, Some(offset));
             mask |= m;
 
             // This is only ever stored when a message has been rejected by all children and
@@ -391,14 +458,14 @@ impl Node {
                             };
 
                             // We don't care about the result of this event
-                            let _ = old.inject_event(&evt, evt.kind(), window, root);
+                            let _ = old.inject_event(&evt, evt.kind(), window, root, Some(offset));
                         }
 
                         let evt = RawEvent::Focus {
                             acquired: true,
                             window: inner,
                         };
-                        let _ = self.inject_event(&evt, evt.kind(), window, root);
+                        let _ = self.inject_event(&evt, evt.kind(), window, root, Some(offset));
                     }
                     _ => (),
                 }

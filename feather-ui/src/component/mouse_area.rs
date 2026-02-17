@@ -3,7 +3,7 @@
 
 use crate::input::{MouseButton, MouseState, RawEvent};
 use crate::layout::leaf;
-use crate::reactive::{self, Signal, SignalDeferProvider, SignalProvider};
+use crate::reactive::{self, DeferProvider, Signal, SignalProvider};
 use crate::{AbsPoint, AbsVector, PxPoint, PxRect, RelDim, UnResolve, event, layout};
 use core::f32;
 use enum_variant_type::EnumVariantType;
@@ -271,7 +271,7 @@ impl<'a, T: leaf::Prop, P1: SignalProvider<Item = f32> + ?Sized> MouseArea<T, P1
     ) {
         let (bounce, anti) = event::BounceStream::new();
 
-        let state: Signal<SignalDeferProvider<dyn SignalProvider<Item = (PxRect, RelDim)>>> =
+        let state: Signal<DeferProvider<dyn SignalProvider<Item = (PxRect, RelDim)>>> =
             reactive::defer();
 
         let (stream, output) =

@@ -3,86 +3,77 @@
 
 use super::mouse_area::MouseArea;
 
-use crate::component::{ChildOf, Desc};
-use crate::layout::{Layout, fixed};
-use crate::persist::{FnPersist, VectorMap};
-use crate::{Component, DRect, Slot, SourceID, layout};
-use derive_where::derive_where;
+use crate::component::ChildOf;
+use crate::component::mouse_area::{MouseAreaEvent, MouseAreaState};
+use crate::event;
+use crate::layout::fixed;
+use crate::reactive::{DynSignal, MutableSignal, Signal, SignalProvider};
 use std::rc::Rc;
 use std::sync::Arc;
 
 // A button component that contains a mousearea alongside it's children
-#[derive_where(Clone)]
 pub struct Button<T> {
-    pub id: Arc<SourceID>,
     props: Rc<T>,
-    marea: MouseArea<DRect>,
-    children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>,
+    children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>,
 }
 
 impl<T: fixed::Prop> Button<T> {
-    pub fn new(
-        id: Arc<SourceID>,
+    pub fn new<P1: SignalProvider<Item = f32> + ?Sized + 'static>(
         props: T,
-        onclick: Slot,
-        children: imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>,
-    ) -> Self {
-        Self {
-            id: id.clone(),
-            props: props.into(),
-            marea: MouseArea::new(
-                id.child(crate::DataID::Named("__marea_internal__")),
-                crate::FILL_DRECT,
-                None,
-                [Some(onclick), None, None, None, None, None],
-            ),
-            children,
-        }
+        deadzone: Signal<P1>,
+        children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>,
+    ) -> (
+        Self,
+        impl event::EventStream<'static, MouseAreaEvent>,
+        Signal<impl SignalProvider<Item = MouseAreaState>>,
+    ) {
+        let (marea, evt, export) = MouseArea::new(crate::FILL_DRECT, deadzone);
+        let marea = Rc::new(marea);
+        (
+            Self {
+                props: props.into(),
+                children: children
+                    .map_modify(move |x| {
+                        let mut v = x.clone();
+                        v.push_back(marea.clone());
+                        v
+                    })
+                    .into(),
+            },
+            evt,
+            export,
+        )
     }
 }
 
-impl<T: fixed::Prop> crate::StateMachineChild for Button<T> {
-    fn id(&self) -> Arc<SourceID> {
-        self.id.clone()
-    }
-
-    fn apply_children(
-        &self,
-        f: &mut dyn FnMut(&dyn crate::StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        self.children.iter().try_for_each(|x| f(x.as_ref()))?;
-        f(&self.marea)
-    }
-}
-
-impl<T: fixed::Prop + 'static> Component for Button<T>
+impl<T: fixed::Prop + 'static> super::Component for Button<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {
     type Props = T;
+    type R = fixed::Layer<T, ()>;
 
     fn layout(
         &self,
-        manager: &mut crate::StateManager,
-        driver: &crate::graphics::Driver,
-        window: &Arc<SourceID>,
-    ) -> Rc<dyn Layout<T>> {
-        #[allow(clippy::borrowed_box)]
-        let mut map = VectorMap::new(crate::persist::Persist::new(
-            |child: &Box<ChildOf<dyn fixed::Prop>>| -> Rc<dyn Layout<<dyn fixed::Prop as Desc>::Child>> {
-                child.layout(manager, driver, window)
-            })
+        driver: &Arc<crate::graphics::Driver>,
+        dpi2: MutableSignal<crate::RelDim>,
+    ) -> Self::R {
+        let wdriver = Arc::downgrade(&driver);
+        let dpi = dpi2.clone();
+        let children = self.children.clone().map_elements(
+            move |child: &Rc<ChildOf<dyn fixed::Prop>>| {
+                child.layout(&wdriver.upgrade().unwrap(), dpi.clone())
+            },
+            |x| crate::reactive::Identity(x.clone()),
         );
 
-        let (_, mut children) = map.call(Default::default(), &self.children);
-        children.push_back(Box::new(self.marea.layout(manager, driver, window)));
-
-        Box::new(layout::Node::<T, dyn fixed::Prop> {
+        Self::R {
             props: self.props.clone(),
-            children,
-            id: Arc::downgrade(&self.id),
+            children: children.into(),
             renderable: None,
             layer: None,
-        })
+            machine: None,
+        }
+        .into()
     }
 }

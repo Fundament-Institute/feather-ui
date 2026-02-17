@@ -3,6 +3,8 @@
 
 use std::rc::Rc;
 
+use crate::Unsizable;
+use crate::layout::resolve_dim;
 use crate::reactive::DynDeferSignal;
 use crate::render::Prerender;
 use crate::{
@@ -35,7 +37,7 @@ pub struct Node<
 impl<
     T: leaf::Padded,
     R: Prerender + Clone + 'static,
-    P1: SignalProvider<Item = cosmic_text::Buffer> + ?Sized,
+    P1: SignalProvider<Item = cosmic_text::Buffer> + ?Sized + 'static,
 > Layout for Node<T, R, P1>
 {
     type Props = T;
@@ -78,8 +80,6 @@ impl<
                 l
             });
 
-        let driver = self.driver.clone();
-
         let inner_dim = (myarea.clone(), predim.clone(), inner_limits.clone())
             .zip()
             .flatmap(|(a, o, l)| super::eval_dim(*a, *o, *l));
@@ -89,22 +89,26 @@ impl<
         //    .map(|(a, o, l)| super::limit_area(*a * *o, *l));
 
         // Resolve the defered inner_dim and limits
-        self.inner_dim.resolve(inner_dim.into());
-        self.inner_limits.resolve(inner_limits.into());
+        self.inner_dim
+            .resolve(inner_dim.clone().into())
+            .expect("Unexpected defer failure");
+        self.inner_limits
+            .resolve(inner_limits.clone().into())
+            .expect("Unexpected defer failure");
 
         // Now we can operate on self.buffer, as any use of it will trigger a recalculation
-        let presize = zip_pair(self.buffer, myarea.clone(), |buffer, area| {
-            let (unsized_x, unsized_y) = area.is_unsized();
-            let mut prearea = *area;
-            let ltrb = prearea.v.as_array_mut();
-            if unsized_x {
-                ltrb[2] = ltrb[0] + buffer.size().0.unwrap_or_default() + padding.total().width;
-            }
-            if unsized_y {
-                ltrb[3] = ltrb[1] + buffer.size().1.unwrap_or_default() + padding.total().height;
-            }
-            prearea
-        });
+        let presize = (self.buffer.clone(), inner_dim.clone(), padding.clone())
+            .zip()
+            .flatmap(|(buffer, dim, padding)| {
+                resolve_dim(
+                    *dim,
+                    padding.total()
+                        + crate::PxDim::new(
+                            buffer.size().0.unwrap_or_default(),
+                            buffer.size().1.unwrap_or_default(),
+                        ),
+                )
+            });
 
         let anchor = self.props.anchor();
         let defer = self.machine.clone();
@@ -116,26 +120,27 @@ impl<
             inner_limits.clone(),
         )
             .zip()
-            .flatmap(|(a, p, o, l)| super::limit_area(a.resolve(*o, p.dim()), *l));
+            .flatmap(|(a, p, o, l)| super::limit_area(a.resolve(*o, *p), *l));
 
+        let renderable = self.renderable.clone();
         (
             unsized_area.into(),
             Box::new(move |offset, final_dim| {
-                let final_area = (
+                let unsized_final = (
                     padding.clone(),
                     myarea.clone(),
-                    offset,
-                    final_dim,
+                    presize.clone(),
+                    final_dim.clone(),
                     inner_limits.clone(),
+                    offset.clone(),
                 )
                     .zip()
-                    .flatmap(|(padding, a, o, dim, limits)| {
-                        super::limit_area(a.resolve(*dim, padding.total()), *limits) + *o
-                    })
-                    .into_dyn_signal();
+                    .flatmap(|(padding, a, p, dim, l, o)| {
+                        super::limit_area(a.resolve(*dim, *p + padding.total()), *l) + *o
+                    });
 
                 // debug_assert!(anchored_area.v.is_finite().all());
-                let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
+                let anchored_area = (unsized_final.clone(), anchor.clone(), dpi.clone())
                     .zip()
                     .flatmap(|(area, a, d)| *area - (a.resolve(*d) * area.dim()))
                     .into_dyn_signal();
@@ -146,12 +151,12 @@ impl<
                         None,
                         Default::default(),
                         Some(Box::new(super::Concrete::new(
-                            Some(&self.renderable),
+                            Some(&renderable),
                             anchored_area,
                         ))),
                     ),
                     &defer,
-                    (final_area, dpi.clone()).zip().value().into_dyn_signal(),
+                    (unsized_final, dpi.clone()).zip().value().into_dyn_signal(),
                 )
             }),
         )

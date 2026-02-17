@@ -20,7 +20,7 @@ enum NodeColor {
     Check,
 }
 
-// This is similar to OnceCell, but tracks active usages and will drop the inner value when usages drop to 0
+/// This is similar to OnceCell, but tracks active usages and will drop the inner value when usages drop to 0
 pub struct MultiCell<T> {
     borrow: std::cell::Cell<i32>,
     inner: std::cell::UnsafeCell<Option<T>>,
@@ -41,7 +41,7 @@ impl<T> MultiCell<T> {
     }
 }
 
-struct MultiRef<'b, T> {
+pub struct MultiRef<'b, T> {
     value: std::ptr::NonNull<Option<T>>,
     borrow: &'b std::cell::Cell<i32>,
 }
@@ -86,19 +86,31 @@ impl<T> MultiCell<T> {
     }
 }
 
-// This UnsafeRef strips the lifetime information from the type and allows casting back
-// into a DynRef<> type with *any* arbitrary lifetime. Obviously, this is EXTREMELY unsafe and is only used
-// internally for managing signal references.
-#[repr(transparent)]
-struct UnsafeRef<T>(DynRef<'static, ()>, PhantomData<T>);
+mod internal {
+    use super::{Deref, DynRef, PhantomData};
 
-impl<T> Deref for UnsafeRef<T> {
-    type Target = T;
+    // This UnsafeRef strips the lifetime information from the type and allows casting back
+    // into a DynRef<> type with *any* arbitrary lifetime. Obviously, this is EXTREMELY unsafe and is only used
+    // internally for managing signal references.
+    #[repr(transparent)]
+    pub struct UnsafeRef<T>(DynRef<'static, ()>, PhantomData<T>);
 
-    fn deref(&self) -> &Self::Target {
-        unsafe { std::mem::transmute::<_, &DynRef<'_, T>>(&self.0) }
+    impl<T> Deref for UnsafeRef<T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            unsafe { std::mem::transmute::<_, &DynRef<'_, T>>(&self.0) }
+        }
+    }
+
+    impl<'a, T> From<DynRef<'a, T>> for UnsafeRef<T> {
+        fn from(value: DynRef<'a, T>) -> Self {
+            UnsafeRef(unsafe { std::mem::transmute(value) }, PhantomData)
+        }
     }
 }
+
+use internal::UnsafeRef;
 
 pub enum DynRef<'a, T> {
     Ref(&'a T),
@@ -117,12 +129,6 @@ impl<'a, T> Deref for DynRef<'a, T> {
             DynRef::Multi(v) => &*v,
             DynRef::Flatten(v) => &*v,
         }
-    }
-}
-
-impl<'a, T> From<DynRef<'a, T>> for UnsafeRef<T> {
-    fn from(value: DynRef<'a, T>) -> Self {
-        UnsafeRef(unsafe { std::mem::transmute(value) }, PhantomData)
     }
 }
 
@@ -323,6 +329,10 @@ impl<T> ConstProvider<T> {
     }
 }
 
+pub fn const_new<T>(x: T) -> ConstSignal<T> {
+    ConstSignal::<T>::new(x)
+}
+
 impl<T> std::fmt::Debug for ConstProvider<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("ConstSignal");
@@ -343,10 +353,12 @@ impl<T> SignalProvider for ConstProvider<T> {
 
     fn update_if_necessary(&self) {}
 
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.1
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, Self::Item> {
         DynRef::Ref(&self.0)
     }
@@ -368,15 +380,15 @@ impl<T: num_traits::Num> ToSignal<T> for T {
 // is implemented on Rc<TheProvider>, thus allowing ConstProvider to not store an Rc at all,
 // but this will also require changing how updates are handled so that ConstProvider doesn't
 // need to store an update node.
-pub fn const_signal<T>(t: T) -> Signal<ConstProvider<T>> {
-    Signal(Rc::new(ConstProvider::new(t)))
-}
-
-pub type ConstSignal<T> = Signal<ConstProvider<T>>;
-
 impl<T: Default> Default for Signal<ConstProvider<T>> {
     fn default() -> Self {
         Self(Rc::new(ConstProvider::new(T::default())))
+    }
+}
+
+impl<T> Signal<ConstProvider<T>> {
+    pub fn new(t: T) -> Self {
+        Self(Rc::new(ConstProvider::new(t)))
     }
 }
 
@@ -400,7 +412,7 @@ impl ProviderTupleList for () {
     fn build_ref(&self) -> Self::RefResult {
         ()
     }
-    fn add_dependency(&self, node: SignalNodeId) {}
+    fn add_dependency(&self, _node: SignalNodeId) {}
 }
 
 impl<Head, Tail> ProviderTupleList for (Rc<Head>, Tail)
@@ -441,6 +453,7 @@ impl<PList: ProviderTupleList> std::fmt::Debug for ZipProvider<PList> {
 impl<PList: ProviderTupleList> SignalProvider for ZipProvider<PList> {
     type Item = <PList::RefResult as TupleList>::Tuple;
 
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -579,7 +592,7 @@ where
     }
 }*/
 
-struct ZipValueProvider<PList: ProviderTupleList>
+pub struct ZipValueProvider<PList: ProviderTupleList>
 where
     PList::RefResult: UnsafeRefCloneTupleList,
 {
@@ -607,6 +620,7 @@ where
 {
     type Item = <<PList::RefResult as UnsafeRefCloneTupleList>::Result as TupleList>::Tuple;
 
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -627,6 +641,7 @@ where
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, Self::Item> {
         DynRef::Cell(Ref::map(self.res.borrow(), |x| {
             x.as_ref().expect("Must be updated before getting value.")
@@ -673,6 +688,7 @@ where
 {
     type Item = R;
 
+#[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -695,6 +711,7 @@ where
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
+#[inline]
     fn get_ref(&self) -> DynRef<'_, Self::Item> {
         DynRef::Cell(Ref::map(self.res.borrow(), |x| {
             x.as_ref().expect("Must be updated before getting value.")
@@ -743,6 +760,7 @@ impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
 macro_rules! gen_flatmap {
     ($($x:ident),*) => (
         impl<$($x: SignalProvider + ?Sized),*> Signal<ZipProvider<tuple_list::tuple_list_type!($(Rc<$x>),*)>> {
+            #[allow(non_snake_case)]
             pub fn flatmap<R, F: Fn(($(&$x::Item),*)) -> R>(&self, f: F) -> Signal<impl SignalProvider<Item = R> + use<R, F, $($x),*>> {
                 map(
                     move |($($x),*)| f(($(&*$x),*)),
@@ -751,6 +769,7 @@ macro_rules! gen_flatmap {
                     never_debug,
                 )
             }
+            #[allow(non_snake_case)]
             pub fn flatmap_mut<R, F: Fn(($(&$x::Item),*), Option<R>) -> R>(
                 &self,
                 f: F,
@@ -810,7 +829,7 @@ where
     }
 }
 
-pub struct SignalMapProvider<
+pub struct MapProvider<
     P: SignalProvider + ?Sized,
     T2,
     F: Fn(&P::Item) -> T2,
@@ -831,7 +850,7 @@ impl<
     F: Fn(&P::Item) -> T2,
     F2: Fn(&T2, &T2) -> bool,
     F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
-> std::fmt::Debug for SignalMapProvider<P, T2, F, F2, F3>
+> std::fmt::Debug for MapProvider<P, T2, F, F2, F3>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("MapSignal");
@@ -857,10 +876,11 @@ impl<
     F: Fn(&P::Item) -> T2,
     F2: Fn(&T2, &T2) -> bool,
     F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
-> SignalProvider for SignalMapProvider<P, T2, F, F2, F3>
+> SignalProvider for MapProvider<P, T2, F, F2, F3>
 {
     type Item = T2;
 
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -913,11 +933,11 @@ pub fn map<
     signal: Signal<P>,
     eq: FEq,
     debug: FDebug,
-) -> Signal<SignalMapProvider<P, R, F, FEq, FDebug>> {
+) -> Signal<MapProvider<P, R, F, FEq, FDebug>> {
     let node = new_node(NodeColor::Changed);
     let provider = signal.0;
     add_dependency(provider.get_node(), node.clone());
-    Signal(Rc::new(SignalMapProvider {
+    Signal(Rc::new(MapProvider {
         provider,
         func: f,
         res: RefCell::new(None),
@@ -927,7 +947,7 @@ pub fn map<
     }))
 }
 
-pub struct SignalMapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> {
+pub struct MapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> {
     provider: Rc<P>,
     func: F,
     res: RefCell<Option<T2>>,
@@ -935,7 +955,7 @@ pub struct SignalMapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, 
 }
 
 impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> std::fmt::Debug
-    for SignalMapMutProvider<P, T2, F>
+    for MapMutProvider<P, T2, F>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("MapMutSignal");
@@ -956,10 +976,11 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> std::fmt
 }
 
 impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalProvider
-    for SignalMapMutProvider<P, T2, F>
+    for MapMutProvider<P, T2, F>
 {
     type Item = T2;
 
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -997,11 +1018,11 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalPr
 pub fn map_mut<T, R, F: Fn(&P::Item, Option<R>) -> R, P: SignalProvider<Item = T> + ?Sized>(
     f: F,
     p: Signal<P>,
-) -> Signal<SignalMapMutProvider<P, R, F>> {
+) -> Signal<MapMutProvider<P, R, F>> {
     let node = new_node(NodeColor::Changed);
     let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
-    Signal(Rc::new(SignalMapMutProvider {
+    Signal(Rc::new(MapMutProvider {
         provider,
         func: f,
         res: RefCell::new(None),
@@ -1013,6 +1034,12 @@ pub trait SignalMap<Elem, P: SignalProvider<Item = Elem> + ?Sized> {
     fn map<T: Copy + PartialEq>(
         self,
         f: impl Fn(&P::Item) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>>;
+
+    fn map_pred<T>(
+        self,
+        f: impl Fn(&P::Item) -> T,
+        eq: impl Fn(&T, &T) -> bool,
     ) -> Signal<impl SignalProvider<Item = T>>;
     fn map_mut<T>(
         self,
@@ -1044,6 +1071,13 @@ impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem, P> for Signa
     ) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, PartialEq::eq, never_debug)
     }
+    fn map_pred<T>(
+        self,
+        f: impl Fn(&P::Item) -> T,
+        eq: impl Fn(&T, &T) -> bool,
+    ) -> Signal<impl SignalProvider<Item = T>> {
+        map(f, self, eq, never_debug)
+    }
     fn map_mut<T>(
         self,
         f: impl Fn(&P::Item, Option<T>) -> T,
@@ -1061,7 +1095,7 @@ impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem, P> for Signa
     }
 }
 
-pub struct SignalJoinProvider<
+pub struct JoinProvider<
     T,
     P1: SignalProvider<Item = T> + ?Sized,
     P2: SignalProvider<Item = Signal<P1>> + ?Sized,
@@ -1075,7 +1109,7 @@ pub struct SignalJoinProvider<
 }
 
 impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<P1>> + ?Sized>
-    std::fmt::Debug for SignalJoinProvider<T, P1, P2>
+    std::fmt::Debug for JoinProvider<T, P1, P2>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("JoinSignal")
@@ -1086,10 +1120,11 @@ impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<
 }
 
 impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<P1>> + ?Sized>
-    SignalProvider for SignalJoinProvider<T, P1, P2>
+    SignalProvider for JoinProvider<T, P1, P2>
 {
     type Item = T;
 
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -1127,8 +1162,7 @@ impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<
                     }
                     _ => {}
                 }
-                let innersig = self.provider.get_ref().0.clone();
-                innersig.update_if_necessary();
+                self.provider.get_ref().0.update_if_necessary();
                 let color = self.node.0.borrow().color;
                 match color {
                     NodeColor::Changed => {
@@ -1160,8 +1194,8 @@ pub fn join<
     P2: SignalProvider<Item = Signal<P1>> + ?Sized,
 >(
     p: Signal<P2>,
-) -> Signal<SignalJoinProvider<T, P1, P2>> {
-    Signal(Rc::new(SignalJoinProvider {
+) -> Signal<JoinProvider<T, P1, P2>> {
+    Signal(Rc::new(JoinProvider {
         provider: p.0,
         innerprovider: RefCell::new(None),
         res: Default::default(),
@@ -1175,7 +1209,7 @@ pub trait SignalProviderMut: SignalProvider {
     fn refcell(&self) -> &RefCell<Self::Item>;
 }
 
-pub struct MutableSignalProvider<T, Inputs: Tuple> {
+pub struct MutableProvider<T, Inputs: Tuple> {
     node: SignalNodeId,
     val: RefCell<T>,
     inputs: Inputs::TupleList,
@@ -1203,7 +1237,8 @@ where
     }
     fn update_check(&self, val: &mut T, node: SignalNodeId) {
         let ((signal, handler), tail) = self;
-        if signal.0.get_node().0.borrow().color != NodeColor::Ready {
+        let color = signal.0.get_node().0.borrow().color;
+        if color != NodeColor::Ready {
             signal.0.update_if_necessary();
             handler(val, &signal);
             node.0.borrow_mut().color = NodeColor::Changed;
@@ -1212,7 +1247,7 @@ where
     }
 }
 
-impl<T, Inputs: Tuple> MutableSignalProvider<T, Inputs>
+impl<T, Inputs: Tuple> MutableProvider<T, Inputs>
 where
     Inputs::TupleList: MutableInputs<T>,
 {
@@ -1228,7 +1263,7 @@ where
     }
 }
 
-impl<T, Inputs: Tuple> std::fmt::Debug for MutableSignalProvider<T, Inputs> {
+impl<T, Inputs: Tuple> std::fmt::Debug for MutableProvider<T, Inputs> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("MutableSignal");
         dbg.field("node", &self.node);
@@ -1243,7 +1278,7 @@ impl<T, Inputs: Tuple> std::fmt::Debug for MutableSignalProvider<T, Inputs> {
     }
 }
 
-impl<T, Inputs: Tuple> SignalProviderMut for MutableSignalProvider<T, Inputs>
+impl<T, Inputs: Tuple> SignalProviderMut for MutableProvider<T, Inputs>
 where
     Inputs::TupleList: MutableInputs<T>,
 {
@@ -1252,12 +1287,13 @@ where
     }
 }
 
-impl<T, Inputs: Tuple> SignalProvider for MutableSignalProvider<T, Inputs>
+impl<T, Inputs: Tuple> SignalProvider for MutableProvider<T, Inputs>
 where
     Inputs::TupleList: MutableInputs<T>,
 {
     type Item = T;
 
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -1308,9 +1344,15 @@ impl<'a, P: SignalProvider + ?Sized> Drop for SignalRefMut<'a, P> {
     }
 }
 
-impl<T: Default> Default for Signal<MutableSignalProvider<T, ()>> {
+impl<T: Default> Default for Signal<MutableProvider<T, ()>> {
     fn default() -> Self {
-        Self(Rc::new(MutableSignalProvider::new(T::default(), ())))
+        Self(Rc::new(MutableProvider::new(T::default(), ())))
+    }
+}
+
+impl<T: Default + 'static> Default for Signal<dyn SignalProvider<Item = T>> {
+    fn default() -> Self {
+        Self(Rc::new(ConstProvider::new(T::default())))
     }
 }
 
@@ -1377,25 +1419,32 @@ impl<MutProvider: SignalProviderMut + ?Sized> Signal<MutProvider> {
     }
 }
 
-impl<T, Inputs: Tuple> Signal<MutableSignalProvider<T, Inputs>>
+impl<T, Inputs: Tuple> Signal<MutableProvider<T, Inputs>>
 where
     Inputs::TupleList: MutableInputs<T>,
 {
-    pub fn new(x: T, inputs: Inputs) -> Self {
-        Self(Rc::new(MutableSignalProvider::new(x, inputs)))
+    pub fn new_inputs(x: T, inputs: Inputs) -> Self {
+        Self(Rc::new(MutableProvider::new(x, inputs)))
     }
 }
 
-impl<P: SignalProvider + ?Sized> Signal<SignalDeferProvider<P>> {
+impl<T> Signal<MutableProvider<T, ()>> {
+    pub fn new(x: T) -> Self {
+        Self(Rc::new(MutableProvider::new(x, ())))
+    }
+}
+
+impl<P: SignalProvider + ?Sized> Signal<DeferProvider<P>> {
     pub fn resolve(&self, target: Signal<P>) -> Result<(), Rc<P>> {
         self.0.provider.set(target.0.clone())
     }
 }
 
 pub type DynSignal<T> = Signal<dyn SignalProvider<Item = T>>; // Removing the stuff to handle smarter const folding to write less code
-pub type MutableSignal<T, Inputs = ()> = Signal<MutableSignalProvider<T, Inputs>>;
+pub type MutableSignal<T, Inputs = ()> = Signal<MutableProvider<T, Inputs>>;
 pub type DynMutableSignal<T> = Signal<dyn SignalProviderMut<Item = T>>;
-pub type DynDeferSignal<T> = Signal<SignalDeferProvider<dyn SignalProvider<Item = T>>>;
+pub type DynDeferSignal<T> = Signal<DeferProvider<dyn SignalProvider<Item = T>>>;
+pub type ConstSignal<T> = Signal<ConstProvider<T>>;
 
 // A mechanism for declaring that something that isn't a signal cares about checking when a signal changes
 pub struct Sampler<Provider: SignalProvider + ?Sized> {
@@ -1512,6 +1561,8 @@ impl<T, F: Fn() -> T> std::fmt::Debug for DynamicSignalProvider<T, F> {
 
 impl<T, F: Fn() -> T> SignalProvider for DynamicSignalProvider<T, F> {
     type Item = T;
+
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -1542,6 +1593,7 @@ impl<T, F: Fn() -> T> SignalProvider for DynamicSignalProvider<T, F> {
         }
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, T> {
         DynRef::Cell(Ref::map(self.val.borrow(), |x| {
             x.as_ref().expect("must be updated before getting value")
@@ -1729,6 +1781,8 @@ impl<
 > SignalProvider for AnimProvider<T, Anim, Source, Time>
 {
     type Item = Anim::Output;
+
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -1866,6 +1920,7 @@ impl<
         }
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, <Anim as Animator<T>>::Output> {
         DynRef::Cell(Ref::map(self.val.borrow(), |x| {
             x.as_ref().expect("must be updated before getting value")
@@ -1987,7 +2042,7 @@ impl<T: Ord> SignalOp<T, T, T> for MaxOp {
     }
 }
 
-pub struct SignalOpProvider<
+pub struct OpProvider<
     P1: SignalProvider + ?Sized,
     P2: SignalProvider + ?Sized,
     Output,
@@ -2005,10 +2060,10 @@ impl<
     P1: SignalProvider + ?Sized,
     P2: SignalProvider + ?Sized,
     OP: SignalOp<P1::Item, P2::Item, Output>,
-> std::fmt::Debug for SignalOpProvider<P1, P2, Output, OP>
+> std::fmt::Debug for OpProvider<P1, P2, Output, OP>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut dbg = f.debug_struct("SignalOpProvider");
+        let mut dbg = f.debug_struct("OpProvider");
         dbg.field("node", &self.node)
             .field("provider1", &self.provider1)
             .field("provider2", &self.provider2);
@@ -2030,12 +2085,14 @@ impl<
     P1: SignalProvider + ?Sized,
     P2: SignalProvider + ?Sized,
     OP: SignalOp<P1::Item, P2::Item, Output>,
-> SignalProvider for SignalOpProvider<P1, P2, Output, OP>
+> SignalProvider for OpProvider<P1, P2, Output, OP>
 where
     P1::Item: Clone,
     P2::Item: Clone,
 {
     type Item = Output;
+
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -2065,6 +2122,7 @@ where
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, Output> {
         DynRef::Cell(Ref::map(self.res.borrow(), |x| {
             x.as_ref().expect("must be updated before getting value")
@@ -2072,6 +2130,7 @@ where
     }
 }
 
+#[inline]
 fn operate<
     P1: SignalProvider + ?Sized,
     P2: SignalProvider + ?Sized,
@@ -2080,7 +2139,7 @@ fn operate<
 >(
     lhs: Signal<P1>,
     rhs: Signal<P2>,
-) -> Signal<SignalOpProvider<P1, P2, Output, OP>>
+) -> Signal<OpProvider<P1, P2, Output, OP>>
 where
     P1::Item: Clone,
     P2::Item: Clone,
@@ -2090,7 +2149,7 @@ where
     let provider2 = rhs.0;
     add_dependency(provider1.get_node(), node.clone());
     add_dependency(provider2.get_node(), node.clone());
-    Signal(Rc::new(SignalOpProvider {
+    Signal(Rc::new(OpProvider {
         provider1,
         provider2,
         res: RefCell::new(None),
@@ -2108,9 +2167,8 @@ macro_rules! gen_binop_impl {
             BP::Item: Clone,
             <AP::Item as std::ops::$t<BP::Item>>::Output: Clone,
         {
-            type Output = Signal<
-                SignalOpProvider<AP, BP, <AP::Item as std::ops::$t<BP::Item>>::Output, $marker>,
-            >;
+            type Output =
+                Signal<OpProvider<AP, BP, <AP::Item as std::ops::$t<BP::Item>>::Output, $marker>>;
 
             fn $op(self, rhs: Signal<BP>) -> Self::Output {
                 operate(self, rhs)
@@ -2195,12 +2253,14 @@ pub mod cmp {
     }
 }
 
-pub fn cond<T: Clone>(
-    c: Signal<impl SignalProvider<Item = bool> + ?Sized>,
-    a: DynSignal<T>,
-    b: DynSignal<T>,
-) -> Signal<impl SignalProvider<Item = T>> {
-    join(c.map_ex(move |cc| if *cc { a.clone() } else { b.clone() }))
+impl<P: SignalProvider<Item = bool> + ?Sized> Signal<P> {
+    pub fn cond<T: Clone>(
+        self,
+        t: DynSignal<T>,
+        f: DynSignal<T>,
+    ) -> Signal<impl SignalProvider<Item = T>> {
+        join(self.map_ex(move |cc| if *cc { t.clone() } else { f.clone() }))
+    }
 }
 
 #[macro_export]
@@ -2213,7 +2273,7 @@ macro_rules! switch {
     };
 }
 
-pub struct SignalVecMapProvider<
+pub struct VecMapProvider<
     T1,
     T2,
     Key: Eq + Hash,
@@ -2238,16 +2298,17 @@ impl<
     P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
-> std::fmt::Debug for SignalVecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
+> std::fmt::Debug for VecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SignalVecMapProvider")
+        f.debug_struct("VecMapProvider")
             .field("node", &self.node)
             .field("provider", &self.provider)
             .finish()
     }
 }
 
+/// Ensures that T is 'static
 fn assert_static<T: 'static>() {}
 
 impl<
@@ -2259,9 +2320,11 @@ impl<
     P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
-> SignalProvider for SignalVecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
+> SignalProvider for VecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
 {
     type Item = GenericVector<T2, Ptr, CHUNK_SIZE>;
+
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         assert_static::<Self>();
         &self.node
@@ -2290,37 +2353,52 @@ impl<
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, GenericVector<T2, Ptr, CHUNK_SIZE>> {
         DynRef::Cell(self.res.borrow())
     }
 }
 
-pub fn map_vec<
+impl<
     T1: Clone + 'static,
-    T2: Clone + 'static,
-    Key: Eq + Hash + 'static,
-    F: (Fn(&T1) -> T2) + 'static,
-    Ex: (Fn(&T1) -> Key) + 'static,
-    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
->(
-    f: F,
-    ex: Ex,
-    p: Signal<P>,
-) -> Signal<SignalVecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>> {
-    let node = new_node(NodeColor::Changed);
-    let provider = p.0;
-    add_dependency(provider.get_node(), node.clone());
-    Signal(Rc::new(SignalVecMapProvider {
-        provider,
-        map: RefCell::new(imbl::vector::PersistentMap::new(f, ex)),
-        res: Default::default(),
-        node,
-    }))
+    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
+> Signal<P>
+{
+    /// Creates a new immutable vector by mapping all elements of this vector into new elements.
+    pub fn map_elements<
+        T2: Clone + 'static,
+        Key: Eq + Hash + 'static,
+        F: (Fn(&T1) -> T2) + 'static,
+        Ex: (Fn(&T1) -> Key) + 'static,
+    >(
+        self,
+        f: F,
+        ex: Ex,
+    ) -> Signal<VecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>> {
+        let node = new_node(NodeColor::Changed);
+        let provider = self.0;
+        add_dependency(provider.get_node(), node.clone());
+        Signal(Rc::new(VecMapProvider {
+            provider,
+            map: RefCell::new(imbl::vector::PersistentMap::new(f, ex)),
+            res: Default::default(),
+            node,
+        }))
+    }
+
+    /// This is a special map that allows you to append or remove elements from an immutable vector, without changing
+    /// the type of the vector
+    pub fn map_modify(
+        self,
+        f: impl Fn(&P::Item) -> GenericVector<T1, Ptr, CHUNK_SIZE>,
+    ) -> Signal<impl SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>>> {
+        map(f, self, GenericVector::ptr_eq, never_debug)
+    }
 }
 
-pub struct SignalVecFoldProvider<
+pub struct VecFoldProvider<
     T,
     F: FnMut(T, T) -> T,
     P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
@@ -2331,6 +2409,7 @@ pub struct SignalVecFoldProvider<
     fold: RefCell<imbl::vector::PersistentFold<T, F, Ptr, CHUNK_SIZE>>,
     res: RefCell<T>,
     node: SignalNodeId,
+    z: T,
 }
 
 impl<
@@ -2339,10 +2418,10 @@ impl<
     P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
-> std::fmt::Debug for SignalVecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
+> std::fmt::Debug for VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SignalVecFoldProvider")
+        f.debug_struct("VecFoldProvider")
             .field("node", &self.node)
             .field("provider", &self.provider)
             .finish()
@@ -2355,9 +2434,11 @@ impl<
     P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
-> SignalProvider for SignalVecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
+> SignalProvider for VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
 {
     type Item = T;
+
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -2374,7 +2455,8 @@ impl<
         match color {
             NodeColor::Changed => {
                 let res = self.fold.borrow_mut().fold(&self.provider.get_ref());
-                *self.res.borrow_mut() = res;
+                // We use unwrap_or_else here because None is a cold branch which avoids a clone() most of the time.
+                *self.res.borrow_mut() = res.unwrap_or_else(|| self.z.clone());
                 notify_children_change(&self.node);
             }
             _ => {}
@@ -2382,6 +2464,7 @@ impl<
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, T> {
         DynRef::Cell(self.res.borrow())
     }
@@ -2397,27 +2480,29 @@ pub fn fold_vec<
     f: F,
     p: Signal<P>,
     z: T,
-) -> Signal<SignalVecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>> {
+) -> Signal<VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>> {
     let node = new_node(NodeColor::Changed);
     let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
-    Signal(Rc::new(SignalVecFoldProvider {
+    Signal(Rc::new(VecFoldProvider {
         provider,
-        fold: RefCell::new(imbl::vector::PersistentFold::new(f, z.clone())),
-        res: RefCell::new(z),
+        fold: RefCell::new(imbl::vector::PersistentFold::new(f)),
+        res: RefCell::new(z.clone()),
         node,
+        z,
     }))
 }
 
 #[derive(Debug)]
-pub struct SignalDeferProvider<P: SignalProvider + ?Sized> {
+pub struct DeferProvider<P: SignalProvider + ?Sized> {
     provider: std::cell::OnceCell<Rc<P>>,
     node: SignalNodeId,
 }
 
-impl<P: SignalProvider + ?Sized> SignalProvider for SignalDeferProvider<P> {
+impl<P: SignalProvider + ?Sized> SignalProvider for DeferProvider<P> {
     type Item = P::Item;
 
+    #[inline]
     fn get_node(&self) -> &SignalNodeId {
         &self.node
     }
@@ -2428,6 +2513,7 @@ impl<P: SignalProvider + ?Sized> SignalProvider for SignalDeferProvider<P> {
         }
     }
 
+    #[inline]
     fn get_ref(&self) -> DynRef<'_, Self::Item> {
         let p = self
             .provider
@@ -2437,9 +2523,9 @@ impl<P: SignalProvider + ?Sized> SignalProvider for SignalDeferProvider<P> {
     }
 }
 
-pub fn defer<T1, P: SignalProvider<Item = T1> + ?Sized>() -> Signal<SignalDeferProvider<P>> {
+pub fn defer<T1, P: SignalProvider<Item = T1> + ?Sized>() -> Signal<DeferProvider<P>> {
     let node = new_node(NodeColor::Changed);
-    Signal(Rc::new(SignalDeferProvider {
+    Signal(Rc::new(DeferProvider {
         provider: OnceCell::new(),
         node,
     }))

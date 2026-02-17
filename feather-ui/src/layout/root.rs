@@ -7,7 +7,7 @@ use super::{Desc, base};
 use crate::{
     Pixel, PxRect,
     layout::DynLayout,
-    reactive::{self, DynSignal, SignalMap, SignalZip, const_signal},
+    reactive::{self, ConstSignal, DynSignal, SignalMap, SignalZip},
 };
 use std::rc::Rc;
 
@@ -55,7 +55,7 @@ impl Desc for dyn Prop {
                     let (_, f) = c.stage(dim.clone(), dpi2.clone());
 
                     f(
-                        const_signal(crate::PxPoint::default()).into(),
+                        ConstSignal::new(crate::PxPoint::default()).into(),
                         sized.clone(),
                     )
                 });
