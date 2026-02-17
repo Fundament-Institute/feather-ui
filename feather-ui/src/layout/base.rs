@@ -3,7 +3,7 @@
 
 use crate::{
     DAbsRect, DPoint, DRect, ZERO_DRECT,
-    reactive::{DynSignal, MutableSignal, SignalMap, SignalZip, ToSignal, const_signal, zip_pair},
+    reactive::{ConstSignal, DynSignal, MutableSignal, SignalMap, SignalZip, ToSignal, zip_pair},
 };
 use std::rc::Rc;
 
@@ -90,7 +90,7 @@ impl ZIndex for DRect {}
 // draws children inside (like text).
 pub trait Padding {
     fn padding(&self) -> DynSignal<DAbsRect> {
-        const_signal(crate::ZERO_DABSRECT).into()
+        ConstSignal::new(crate::ZERO_DABSRECT).into()
     }
 }
 
@@ -100,7 +100,7 @@ impl Padding for DRect {}
 // child elements.
 pub trait Margin {
     fn margin(&self) -> DynSignal<DRect> {
-        const_signal(ZERO_DRECT).into()
+        ConstSignal::new(ZERO_DRECT).into()
     }
 }
 
@@ -111,7 +111,7 @@ pub trait Area {
 
 impl Area for DRect {
     fn area(&self) -> DynSignal<DRect> {
-        const_signal(self.clone()).into() // TODO: This doesn't make sense
+        ConstSignal::new(self.clone()).into() // TODO: This doesn't make sense
     }
 }
 
@@ -120,7 +120,7 @@ gen_dyn_prop!(Area);
 // Relative to child's evaluated area (inner area)
 pub trait Anchor {
     fn anchor(&self) -> DynSignal<DPoint> {
-        const_signal(crate::ZERO_DPOINT).into()
+        ConstSignal::new(crate::ZERO_DPOINT).into()
     }
 }
 
@@ -128,14 +128,14 @@ impl Anchor for DRect {}
 
 pub trait Limits {
     fn limits(&self) -> DynSignal<crate::DLimits> {
-        const_signal(crate::DEFAULT_DLIMITS).into()
+        ConstSignal::new(crate::DEFAULT_DLIMITS).into()
     }
 }
 
 // Relative to parent's area
 pub trait RLimits {
     fn rlimits(&self) -> DynSignal<crate::RelLimits> {
-        const_signal(crate::DEFAULT_RLIMITS).into()
+        ConstSignal::new(crate::DEFAULT_RLIMITS).into()
     }
 }
 
@@ -147,7 +147,7 @@ pub trait Order {
 
 pub trait Direction {
     fn direction(&self) -> DynSignal<crate::RowDirection> {
-        const_signal(crate::RowDirection::LeftToRight).into()
+        ConstSignal::new(crate::RowDirection::LeftToRight).into()
     }
 }
 

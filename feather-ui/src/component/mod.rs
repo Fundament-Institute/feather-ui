@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+pub mod button;
 pub mod line;
 pub mod mouse_area;
 pub mod region;

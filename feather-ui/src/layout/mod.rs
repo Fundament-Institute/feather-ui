@@ -19,7 +19,7 @@ use crate::render::compositor::{CompositorView, Layer};
 use crate::render::{Prerender, Renderable};
 use crate::{
     DynSignal, PxDim, PxLimits, PxPoint, PxRect, RelLimits, RenderError, UNSIZED_AXIS, URect,
-    UnsizedDim, rtree,
+    Unsizable, UnsizedDim, rtree,
 };
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -69,7 +69,7 @@ where
 
 pub type DeferMachine<P> = (
     crate::event::AntiStream<'static, crate::input::RawEvent, Rc<rtree::Node>>,
-    reactive::Signal<reactive::SignalDeferProvider<P>>,
+    reactive::Signal<reactive::DeferProvider<P>>,
 );
 
 #[inline]
@@ -204,11 +204,11 @@ impl<T: Renderable> Staged for Concrete<T> {
         children: Option<&imbl::Vector<Rc<rtree::Node>>>,
         dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), RenderError> {
-        let area = reactive::sample(&self.area);
+        let area = *reactive::sample(&self.area);
         if let Some(layer) = &self.layer {
             let mut deps = Vec::new();
 
-            let layer_area = reactive::sample(&layer.area);
+            let layer_area = *reactive::sample(&layer.area);
             let target = reactive::sample(&layer.target);
             let (mut view, depview) = if let Some(target) = &*target {
                 // If this is a "real" layer with a texture target, mark it as a dependency of
@@ -270,7 +270,7 @@ impl<T: Renderable> Staged for Concrete<T> {
 
             // Always push a new clipping area, but remember that a layer can only store
             // it's relative area.
-            view.with_clip(*layer_area + parent_pos, |refview| {
+            view.with_clip(layer_area + parent_pos, |refview| {
                 self.render_self(parent_pos, driver, refview)?;
                 if let Some(c) = children {
                     self.render_children(
@@ -310,11 +310,11 @@ impl<T: Renderable> Staged for Concrete<T> {
 
 #[must_use]
 #[inline]
-pub(crate) fn zero_unsized(v: UnsizedDim) -> PxDim {
-    let (unsized_x, unsized_y) = check_unsized_dim(v);
+pub(crate) fn resolve_dim(v: UnsizedDim, aux: PxDim) -> PxDim {
+    let (unsized_x, unsized_y) = v.is_unsized();
     PxDim {
-        width: if unsized_x { 0.0 } else { v.width },
-        height: if unsized_y { 0.0 } else { v.height },
+        width: if unsized_x { aux.width } else { v.width },
+        height: if unsized_y { aux.height } else { v.height },
         _unit: PhantomData,
     }
 }
@@ -335,7 +335,7 @@ pub(crate) fn limit_area(mut v: PxRect, limits: PxLimits) -> PxRect {
 #[must_use]
 #[inline]
 pub(crate) fn limit_dim(v: crate::UnsizedDim, limits: PxLimits) -> PxDim {
-    let (unsized_x, unsized_y) = check_unsized_dim(v);
+    let (unsized_x, unsized_y) = v.is_unsized();
     PxDim::new(
         if unsized_x {
             v.width
@@ -388,7 +388,7 @@ pub(crate) fn eval_dim(area: URect, dim: PxDim, limits: PxLimits) -> UnsizedDim 
 #[must_use]
 #[inline]
 pub(crate) fn apply_limit(dim: UnsizedDim, limits: PxLimits, rlimits: RelLimits) -> PxLimits {
-    let (unsized_x, unsized_y) = check_unsized_dim(dim);
+    let (unsized_x, unsized_y) = dim.is_unsized();
     let sign = limits.v.sign_bit() | rlimits.v.sign_bit();
 
     let px = f32x4::new([
@@ -418,14 +418,6 @@ pub(crate) fn apply_limit(dim: UnsizedDim, limits: PxLimits, rlimits: RelLimits)
         v: (rlimits.v.is_finite().blend(px, f32x4::ONE) * rlimits.v).copysign(sign),
         _unit: PhantomData,
     }
-}
-
-// Returns true if an axis is unsized, which means it is defined as the size of
-// it's children's maximum extent.
-#[must_use]
-#[inline]
-pub(crate) fn check_unsized_dim(dim: UnsizedDim) -> (bool, bool) {
-    (dim.width == UNSIZED_AXIS, dim.height == UNSIZED_AXIS)
 }
 
 pub(crate) fn assert_sized(area: PxRect) {

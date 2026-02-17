@@ -3,8 +3,8 @@
 
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, leaf};
-use crate::reactive;
-use crate::reactive::{DynSignal, MutableSignal, SignalZip, zip_pair};
+use crate::reactive::{ConstSignal, DynSignal, MutableSignal, SignalZip, zip_pair};
+use crate::{Unsizable, reactive};
 use cosmic_text::LineIter;
 use derive_where::derive_where;
 use std::rc::Rc;
@@ -23,6 +23,20 @@ pub struct Text<T> {
                                                        * text */
 }
 
+impl<T: Default> Default for Text<T> {
+    fn default() -> Self {
+        Self {
+            props: Default::default(),
+            font_size: Default::default(),
+            line_height: Default::default(),
+            text: Default::default(),
+            attributes: ConstSignal::new(cosmic_text::AttrsOwned::new(&cosmic_text::Attrs::new()))
+                .into(),
+            wrap: ConstSignal::new(cosmic_text::Wrap::None).into(),
+            align: Default::default(),
+        }
+    }
+}
 impl<T: leaf::Padded + 'static> Text<T> {
     pub fn new(
         props: T,
@@ -87,11 +101,11 @@ where
             self.align.clone(),
             inner_dim.clone(),
             self.props.padding(),
-            inner_limits,
+            inner_limits.clone(),
         )
             .zip()
             .flatmap_mut(
-                |(
+                move |(
                     text,
                     font_size,
                     line_height,
@@ -114,8 +128,8 @@ where
                     &crate::DAbsRect,
                     &crate::PxLimits,
                 ),
-                 buffer: Option<cosmic_text::Buffer>|
-                 -> cosmic_text::Buffer {
+                      buffer: Option<cosmic_text::Buffer>|
+                      -> cosmic_text::Buffer {
                     let driver = wdriver.upgrade().unwrap();
                     let mut font_system = driver.font_system.write();
                     let padding = padding.as_perimeter(*dpi);
@@ -142,8 +156,6 @@ where
                         );
                     }
 
-                    let mut font_system = driver.font_system.write();
-
                     let (limitx, limity) = {
                         let max = limits.max();
                         (
@@ -152,8 +164,8 @@ where
                         )
                     };
 
-                    let dim = inner - padding.total();
-                    let (unsized_x, unsized_y) = layout::check_unsized_dim(dim);
+                    let (unsized_x, unsized_y) = inner.is_unsized();
+                    let dim = crate::layout::limit_dim(*inner, *limits) - padding.total();
 
                     buffer.set_size(
                         &mut font_system,
@@ -195,7 +207,7 @@ where
                         // was originally marked as RTL - the layout will still be wrong because
                         // it didn't know how big the text would be.
                         //if realign {
-                        buffer.set_size(&mut driver.font_system.write(), Some(w), Some(h));
+                        buffer.set_size(&mut font_system, Some(w), Some(h));
                         //}
                     };
 
@@ -204,7 +216,7 @@ where
             );
 
         let render = crate::render::text::PreInstance {
-            text_buffer,
+            text_buffer: text_buffer.clone(),
             padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)),
             driver: Arc::downgrade(driver2),
         };

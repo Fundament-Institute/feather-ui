@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+use num_traits::One;
 use wgpu::CompilationMessageType;
 
 use crate::graphics::Driver;

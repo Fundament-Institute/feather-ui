@@ -5,7 +5,7 @@ use super::compositor;
 use crate::color::sRGB;
 //use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
-use crate::reactive::{self, DynSignal, SignalMap, SignalZip, const_signal, join, zip_pair};
+use crate::reactive::{self, ConstSignal, DynSignal, SignalMap, SignalZip, join, zip_pair};
 use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
 use crate::{Canonicalize, Pixel, PxDim, PxPoint, PxRect, RenderError, shaders};
@@ -418,7 +418,7 @@ impl<const KIND: u8> Instance<KIND> {
             })
             .into_dyn_signal();
 
-        let empty = const_signal(InstanceResult::Empty).into_dyn_signal();
+        let empty = ConstSignal::new(InstanceResult::Empty).into_dyn_signal();
         let blank = (area.clone(), padding.clone(), dim.clone(), fill.clone())
             .zip()
             .flatmap(|(area, padding, dim, fill)| {
@@ -436,63 +436,70 @@ impl<const KIND: u8> Instance<KIND> {
             })
             .into_dyn_signal();
 
-        let choice = join((dim.clone(), corners.clone(), border.clone()).zip().map_ex(
-            move |(dim, corners, border)| {
-                if dim.width <= 0.0 || dim.height <= 0.0 {
-                    return empty.clone();
-                }
+        let choice = join(
+            (dim.clone(), corners.clone(), border.clone())
+                .zip()
+                .flatmap(move |(dim, corners, border)| {
+                    if dim.width <= 0.0 || dim.height <= 0.0 {
+                        return empty.clone();
+                    }
 
-                if KIND == /*ShapeKind::RoundRect as u8*/ 0
-                    && corners.iter().all(|x| x.is_zero())
-                    && border.is_zero()
-                {
-                    return blank.clone();
-                }
-
-                let perimeter = [
-                    dim.height - corners[0] - corners[3],
-                    dim.width - corners[0] - corners[1],
-                    dim.height - corners[1] - corners[2],
-                    dim.width - corners[2] - corners[3],
-                ];
-
-                // RoundRects have a specific optimization, but only if no edge length is less
-                // than 2 pixels
-                if KIND == /*ShapeKind::RoundRect as u8*/ 0 && perimeter.iter().all(|x| *x >= 2.0) {
-                    opt_data.clone()
-                } else {
-                    data.clone()
-                }
-            },
-        ));
-
-        let none_reservation = const_signal(Ok((Data::default(), Size2D::<i32, Pixel>::default())));
-
-        let region_choice = join((dim.clone(), corners.clone(), border.clone()).zip().map_ex(
-            move |(dim, corners, border)| {
-                let perimeter = [
-                    dim.height - corners[0] - corners[3],
-                    dim.width - corners[0] - corners[1],
-                    dim.height - corners[1] - corners[2],
-                    dim.width - corners[2] - corners[3],
-                ];
-
-                if dim.width <= 0.0
-                    || dim.height <= 0.0
-                    || (KIND == /*ShapeKind::RoundRect as u8*/ 0
+                    if KIND == /*ShapeKind::RoundRect as u8*/ 0
                         && corners.iter().all(|x| x.is_zero())
-                        && border.is_zero())
-                {
-                    none_reservation.clone().into_dyn_signal()
-                } else if KIND == /*ShapeKind::RoundRect as u8*/ 0
-                    && perimeter.iter().all(|x| *x >= 2.0)
-                {
-                    opt_reservation.clone().into_dyn_signal()
-                } else {
-                    reservation.clone().into_dyn_signal()
-                }
-            },
-        ));
+                        && border.is_zero()
+                    {
+                        return blank.clone();
+                    }
+
+                    let perimeter = [
+                        dim.height - corners[0] - corners[3],
+                        dim.width - corners[0] - corners[1],
+                        dim.height - corners[1] - corners[2],
+                        dim.width - corners[2] - corners[3],
+                    ];
+
+                    // RoundRects have a specific optimization, but only if no edge length is less
+                    // than 2 pixels
+                    if KIND == /*ShapeKind::RoundRect as u8*/ 0
+                        && perimeter.iter().all(|x| *x >= 2.0)
+                    {
+                        opt_data.clone()
+                    } else {
+                        data.clone()
+                    }
+                }),
+        );
+
+        let none_reservation =
+            ConstSignal::new(Ok((Data::default(), Size2D::<i32, Pixel>::default())));
+
+        let region_choice = join(
+            (dim.clone(), corners.clone(), border.clone())
+                .zip()
+                .flatmap(move |(dim, corners, border)| {
+                    let perimeter = [
+                        dim.height - corners[0] - corners[3],
+                        dim.width - corners[0] - corners[1],
+                        dim.height - corners[1] - corners[2],
+                        dim.width - corners[2] - corners[3],
+                    ];
+
+                    if dim.width <= 0.0
+                        || dim.height <= 0.0
+                        || (KIND == /*ShapeKind::RoundRect as u8*/ 0
+                            && corners.iter().all(|x| x.is_zero())
+                            && border.is_zero())
+                    {
+                        none_reservation.clone().into_dyn_signal()
+                    } else if KIND == /*ShapeKind::RoundRect as u8*/ 0
+                        && perimeter.iter().all(|x| *x >= 2.0)
+                    {
+                        opt_reservation.clone().into_dyn_signal()
+                    } else {
+                        reservation.clone().into_dyn_signal()
+                    }
+                }),
+        );
 
         Self {
             values: choice.into_dyn_signal(),

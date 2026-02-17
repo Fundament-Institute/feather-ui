@@ -3,8 +3,8 @@
 
 use super::{Concrete, Desc, base};
 use crate::{
-    PxRect, RelDim,
-    layout::{DynLayout, zero_unsized},
+    PxRect, RelDim, Unsizable,
+    layout::{DynLayout, resolve_dim},
     reactive::{self, DynSignal, SignalMap, SignalZip, zip_pair},
     render::Prerender,
     rtree,
@@ -69,11 +69,11 @@ fn stage<'a, T: Prerender + 'static>(
 
     let inner_sized = inner_dim
         .clone()
-        .map(|x| zero_unsized(*x))
+        .map(|x| resolve_dim(*x, crate::PxDim::zero()))
         .into_dyn_signal();
 
     let dpi2 = dpi.clone();
-    let child_tuple = reactive::map_vec(
+    let child_tuple = children.map_elements(
         move |child| {
             let rlimits = child.as_ref().get_props().rlimits();
 
@@ -88,22 +88,18 @@ fn stage<'a, T: Prerender + 'static>(
             )
         },
         |x| reactive::Identity(x.clone()),
-        children,
-    )
-    .into_dyn_signal();
-
-    let child_presize = reactive::map_vec(
-        |x| x.0.clone(),
-        |x| reactive::Identity(x.1.clone()),
-        child_tuple.clone(),
     );
+
+    let child_presize = child_tuple
+        .clone()
+        .map_elements(|x| x.0.clone(), |x| reactive::Identity(x.1.clone()));
 
     let presize = reactive::join(reactive::fold_vec(
         |l, r| {
             zip_pair(l.clone(), r.clone(), |u: &PxRect, v: &PxRect| u.extend(*v)).into_dyn_signal()
         },
         child_presize,
-        crate::const_signal(PxRect::zero()).into_dyn_signal(),
+        crate::ConstSignal::new(PxRect::zero()).into_dyn_signal(),
     ));
 
     let presize = presize.map(|x| x.extend(PxRect::zero()));
@@ -128,7 +124,9 @@ fn stage<'a, T: Prerender + 'static>(
         .flatmap(|(a, o, l)| super::limit_area(a.resolve_sized(*o), *l));
 
     // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
-    let evaluated_area = reactive::cond(is_unsized.clone(), unsized_area.into(), sized_area.into());
+    let evaluated_area = is_unsized
+        .clone()
+        .cond(unsized_area.into(), sized_area.into());
     let dpi2 = dpi.clone();
 
     let anchor = props.anchor();
@@ -157,23 +155,23 @@ fn stage<'a, T: Prerender + 'static>(
                 .flatmap(|(a, dim, l, o)| super::limit_area(a.resolve_sized(*dim), *l) + *o);
 
             // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
-            let final_area =
-                reactive::cond(is_unsized.clone(), unsized_final.into(), sized_final.into());
+            let final_area = is_unsized
+                .clone()
+                .cond(unsized_final.into(), sized_final.into());
 
             let child_area = final_area.clone();
-            let nodes = reactive::map_vec(
+            let nodes = child_tuple.clone().map_elements(
                 move |(_, f, rlimits)| {
                     let dim = zip_pair(child_area.clone(), rlimits.clone(), |area, limits| {
                         super::limit_dim_sized(area.dim(), *limits * area.dim())
                     });
 
                     f(
-                        crate::const_signal(crate::PxPoint::zero()).into(),
+                        reactive::ConstSignal::new(crate::PxPoint::zero()).into(),
                         dim.into(),
                     )
                 },
                 |x| reactive::Identity(x.1.clone()),
-                child_tuple.clone(),
             );
 
             // TODO: It isn't clear if the simple layout should attempt to handle children

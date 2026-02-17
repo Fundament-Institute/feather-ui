@@ -65,7 +65,7 @@ pub enum RawEvent {
     Drag, // TBD, must be included here so RawEvent matches RawEventKind
     Drop {
         device_id: DeviceId,
-        pos: PhysicalPosition<f32>,
+        pos: PxPoint,
     },
     Focus {
         acquired: bool,
@@ -144,6 +144,35 @@ static_assertions::const_assert!(size_of::<RawEvent>() == 48);
 impl RawEvent {
     pub fn kind(&self) -> RawEventKind {
         self.into()
+    }
+
+    pub(crate) fn reposition(&self, offset: Option<PxVector>) -> Self {
+        let mut e = self.clone();
+        match &mut e {
+            Self::Drop { pos, .. }
+            | Self::Mouse { pos, .. }
+            | Self::MouseOn { pos, .. }
+            | Self::MouseMove { pos, .. }
+            | Self::MouseScroll { pos, .. } => {
+                if let Some(v) = offset {
+                    *pos -= v
+                } else {
+                    pos.x = f32::INFINITY;
+                    pos.y = f32::INFINITY;
+                }
+            }
+            Self::Touch { pos, .. } => {
+                if let Some(v) = offset {
+                    *pos -= v.to_3d()
+                } else {
+                    pos.x = f32::INFINITY;
+                    pos.y = f32::INFINITY;
+                    pos.z = f32::INFINITY;
+                }
+            }
+            _ => (),
+        }
+        e
     }
 }
 

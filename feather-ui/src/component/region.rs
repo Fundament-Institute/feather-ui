@@ -4,7 +4,7 @@
 use crate::color::sRGB32;
 use crate::component::ChildOf;
 use crate::layout::fixed;
-use crate::reactive::{DynSignal, MutableSignal, map_vec};
+use crate::reactive::{DynSignal, MutableSignal};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -52,12 +52,11 @@ where
         dpi: MutableSignal<crate::RelDim>,
     ) -> Self::R {
         let wdriver = Arc::downgrade(&driver);
-        let children = map_vec(
+        let children = self.children.clone().map_elements(
             move |child: &Rc<ChildOf<dyn fixed::Prop>>| {
                 child.layout(&wdriver.upgrade().unwrap(), dpi.clone())
             },
             |x| crate::reactive::Identity(x.clone()),
-            self.children.clone(),
         );
 
         Self::R {
