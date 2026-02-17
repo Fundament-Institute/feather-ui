@@ -2579,7 +2579,7 @@ fn add() {
 fn reactive_fold() {
     let mut vals = Iterator::map(1..=100, MutableSignal::new).collect::<Vec<_>>();
     let sum = vals.iter().fold(0.to_signal().into_dyn_signal(), |a, b| {
-        zip_pair(a, b.clone(), |x: i32, y: i32| x + y).into_dyn_signal()
+        zip_pair(a, b.clone(), |x, y| *x + *y).into_dyn_signal()
     });
     let modifications = vec![(1, 1, 5049), (1, 2, 5050), (5, -1, 5043)];
     for (idx, val, expectation) in modifications {
@@ -2590,26 +2590,24 @@ fn reactive_fold() {
 
 #[test]
 fn test_reactive_map_vec() {
-    let v = const_signal(imbl::vector![1, 2, 3, 4]);
+    let v = const_new(imbl::vector![1, 2, 3, 4]);
 
-    let result = map_vec(|x| *x * *x, |x| *x, v.clone());
+    let result = v.clone().map_elements(|x| *x * *x, |x| *x);
 
     for i in sample(&result).iter() {
         println!("{i}");
     }
 
-    let rv = const_signal(imbl::vector![
+    let rv = const_new(imbl::vector![
         Rc::new(1),
         Rc::new(2),
         Rc::new(3),
         Rc::new(4)
     ]);
 
-    let result = map_vec(
-        |x| *x.as_ref() * *x.as_ref(),
-        |x| Identity(x.clone()),
-        rv.clone(),
-    );
+    let result = rv
+        .clone()
+        .map_elements(|x| *x.as_ref() * *x.as_ref(), |x| Identity(x.clone()));
 
     for i in sample(&result).iter() {
         println!("{i}");
