@@ -228,9 +228,9 @@ impl<T: PartialEq + Clone, CT: PrimInt + Unsigned> FromIterator<T> for CompactSe
 pub fn basic_seq_test() {
     let mut seq = CompactSequence::<i32>::new(1);
 
-    assert_eq!(seq.get(0), 1);
-    assert_eq!(seq.get(1), 1);
-    assert_eq!(seq.get(2), 1);
+    assert_eq!(*seq.get(0), 1);
+    assert_eq!(*seq.get(1), 1);
+    assert_eq!(*seq.get(2), 1);
 
     assert_eq!(seq[0], 1);
     assert_eq!(seq[1], 1);
