@@ -4,6 +4,7 @@ use stable_deref_trait::CloneStableDeref;
 use std::{
     cell::{OnceCell, Ref},
     cmp::{PartialEq, PartialOrd},
+    collections::HashSet,
     hash::Hash,
     marker::PhantomData,
     ops::Deref,
@@ -181,11 +182,12 @@ fn notify_check_node(nodeid: &SignalNodeId) {
         NodeColor::Ready => {
             node.color = NodeColor::Check;
             node.children.iter().for_each(notify_check_node);
+
+            if let Some(f) = &node.callback {
+                f();
+            }
         }
         _ => {}
-    }
-    if let Some(f) = &node.callback {
-        f();
     }
 }
 
@@ -1031,10 +1033,7 @@ pub fn map_mut<T, R, F: Fn(&P::Item, Option<R>) -> R, P: SignalProvider<Item = T
 }
 
 pub trait SignalMap<Elem, P: SignalProvider<Item = Elem> + ?Sized> {
-    fn map<T: Copy + PartialEq>(
-        self,
-        f: impl Fn(&P::Item) -> T,
-    ) -> Signal<impl SignalProvider<Item = T>>;
+    fn map<T: PartialEq>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>>;
 
     fn map_pred<T>(
         self,
@@ -1065,10 +1064,7 @@ fn always_debug<T: std::fmt::Debug>(t: &T) -> Option<&dyn std::fmt::Debug> {
 }
 
 impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem, P> for Signal<P> {
-    fn map<T: Copy + PartialEq>(
-        self,
-        f: impl Fn(&P::Item) -> T,
-    ) -> Signal<impl SignalProvider<Item = T>> {
+    fn map<T: PartialEq>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, PartialEq::eq, never_debug)
     }
     fn map_pred<T>(
@@ -1241,7 +1237,7 @@ where
         if color != NodeColor::Ready {
             signal.0.update_if_necessary();
             handler(val, &signal);
-            node.0.borrow_mut().color = NodeColor::Changed;
+            notify_change_node(&node);
         }
         tail.update_check(val, node);
     }
@@ -1629,6 +1625,59 @@ impl<T: Clone, Provider: SignalProvider<Item = T>> DynamicSignalGettable<T> for 
                 Some(self.0.get_ref().clone())
             }
         })
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct NotifySignal {
+    node: SignalNodeId,
+    track: [HashSet<SignalNodeId>; 2],
+    flip: bool,
+}
+
+impl Default for NotifySignal {
+    fn default() -> Self {
+        Self::new(None)
+    }
+}
+
+impl NotifySignal {
+    pub fn new(callback: Option<Box<dyn Fn()>>) -> Self {
+        let node = new_node(NodeColor::Ready);
+        node.0.borrow_mut().callback = callback;
+
+        Self {
+            node,
+            track: Default::default(),
+            flip: false,
+        }
+    }
+
+    pub fn add_parent(&mut self, parent: &Signal<impl SignalProvider + ?Sized>) {
+        let node = parent.0.get_node();
+        self.track[self.flip as usize].insert(node.clone());
+
+        if !self.track[(!self.flip) as usize].remove(node) {
+            add_dependency(node, self.node.clone());
+        }
+    }
+
+    pub fn reset(&mut self) {
+        for id in self.track[(!self.flip) as usize].drain() {
+            remove_dependency(&id, &self.node);
+        }
+        self.flip = !self.flip;
+        self.node.0.borrow_mut().color = NodeColor::Ready;
+    }
+}
+
+impl Drop for NotifySignal {
+    fn drop(&mut self) {
+        for s in &self.track {
+            for id in s {
+                remove_dependency(&id, &self.node);
+            }
+        }
     }
 }
 

@@ -205,10 +205,16 @@ impl<T: Renderable> Staged for Concrete<T> {
         dependents: &mut Vec<std::rc::Weak<Layer>>,
     ) -> Result<(), RenderError> {
         let area = *reactive::sample(&self.area);
+        compositor.redraw.add_parent(&self.area); // Added because we get parent_pos from this
+
         if let Some(layer) = &self.layer {
             let mut deps = Vec::new();
 
             let layer_area = *reactive::sample(&layer.area);
+            compositor.redraw.add_parent(&layer.area); // Added because we calculate the cliprect from this
+            compositor.redraw.add_parent(&layer.color);
+            compositor.redraw.add_parent(&layer.rotation);
+
             let target = reactive::sample(&layer.target);
             let (mut view, depview) = if let Some(target) = &*target {
                 // If this is a "real" layer with a texture target, mark it as a dependency of
@@ -244,6 +250,7 @@ impl<T: Renderable> Staged for Concrete<T> {
                     surface_dim: compositor.surface_dim,
                     pass: compositor.pass + 1,
                     slice: region_index,
+                    redraw: compositor.redraw,
                 };
 
                 v.reserve(driver);
@@ -263,6 +270,7 @@ impl<T: Renderable> Staged for Concrete<T> {
                         surface_dim: compositor.surface_dim,
                         pass: compositor.pass,
                         slice: compositor.slice,
+                        redraw: compositor.redraw,
                     },
                     dependents,
                 )

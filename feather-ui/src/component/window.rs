@@ -47,6 +47,7 @@ pub struct WindowState {
                                         * to the GPU clip list if something is rotated */
     pub layers: Vec<std::rc::Weak<crate::render::compositor::Layer>>, /* All layers that render directly to the final
                                                                        * compositor */
+    pub redraw: crate::reactive::NotifySignal,
 }
 
 const BACKCOLOR: wgpu::Color = wgpu::Color {
@@ -102,12 +103,15 @@ impl WindowState {
                 .map(|c| Size2D::<u32, crate::Pixel>::new(c.width, c.height))
                 .into(),
             surface,
-            window,
+            window: window.clone(),
             driver: driver.clone(),
             trackers: Default::default(),
             compositor,
             clipstack: Vec::new(),
             layers: Vec::new(),
+            redraw: crate::reactive::NotifySignal::new(Some(Box::new(move || {
+                window.request_redraw();
+            }))),
         };
 
         windowstate.resize(size);

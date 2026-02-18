@@ -176,6 +176,7 @@ impl Node {
     ) -> Result<(), crate::RenderError> {
         if let Some(staged) = self.staged.as_ref() {
             let extent = *crate::sample(&self.extent);
+            compositor.redraw.add_parent(&self.extent);
 
             if (extent + parent_pos).collides(&compositor.current_clip()) {
                 let children = self.children.as_ref().map(|x| crate::sample(x).clone());
@@ -474,14 +475,6 @@ impl Node {
         }
 
         false
-    }
-
-    /// This creates a new signal that depends on all signals that determine which area to draw (this being the cliprect and the
-    /// area signals of all r-tree nodes inside the cliprect this frame) along with the signals for draw data sent to all
-    /// pipelines, including the compositor. By listening for changes on this signal, if it gets set to changed, we need to request
-    /// a new frame. Every time we get a new frame, we discard the old signal and rebuild a new one.
-    pub(crate) fn draw_signal(root: &Rc<Node>, clip: &PxRect) {
-        todo!()
     }
 }
 
