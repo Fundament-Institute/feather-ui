@@ -2248,6 +2248,7 @@ impl<AppData: 'static, T> App<AppData, T> {
 
         let binding = window.attributes.clone();
         let attributes = sample_val(binding);
+        let windows2 = self.windows.clone();
         let mut windows = self.windows.borrow_mut();
         let (w, sampler) = windows.entry(Identity(window)).or_insert_with_key(|r| {
             let state = WindowState::new(
@@ -2322,6 +2323,7 @@ impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<Feathe
                 WindowEvent::RedrawRequested => {
                     // TODO: this doesn't properly update all window aspects
                     if let Some(driver) = self.driver.upgrade() {
+                        state.redraw.reset();
                         let surface_dim = sample(&state.surface_dim).to_f32();
 
                         loop {
@@ -2336,6 +2338,7 @@ impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<Feathe
                                 surface_dim,
                                 pass: 0,
                                 slice: 0,
+                                redraw: &mut state.redraw,
                             };
 
                             // Reset our layer tracker before beginning a render

@@ -398,7 +398,7 @@ impl super::Renderable for Instance {
     fn render(
         &self,
         parent_pos: crate::PxPoint,
-        driver: &crate::graphics::Driver,
+        _: &crate::graphics::Driver,
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), RenderError> {
         // We set the cliprect first, so any change in the cliprect triggers a relayout when we sample it.
@@ -411,6 +411,7 @@ impl super::Renderable for Instance {
             compositor.preprocessed(data.offset(parent_pos));
         }
 
+        compositor.redraw.add_parent(&self.values);
         Ok(())
     }
 }

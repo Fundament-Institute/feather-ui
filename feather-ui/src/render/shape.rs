@@ -527,6 +527,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
             }
         }
 
+        compositor.redraw.add_parent(&self.values);
         let data = reactive::sample(&self.values);
         match &*data {
             InstanceResult::Empty => (),

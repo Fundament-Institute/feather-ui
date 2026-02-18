@@ -882,6 +882,7 @@ pub struct CompositorView<'a> {
     pub surface_dim: PxDim, // Dimension of the top-level window surface.
     pub pass: u8,
     pub slice: u8, // This is the atlas slice index that this is being rendered to
+    pub(crate) redraw: &'a mut crate::reactive::NotifySignal,
 }
 
 impl<'a> CompositorView<'a> {

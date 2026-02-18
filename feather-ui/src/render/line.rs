@@ -58,6 +58,7 @@ impl super::Renderable for Instance {
         compositor: &mut CompositorView<'_>,
     ) -> Result<(), crate::RenderError> {
         compositor.append_data(*sample(&self.values));
+        compositor.redraw.add_parent(&self.values);
         Ok(())
     }
 }
