@@ -8,9 +8,8 @@ use crate::render::compositor::Compositor;
 use crate::render::shape::Shape;
 use crate::render::{atlas, compositor};
 use crate::resource::{Loader, Location, MAX_VARIANCE};
-use crate::{Error, Mat4x4, RenderError, render};
+use crate::{Error, FastHashMap, Mat4x4, RenderError, render};
 use guillotiere::AllocId;
-use parking_lot::RwLock;
 use smallvec::SmallVec;
 use std::any::TypeId;
 use std::sync::Arc;
@@ -44,7 +43,7 @@ pub struct GlyphRegion {
     pub region: atlas::Region,
 }
 
-pub(crate) type GlyphCache = HashMap<cosmic_text::CacheKey, GlyphRegion>;
+pub(crate) type GlyphCache = crate::FastHashMap<cosmic_text::CacheKey, GlyphRegion>;
 
 /// Represents a particular realized instance of a resource on the GPU. This
 /// includes the target size, DPI, and whether mipmaps have been generated.
@@ -157,17 +156,18 @@ unsafe impl<T> Sync for RwLockCell<T> {}
 #[derive_where::derive_where(Debug)]
 pub struct Driver {
     pub(crate) glyphs: RwLockCell<GlyphCache>,
-    pub(crate) prefetch: RwLockCell<HashMap<Box<dyn Location>, Box<dyn Loader>>>,
-    pub(crate) resources:
-        RwLockCell<HashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, atlas::Size)>>,
+    pub(crate) prefetch: RwLockCell<FastHashMap<Box<dyn Location>, Box<dyn Loader>>>,
+    pub(crate) resources: RwLockCell<
+        FastHashMap<ResourceInstance<'static>, (SmallVec<[atlas::Region; 1]>, atlas::Size)>,
+    >,
     pub(crate) locations:
-        RwLockCell<HashMap<Box<dyn Location>, SmallVec<[ResourceInstance<'static>; 1]>>>,
+        RwLockCell<FastHashMap<Box<dyn Location>, SmallVec<[ResourceInstance<'static>; 1]>>>,
     pub(crate) atlas: RwLockCell<Atlas>,
     pub(crate) layer_atlas: [RwLockCell<Atlas>; 2],
     pub(crate) layer_composite: [RwLockCell<compositor::Compositor>; 2],
     pub(crate) shared: compositor::Shared,
-    pub(crate) pipelines: RwLockCell<HashMap<PipelineID, Box<dyn crate::render::Pipeline>>>,
-    pub(crate) registry: RwLockCell<HashMap<PipelineID, PipelineState>>,
+    pub(crate) pipelines: RwLockCell<FastHashMap<PipelineID, Box<dyn crate::render::Pipeline>>>,
+    pub(crate) registry: RwLockCell<FastHashMap<PipelineID, PipelineState>>,
     pub(crate) queue: wgpu::Queue,
     pub(crate) device: wgpu::Device,
     pub(crate) adapter: wgpu::Adapter,
@@ -256,14 +256,14 @@ impl Driver {
             device,
             queue,
             swash_cache: ScaleContext::new().into(),
-            prefetch: HashMap::new().into(),
-            resources: HashMap::new().into(),
-            locations: HashMap::new().into(),
+            prefetch: HashMap::default().into(),
+            resources: HashMap::default().into(),
+            locations: HashMap::default().into(),
             font_system: cosmic_text::FontSystem::new().into(),
             cursor: CursorIcon::Default.into(),
-            pipelines: HashMap::new().into(),
-            glyphs: HashMap::new().into(),
-            registry: HashMap::new().into(),
+            pipelines: HashMap::default().into(),
+            glyphs: HashMap::default().into(),
+            registry: HashMap::default().into(),
             shared,
             atlas: atlas.into(),
             layer_atlas: [layer0.into(), layer1.into()],

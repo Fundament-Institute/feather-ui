@@ -9,7 +9,6 @@ use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(feather_macro::StateMachineChild)]
 #[derive_where(Clone, Default)]
 pub struct Tabs<T: Default> {
     pub id: Arc<SourceID>,

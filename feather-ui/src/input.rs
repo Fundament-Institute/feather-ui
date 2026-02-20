@@ -2,10 +2,8 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use enum_variant_type::EnumVariantType;
-use feather_macro::Dispatch;
 use guillotiere::euclid::default::Rotation3D;
 use guillotiere::euclid::{Point3D, Vector3D};
-use winit::dpi::PhysicalPosition;
 use winit::event::{DeviceId, TouchPhase};
 
 use crate::{Pixel, PxPoint, PxVector, RelVector};
@@ -59,7 +57,7 @@ pub enum ModifierKeys {
     Held = 64,
 }
 
-#[derive(Debug, Dispatch, EnumVariantType, Clone)]
+#[derive(Debug, feather_macro::Dispatch, EnumVariantType, Clone)]
 #[evt(derive(Clone), module = "raw_event")]
 pub enum RawEvent {
     Drag, // TBD, must be included here so RawEvent matches RawEventKind

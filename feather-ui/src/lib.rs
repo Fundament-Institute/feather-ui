@@ -35,6 +35,7 @@ pub mod resource;
 mod rtree;
 pub mod sequence;
 mod shaders;
+mod smallset;
 pub mod text;
 pub mod util;
 
@@ -56,7 +57,6 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::PartialEq;
 use std::collections::HashMap;
-use std::convert::Infallible;
 use std::f32::{INFINITY, NEG_INFINITY};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -1741,7 +1741,13 @@ pub enum RowDirection {
 // source ID.
 #[derive(Default)]
 pub struct CrossReferenceDomain {
-    mappings: RwLock<imbl::HashMap<Identity<Arc<dyn ComponentMarker + Send + Sync>>, PxRect>>,
+    mappings: RwLock<
+        imbl::GenericHashMap<
+            Identity<Arc<dyn ComponentMarker + Send + Sync>>,
+            PxRect,
+            rapidhash::fast::RandomState,
+        >,
+    >,
 }
 
 impl CrossReferenceDomain {
@@ -1781,29 +1787,29 @@ impl<H: Hash + PartialEq + std::cmp::Eq + Clone + std::fmt::Debug + Any> DynHash
     }
 }
 
-/// Used internally for event routing.
-pub type DispatchPair = (u64, Box<dyn Any>);
-
 pub trait Dispatchable
 where
     Self: Sized,
 {
-    const SIZE: usize;
-    fn extract(self) -> DispatchPair;
-    fn restore(pair: DispatchPair) -> Result<Self, Error>;
+    type Prism<'l, S: 'l + crate::event::EventStream<'l, Self>>;
+    type Callback;
+
+    fn callback() -> Self::Callback;
+    fn prism<'a, S: crate::event::EventStream<'a, Self>>(s: S) -> Self::Prism<'a, S>;
+    fn send(self, h: &mut Self::Callback) -> crate::event::EventRes;
 }
 
-impl Dispatchable for Infallible {
-    const SIZE: usize = 0;
-
-    fn extract(self) -> DispatchPair {
-        (0, Box::new(self))
-    }
-
-    fn restore(_: DispatchPair) -> Result<Self, Error> {
-        Err(Error::Stateless)
-    }
+pub trait DispatchCallback<T: Dispatchable>
+where
+    Self: Sized,
+{
+    fn subscribe<H: crate::event::StreamCallback<Self> + 'static>(h: H, callback: &mut T::Callback);
+    fn unsubscribe<H: crate::event::StreamCallback<Self> + 'static>(
+        callback: &mut T::Callback,
+    ) -> H;
 }
+
+type FastHashMap<K, V> = std::collections::HashMap<K, V, rapidhash::fast::RandomState>;
 
 // This was originally supposed to use a pointer, but rust moves things all over
 // the place, so a version that doesn't store the ID would have to be pinned
@@ -1957,14 +1963,14 @@ pub struct App<AppData, T: 'static> {
     pub instance: wgpu::Instance,
     pub driver: std::sync::Weak<graphics::Driver>,
     pub ready: AtomicBool,
-    trees: DynSignal<HashMap<Identity<Rc<Window>>, Rc<rtree::Node>>>,
+    trees: DynSignal<FastHashMap<Identity<Rc<Window>>, Rc<rtree::Node>>>,
     driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
     #[allow(clippy::type_complexity)]
     user_events: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
-    window_map: HashMap<WindowId, Rc<Window>>, // We can't use WindowId everywhere because windows don't exist until we create them.
+    window_map: FastHashMap<WindowId, Rc<Window>>, // We can't use WindowId everywhere because windows don't exist until we create them.
     windows: Rc<
         RefCell<
-            HashMap<
+            FastHashMap<
                 Identity<Rc<Window>>,
                 (
                     WindowState,
@@ -2102,7 +2108,6 @@ impl<AppData: 'static, T> App<AppData, T> {
         user_event: Option<Box<dyn FnMut(&mut Self, &ActiveEventLoop, T)>>,
         driver_init: Option<Box<dyn FnOnce(std::sync::Weak<Driver>)>>,
     ) -> eyre::Result<(Self, EventLoop<FeatherEvent<T>>)> {
-        use reactive::SignalMap;
         // let count = AtomicU64::new(inputs.len() as u64);
 
         #[cfg(debug_assertions)]
@@ -2151,7 +2156,7 @@ impl<AppData: 'static, T> App<AppData, T> {
                 .expect("Failed to send internal changeUI message!");
         });
 
-        let windows = Rc::new(RefCell::new(HashMap::new()));
+        let windows = Rc::new(RefCell::new(FastHashMap::default()));
         let windows2 = windows.clone();
 
         let layouts = outline_tree.map_ex(move |outline| {
@@ -2208,22 +2213,23 @@ impl<AppData: 'static, T> App<AppData, T> {
             |(_, w)| Identity(w.clone()),
         );
 
-        let trees = nodes.map_mut::<HashMap<Identity<Rc<Window>>, Rc<rtree::Node>>>(|v, old| {
-            let mut old = old.unwrap_or_default();
+        let trees =
+            nodes.map_mut::<FastHashMap<Identity<Rc<Window>>, Rc<rtree::Node>>>(|v, old| {
+                let mut old = old.unwrap_or_default();
 
-            // TODO: Replace with a smolset. Can be made even more efficient if made aware of the underlying persistent vector, because
-            // then it can compare each chunk and use petitset because the maximum number of elements is known
-            let mut exist = std::collections::HashSet::new();
+                // TODO: Replace with a smolset. Can be made even more efficient if made aware of the underlying persistent vector, because
+                // then it can compare each chunk and use petitset because the maximum number of elements is known
+                let mut exist = std::collections::HashSet::new();
 
-            for (n, w) in v.iter() {
-                old.entry(Identity(w.clone())).or_insert(n.clone());
-                exist.insert(Identity(w.clone()));
-            }
+                for (n, w) in v.iter() {
+                    old.entry(Identity(w.clone())).or_insert(n.clone());
+                    exist.insert(Identity(w.clone()));
+                }
 
-            old.retain(|k, _| exist.contains(k));
+                old.retain(|k, _| exist.contains(k));
 
-            old
-        });
+                old
+            });
 
         let app = Self {
             instance,
@@ -2232,7 +2238,7 @@ impl<AppData: 'static, T> App<AppData, T> {
             driver_init,
             user_events: user_event,
             ready: AtomicBool::new(false),
-            window_map: HashMap::new(),
+            window_map: HashMap::default(),
             windows,
             sampler,
             proxy: event_loop.create_proxy(),
@@ -2247,8 +2253,7 @@ impl<AppData: 'static, T> App<AppData, T> {
         }
 
         let binding = window.attributes.clone();
-        let attributes = sample_val(binding);
-        let windows2 = self.windows.clone();
+        let attributes = sample_val(&binding);
         let mut windows = self.windows.borrow_mut();
         let (w, sampler) = windows.entry(Identity(window)).or_insert_with_key(|r| {
             let state = WindowState::new(
@@ -2311,7 +2316,6 @@ impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<Feathe
             && let Some(root) = trees.get(&Identity(id.clone()))
             && let Some((state, _)) = self.windows.borrow_mut().get_mut(&Identity(id.clone()))
         {
-            let mut resized = false;
             let _ = match event {
                 WindowEvent::CloseRequested => {
                     // TODO: Figure out how to handle close events properly
@@ -2461,7 +2465,6 @@ impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<Feathe
                     true
                 }
                 WindowEvent::Resized(_) => {
-                    resized = true;
                     Window::on_window_event(state, root.clone(), event, self.driver.clone())
                 }
                 _ => Window::on_window_event(state, root.clone(), event, self.driver.clone()),
@@ -2487,8 +2490,7 @@ impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<Feathe
             FeatherEvent::ChangeUI => {
                 // TODO: There are much more efficient ways to perform this check that can be done using purely stack-allocated storage, but we don't bother right now
                 let mut exist = std::collections::HashSet::new();
-
-                let children = reactive::sample_val(self.sampler.inspect().children.clone());
+                let children = reactive::sample_val(&self.sampler.inspect().children);
                 for w in children.iter() {
                     if !self.windows.borrow().contains_key(&Identity(w.clone())) {
                         self.update_window(w.clone(), event_loop);

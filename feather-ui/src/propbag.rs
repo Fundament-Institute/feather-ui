@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct PropBag {
-    props: HashMap<PropBagElement, Box<dyn std::any::Any>>,
+    props: crate::FastHashMap<PropBagElement, Box<dyn std::any::Any>>,
 }
 
 #[allow(dead_code)]

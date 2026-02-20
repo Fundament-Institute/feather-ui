@@ -7,7 +7,7 @@ use super::{Desc, base};
 use crate::{
     Pixel, PxRect,
     layout::DynLayout,
-    reactive::{self, ConstSignal, DynSignal, SignalMap, SignalZip},
+    reactive::{self, ConstSignal, DynSignal, SignalZip},
 };
 use std::rc::Rc;
 

@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
-use crate::reactive::{Signal, SignalMap, SignalProvider};
+use small_map::SmallMap;
+
+use crate::{
+    DispatchCallback, Dispatchable,
+    reactive::{Signal, SignalProvider},
+};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct EventRes {
@@ -413,14 +418,15 @@ impl<'l, T: Clone, Priority: Ord, S: EventStream<'l, T>> Bubbler<'l, T, Priority
 
 // TODO: replace with smallmap form https://github.com/rinde/more_collections
 struct DupCallback<'l, T> {
-    queue:
-        Rc<RefCell<HashMap<*const (dyn StreamCallback<T> + 'l), Box<dyn StreamCallback<T> + 'l>>>>,
+    queue: Rc<
+        RefCell<SmallMap<4, *const (dyn StreamCallback<T> + 'l), Box<dyn StreamCallback<T> + 'l>>>,
+    >,
 }
 
 impl<'l, T> DupCallback<'l, T> {
     fn new() -> Self {
         Self {
-            queue: Rc::new(HashMap::new().into()),
+            queue: Rc::new(SmallMap::new().into()),
         }
     }
 }
@@ -445,7 +451,9 @@ enum DupState<'l, T: Clone + 'l, S: EventStream<'l, T>> {
     Active(
         S::Subscription<DupCallback<'l, T>>,
         std::rc::Weak<
-            RefCell<HashMap<*const (dyn StreamCallback<T> + 'l), Box<dyn StreamCallback<T> + 'l>>>,
+            RefCell<
+                SmallMap<4, *const (dyn StreamCallback<T> + 'l), Box<dyn StreamCallback<T> + 'l>>,
+            >,
         >,
     ),
     Invalid,
@@ -560,6 +568,9 @@ pub trait EventStreamExt<'l, T>: EventStream<'l, T> {
     fn each<F: FnMut(T) + 'l>(self, f: F) -> EachSubscription<'l, T, F, Self>
     where
         Self: Sized;
+    fn narrow<U: core::convert::TryFrom<T>>(self) -> NarrowStream<'l, T, U, Self>
+    where
+        Self: Sized;
 }
 
 pub trait EventStreamClone<'l, T: Clone>: EventStream<'l, T> {
@@ -618,6 +629,16 @@ where
             phantom: PhantomData,
         }
     }
+
+    fn narrow<U: core::convert::TryFrom<T>>(self) -> NarrowStream<'l, T, U, Self>
+    where
+        Self: Sized,
+    {
+        NarrowStream {
+            origin: self,
+            phantom: PhantomData,
+        }
+    }
 }
 
 // operations requiring T: Clone
@@ -635,6 +656,276 @@ where
         DupStream {
             state: Rc::new(RefCell::new(DupState::NoSubscriptions(self))),
         }
+    }
+}
+
+struct NarrowCallback<T, U, H: StreamCallback<U>> {
+    h: H,
+    phantom: PhantomData<(T, U)>,
+}
+
+impl<T, U: core::convert::TryFrom<T>, H: StreamCallback<U>> StreamCallback<T>
+    for NarrowCallback<T, U, H>
+{
+    fn send(&mut self, x: T) -> EventRes {
+        if let Ok(v) = x.try_into() {
+            self.h.send(v)
+        } else {
+            FORWARD
+        }
+    }
+}
+
+pub struct NarrowSubscription<
+    'a,
+    T: 'a,
+    R: 'a + core::convert::TryFrom<T>,
+    H: 'a + StreamCallback<R>,
+    S: EventStream<'a, T>,
+> {
+    origin: <S as EventStream<'a, T>>::Subscription<NarrowCallback<T, R, H>>,
+}
+
+impl<'a, T, R: core::convert::TryFrom<T>, H: StreamCallback<R>, S: EventStream<'a, T>>
+    Unsubscribe<R, NarrowStream<'a, T, R, S>, H> for NarrowSubscription<'a, T, R, H, S>
+{
+    fn unsubscribe(self) -> (NarrowStream<'a, T, R, S>, H)
+    where
+        NarrowStream<'a, T, R, S>: Sized,
+    {
+        let (s, h) = self.origin.unsubscribe();
+        (
+            NarrowStream {
+                origin: s,
+                phantom: PhantomData,
+            },
+            h.h,
+        )
+    }
+}
+
+pub struct NarrowStream<'l, T, R, S: EventStream<'l, T>> {
+    origin: S,
+    phantom: PhantomData<(&'l R, T)>,
+}
+
+impl<'l, T: 'l, R: 'l + core::convert::TryFrom<T>, S: EventStream<'l, T>> EventStream<'l, R>
+    for NarrowStream<'l, T, R, S>
+{
+    type Subscription<H: StreamCallback<R> + 'l> = NarrowSubscription<'l, T, R, H, S>;
+
+    fn subscribe<H: StreamCallback<R> + 'l>(self, h: H) -> Self::Subscription<H> {
+        Self::Subscription {
+            origin: self.origin.subscribe(NarrowCallback {
+                h: h,
+                phantom: PhantomData,
+            }),
+        }
+    }
+}
+
+enum PrismState<'l, T: 'l + Dispatchable, S: 'l + EventStream<'l, T>> {
+    Origin(S),
+    Subscription(S::Subscription<PrismCallback<'l, T, S>>, T::Callback, usize),
+    Invalid,
+}
+
+impl<'l, T: 'l + Dispatchable, S: EventStream<'l, T>> PrismState<'l, T, S> {
+    fn subscribe(this: &Rc<RefCell<Self>>) {
+        match &mut *this.borrow_mut() {
+            Self::Origin(_) => (),
+            Self::Subscription(_, _, count) => {
+                *count += 1;
+                return;
+            }
+            _ => return,
+        }
+
+        let mut state = PrismState::Invalid;
+        std::mem::swap(&mut *this.borrow_mut(), &mut state);
+        if let Self::Origin(origin) = state {
+            state = Self::Subscription(
+                origin.subscribe(PrismCallback {
+                    state: this.clone(),
+                }),
+                T::callback(),
+                1,
+            );
+        }
+        std::mem::swap(&mut *this.borrow_mut(), &mut state);
+    }
+
+    fn unsubscribe(&mut self) {
+        match self {
+            Self::Subscription(_, _, count) => {
+                *count -= 1;
+                if *count > 0 {
+                    return;
+                }
+            }
+            Self::Origin(_) => panic!("Tried to double-unsubscribe from PrismState!"),
+            Self::Invalid => panic!("Invalid PrismState!"),
+        }
+
+        let mut state = PrismState::Invalid;
+        std::mem::swap(self, &mut state);
+        if let Self::Subscription(s, _, count) = state {
+            assert_eq!(count, 0);
+            let (origin, _) = s.unsubscribe();
+            state = Self::Origin(origin);
+        }
+        std::mem::swap(self, &mut state);
+    }
+}
+
+/// Due to restrictions in the type system, we can't have some eventstreams impose an extra std::any::Any restriction
+/// on EventStreams, so instead we use a Box paired with a type_id to build our own knockoff Any.
+pub struct BoxedCallback<T>(pub Box<dyn StreamCallback<T>>, std::any::TypeId);
+
+impl<T> BoxedCallback<T> {
+    pub fn new<H: StreamCallback<T> + 'static>(h: H) -> Self {
+        let boxed: Box<dyn StreamCallback<T>> = Box::new(h);
+
+        Self(boxed, std::any::TypeId::of::<H>())
+    }
+
+    pub fn unbox<H: StreamCallback<T> + 'static>(self) -> H {
+        // This ensures the pointer we extract out is the type we expect
+        assert_eq!(self.1, std::any::TypeId::of::<H>());
+        let raw = Box::into_raw(self.0) as *mut H;
+
+        // Using from_raw here is important because manually deallocating will segfault if H is zero-sized.
+        *unsafe { Box::<H>::from_raw(raw) }
+    }
+}
+
+struct PrismCallback<'l, T: 'l + Dispatchable, S: EventStream<'l, T>> {
+    state: Rc<RefCell<PrismState<'l, T, S>>>,
+}
+
+impl<'l, T: 'l + Dispatchable, S: EventStream<'l, T>> StreamCallback<T>
+    for PrismCallback<'l, T, S>
+{
+    fn send(&mut self, x: T) -> EventRes {
+        if let PrismState::Subscription(_, h, _) = &mut *self.state.borrow_mut() {
+            T::send(x, h)
+        } else {
+            FORWARD
+        }
+    }
+}
+
+pub struct PrismSubscription<'l, T: Dispatchable, R, H: StreamCallback<R>, S: EventStream<'l, T>> {
+    origin: Rc<RefCell<PrismState<'l, T, S>>>,
+    phantom: PhantomData<(R, H)>,
+}
+
+impl<
+    'a,
+    T: Dispatchable,
+    R: DispatchCallback<T>,
+    H: 'static + StreamCallback<R>,
+    S: EventStream<'a, T>,
+> Unsubscribe<R, PrismStream<'a, T, R, S>, H> for PrismSubscription<'a, T, R, H, S>
+{
+    fn unsubscribe(self) -> (PrismStream<'a, T, R, S>, H)
+    where
+        PrismStream<'a, T, R, S>: Sized,
+    {
+        let h = if let PrismState::Subscription(_, callback, _) = &mut *self.origin.borrow_mut() {
+            R::unsubscribe::<H>(callback)
+        } else {
+            panic!("Invalid prism state!")
+        };
+
+        self.origin.borrow_mut().unsubscribe();
+        return (
+            PrismStream::<'a, T, R, S> {
+                origin: self.origin.clone(),
+                phantom: PhantomData,
+            },
+            h,
+        );
+    }
+}
+
+pub struct PrismStream<'l, T: Dispatchable, R, S: EventStream<'l, T>> {
+    origin: Rc<RefCell<PrismState<'l, T, S>>>,
+    phantom: PhantomData<R>,
+}
+
+#[repr(transparent)]
+pub struct PrismInternal<'l, T: 'l + Dispatchable, S: 'l + EventStream<'l, T>>(
+    Rc<RefCell<PrismState<'l, T, S>>>,
+);
+
+impl<'l, T: Dispatchable, S: EventStream<'l, T>> PrismInternal<'l, T, S> {
+    pub fn new(s: S) -> Self {
+        Self(Rc::new(RefCell::new(PrismState::Origin(s))))
+    }
+}
+
+impl<'l, T: 'l + Dispatchable, R: 'l, S: EventStream<'l, T>> PrismStream<'l, T, R, S> {
+    pub fn new(s: &PrismInternal<'l, T, S>) -> Self {
+        Self {
+            origin: s.0.clone(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<'l, T: 'l + Dispatchable, R: 'l + DispatchCallback<T>, S: EventStream<'l, T>>
+    EventStream<'static, R> for PrismStream<'l, T, R, S>
+{
+    type Subscription<H: StreamCallback<R> + 'static> = PrismSubscription<'l, T, R, H, S>;
+
+    fn subscribe<H: StreamCallback<R> + 'static>(self, h: H) -> Self::Subscription<H> {
+        PrismState::subscribe(&self.origin);
+
+        if let PrismState::Subscription(_, callback, _) = &mut *self.origin.borrow_mut() {
+            R::subscribe(h, callback);
+        }
+
+        Self::Subscription {
+            origin: self.origin,
+            phantom: PhantomData,
+        }
+    }
+}
+
+pub trait EventStreamPrism<'l, S: EventStream<'l, T>, T: Dispatchable>: EventStream<'l, T> {
+    fn prism(self) -> T::Prism<'l, S>
+    where
+        Self: Sized;
+}
+
+// operations requiring T: Dispatchable
+impl<'l, S, T: Dispatchable + 'l> EventStreamPrism<'l, S, T> for S
+where
+    S: EventStream<'l, T>,
+{
+    fn prism(self) -> T::Prism<'l, S>
+    where
+        Self: Sized,
+    {
+        T::prism(self)
+    }
+}
+
+impl Dispatchable for std::convert::Infallible {
+    type Prism<'l, T: 'l + EventStream<'l, Self>> = ();
+    type Callback = ();
+
+    fn callback() -> Self::Callback {
+        ()
+    }
+
+    fn send(self, _: &mut Self::Callback) -> crate::event::EventRes {
+        FORWARD
+    }
+
+    fn prism<'a, S: 'a + crate::event::EventStream<'a, Self>>(_: S) -> Self::Prism<'a, S> {
+        ()
     }
 }
 

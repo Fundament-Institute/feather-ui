@@ -5,13 +5,14 @@ use super::compositor;
 use crate::color::sRGB;
 //use crate::component::shape::ShapeKind;
 use crate::graphics::{self, Vec2f, Vec4f};
-use crate::reactive::{self, ConstSignal, DynSignal, SignalMap, SignalZip, join, zip_pair};
+use crate::reactive::{self, ConstSignal, DynSignal, SignalZip, join, zip_pair};
 use crate::render::atlas::{self, Atlas};
 use crate::render::compositor::CompositorView;
 use crate::{Canonicalize, Pixel, PxDim, PxPoint, PxRect, RenderError, shaders};
 use core::f32;
 use guillotiere::euclid::Size2D;
 use num_traits::Zero;
+use small_map::SmallMap;
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use std::num::NonZero;
@@ -590,7 +591,7 @@ impl std::hash::Hash for Data {
 
 #[derive(Debug)]
 pub struct Shape<const KIND: u8> {
-    data: HashMap<u8, Vec<Data>>,
+    data: SmallMap<16, u8, Vec<Data>>,
     buffer: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
     group: wgpu::BindGroup,
@@ -606,7 +607,11 @@ impl<const KIND: u8> Shape<KIND> {
     #[inline(always)]
     fn push(&mut self, mut data: Data, uv: atlas::PxBox, index: u8) {
         data.pos += uv.min.to_f32().to_array();
-        self.data.entry(index).or_default().push(data);
+        if !self.data.contains_key(&index) {
+            unsafe { self.data.insert_unique_unchecked(index, Default::default()) };
+        }
+        self.data.get_mut(&index).unwrap().push(data);
+        //self.data.entry(index).or_default().push(data);
     }
 
     fn update(
@@ -829,7 +834,7 @@ impl<const KIND: u8> Shape<KIND> {
         );
 
         Self {
-            data: HashMap::new(),
+            data: SmallMap::new(),
             buffer,
             pipeline,
             group,

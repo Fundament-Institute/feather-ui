@@ -3,7 +3,7 @@
 
 use crate::color::sRGB;
 use crate::layout::leaf;
-use crate::reactive::{DynSignal, MutableSignal, SignalMap, zip_pair};
+use crate::reactive::{DynSignal, MutableSignal, zip_pair};
 use std::rc::Rc;
 use std::sync::Arc;
 

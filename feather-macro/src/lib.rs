@@ -239,133 +239,113 @@ pub fn dispatchable(input: TokenStream) -> TokenStream {
     let data_enum = data_enum(&ast);
     let variants = &data_enum.variants;
 
-    let mut extract_declarations = proc_macro2::TokenStream::new();
-    let mut restore_declarations = proc_macro2::TokenStream::new();
+    let mut send_declarations = proc_macro2::TokenStream::new();
+    let mut callback_declarations = proc_macro2::TokenStream::new();
+    let mut callback_none = proc_macro2::TokenStream::new();
+    let mut struct_declarations = proc_macro2::TokenStream::new();
+    let mut impl_declarations = proc_macro2::TokenStream::new();
+    let mut prism_declarations = proc_macro2::TokenStream::new();
 
     for (counter, variant) in variants.iter().enumerate() {
         let variant_name = &variant.ident;
+        let idx = syn::Index::from(counter);
 
-        let idx = (1_u64)
-            .checked_shl(counter as u32)
-            .expect("Too many variants! Can't handle more than 64!");
+        struct_declarations.extend(quote! {
+            pub #variant_name: #crate_name::event::PrismStream<'a, #enum_name, #enum_module::#variant_name, S>,
+        });
 
-        if variant.fields.is_empty() {
-            extract_declarations.extend(quote! {
-                #enum_name::#variant_name => (
-                    #idx,
-                    Box::new(#enum_module::#variant_name::try_from(self).unwrap()),
-                ),
-            });
+        prism_declarations.extend(quote! {
+            #variant_name: #crate_name::event::PrismStream::<'a, #enum_name, #enum_module::#variant_name, S>::new(&state),
+        });
+
+        callback_declarations.extend(quote! {
+            Option<#crate_name::event::BoxedCallback<#enum_module::#variant_name>>,
+        });
+
+        callback_none.extend(quote! { None, });
+
+        let prevariant = if variant.fields.is_empty() {
+            quote! {
+                Self::#variant_name
+            }
         } else if variant.fields.iter().next().unwrap().ident.is_none() {
-            let underscores = variant.fields.iter().map(|_| format_ident!("_"));
-            extract_declarations.extend(quote! {
-                #enum_name::#variant_name(#(#underscores),*) => (
-                    #idx,
-                    Box::new(#enum_module::#variant_name::try_from(self).unwrap()),
-                ),
-            });
+            quote! {
+                Self::#variant_name(..)
+            }
         } else {
-            extract_declarations.extend(quote! {
-                #enum_name::#variant_name { .. } => (
-                    #idx,
-                    Box::new(#enum_module::#variant_name::try_from(self).unwrap()),
-                ),
-            });
-        }
+            quote! {
+                Self::#variant_name { .. }
+            }
+        };
 
-        restore_declarations.extend(quote! {
-            #idx => Ok(#enum_name::from(
-                *pair
-                    .1
-                    .downcast::<#enum_module::#variant_name>()
-                    .map_err(|_| {
-                        #crate_name::Error::MismatchedEnumTag(
-                            pair.0,
-                            std::any::TypeId::of::<#enum_module::#variant_name>(),
-                            typeid,
-                        )
-                    })?,
-            )),
+        send_declarations.extend(quote! {
+            v @ #prevariant => {
+                if let Some(h) = &mut callback.#idx
+                    && let Ok(x) = #enum_module::#variant_name::try_from(v)
+                {
+                    h.0.send(x)
+                } else {
+                    #crate_name::event::FORWARD
+                }
+            }
+        });
+
+        impl_declarations.extend(quote! {
+            impl #crate_name::DispatchCallback<#enum_name> for #enum_module::#variant_name {
+                fn subscribe<H: #crate_name::event::StreamCallback<Self> + 'static>(
+                    h: H,
+                    callback: &mut <#enum_name as #crate_name::Dispatchable>::Callback,
+                ) {
+                    assert!(matches!(callback.#idx.take(), None));
+                    let _ = callback.#idx.insert(#crate_name::event::BoxedCallback::new(h));
+                }
+
+                fn unsubscribe<H: #crate_name::event::StreamCallback<Self> + 'static>(
+                    callback: &mut <#enum_name as #crate_name::Dispatchable>::Callback,
+                ) -> H {
+                    let h = callback
+                        .#idx
+                        .take()
+                        .expect("Tried to unsubscribe from empty callback!");
+                    h.unbox()
+                }
+            }
         });
     }
 
-    let counter = variants.len();
+    let prismident = format_ident!("{}Prism", enum_name);
     quote! {
+        #[allow(non_snake_case)]
+        pub struct #prismident<'a, S: #crate_name::event::EventStream<'a, #enum_name>> {
+            #struct_declarations
+        }
+
         impl #crate_name::Dispatchable for #enum_name {
-            const SIZE: usize = #counter;
+            type Prism<'a, S: 'a + #crate_name::event::EventStream<'a, Self>> = #prismident<'a, S>;
+            type Callback = (
+                #callback_declarations
+            );
 
-            fn extract(self) -> #crate_name::DispatchPair {
+            fn callback() -> Self::Callback {
+                (#callback_none)
+            }
+
+            #[allow(non_snake_case)]
+            fn prism<'a, S: #crate_name::event::EventStream<'a, Self>>(s: S) -> Self::Prism<'a, S> {
+                let state = #crate_name::event::PrismInternal::<'a, Self, S>::new(s);
+                #prismident {
+                    #prism_declarations
+                }
+            }
+
+            fn send(self, callback: &mut Self::Callback) -> #crate_name::event::EventRes {
                 match self {
-                    #extract_declarations
-                }
-            }
-
-            fn restore(pair: #crate_name::DispatchPair) -> Result<Self, #crate_name::Error> {
-                let typeid = (*pair.1).type_id();
-                match pair.0 {
-                    #restore_declarations
-                    _ => Err(#crate_name::Error::InvalidEnumTag(pair.0)),
+                    #send_declarations
                 }
             }
         }
-    }
-    .into()
-}
 
-#[proc_macro_derive(StateMachineChild)]
-pub fn state_machine_child(input: TokenStream) -> TokenStream {
-    let crate_name = std::env::var("CARGO_PKG_NAME").unwrap();
-
-    let crate_name = format_ident!(
-        "{}",
-        if crate_name == "feather-ui" {
-            "crate"
-        } else {
-            "feather_ui"
-        }
-    );
-
-    let ast = parse_macro_input!(input as DeriveInput);
-    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-
-    let data = if let Data::Struct(data_enum) = &ast.data {
-        data_enum
-    } else {
-        panic!("`StateMachineChild` derive can only be used on a struct.");
-    };
-
-    let has_children = data.fields.members().any(|x| {
-        if let syn::Member::Named(f) = x {
-            f == "children"
-        } else {
-            false
-        }
-    });
-
-    let apply_children = if has_children {
-        quote! {
-            fn apply_children(
-                    &self,
-                    f: &mut dyn FnMut(&dyn #crate_name::StateMachineChild) -> eyre::Result<()>,
-                ) -> eyre::Result<()> {
-                    self.children
-                        .iter()
-                        .try_for_each(|x| f(x.as_ref()))
-                }
-        }
-    } else {
-        quote! {}
-    };
-
-    let sname = ast.ident;
-    quote! {
-        impl #impl_generics #crate_name::StateMachineChild for #sname #ty_generics #where_clause {
-            fn id(&self) -> std::sync::Arc<SourceID> {
-                self.id.clone()
-            }
-
-            #apply_children
-        }
+        #impl_declarations
     }
     .into()
 }

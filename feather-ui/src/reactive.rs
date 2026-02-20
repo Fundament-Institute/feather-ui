@@ -1,10 +1,9 @@
+use crate::smallset::SmallSet;
 use imbl::GenericVector;
-use smolset::SmolSet;
 use stable_deref_trait::CloneStableDeref;
 use std::{
     cell::{OnceCell, Ref},
     cmp::{PartialEq, PartialOrd},
-    collections::HashSet,
     hash::Hash,
     marker::PhantomData,
     ops::Deref,
@@ -162,7 +161,7 @@ pub(crate) type SignalNodeId = Identity<Rc<RefCell<SignalNode>>>;
 
 // Let's just be single threaded for now.
 pub struct SignalNode {
-    children: SmolSet<[SignalNodeId; 4]>,
+    children: SmallSet<4, SignalNodeId>,
     color: NodeColor,
     callback: Option<Box<dyn Fn()>>,
 }
@@ -197,8 +196,15 @@ pub fn notify_check(signal: &Signal<impl SignalProvider + ?Sized>) {
 
 fn notify_change_node(nodeid: &SignalNodeId) {
     let mut node = nodeid.0.borrow_mut();
+    let was_ready = node.color == NodeColor::Ready;
     node.color = NodeColor::Changed;
     node.children.iter().for_each(notify_check_node);
+
+    if was_ready {
+        if let Some(f) = &node.callback {
+            f();
+        }
+    }
 }
 
 pub fn notify_change(signal: &Signal<impl SignalProvider + ?Sized>) {
@@ -224,7 +230,7 @@ fn remove_dependency(parent: &SignalNodeId, child: &SignalNodeId) {
 
 fn new_node(color: NodeColor) -> SignalNodeId {
     Identity(Rc::new(RefCell::new(SignalNode {
-        children: SmolSet::new(),
+        children: SmallSet::new(),
         color: color,
         callback: None,
     })))
@@ -1032,25 +1038,6 @@ pub fn map_mut<T, R, F: Fn(&P::Item, Option<R>) -> R, P: SignalProvider<Item = T
     }))
 }
 
-pub trait SignalMap<Elem, P: SignalProvider<Item = Elem> + ?Sized> {
-    fn map<T: PartialEq>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>>;
-
-    fn map_pred<T>(
-        self,
-        f: impl Fn(&P::Item) -> T,
-        eq: impl Fn(&T, &T) -> bool,
-    ) -> Signal<impl SignalProvider<Item = T>>;
-    fn map_mut<T>(
-        self,
-        f: impl Fn(&P::Item, Option<T>) -> T,
-    ) -> Signal<impl SignalProvider<Item = T>>;
-    fn map_ex<T>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>>;
-    fn map_debug<T: std::fmt::Debug>(
-        self,
-        f: impl Fn(&P::Item) -> T,
-    ) -> Signal<impl SignalProvider<Item = T>>;
-}
-
 fn never_eq<T>(_: &T, _: &T) -> bool {
     false
 }
@@ -1063,27 +1050,30 @@ fn always_debug<T: std::fmt::Debug>(t: &T) -> Option<&dyn std::fmt::Debug> {
     Some(t)
 }
 
-impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> SignalMap<Elem, P> for Signal<P> {
-    fn map<T: PartialEq>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>> {
+impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> Signal<P> {
+    pub fn map<T: PartialEq>(
+        self,
+        f: impl Fn(&P::Item) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, PartialEq::eq, never_debug)
     }
-    fn map_pred<T>(
+    pub fn map_pred<T>(
         self,
         f: impl Fn(&P::Item) -> T,
         eq: impl Fn(&T, &T) -> bool,
     ) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, eq, never_debug)
     }
-    fn map_mut<T>(
+    pub fn map_mut<T>(
         self,
         f: impl Fn(&P::Item, Option<T>) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
         map_mut(f, self)
     }
-    fn map_ex<T>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>> {
+    pub fn map_ex<T>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, never_eq, never_debug)
     }
-    fn map_debug<T: std::fmt::Debug>(
+    pub fn map_debug<T: std::fmt::Debug>(
         self,
         f: impl Fn(&P::Item) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
@@ -1529,12 +1519,12 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
 //Languages with neither macros nor a built in applicative syntax can fake it with this tool.
 //However, they should follow the same guideline of preferring combinators for most large scale composition and use this only for specific things.
 thread_local! {
-static DYNAMIC_DEPS: std::cell::RefCell<Option<SmolSet<[SignalNodeId; 4]>>> = std::cell::RefCell::new(None);
+static DYNAMIC_DEPS: std::cell::RefCell<Option<SmallSet<4, SignalNodeId>>> = std::cell::RefCell::new(None);
 }
 
 pub struct DynamicSignalProvider<T, F: Fn() -> T> {
     node: SignalNodeId,
-    lastdeps: RefCell<SmolSet<[SignalNodeId; 4]>>,
+    lastdeps: RefCell<SmallSet<4, SignalNodeId>>,
     f: F,
     val: RefCell<Option<T>>,
 }
@@ -1569,7 +1559,7 @@ impl<T, F: Fn() -> T> SignalProvider for DynamicSignalProvider<T, F> {
         match color {
             NodeColor::Ready => {}
             _ => {
-                let push_deps = DYNAMIC_DEPS.replace(Some(SmolSet::new()));
+                let push_deps = DYNAMIC_DEPS.replace(Some(SmallSet::new()));
 
                 let res = (self.f)();
                 *self.val.borrow_mut() = Some(res);
@@ -1600,7 +1590,7 @@ impl<T, F: Fn() -> T> SignalProvider for DynamicSignalProvider<T, F> {
 pub fn new_dynamic_signal<T, F: Fn() -> T>(f: F) -> Signal<DynamicSignalProvider<T, F>> {
     Signal(Rc::new(DynamicSignalProvider {
         node: new_node(NodeColor::Changed),
-        lastdeps: RefCell::new(SmolSet::new()),
+        lastdeps: RefCell::new(SmallSet::new()),
         f: f,
         val: RefCell::new(None),
     }))
@@ -1631,7 +1621,7 @@ impl<T: Clone, Provider: SignalProvider<Item = T>> DynamicSignalGettable<T> for 
 #[derive(Debug)]
 pub(crate) struct NotifySignal {
     node: SignalNodeId,
-    track: [HashSet<SignalNodeId>; 2],
+    track: [SmallSet<4, SignalNodeId>; 2],
     flip: bool,
 }
 
@@ -1663,9 +1653,11 @@ impl NotifySignal {
     }
 
     pub fn reset(&mut self) {
-        for id in self.track[(!self.flip) as usize].drain() {
+        // TODO: change to drain if SmallSet adds support for it.
+        for id in self.track[(!self.flip) as usize].iter() {
             remove_dependency(&id, &self.node);
         }
+        self.track[(!self.flip) as usize].clear();
         self.flip = !self.flip;
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
@@ -1715,7 +1707,7 @@ pub fn sample<T, P: SignalProvider<Item = T> + ?Sized>(signal: &Signal<P>) -> Dy
     signal.0.get_ref()
 }
 
-pub fn sample_val<T: Clone, P: SignalProvider<Item = T> + ?Sized>(signal: Signal<P>) -> T {
+pub fn sample_val<T: Clone, P: SignalProvider<Item = T> + ?Sized>(signal: &Signal<P>) -> T {
     let p = signal;
     p.0.update_if_necessary();
     p.0.get_ref().clone()

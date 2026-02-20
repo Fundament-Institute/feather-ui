@@ -2,16 +2,16 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use bytemuck::Zeroable;
+use core::f32;
 use feather_macro::*;
-use feather_ui::color::{sRGB, sRGB32};
+use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::{self, Shape, ShapeKind};
+use feather_ui::component::shape::{self};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::event::{CONSUME, EventRes, EventStream};
+use feather_ui::event::{CONSUME, EventRes, EventStream, EventStreamPrism};
 use feather_ui::layout::{fixed, leaf};
-use feather_ui::reactive::SignalMap;
 use feather_ui::{
     AbsRect, App, DAbsPoint, DAbsRect, DPoint, DRect, PxRect, RelRect, UNSIZED_AXIS, winit,
 };
@@ -36,15 +36,15 @@ struct BasicApp {
     count: MutableSignal<i32>,
 }
 
-use feather_ui::reactive::{ConstSignal, DynSignal, MutableSignal, Signal, const_new};
+use feather_ui::reactive::{DynSignal, MutableSignal, const_new};
 
 fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
     let (button, evt, _) = {
         let text = Text::<FixedData> {
             props: Rc::new(FixedData {
                 area: const_new(
-                    (AbsRect::new(8.0, 0.0, 8.0, 0.0)
-                        + RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS)),
+                    AbsRect::new(8.0, 0.0, 8.0, 0.0)
+                        + RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS),
                 )
                 .into(),
                 anchor: const_new(feather_ui::RelPoint::new(0.0, 0.5).into()).into(),
@@ -80,21 +80,19 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
                 .into(),
                 ..Default::default()
             },
-            const_new(3.0),
+            const_new(f32::INFINITY),
             const_new(feather_ui::children![fixed::Prop, rect, text]).into(),
         )
     };
 
     let count = app.count.clone();
 
-    evt.subscribe(
-        move |_: feather_ui::component::mouse_area::MouseAreaEvent| -> EventRes {
-            {
-                *count.borrow_mut() += 1;
-                CONSUME
-            }
-        },
-    );
+    evt.prism().OnClick.subscribe(move |_| -> EventRes {
+        {
+            *count.borrow_mut() += 1;
+            CONSUME
+        }
+    });
 
     let pixel = shape::round_rect::<DRect>(
         PxRect::new(1.0, 1.0, 2.0, 2.0).into(),

@@ -48,7 +48,7 @@ pub enum ScrollAreaEvent {
 
 #[derive(Default, Clone, PartialEq)]
 struct ScrollAreaState {
-    lastdown: HashMap<(DeviceId, u64), (PxPoint, bool)>,
+    lastdown: small_map::SmallMap<4, (DeviceId, u64), (PxPoint, bool)>,
     scroll: PxVector,
     stepsize: (Option<f32>, Option<f32>),
     extension: crate::DAbsRect,

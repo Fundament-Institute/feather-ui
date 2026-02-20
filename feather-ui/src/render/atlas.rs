@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use std::collections::HashMap;
 use std::num::NonZero;
 use std::sync::Arc;
 
+use crate::FastHashMap;
 use guillotiere::{AllocId, AllocatorOptions, AtlasAllocator};
 use wgpu::util::DeviceExt;
 use wgpu::{BindGroupLayoutEntry, Extent3d, TextureDescriptor, TextureFormat, TextureUsages};
@@ -38,10 +38,10 @@ pub struct Atlas {
                                        * need to rebind */
     pub targets: Vec<wgpu::TextureView>,
     kind: AtlasKind,
-    mipgen: HashMap<u8, (wgpu::Buffer, usize)>,
+    mipgen: FastHashMap<u8, (wgpu::Buffer, usize)>, // TODO: switch to a smallmap when it gets entry support
     pipeline: wgpu::RenderPipeline,
     sampler: wgpu::Sampler,
-    mipbindings: HashMap<u32, wgpu::BindGroup>,
+    mipbindings: FastHashMap<u32, wgpu::BindGroup>, // TODO: switch to a smallmap when it gets entry support
     miplayout: wgpu::BindGroupLayout,
     mipsize: wgpu::Buffer,
 }
@@ -304,10 +304,10 @@ impl Atlas {
             mvp,
             targets,
             kind,
-            mipgen: HashMap::new(),
+            mipgen: FastHashMap::default(),
             pipeline,
             sampler,
-            mipbindings: HashMap::new(),
+            mipbindings: FastHashMap::default(),
             miplayout,
             mipsize,
         }
