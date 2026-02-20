@@ -4,7 +4,7 @@
 use crate::component::{ChildOf, DynComponent};
 use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
-use crate::reactive::{DynSignal, SignalMap};
+use crate::reactive::DynSignal;
 use crate::reactive::{MutableSignal, sample, sample_val};
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
@@ -15,7 +15,6 @@ use eyre::{OptionExt, Result};
 use guillotiere::euclid::default::Rotation3D;
 use guillotiere::euclid::{Point3D, Size2D};
 use smallvec::SmallVec;
-use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{DeviceId, WindowEvent};
@@ -41,13 +40,13 @@ pub struct WindowState {
     modifiers: u8,
     last_mouse: PhysicalPosition<f32>,
     pub driver: Arc<graphics::Driver>,
-    trackers: [HashMap<DeviceId, Weak<Node>>; 3],
+    trackers: [crate::FastHashMap<DeviceId, Weak<Node>>; 3], // TODO: replace with SmallMap when it has drain() added
     pub compositor: Compositor,
     pub clipstack: Vec<crate::PxRect>, /* Current clipping rectangle stack. These only get added
                                         * to the GPU clip list if something is rotated */
     pub layers: Vec<std::rc::Weak<crate::render::compositor::Layer>>, /* All layers that render directly to the final
                                                                        * compositor */
-    pub redraw: crate::reactive::NotifySignal,
+    pub(crate) redraw: crate::reactive::NotifySignal,
 }
 
 const BACKCOLOR: wgpu::Color = wgpu::Color {
@@ -595,7 +594,7 @@ impl Window {
                             e.kind(),
                             PxPoint::new(x, y),
                             PxVector::zero(),
-                            sample_val(dpi.clone()),
+                            sample_val(&dpi),
                             &driver,
                             window,
                             &root,

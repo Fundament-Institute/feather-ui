@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use std::mem::{ManuallyDrop, MaybeUninit, transmute};
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 struct Node {
     next: Option<Box<Node>>,
@@ -76,12 +76,13 @@ impl Pool {
     }
 }
 
+// TODO: Possibly replace with small-map if the SSE optimized lookup makes sense
 #[derive(Default)]
-pub struct ArenaAllocPool {
-    arenas: HashMap<usize, Pool>,
+pub struct PoolAlloc {
+    arenas: crate::FastHashMap<usize, Pool>,
 }
 
-impl ArenaAllocPool {
+impl PoolAlloc {
     pub fn alloc<T>(&mut self) -> *mut MaybeUninit<T> {
         self.arenas
             .entry(size_of::<T>())
@@ -101,7 +102,7 @@ impl ArenaAllocPool {
 pub struct PoolRc<T>(std::rc::Rc<T>);
 
 thread_local! {
-    static POOL: std::cell::RefCell<ArenaAllocPool> = Default::default();
+    static POOL: std::cell::RefCell<PoolAlloc> = Default::default();
 }
 
 type UntypedRc = Rc<()>;

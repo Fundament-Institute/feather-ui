@@ -3,9 +3,9 @@
 
 use crate::color::sRGB32;
 use crate::graphics::{Driver, Vec2f};
-use crate::reactive::{self, DynSignal, MutableSignal, SignalMap, SignalZip, cmp};
+use crate::reactive::{self, DynSignal, MutableSignal, SignalZip, cmp};
 use crate::render::atlas::{self, PxBox};
-use crate::{PxDim, PxPoint, PxRect, PxVector, RelDim};
+use crate::{FastHashMap, PxDim, PxPoint, PxRect, PxVector, RelDim};
 use derive_where::derive_where;
 use num_traits::Zero;
 use smallvec::SmallVec;
@@ -28,7 +28,7 @@ pub struct Shared {
     layout: wgpu::PipelineLayout,
     shader: wgpu::ShaderModule,
     sampler: wgpu::Sampler,
-    pipelines: RwLock<HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>>,
+    pipelines: RwLock<FastHashMap<wgpu::TextureFormat, wgpu::RenderPipeline>>,
 }
 
 pub const TARGET_BLEND: wgpu::ColorTargetState = wgpu::ColorTargetState {
@@ -128,7 +128,7 @@ impl Shared {
             layout,
             shader,
             sampler,
-            pipelines: HashMap::new().into(),
+            pipelines: FastHashMap::default().into(),
         }
     }
 
@@ -334,7 +334,7 @@ pub struct Compositor {
     mvp: Buffer,
     clip: Buffer,
     clipdata: Vec<PxRect>, // Clipping Rectangles
-    pub(crate) segments: SmallVec<[HashMap<u8, Segment>; 1]>,
+    pub(crate) segments: SmallVec<[FastHashMap<u8, Segment>; 1]>,
     view: std::sync::Weak<TextureView>,
     layer_view: std::sync::Weak<TextureView>,
     layer: bool, // Tells us which layer atlas to use (the first or second)
@@ -354,14 +354,15 @@ pub struct Segment {
     data: Vec<Data>,
     regions: Vec<std::ops::Range<u32>>,
     #[derive_where(skip)]
-    defer: HashMap<u32, (Box<DeferFn>, PxRect, PxVector)>,
+    defer: FastHashMap<u32, (Box<DeferFn>, PxRect, PxVector)>,
     #[derive_where(skip)]
     custom: Vec<(u32, Box<CustomDrawFn>, PxVector)>,
 }
 
 impl Compositor {
     fn reserve(&mut self, driver: &Driver, pass: u8, slice: u8) {
-        self.segments.resize_with(pass as usize + 1, HashMap::new);
+        self.segments
+            .resize_with(pass as usize + 1, FastHashMap::default);
         self.segments[pass as usize]
             .entry(slice)
             .or_insert_with(|| {
@@ -389,7 +390,7 @@ impl Compositor {
                     buffer,
                     data: Vec::new(),
                     regions: vec![0..0],
-                    defer: HashMap::new(),
+                    defer: FastHashMap::default(),
                     custom: Vec::new(),
                 }
             });
@@ -489,7 +490,7 @@ impl Compositor {
             buffer,
             data: Vec::new(),
             regions: vec![0..0],
-            defer: HashMap::new(),
+            defer: FastHashMap::default(),
             custom: Vec::new(),
         };
 

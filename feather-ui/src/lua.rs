@@ -22,8 +22,7 @@ use crate::persist::FnPersistStore;
 use crate::propbag::PropBag;
 use crate::{
     APP_SOURCE_ID, AccessCell, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist2,
-    InputResult, Logical, Pixel, Rect, Relative, ScopeID, Slot, SourceID, StateMachineChild,
-    UNSIZED_AXIS,
+    InputResult, Logical, Pixel, Rect, Relative, ScopeID, Slot, SourceID, UNSIZED_AXIS,
 };
 use guillotiere::euclid::Point2D;
 use mlua::UserData;
@@ -649,29 +648,6 @@ where
     }
 }
 
-impl StateMachineChild for ComponentBag {
-    fn id(&self) -> Arc<SourceID> {
-        use std::ops::Deref;
-        Box::deref(self).id()
-    }
-
-    fn init(
-        &self,
-        driver: &std::sync::Weak<crate::graphics::Driver>,
-    ) -> Result<Box<dyn crate::component::StateMachineWrapper>, crate::Error> {
-        use std::ops::Deref;
-        Box::deref(self).init(driver)
-    }
-
-    fn apply_children(
-        &self,
-        f: &mut dyn FnMut(&dyn StateMachineChild) -> eyre::Result<()>,
-    ) -> eyre::Result<()> {
-        use std::ops::Deref;
-        Box::deref(self).apply_children(f)
-    }
-}
-
 macro_rules! gen_from_lua {
     ($type_name:ident) => {
         impl mlua::FromLua for $type_name {
@@ -750,7 +726,10 @@ impl<AppData: Clone + FromLua + IntoLua>
         _: Self::Store,
         appdata: &AppData,
         mut id: ScopeID<'static>,
-    ) -> (Self::Store, imbl::HashMap<Arc<SourceID>, Option<Window>>) {
+    ) -> (
+        Self::Store,
+        imbl::GenericHashMap<Arc<SourceID>, Option<Window>, rapidhash::fast::RandomState>,
+    ) {
         let mut h = imbl::HashMap::new();
 
         let (store, w) = self
@@ -1740,7 +1719,7 @@ end
 
     pub fn get_handlers<AppData: FromLua + IntoLua + Clone>(
         &self,
-        mut reserved: HashMap<u64, crate::AppEvent<AppData>>,
+        mut reserved: FastHashMap<u64, crate::AppEvent<AppData>>,
     ) -> LuaResult<Vec<crate::AppEvent<AppData>>> {
         use std::mem::MaybeUninit;
 

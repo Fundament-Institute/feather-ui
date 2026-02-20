@@ -7,46 +7,15 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::component::window::WindowNodeTrack;
-use crate::event::StreamCallback;
+use crate::event::{BoxedCallback, StreamCallback};
 use crate::input::{MouseState, RawEvent, RawEventKind, TouchState};
 use crate::layout::Staged;
-use crate::reactive::{
-    self, ConstSignal, DynSignal, Identity, SignalMap, ToSignal, fold_vec, zip_pair,
-};
+use crate::reactive::{self, ConstSignal, DynSignal, Identity, ToSignal, fold_vec, zip_pair};
 use crate::render::compositor::Layer;
 use crate::{Pixel, PxPoint, PxRect, PxVector, RelDim};
 use guillotiere::euclid::Point3D;
 use std::rc::Rc;
 use winit::dpi::PhysicalPosition;
-
-// Nonsense taken from `dtolnay/typeid` crate that lets us take a non-'static typeid.
-#[must_use]
-#[inline(always)]
-pub fn typeid_of<T>() -> std::any::TypeId
-where
-    T: ?Sized,
-{
-    trait NonStaticAny {
-        fn get_type_id(&self) -> std::any::TypeId
-        where
-            Self: 'static;
-    }
-
-    impl<T: ?Sized> NonStaticAny for PhantomData<T> {
-        #[inline(always)]
-        fn get_type_id(&self) -> std::any::TypeId
-        where
-            Self: 'static,
-        {
-            std::any::TypeId::of::<T>()
-        }
-    }
-
-    let phantom_data = PhantomData::<T>;
-    NonStaticAny::get_type_id(unsafe {
-        std::mem::transmute::<&dyn NonStaticAny, &(dyn NonStaticAny + 'static)>(&phantom_data)
-    })
-}
 
 pub struct Node {
     pub area: DynSignal<PxRect>, /* This is the calculated area of the node from the layout relative to the
@@ -58,7 +27,7 @@ pub struct Node {
     pub mask: AtomicU64,
     pub children: Option<DynSignal<imbl::Vector<Rc<Node>>>>,
     pub staged: Option<Box<dyn Staged>>,
-    pub callback: RefCell<Option<(Box<dyn StreamCallback<RawEvent>>, std::any::TypeId)>>,
+    pub callback: RefCell<Option<BoxedCallback<RawEvent>>>,
 }
 
 // A tuple like this is necessary to build a chain of parent nodes down the
@@ -478,40 +447,31 @@ impl Node {
     }
 }
 
+// This cannot be a weak reference because unsubscribe() cannot fail, and if this is a weak
+// reference it is fully valid for the node to stop existing before being unsubscribed from.
 #[repr(transparent)]
-pub struct NodeSubscription<H>(std::rc::Weak<Node>, PhantomData<H>);
+pub struct NodeSubscription<H>(Rc<Node>, PhantomData<H>);
 
 impl crate::event::EventStream<'static, RawEvent> for Rc<Node> {
     type Subscription<H: StreamCallback<RawEvent> + 'static> = NodeSubscription<H>;
 
     fn subscribe<H: StreamCallback<RawEvent> + 'static>(self, h: H) -> Self::Subscription<H> {
-        let boxed: Box<dyn StreamCallback<RawEvent>> = Box::new(h);
-
-        self.callback.replace(Some((boxed, typeid_of::<H>())));
-        NodeSubscription(Rc::downgrade(&self), PhantomData)
+        self.callback.replace(Some(BoxedCallback::new(h)));
+        NodeSubscription(self.clone(), PhantomData)
     }
 }
 impl<H: StreamCallback<RawEvent> + 'static> crate::event::Unsubscribe<RawEvent, Rc<Node>, H>
     for NodeSubscription<H>
 {
     fn unsubscribe(self) -> (Rc<Node>, H) {
-        let node = self
+        let h: H = self
             .0
-            .upgrade()
-            .expect("Tried to unsubscribe from node that doesn't exist!");
-        let (boxed, ty) = node
             .callback
             .borrow_mut()
             .take()
-            .expect("Tried to unsubscribe from Node, but subscription was invalid!");
-
-        // This ensures the pointer we extract out is the type we expect
-        assert_eq!(ty, typeid_of::<H>());
-        let raw = Box::into_raw(boxed) as *mut H;
-
-        // Using from_raw here is important because manually deallocating will segfault if H is zero-sized.
-        let h = unsafe { Box::<H>::from_raw(raw) };
-        (node, *h)
+            .expect("Tried to unsubscribe from Node, but subscription was invalid!")
+            .unbox();
+        (self.0, h)
     }
 }
 /*

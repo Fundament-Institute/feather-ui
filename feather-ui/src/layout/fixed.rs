@@ -5,7 +5,7 @@ use super::{Concrete, Desc, base};
 use crate::{
     PxRect, RelDim, Unsizable,
     layout::{DynLayout, resolve_dim},
-    reactive::{self, DynSignal, SignalMap, SignalZip, zip_pair},
+    reactive::{self, DynSignal, SignalZip, zip_pair},
     render::Prerender,
     rtree,
 };

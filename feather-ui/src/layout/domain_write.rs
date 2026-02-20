@@ -4,7 +4,6 @@
 use super::Desc;
 use super::base::{Empty, RLimits};
 use crate::component::ComponentMarker;
-use crate::reactive::SignalMap;
 use crate::reactive::{self, DynSignal, zip_pair};
 use crate::{CrossReferenceDomain, RelDim, render};
 use std::sync::Arc;
