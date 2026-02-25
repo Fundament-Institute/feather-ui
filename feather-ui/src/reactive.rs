@@ -4,6 +4,7 @@ use stable_deref_trait::CloneStableDeref;
 use std::{
     cell::{OnceCell, Ref},
     cmp::{PartialEq, PartialOrd},
+    fmt,
     hash::Hash,
     marker::PhantomData,
     ops::Deref,
@@ -164,10 +165,12 @@ pub struct SignalNode {
     children: SmallSet<4, SignalNodeId>,
     color: NodeColor,
     callback: Option<Box<dyn Fn()>>,
+    #[cfg(debug_assertions)]
+    debug: &'static str,
 }
 
-impl std::fmt::Debug for SignalNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for SignalNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SignalNode")
             .field("children", &self.children)
             .field("color", &self.color)
@@ -221,6 +224,9 @@ fn notify_children_change(nodeid: &SignalNodeId) {
 }
 
 fn add_dependency(parent: &SignalNodeId, child: SignalNodeId) {
+    if parent.0.borrow().color != NodeColor::Ready && child.0.borrow().color == NodeColor::Ready {
+        notify_check_node(&child);
+    }
     parent.0.borrow_mut().children.insert(child);
 }
 
@@ -228,11 +234,13 @@ fn remove_dependency(parent: &SignalNodeId, child: &SignalNodeId) {
     parent.0.borrow_mut().children.remove(child);
 }
 
-fn new_node(color: NodeColor) -> SignalNodeId {
+fn new_node<T>(color: NodeColor) -> SignalNodeId {
     Identity(Rc::new(RefCell::new(SignalNode {
         children: SmallSet::new(),
         color: color,
         callback: None,
+        #[cfg(debug_assertions)]
+        debug: std::any::type_name::<T>(),
     })))
 }
 
@@ -258,7 +266,7 @@ enum SignalNodeState {
     Discrete(SignalNodeId),
 }
 
-pub trait SignalProvider: std::fmt::Debug {
+pub trait SignalProvider {
     type Item;
 
     fn get_node(&self) -> &SignalNodeId;
@@ -287,9 +295,21 @@ impl<Provider: SignalProvider + ?Sized> std::hash::Hash for Signal<Provider> {
     }
 }
 
+impl<Provider: SignalProvider + ?Sized> fmt::Debug for Signal<Provider>
+where
+    Provider::Item: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Signal")
+            .field("node", self.0.get_node())
+            .field("value", &*self.0.get_ref())
+            .finish()
+    }
+}
+
 // This has the same logic as From, but avoids needing manual type annotations in some situations.
 impl<Provider: SignalProvider + 'static> Signal<Provider> {
-    pub fn into_dyn_signal(self) -> Signal<dyn SignalProvider<Item = Provider::Item>> {
+    pub fn into_dyn(self) -> Signal<dyn SignalProvider<Item = Provider::Item>> {
         Signal(self.0.clone())
     }
 }
@@ -302,38 +322,14 @@ impl<Provider: SignalProvider + 'static> From<Signal<Provider>>
     }
 }
 
-// We use the insane autoref-specialization technique to get an "optional" Debug trait on T
-pub trait SignalDebug {
-    fn dbg(&self) -> Option<&dyn std::fmt::Debug>;
-}
-
-impl<T: std::fmt::Debug> SignalDebug for T {
-    fn dbg(&self) -> Option<&dyn std::fmt::Debug> {
-        Some(self)
-    }
-}
-
-pub trait SignalNoDebug {
-    fn dbg(&self) -> Option<&dyn std::fmt::Debug> {
-        None
-    }
-}
-
-impl<T> SignalNoDebug for &T {}
-
-macro_rules! opt_debug {
-    ($e:expr) => {
-        (&$e).dbg()
-    };
-}
-
 // This is absolutely optimizable to ensure const signals do not need to allocate a node
 // A sketch of some of the components needed to do so are included
 // But I leave actually implementing the type level optimizations to after prototyping
+#[derive_where::derive_where(Debug; T: fmt::Debug)]
 pub struct ConstProvider<T>(T, SignalNodeId);
 impl<T> ConstProvider<T> {
     pub fn new(x: T) -> Self {
-        Self(x, new_node(NodeColor::Ready))
+        Self(x, new_node::<Self>(NodeColor::Ready))
     }
 }
 
@@ -341,19 +337,8 @@ pub fn const_new<T>(x: T) -> ConstSignal<T> {
     ConstSignal::<T>::new(x)
 }
 
-impl<T> std::fmt::Debug for ConstProvider<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut dbg = f.debug_struct("ConstSignal");
-        dbg.field("node", &self.1);
-
-        if let Some(v) = opt_debug!(self.0) {
-            dbg.field("value", v);
-        } else {
-            dbg.field("value", &format_args!("{}", std::any::type_name::<T>()));
-        }
-
-        dbg.finish()
-    }
+pub fn const_default<T: Default>() -> ConstSignal<T> {
+    ConstSignal::<T>::default()
 }
 
 impl<T> SignalProvider for ConstProvider<T> {
@@ -377,6 +362,11 @@ pub trait ToSignal<T> {
     fn to_signal(self) -> Signal<Self::Provider>;
 }
 
+impl<T: num_traits::Num> From<T> for ConstSignal<T> {
+    fn from(value: T) -> Self {
+        Signal(Rc::new(ConstProvider::new(value)))
+    }
+}
 impl<T: num_traits::Num> ToSignal<T> for T {
     type Provider = ConstProvider<T>;
     fn to_signal(self) -> Signal<Self::Provider> {
@@ -450,8 +440,8 @@ pub struct ZipProvider<PList: ProviderTupleList> {
     node: SignalNodeId,
 }
 
-impl<PList: ProviderTupleList> std::fmt::Debug for ZipProvider<PList> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<PList: ProviderTupleList> fmt::Debug for ZipProvider<PList> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ZipSignal")
             .field("node", &self.node)
             .finish()
@@ -520,9 +510,11 @@ pub fn zip<T: Tuple>(t: T) -> Signal<ZipProvider<<T::TupleList as SignalTupleLis
 where
     T::TupleList: SignalTupleList,
 {
-    let node = new_node(NodeColor::Changed);
+    let node =
+        new_node::<ZipProvider<<T::TupleList as SignalTupleList>::Result>>(NodeColor::Changed);
     let providers = t.into_tuple_list().as_providers();
     providers.add_dependency(node.clone());
+    verify_tree(&node);
     Signal(Rc::new(ZipProvider {
         providers,
         res: Default::default(),
@@ -611,11 +603,11 @@ where
     node: SignalNodeId,
 }
 
-impl<PList: ProviderTupleList> std::fmt::Debug for ZipValueProvider<PList>
+impl<PList: ProviderTupleList> fmt::Debug for ZipValueProvider<PList>
 where
     PList::RefResult: UnsafeRefCloneTupleList,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ZipSignal")
             .field("node", &self.node)
             .finish()
@@ -732,8 +724,9 @@ impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
     where
         <PList as ProviderTupleList>::RefResult: UnsafeRefCloneTupleList,
     {
-        let node = new_node(NodeColor::Changed);
+        let node = new_node::<Self>(NodeColor::Changed);
         add_dependency(self.0.get_node(), node.clone());
+        verify_tree(&node);
         Signal(Rc::new(ZipValueProvider::<PList> {
             providers: self.0.providers.clone(),
             node,
@@ -754,8 +747,9 @@ impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
         Self: Sized,
         <PList as ProviderTupleList>::RefResult: for<'a> UnsafeRefTupleList<'a>,
     {
-        let node = new_node(NodeColor::Changed);
+        let node = new_node::<Self>(NodeColor::Changed);
         add_dependency(self.0.get_node(), node.clone());
+    verify_tree(&node);
         Signal(Rc::new(ZipMapProvider::<PList, R, F> {
             providers: self.0.providers.clone(),
             func: f,
@@ -842,7 +836,7 @@ pub struct MapProvider<
     T2,
     F: Fn(&P::Item) -> T2,
     F2: Fn(&T2, &T2) -> bool,
-    F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
+    F3: Fn(&T2) -> Option<&dyn fmt::Debug>,
 > {
     provider: Rc<P>,
     func: F,
@@ -857,23 +851,18 @@ impl<
     T2,
     F: Fn(&P::Item) -> T2,
     F2: Fn(&T2, &T2) -> bool,
-    F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
-> std::fmt::Debug for MapProvider<P, T2, F, F2, F3>
+    F3: Fn(&T2) -> Option<&dyn fmt::Debug>,
+> fmt::Debug for MapProvider<P, T2, F, F2, F3>
+where
+    T2: fmt::Debug,
+    P: fmt::Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut dbg = f.debug_struct("MapSignal");
         dbg.field("node", &self.node)
             .field("provider", &self.provider)
-            .field("f", &format_args!("{}", std::any::type_name::<F>()));
-
-        if let Some(r) = &*self.res.borrow()
-            && let Some(v) = (self.debug)(r)
-        {
-            dbg.field("res", v);
-        } else {
-            dbg.field("res", &format_args!("{}", std::any::type_name::<T2>()));
-        }
-
+            .field("f", &format_args!("{}", std::any::type_name::<F>()))
+            .field("res", &self.res);
         dbg.finish()
     }
 }
@@ -883,7 +872,7 @@ impl<
     T2,
     F: Fn(&P::Item) -> T2,
     F2: Fn(&T2, &T2) -> bool,
-    F3: Fn(&T2) -> Option<&dyn std::fmt::Debug>,
+    F3: Fn(&T2) -> Option<&dyn fmt::Debug>,
 > SignalProvider for MapProvider<P, T2, F, F2, F3>
 {
     type Item = T2;
@@ -935,16 +924,17 @@ pub fn map<
     P: SignalProvider<Item = T> + ?Sized,
     F: Fn(&P::Item) -> R,
     FEq: Fn(&R, &R) -> bool,
-    FDebug: Fn(&R) -> Option<&dyn std::fmt::Debug>,
+    FDebug: Fn(&R) -> Option<&dyn fmt::Debug>,
 >(
     f: F,
     signal: Signal<P>,
     eq: FEq,
     debug: FDebug,
 ) -> Signal<MapProvider<P, R, F, FEq, FDebug>> {
-    let node = new_node(NodeColor::Changed);
+    let node = new_node::<MapProvider<P, R, F, FEq, FDebug>>(NodeColor::Changed);
     let provider = signal.0;
     add_dependency(provider.get_node(), node.clone());
+    verify_tree(&node);
     Signal(Rc::new(MapProvider {
         provider,
         func: f,
@@ -962,23 +952,18 @@ pub struct MapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option
     node: SignalNodeId,
 }
 
-impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> std::fmt::Debug
+impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> fmt::Debug
     for MapMutProvider<P, T2, F>
+where
+    T2: fmt::Debug,
+    P: fmt::Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut dbg = f.debug_struct("MapMutSignal");
         dbg.field("node", &self.node)
             .field("provider", &self.provider)
-            .field("f", &format_args!("{}", std::any::type_name::<F>()));
-
-        if let Some(r) = &*self.res.borrow()
-            && let Some(v) = opt_debug!(*r)
-        {
-            dbg.field("res", v);
-        } else {
-            dbg.field("res", &format_args!("{}", std::any::type_name::<T2>()));
-        }
-
+            .field("f", &format_args!("{}", std::any::type_name::<F>()))
+            .field("res", &self.res);
         dbg.finish()
     }
 }
@@ -1027,9 +1012,10 @@ pub fn map_mut<T, R, F: Fn(&P::Item, Option<R>) -> R, P: SignalProvider<Item = T
     f: F,
     p: Signal<P>,
 ) -> Signal<MapMutProvider<P, R, F>> {
-    let node = new_node(NodeColor::Changed);
+    let node = new_node::<MapMutProvider<P, R, F>>(NodeColor::Changed);
     let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
+    verify_tree(&node);
     Signal(Rc::new(MapMutProvider {
         provider,
         func: f,
@@ -1042,11 +1028,11 @@ fn never_eq<T>(_: &T, _: &T) -> bool {
     false
 }
 
-fn never_debug<T>(_: &T) -> Option<&dyn std::fmt::Debug> {
+fn never_debug<T>(_: &T) -> Option<&dyn fmt::Debug> {
     None
 }
 
-fn always_debug<T: std::fmt::Debug>(t: &T) -> Option<&dyn std::fmt::Debug> {
+fn always_debug<T: fmt::Debug>(t: &T) -> Option<&dyn fmt::Debug> {
     Some(t)
 }
 
@@ -1073,7 +1059,7 @@ impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> Signal<P> {
     pub fn map_ex<T>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, never_eq, never_debug)
     }
-    pub fn map_debug<T: std::fmt::Debug>(
+    pub fn map_debug<T: fmt::Debug>(
         self,
         f: impl Fn(&P::Item) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
@@ -1095,9 +1081,11 @@ pub struct JoinProvider<
 }
 
 impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<P1>> + ?Sized>
-    std::fmt::Debug for JoinProvider<T, P1, P2>
+    fmt::Debug for JoinProvider<T, P1, P2>
+where
+    P1: fmt::Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("JoinSignal")
             .field("inner", &self.innerprovider)
             .field("node", &self.node)
@@ -1186,7 +1174,7 @@ pub fn join<
         innerprovider: RefCell::new(None),
         res: Default::default(),
         res2: Default::default(),
-        node: new_node(NodeColor::Changed),
+        node: new_node::<JoinProvider<T, P1, P2>>(NodeColor::Changed),
         phantom: PhantomData,
     }))
 }
@@ -1211,8 +1199,13 @@ impl<T> MutableInputs<T> for () {
     fn update_check(&self, _: &mut T, _: SignalNodeId) {}
 }
 
-impl<'a, T, Head: SignalProvider + ?Sized + 'a, F: Fn(&mut T, &Signal<Head>), Tail> MutableInputs<T>
-    for ((Signal<Head>, F), Tail)
+impl<
+    'a,
+    T,
+    Head: SignalProvider + ?Sized + 'a,
+    F: Fn(&mut T, &<Head as SignalProvider>::Item),
+    Tail,
+> MutableInputs<T> for ((Signal<Head>, F), Tail)
 where
     Tail: MutableInputs<T> + 'a,
     Self: TupleList,
@@ -1225,11 +1218,49 @@ where
         let ((signal, handler), tail) = self;
         let color = signal.0.get_node().0.borrow().color;
         if color != NodeColor::Ready {
-            signal.0.update_if_necessary();
-            handler(val, &signal);
+            handler(val, &*sample(&signal));
             notify_change_node(&node);
         }
         tail.update_check(val, node);
+    }
+}
+
+pub trait DebugMutableInputs<T>: TupleList {
+    fn fmt(&self, dbg: &mut fmt::DebugStruct<'_, '_>);
+}
+
+impl<T> DebugMutableInputs<T> for () {
+    fn fmt(&self, _: &mut fmt::DebugStruct<'_, '_>) {}
+}
+
+impl<
+    'a,
+    T,
+    Head: SignalProvider + ?Sized + 'a,
+    F: Fn(&mut T, &<Head as SignalProvider>::Item),
+    Tail,
+> DebugMutableInputs<T> for ((Signal<Head>, F), Tail)
+where
+    Tail: DebugMutableInputs<T> + 'a,
+    Self: TupleList,
+    Signal<Head>: fmt::Debug,
+{
+    fn fmt(&self, dbg: &mut fmt::DebugStruct<'_, '_>) {
+        let ((signal, _), tail) = self;
+        dbg.field("input", &signal);
+        tail.fmt(dbg)
+    }
+}
+
+impl<T, Inputs: Tuple> fmt::Debug for MutableProvider<T, Inputs>
+where
+    Inputs::TupleList: DebugMutableInputs<T>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut dbg = f.debug_struct("MutableSignal");
+        dbg.field("node", &self.node);
+        self.inputs.fmt(&mut dbg);
+        dbg.finish()
     }
 }
 
@@ -1238,29 +1269,15 @@ where
     Inputs::TupleList: MutableInputs<T>,
 {
     pub fn new(v: T, inputs: Inputs) -> Self {
-        let node = new_node(NodeColor::Changed);
+        let node = new_node::<Self>(NodeColor::Changed);
         let list = inputs.into_tuple_list();
         list.add_dependency(node.clone());
+        verify_tree(&node);
         Self {
             inputs: list,
             node,
             val: RefCell::new(v),
         }
-    }
-}
-
-impl<T, Inputs: Tuple> std::fmt::Debug for MutableProvider<T, Inputs> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut dbg = f.debug_struct("MutableSignal");
-        dbg.field("node", &self.node);
-
-        if let Some(v) = opt_debug!(self.val) {
-            dbg.field("value", v);
-        } else {
-            dbg.field("value", &format_args!("{}", std::any::type_name::<T>()));
-        }
-
-        dbg.finish()
     }
 }
 
@@ -1339,18 +1356,6 @@ impl<T: Default> Default for Signal<MutableProvider<T, ()>> {
 impl<T: Default + 'static> Default for Signal<dyn SignalProvider<Item = T>> {
     fn default() -> Self {
         Self(Rc::new(ConstProvider::new(T::default())))
-    }
-}
-
-impl<Provider: SignalProvider + ?Sized> core::fmt::Debug for Signal<Provider>
-where
-    Provider::Item: core::fmt::Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Signal")
-            .field("node", self.0.get_node())
-            .field("value", &*self.0.get_ref())
-            .finish()
     }
 }
 
@@ -1439,8 +1444,9 @@ pub struct Sampler<Provider: SignalProvider + ?Sized> {
 }
 impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
     pub fn new(signal: Signal<Provider>) -> Self {
-        let node = new_node(NodeColor::Changed);
+        let node = new_node::<Self>(NodeColor::Changed);
         add_dependency(signal.0.get_node(), node.clone());
+        verify_tree(&node);
         Sampler {
             node,
             provider: signal.0,
@@ -1529,19 +1535,16 @@ pub struct DynamicSignalProvider<T, F: Fn() -> T> {
     val: RefCell<Option<T>>,
 }
 
-impl<T, F: Fn() -> T> std::fmt::Debug for DynamicSignalProvider<T, F> {
+impl<T, F: Fn() -> T> std::fmt::Debug for DynamicSignalProvider<T, F>
+where
+    T: fmt::Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("DynamicSignal");
         dbg.field("f", &format_args!("{}", std::any::type_name::<F>()))
-            .field("node", &self.node);
-
-        if let Some(v) = opt_debug!(self.val) {
-            dbg.field("value", v);
-        } else {
-            dbg.field("value", &format_args!("{}", std::any::type_name::<T>()));
-        }
-
-        dbg.finish()
+            .field("node", &self.node)
+            .field("value", &self.val)
+            .finish()
     }
 }
 
@@ -1589,7 +1592,7 @@ impl<T, F: Fn() -> T> SignalProvider for DynamicSignalProvider<T, F> {
 
 pub fn new_dynamic_signal<T, F: Fn() -> T>(f: F) -> Signal<DynamicSignalProvider<T, F>> {
     Signal(Rc::new(DynamicSignalProvider {
-        node: new_node(NodeColor::Changed),
+        node: new_node::<DynamicSignalProvider<T, F>>(NodeColor::Changed),
         lastdeps: RefCell::new(SmallSet::new()),
         f: f,
         val: RefCell::new(None),
@@ -1633,8 +1636,9 @@ impl Default for NotifySignal {
 
 impl NotifySignal {
     pub fn new(callback: Option<Box<dyn Fn()>>) -> Self {
-        let node = new_node(NodeColor::Ready);
+        let node = new_node::<Self>(NodeColor::Ready);
         node.0.borrow_mut().callback = callback;
+        verify_tree(&node);
 
         Self {
             node,
@@ -1723,8 +1727,8 @@ pub enum AnimationOutput<Output> {
     Continue(Output),
 }
 
-impl<Output: std::fmt::Debug> std::fmt::Debug for AnimationOutput<Output> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<Output: fmt::Debug> fmt::Debug for AnimationOutput<Output> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Finish(arg0) => f.debug_tuple("Finish").field(arg0).finish(),
             Self::Continue(arg0) => f.debug_tuple("Continue").field(arg0).finish(),
@@ -1771,46 +1775,27 @@ impl Microseconds {
 
 impl<
     T: Clone,
-    Anim: Animator<T>,
-    Source: SignalProvider<Item = T> + ?Sized,
-    Time: SignalProvider<Item = Microseconds>,
-> std::fmt::Debug for AnimProvider<T, Anim, Source, Time>
+    Anim: Animator<T> + fmt::Debug,
+    Source: SignalProvider<Item = T> + ?Sized + fmt::Debug,
+    Time: SignalProvider<Item = Microseconds> + fmt::Debug,
+> fmt::Debug for AnimProvider<T, Anim, Source, Time>
+where
+    <Anim as Animator<T>>::Output: fmt::Debug,
+    <Anim as Animator<T>>::State: fmt::Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut dbg = f.debug_struct("AnimSignal");
-        dbg.field("node", &self.node);
+        dbg.field("node", &self.node)
+            .field("value", &self.val)
+            .field("anim", &self.anim)
+            .field("time", &self.time)
+            .field("input", &self.input);
 
-        if let Some(r) = &*self.val.borrow()
-            && let Some(v) = opt_debug!(*r)
-        {
-            dbg.field("value", v);
-        } else {
-            dbg.field(
-                "value",
-                &format_args!("{}", std::any::type_name::<Anim::Output>()),
-            );
+        if let Some((a, b, r)) = &*self.state.borrow() {
+            dbg.field("state", &format_args!("{}, {}, {:?}", a, b, r));
         }
 
-        if let Some((a, b, r)) = &*self.state.borrow()
-            && let Some(v) = opt_debug!(*r)
-        {
-            dbg.field("state", &format_args!("{}, {}, {:?}", a, b, v));
-        } else if let Some((a, b, _)) = &*self.state.borrow() {
-            dbg.field(
-                "state",
-                &format_args!("{}, {}, {}", a, b, std::any::type_name::<Anim::State>()),
-            );
-        }
-
-        if let Some(v) = opt_debug!(self.anim) {
-            dbg.field("anim", v);
-        } else {
-            dbg.field("anim", &format_args!("{}", std::any::type_name::<Anim>()));
-        }
-
-        dbg.field("time", &self.time)
-            .field("input", &self.input)
-            .finish()
+        dbg.finish()
     }
 }
 
@@ -1979,9 +1964,10 @@ pub fn animate<
     anim: Anim,
     time: Signal<Time>,
 ) -> Signal<AnimProvider<T, Anim, S, Time>> {
-    let node = new_node(NodeColor::Changed);
+    let node = new_node::<AnimProvider<T, Anim, S, Time>>(NodeColor::Changed);
     let input = p.0;
     add_dependency(input.get_node(), node.clone());
+    verify_tree(&node);
     Signal(Rc::new(AnimProvider {
         node,
         val: RefCell::new(None),
@@ -2097,27 +2083,19 @@ pub struct OpProvider<
 }
 
 impl<
-    Output,
-    P1: SignalProvider + ?Sized,
-    P2: SignalProvider + ?Sized,
+    Output: fmt::Debug,
+    P1: SignalProvider + ?Sized + fmt::Debug,
+    P2: SignalProvider + ?Sized + fmt::Debug,
     OP: SignalOp<P1::Item, P2::Item, Output>,
-> std::fmt::Debug for OpProvider<P1, P2, Output, OP>
+> fmt::Debug for OpProvider<P1, P2, Output, OP>
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut dbg = f.debug_struct("OpProvider");
         dbg.field("node", &self.node)
             .field("provider1", &self.provider1)
-            .field("provider2", &self.provider2);
-
-        if let Some(r) = &*self.res.borrow()
-            && let Some(v) = opt_debug!(*r)
-        {
-            dbg.field("res", v);
-        } else {
-            dbg.field("res", &format_args!("{}", std::any::type_name::<Output>()));
-        }
-
-        dbg.finish()
+            .field("provider2", &self.provider2)
+            .field("res", &self.res)
+            .finish()
     }
 }
 
@@ -2185,11 +2163,12 @@ where
     P1::Item: Clone,
     P2::Item: Clone,
 {
-    let node = new_node(NodeColor::Changed);
+    let node = new_node::<OpProvider<P1, P2, Output, OP>>(NodeColor::Changed);
     let provider1 = lhs.0;
     let provider2 = rhs.0;
     add_dependency(provider1.get_node(), node.clone());
     add_dependency(provider2.get_node(), node.clone());
+    verify_tree(&node);
     Signal(Rc::new(OpProvider {
         provider1,
         provider2,
@@ -2332,19 +2311,20 @@ pub struct VecMapProvider<
 
 impl<
     T1: 'static,
-    T2: 'static,
+    T2: 'static + fmt::Debug,
     Key: Eq + Hash + 'static,
     F: (Fn(&T1) -> T2) + 'static,
     Ex: (Fn(&T1) -> Key) + 'static,
-    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
+    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static + fmt::Debug,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
-> std::fmt::Debug for VecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
+> fmt::Debug for VecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VecMapProvider")
             .field("node", &self.node)
             .field("provider", &self.provider)
+            .field("res", &self.res)
             .finish()
     }
 }
@@ -2418,9 +2398,10 @@ impl<
         f: F,
         ex: Ex,
     ) -> Signal<VecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>> {
-        let node = new_node(NodeColor::Changed);
+        let node = new_node::<Self>(NodeColor::Changed);
         let provider = self.0;
         add_dependency(provider.get_node(), node.clone());
+        verify_tree(&node);
         Signal(Rc::new(VecMapProvider {
             provider,
             map: RefCell::new(imbl::vector::PersistentMap::new(f, ex)),
@@ -2454,17 +2435,18 @@ pub struct VecFoldProvider<
 }
 
 impl<
-    T: Clone,
+    T: Clone + fmt::Debug,
     F: FnMut(T, T) -> T,
-    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
+    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized + fmt::Debug,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
-> std::fmt::Debug for VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
+> fmt::Debug for VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VecFoldProvider")
             .field("node", &self.node)
             .field("provider", &self.provider)
+            .field("result", &self.res)
             .finish()
     }
 }
@@ -2522,9 +2504,10 @@ pub fn fold_vec<
     p: Signal<P>,
     z: T,
 ) -> Signal<VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>> {
-    let node = new_node(NodeColor::Changed);
+    let node = new_node::<VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>>(NodeColor::Changed);
     let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
+    verify_tree(&node);
     Signal(Rc::new(VecFoldProvider {
         provider,
         fold: RefCell::new(imbl::vector::PersistentFold::new(f)),
@@ -2534,10 +2517,18 @@ pub fn fold_vec<
     }))
 }
 
-#[derive(Debug)]
 pub struct DeferProvider<P: SignalProvider + ?Sized> {
     provider: std::cell::OnceCell<Rc<P>>,
     node: SignalNodeId,
+}
+
+impl<P: SignalProvider + ?Sized + std::fmt::Debug> fmt::Debug for DeferProvider<P> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DeferProvider")
+            .field("provider", &self.provider)
+            .field("node", &self.node)
+            .finish()
+    }
 }
 
 impl<P: SignalProvider + ?Sized> SignalProvider for DeferProvider<P> {
@@ -2556,56 +2547,25 @@ impl<P: SignalProvider + ?Sized> SignalProvider for DeferProvider<P> {
 
     #[inline]
     fn get_ref(&self) -> DynRef<'_, Self::Item> {
-        let p = self
-            .provider
-            .get()
-            .expect("Tried to get value before deferred signal was resolved!");
+        let p = match self.provider.get() {
+            Some(x) => x,
+            None => panic!(
+                "Tried to get {} value before deferred signal was resolved!",
+                std::any::type_name::<Self::Item>()
+            ),
+        };
         p.get_ref()
     }
 }
 
 pub fn defer<T1, P: SignalProvider<Item = T1> + ?Sized>() -> Signal<DeferProvider<P>> {
-    let node = new_node(NodeColor::Changed);
+    let node = new_node::<DeferProvider<P>>(NodeColor::Changed);
+    verify_tree(&node);
     Signal(Rc::new(DeferProvider {
         provider: OnceCell::new(),
         node,
     }))
 }
-
-/*
-// This is used to assign a fallback equality check that always returns false, which is only
-// valid to do in a partial ordering - as a result, `WrapEq` must NEVER implement `Eq`.
-#[repr(transparent)]
-pub struct WrapEq<T>(T);
-
-impl<T> PartialEq for WrapEq<T> {
-    fn eq(&self, other: &Self) -> bool {
-        return false;
-    }
-}
-
-impl<T> From<T> for WrapEq<T> {
-    fn from(value: T) -> Self {
-        Self(value)
-    }
-}
-
-// This is used to assign a fallback debug output, which simply prints the typename.
-#[repr(transparent)]
-pub struct WrapDebug<T>(T);
-
-impl<T> std::fmt::Debug for WrapDebug<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(std::any::type_name::<T>())
-    }
-}
-
-impl<T> From<T> for WrapDebug<T> {
-    fn from(value: T) -> Self {
-        Self(value)
-    }
-}
-*/
 
 #[test]
 fn add() {
@@ -2619,8 +2579,8 @@ fn add() {
 #[test]
 fn reactive_fold() {
     let mut vals = Iterator::map(1..=100, MutableSignal::new).collect::<Vec<_>>();
-    let sum = vals.iter().fold(0.to_signal().into_dyn_signal(), |a, b| {
-        zip_pair(a, b.clone(), |x, y| *x + *y).into_dyn_signal()
+    let sum = vals.iter().fold(0.to_signal().into_dyn(), |a, b| {
+        zip_pair(a, b.clone(), |x, y| *x + *y).into_dyn()
     });
     let modifications = vec![(1, 1, 5049), (1, 2, 5050), (5, -1, 5043)];
     for (idx, val, expectation) in modifications {
@@ -2653,4 +2613,97 @@ fn test_reactive_map_vec() {
     for i in sample(&result).iter() {
         println!("{i}");
     }
+}
+
+fn truncate_str(s: &str, n: usize) -> &str {
+    if let Some((idx, _)) = s.char_indices().nth(n) {
+        &s[..idx]
+    } else {
+        s
+    }
+}
+
+#[cfg(debug_assertions)]
+fn trace_deps_node(
+    id: &SignalNodeId,
+    edges: &mut std::collections::HashSet<(usize, usize)>,
+    nodes: &mut std::collections::HashSet<usize>,
+) -> String {
+    let this = id.0.as_ptr() as usize;
+
+    let mut result: Vec<String> =
+        id.0.borrow()
+            .children
+            .iter()
+            .flat_map(|child| {
+                if edges.insert((this, child.0.as_ptr() as usize)) {
+                    Some(format!(
+                        "id{} -> id{}\n{}",
+                        this,
+                        child.0.as_ptr() as usize,
+                        trace_deps_node(child, edges, nodes)
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+    if nodes.insert(this) {
+        let color = match id.0.borrow().color {
+            NodeColor::Ready => "lime",
+            NodeColor::Changed => "yellow",
+            NodeColor::Check => "pink",
+        };
+
+        let label =
+            id.0.borrow()
+                .debug
+                .replace("feather_ui::", "")
+                .replace("reactive::", "")
+                .replace("alloc::rc::", "");
+        result.push(format!(
+            "id{} [shape=box style=\"filled\" fillcolor=\"{}\" label=\"{}\"];",
+            this,
+            color,
+            truncate_str(&label, 32)
+        ));
+    }
+
+    result.join("\n")
+}
+
+#[cfg(debug_assertions)]
+pub fn trace_deps<P: SignalProvider + ?Sized>(sig: Signal<P>) -> String {
+    format!(
+        "digraph G {{\n{}\n}}",
+        trace_deps_node(
+            &sig.0.get_node(),
+            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashSet::new()
+        )
+    )
+}
+
+fn verify_subtree(id: &SignalNodeId, mut color: NodeColor) {
+    match id.0.borrow().color {
+        NodeColor::Ready => assert_eq!(color, NodeColor::Ready),
+        NodeColor::Changed => (),
+        NodeColor::Check => assert_ne!(color, NodeColor::Ready),
+    }
+    color = id.0.borrow().color;
+    for child in &id.0.borrow().children {
+        verify_subtree(child, color);
+    }
+}
+// Verifies the subtree of node dependencies startig at the given node.
+pub fn verify_tree(id: &SignalNodeId) {
+    let color = id.0.borrow().color;
+    #[cfg(debug_assertions)]
+    verify_subtree(id, color);
+}
+
+// Verifies the subtree of node dependencies
+pub fn verify_signal<P: SignalProvider + ?Sized>(id: &Signal<P>) {
+    verify_tree(id.0.get_node());
 }

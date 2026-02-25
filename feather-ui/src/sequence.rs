@@ -237,4 +237,10 @@ pub fn basic_seq_test() {
     assert_eq!(seq[2], 1);
 
     assert_eq!(seq.remove(0), None);
+    assert_eq!(seq.remove(2), Some(1));
+
+    seq.set(1, 1);
+    assert_eq!(seq[0], 1);
+    assert_eq!(seq[1], 1);
+    assert_eq!(seq[2], 1);
 }

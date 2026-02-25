@@ -4,7 +4,7 @@
 use super::Desc;
 use super::base::{Empty, RLimits};
 use crate::component::ComponentMarker;
-use crate::reactive::{self, DynSignal, zip_pair};
+use crate::reactive::{self, DynSignal};
 use crate::{CrossReferenceDomain, RelDim, render};
 use std::sync::Arc;
 
@@ -40,22 +40,25 @@ impl Desc for dyn Prop {
 
     fn stage<'a, T: render::Prerender + 'static>(
         props: &Self::Props,
-        predim: DynSignal<crate::PxDim>,
+        _: DynSignal<crate::PxLimits>,
         _: DynSignal<Self::Children>,
         renderable: Option<T>,
         dpi: reactive::MutableSignal<RelDim>,
         defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        let area = predim.map(|dim| crate::PxRect::from(*dim)).into();
+        use crate::reactive::SignalZip;
 
         let id = props.id();
         let domain = props.domain();
         (
-            area,
-            Box::new(move |offset, final_dim| {
-                let final_area =
-                    zip_pair(offset, final_dim, |o, dim| crate::Rect::offsetdim(*o, *dim))
-                        .into_dyn_signal();
+            crate::reactive::const_default().into(),
+            Box::new(move |offset, final_dim, final_limits| {
+                let final_area = (offset, final_dim, final_limits)
+                    .zip()
+                    .flatmap(|(o, dim, limits)| {
+                        super::limit_area(crate::Rect::offsetdim(*o, *dim), *limits)
+                    })
+                    .into_dyn();
 
                 super::resolve_defer_machine(
                     crate::rtree::Node::new(
@@ -76,7 +79,7 @@ impl Desc for dyn Prop {
                     &defer,
                     crate::reactive::zip((final_area, dpi.clone()))
                         .value()
-                        .into_dyn_signal(),
+                        .into_dyn(),
                 )
             }),
         )

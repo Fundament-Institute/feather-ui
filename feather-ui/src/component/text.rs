@@ -59,22 +59,6 @@ impl<T: leaf::Padded + 'static> Text<T> {
     }
 }
 
-fn buffer_eq(s: &str, b: &cosmic_text::Buffer) -> bool {
-    let mut ranges = LineIter::new(s);
-    let mut lines = b.lines.iter();
-    loop {
-        match (lines.next(), ranges.next()) {
-            (Some(line), Some((r, _))) => {
-                if &s[r] != line.text() {
-                    return false;
-                }
-            }
-            (None, None) => return true,
-            _ => return false,
-        }
-    }
-}
-
 impl<T: leaf::Padded + 'static> super::Component for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
@@ -87,136 +71,161 @@ where
         driver2: &Arc<crate::graphics::Driver>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> Self::R {
-        let inner_dim = reactive::defer::<crate::UnsizedDim, _>();
         let inner_limits = reactive::defer::<crate::PxLimits, _>();
         let wdriver = Arc::downgrade(driver2);
+        let wdriver2 = wdriver.clone();
+        let wdriver3 = wdriver.clone();
+        let wdriver4 = wdriver.clone();
+        let wdriver5 = wdriver.clone();
 
-        let text_buffer = (
-            self.text.clone(),
-            self.font_size.clone(),
-            self.line_height.clone(),
-            dpi.clone(),
-            self.wrap.clone(),
-            self.attributes.clone(),
-            self.align.clone(),
-            inner_dim.clone(),
-            self.props.padding(),
-            inner_limits.clone(),
-        )
-            .zip()
-            .flatmap_mut(
-                move |(
-                    text,
-                    font_size,
-                    line_height,
-                    dpi,
-                    wrap,
-                    attrs,
-                    align,
-                    inner,
-                    padding,
-                    limits,
-                ): (
-                    &String,
-                    &f32,
-                    &f32,
-                    &crate::RelDim,
-                    &cosmic_text::Wrap,
-                    &cosmic_text::AttrsOwned,
-                    &Option<cosmic_text::Align>,
-                    &crate::UnsizedDim,
-                    &crate::DAbsRect,
-                    &crate::PxLimits,
-                ),
-                      buffer: Option<cosmic_text::Buffer>|
-                      -> cosmic_text::Buffer {
-                    let driver = wdriver.upgrade().unwrap();
-                    let mut font_system = driver.font_system.write();
-                    let padding = padding.as_perimeter(*dpi);
-                    let metrics = cosmic_text::Metrics::new(
-                        point_to_pixel(*font_size, dpi.width),
-                        point_to_pixel(*line_height, dpi.height),
-                    );
-
-                    let mut buffer = buffer
-                        .unwrap_or_else(|| cosmic_text::Buffer::new(&mut font_system, metrics));
-                    buffer.set_metrics(&mut font_system, metrics);
-                    buffer.set_wrap(&mut font_system, *wrap);
-
-                    if *align != buffer.lines[0].align()
-                        || buffer.lines[0].attrs_list().get_span(0) != attrs.as_attrs()
-                        || !buffer_eq(&text, &buffer)
-                    {
-                        buffer.set_text(
-                            &mut font_system,
-                            &text,
-                            &attrs.as_attrs(),
-                            cosmic_text::Shaping::Advanced,
-                            *align,
-                        );
-                    }
-
-                    let (limitx, limity) = {
-                        let max = limits.max();
-                        (
-                            max.width.is_finite().then_some(max.width),
-                            max.height.is_finite().then_some(max.height),
-                        )
-                    };
-
-                    let (unsized_x, unsized_y) = inner.is_unsized();
-                    let dim = crate::layout::limit_dim(*inner, *limits) - padding.total();
-
-                    buffer.set_size(
-                        &mut font_system,
-                        if unsized_x {
-                            limitx
-                        } else {
-                            Some(dim.width.max(0.0))
-                        },
-                        if unsized_y {
-                            limity
-                        } else {
-                            Some(dim.height.max(0.0))
-                        },
-                    );
-
-                    // If we have indeterminate area, calculate the size
-                    if unsized_x || unsized_y {
-                        let mut h = 0.0;
-                        let mut w: f32 = 0.0;
-
-                        // TODO: In order to extract the width and height back out of the text buffer, we have to unconditionally
-                        // set the width/height here. If we replace buffer with a wrapper that can hold a realign and w/h values,
-                        // then we can restore this optimization.
-                        //let mut realign = self.realign;
-
-                        for run in buffer.layout_runs() {
-                            w = w.max(run.line_w);
-                            // If a line is RTL and we're unsized, we ALWAYS have to re-evaluate it!
-                            //realign = realign || run.rtl;
-                            h += run.line_height;
+        let text_buffer = MutableSignal::<cosmic_text::Buffer, _>::new_inputs(
+            cosmic_text::Buffer::new(
+                &mut driver2.font_system.write(),
+                cosmic_text::Metrics::new(1.0, 1.0),
+            ),
+            (
+                (
+                    self.wrap.clone(),
+                    move |b: &mut cosmic_text::Buffer, wrap: &cosmic_text::Wrap| {
+                        if let Some(driver) = wdriver2.upgrade() {
+                            b.set_wrap(&mut driver.font_system.write(), *wrap);
                         }
+                    },
+                ),
+                (
+                    (
+                        dpi.clone(),
+                        self.font_size.clone(),
+                        self.line_height.clone(),
+                    )
+                        .zip()
+                        .value(),
+                    move |b: &mut cosmic_text::Buffer,
+                          (dpi, fsize, line): &(crate::RelDim, f32, f32)| {
+                        if let Some(driver) = wdriver3.upgrade() {
+                            b.set_metrics(
+                                &mut driver.font_system.write(),
+                                cosmic_text::Metrics {
+                                    font_size: point_to_pixel(*fsize, dpi.width),
+                                    line_height: point_to_pixel(*line, dpi.height),
+                                },
+                            );
+                        }
+                    },
+                ),
+                (
+                    (
+                        self.text.clone(),
+                        self.attributes.clone(),
+                        self.align.clone(),
+                    )
+                        .zip()
+                        .value(),
+                    move |b: &mut cosmic_text::Buffer,
+                          (text, attrs, align): &(
+                        String,
+                        cosmic_text::AttrsOwned,
+                        Option<cosmic_text::Align>,
+                    )| {
+                        if let Some(driver) = wdriver4.upgrade() {
+                            b.set_text(
+                                &mut driver.font_system.write(),
+                                &text,
+                                &attrs.as_attrs(),
+                                cosmic_text::Shaping::Advanced,
+                                *align,
+                            );
+                        }
+                    },
+                ),
+                (
+                    (
+                        dpi.clone(),
+                        self.props.area(),
+                        self.props.padding(),
+                        inner_limits.clone(),
+                    )
+                        .zip()
+                        .value(),
+                    move |buffer: &mut cosmic_text::Buffer,
+                          (dpi, area, padding, limits): &(
+                        crate::RelDim,
+                        crate::DRect,
+                        crate::DAbsRect,
+                        crate::Limits<crate::Pixel>,
+                    )| {
+                        let padding = padding.as_perimeter(*dpi);
+                        if let Some(driver) = wdriver5.upgrade() {
+                            let (limitx, limity) = {
+                                let max = limits.max();
+                                (
+                                    max.width.is_finite().then_some(max.width),
+                                    max.height.is_finite().then_some(max.height),
+                                )
+                            };
 
-                        // Apply adjusted limits to inner size calculation
-                        w = w.max(limits.min().width).min(limits.max().width);
-                        h = h.max(limits.min().height).min(limits.max().height);
+                            let inner = area.resolve(*dpi);
+                            let mut font_system = driver.font_system.write();
 
-                        // If we are centered or right aligned, we have to set the size again now that
-                        // we know how big it really is. This is true even if all the text
-                        // was originally marked as RTL - the layout will still be wrong because
-                        // it didn't know how big the text would be.
-                        //if realign {
-                        buffer.set_size(&mut font_system, Some(w), Some(h));
-                        //}
-                    };
+                            let (unsized_x, unsized_y) = inner.is_unsized();
+                            let dim = crate::layout::limit_dim(
+                                unsafe { inner.abs.dim_unchecked().cast_unit() },
+                                *limits,
+                            ) - padding.total();
 
-                    buffer
-                },
-            );
+                            buffer.set_size(
+                                &mut font_system,
+                                if unsized_x {
+                                    limitx
+                                } else {
+                                    Some(dim.width.max(0.0))
+                                },
+                                if unsized_y {
+                                    limity
+                                } else {
+                                    Some(dim.height.max(0.0))
+                                },
+                            );
+
+                            // If we have indeterminate area, calculate the size
+                            if unsized_x || unsized_y {
+                                let mut h = 0.0;
+                                let mut w: f32 = 0.0;
+
+                                // TODO: In order to extract the width and height back out of the text buffer, we have to unconditionally
+                                // set the width/height here. If we replace buffer with a wrapper that can hold a realign and w/h values,
+                                // then we can restore this optimization.
+                                //let mut realign = self.realign;
+
+                                for run in buffer.layout_runs() {
+                                    w = w.max(run.line_w);
+                                    // If a line is RTL and we're unsized, we ALWAYS have to re-evaluate it!
+                                    //realign = realign || run.rtl;
+                                    h += run.line_height;
+                                }
+
+                                // Apply adjusted limits to inner size calculation
+                                w = w.max(limits.min().width).min(limits.max().width);
+                                h = h.max(limits.min().height).min(limits.max().height);
+
+                                // If we are centered or right aligned, we have to set the size again now that
+                                // we know how big it really is. This is true even if all the text
+                                // was originally marked as RTL - the layout will still be wrong because
+                                // it didn't know how big the text would be.
+                                //if realign {
+                                buffer.set_size(&mut font_system, Some(w), Some(h));
+                                //}
+                            };
+                        }
+                    },
+                ),
+            ),
+        );
+
+        let final_buffer = reactive::defer::<cosmic_text::Buffer, _>();
 
         let render = crate::render::text::PreInstance {
-            text_buffer: text_buffer.clone(),
+            text_buffer: final_buffer.clone(),
             padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)),
             driver: Arc::downgrade(driver2),
         };
@@ -228,8 +237,8 @@ where
             //realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
             driver: Arc::downgrade(driver2),
             machine: None,
-            inner_dim: inner_dim,
             inner_limits: inner_limits,
+            final_buffer,
         }
     }
 }

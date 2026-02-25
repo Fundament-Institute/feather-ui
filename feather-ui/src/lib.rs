@@ -43,7 +43,8 @@ use crate::component::ComponentMarker;
 use crate::component::window::{Window, WindowState};
 use crate::graphics::Driver;
 use crate::reactive::{
-    ConstSignal, DynSignal, Identity, MutableProvider, Sampler, empty_signal, sample, sample_val,
+    ConstSignal, DynSignal, Identity, MutableProvider, Sampler, const_default, empty_signal,
+    sample, sample_val,
 };
 use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
@@ -52,6 +53,7 @@ use core::f32;
 use dyn_clone::DynClone;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
+use num_traits::Signed;
 use parking_lot::RwLock;
 use std::any::Any;
 use std::cell::RefCell;
@@ -191,6 +193,11 @@ pub struct Relative {}
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 /// Represents an actual pixel
 pub struct Pixel {}
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+/// Used to denote a minimum or maximum limit, which usually contain infinities.
+pub struct Bounds<T> {
+    phantom: PhantomData<T>,
+}
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 /// Represents a combination of DIP and Pixels that have been resolved for the
 /// current DPI
@@ -332,9 +339,6 @@ pub type AbsRect = Rect<Logical>;
 pub type PxRect = Rect<Pixel>;
 /// A 2D rectangle in relative values
 pub type RelRect = Rect<Relative>;
-/// A 2D rectangle in resolved pixels that haven't been merged with their paired
-/// relative component
-pub type ResRect = Rect<Resolved>;
 
 impl<U> Rect<U> {
     #[inline]
@@ -483,6 +487,17 @@ impl<U> Rect<U> {
 
     #[inline]
     pub fn dim(&self) -> Size2D<f32, U> {
+        let ltrb = self.v.as_array_ref();
+        debug_assert_ne!(ltrb[0], UNSIZED_AXIS);
+        debug_assert_ne!(ltrb[1], UNSIZED_AXIS);
+        debug_assert_ne!(ltrb[2], UNSIZED_AXIS);
+        debug_assert_ne!(ltrb[3], UNSIZED_AXIS);
+        Size2D::new(ltrb[2] - ltrb[0], ltrb[3] - ltrb[1])
+    }
+
+    // This is allowed to return an invalid dimension because it's up to the caller to verify that it is never used.
+    #[inline]
+    pub unsafe fn dim_unchecked(&self) -> Size2D<f32, U> {
         let ltrb = self.v.as_array_ref();
         Size2D::new(ltrb[2] - ltrb[0], ltrb[3] - ltrb[1])
     }
@@ -1079,7 +1094,7 @@ impl Neg for DPoint {
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Partially resolved unified coordinate rectangle
 pub struct URect {
-    pub abs: ResRect,
+    pub abs: Rect<Resolved>,
     pub rel: RelRect,
 }
 
@@ -1098,7 +1113,7 @@ impl URect {
     #[inline]
     pub const fn zero() -> Self {
         Self {
-            abs: ResRect::zero(),
+            abs: Rect::<Resolved>::zero(),
             rel: RelRect::zero(),
         }
     }
@@ -1127,7 +1142,7 @@ impl URect {
 
     #[must_use]
     #[inline]
-    fn map_unsized(&self, sized: PxDim) -> (f32x4, f32x4) {
+    fn map_unsized(&self, intrinsic_size: PxDim) -> (f32x4, f32x4) {
         let (unsized_x, unsized_y) = self.is_unsized();
         let mut abs = self.abs.v;
         let mut rel = self.rel.v;
@@ -1139,11 +1154,11 @@ impl URect {
             v_rel[2] = v_rel[0];
             // Fix the bottomright abs area in unsized scenarios, because it was relative to
             // the topleft instead of being independent.
-            v_abs[2] += v_abs[0] + sized.width;
+            v_abs[2] += v_abs[0] + intrinsic_size.width;
         }
         if unsized_y {
             v_rel[3] = v_rel[1];
-            v_abs[3] += v_abs[1] + sized.height;
+            v_abs[3] += v_abs[1] + intrinsic_size.height;
         }
         (abs, rel)
     }
@@ -1152,13 +1167,49 @@ impl URect {
     // has been manually verified.
     #[must_use]
     #[inline]
-    pub fn resolve(&self, dim: PxDim, sized: PxDim) -> PxRect {
-        let (abs, rel) = self.map_unsized(sized);
+    pub fn resolve(&self, dim: PxDim, intrinsic_size: PxDim) -> PxRect {
+        let (abs, rel) = self.map_unsized(intrinsic_size);
 
         PxRect {
             v: abs + rel * splat_size(dim),
             _unit: PhantomData,
         }
+    }
+
+    /// Preresolve is used in the presize step, which discards relative coordinates. It's functionally identical
+    /// to calling [`self.resolve(PxDim::zero(), presize)`], but doesn't rely on the optimizer finding the zeroes.
+    #[must_use]
+    #[inline]
+    pub fn preresolve(&self, intrinsic_size: PxDim) -> PxRect {
+        let (unsized_x, unsized_y) = self.is_unsized();
+        let mut abs = self.abs.v;
+        let v_abs = abs.as_array_mut();
+        // Unsized objects must always have a single anchor point to make sense, so we
+        // copy over from topleft.
+        if unsized_x {
+            // Fix the bottomright abs area in unsized scenarios, because it was relative to
+            // the topleft instead of being independent.
+            v_abs[2] += v_abs[0] + intrinsic_size.width;
+        }
+        if unsized_y {
+            v_abs[3] += v_abs[1] + intrinsic_size.height;
+        }
+
+        PxRect {
+            v: abs,
+            _unit: PhantomData,
+        }
+    }
+
+    /// Preresolve is used in the presize step, but if `is_unsized()` is false, it's equivelent to just returning
+    /// the abs component and casting the units, which is all this function does.
+    #[must_use]
+    #[inline]
+    pub fn preresolve_sized(&self) -> PxRect {
+        debug_assert!(!self.is_unsized().0);
+        debug_assert!(!self.is_unsized().1);
+
+        self.abs.cast_unit()
     }
 
     /// Can only be called if is_unsized() is (false, false)
@@ -1238,7 +1289,7 @@ pub struct DRect {
 impl DRect {
     fn resolve(&self, dpi: RelDim) -> URect {
         URect {
-            abs: ResRect {
+            abs: Rect::<Resolved> {
                 v: self.px.v + (self.dp.v * splat_size(dpi)),
                 _unit: PhantomData,
             },
@@ -1496,17 +1547,41 @@ impl<U> Limits<U> {
     }
 
     #[inline]
-    pub fn set_min(&mut self, bound: Size2D<f32, U>) {
+    pub(crate) fn set_min(&mut self, bound: Size2D<f32, U>) {
         let minmax = self.v.as_array_mut();
         minmax[0] = bound.width;
         minmax[1] = bound.height;
     }
 
     #[inline]
-    pub fn set_max(&mut self, bound: Size2D<f32, U>) {
+    pub(crate) fn set_max(&mut self, bound: Size2D<f32, U>) {
         let minmax = self.v.as_array_mut();
         minmax[2] = bound.width;
         minmax[3] = bound.height;
+    }
+
+    #[inline]
+    pub fn apply_min(self, min: Size2D<f32, U>) -> Self {
+        let mut v = self.v;
+        let minmax = v.as_array_mut();
+        minmax[0] = minmax[0].max(min.width);
+        minmax[1] = minmax[1].max(min.height);
+        Self {
+            v,
+            _unit: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn apply_max(self, max: Size2D<f32, U>) -> Self {
+        let mut v = self.v;
+        let minmax = v.as_array_mut();
+        minmax[2] = minmax[2].min(max.width);
+        minmax[3] = minmax[3].min(max.height);
+        Self {
+            v,
+            _unit: PhantomData,
+        }
     }
 
     /// Discard the units
@@ -1607,24 +1682,33 @@ impl Mul<UnsizedDim> for RelLimits {
     fn mul(self, rhs: UnsizedDim) -> Self::Output {
         let (unsized_x, unsized_y) = rhs.is_unsized();
         let minmax = self.v.as_array_ref();
+        // TODO: SSE optimize
         let v = f32x4::new([
             if unsized_x {
                 NEG_INFINITY
+            } else if minmax[0].is_infinite() {
+                minmax[0]
             } else {
                 minmax[0] * rhs.width
             },
             if unsized_y {
                 NEG_INFINITY
+            } else if minmax[1].is_infinite() {
+                minmax[1]
             } else {
                 minmax[1] * rhs.height
             },
             if unsized_x {
                 INFINITY
+            } else if minmax[2].is_infinite() {
+                minmax[2]
             } else {
                 minmax[2] * rhs.width
             },
             if unsized_y {
                 INFINITY
+            } else if minmax[3].is_infinite() {
+                minmax[3]
             } else {
                 minmax[3] * rhs.height
             },
@@ -1642,6 +1726,9 @@ impl Mul<PxDim> for RelLimits {
 
     #[inline]
     fn mul(self, rhs: PxDim) -> Self::Output {
+        debug_assert!(!rhs.width.is_negative());
+        debug_assert!(!rhs.height.is_negative());
+
         let minmax = self.v.as_array_ref();
         let v = f32x4::new([
             minmax[0] * rhs.width,
@@ -2090,8 +2177,8 @@ impl<AppData: 'static, T> App<AppData, T> {
             });
 
         layout::Node {
-            props: Rc::new(ConstSignal::new(Size2D::zero()).into_dyn_signal()),
-            children: ConstSignal::new(empty_child).into_dyn_signal(),
+            props: Rc::new(ConstSignal::new(Size2D::zero()).into_dyn()),
+            children: ConstSignal::new(empty_child).into_dyn(),
             renderable: None,
             machine: None,
         }
@@ -2186,23 +2273,13 @@ impl<AppData: 'static, T> App<AppData, T> {
             )| {
                 let (v, w) = tuple;
                 if let Some((state, _)) = windows2.borrow().get(&Identity((*w).clone())) {
-                    let (_, f) = v.stage(
-                        state
-                            .surface_dim
-                            .clone()
-                            .map(|x| x.to_f32().cast_unit())
-                            .into_dyn_signal(),
-                        state.dpi.clone(),
-                    );
+                    let (_, f) = v.stage(const_default().into(), state.dpi.clone());
 
                     (
                         f(
-                            ConstSignal::new(PxPoint::zero()).into_dyn_signal(),
-                            state
-                                .surface_dim
-                                .clone()
-                                .map(|x| x.to_f32())
-                                .into_dyn_signal(),
+                            ConstSignal::new(PxPoint::zero()).into_dyn(),
+                            state.surface_dim.clone().map(|x| x.to_f32()).into_dyn(),
+                            const_default().into(),
                         ),
                         (*w).clone(),
                     )
@@ -2544,9 +2621,9 @@ fn test_basic() {
     ));
 
     let (mut app, event_loop) = App::<TestApp, ()>::new(
-        reactive::MutableSignal::new(TestApp {}).into_dyn_signal(),
+        reactive::MutableSignal::new(TestApp {}).into_dyn(),
         move |x| component::UI {
-            children: reactive::MutableSignal::new(imbl::vector![window.clone()]).into_dyn_signal(),
+            children: reactive::MutableSignal::new(imbl::vector![window.clone()]).into_dyn(),
         },
         Some(Box::new(|_, evt: &ActiveEventLoop, _| evt.exit())),
         None,
@@ -2678,29 +2755,17 @@ fn test_absrect_extend() {
 #[test]
 fn test_limits_add() {
     let limits = AbsLimits::new(.., 10.0..200.0);
-    assert_eq!(
-        limits.min(),
-        Size2D::<f32, Logical>::new(f32::NEG_INFINITY, 10.0)
-    );
-    assert_eq!(
-        limits.max(),
-        Size2D::<f32, Logical>::new(f32::INFINITY, 200.0)
-    );
+    assert_eq!(limits.min(), Size2D::<f32, _>::new(f32::NEG_INFINITY, 10.0));
+    assert_eq!(limits.max(), Size2D::<f32, _>::new(f32::INFINITY, 200.0));
 
     let rlimits = RelLimits::new(..1.0, ..);
     assert_eq!(
         rlimits.min(),
-        Size2D::<f32, Relative>::new(f32::NEG_INFINITY, f32::NEG_INFINITY)
+        Size2D::<f32, _>::new(f32::NEG_INFINITY, f32::NEG_INFINITY)
     );
-    assert_eq!(
-        rlimits.max(),
-        Size2D::<f32, Relative>::new(1.0, f32::INFINITY)
-    );
+    assert_eq!(rlimits.max(), Size2D::<f32, _>::new(1.0, f32::INFINITY));
 
     let merged = AbsLimits::new(0.0.., 5.0..100.0) + limits;
-    assert_eq!(merged.min(), Size2D::<f32, Logical>::new(0.0, 10.0));
-    assert_eq!(
-        merged.max(),
-        Size2D::<f32, Logical>::new(f32::INFINITY, 100.0)
-    );
+    assert_eq!(merged.min(), Size2D::<f32, _>::new(0.0, 10.0));
+    assert_eq!(merged.max(), Size2D::<f32, _>::new(f32::INFINITY, 100.0));
 }

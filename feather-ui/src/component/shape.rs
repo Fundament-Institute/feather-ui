@@ -131,7 +131,7 @@ where
                     c[3] * dpi.height,
                 ]
             })
-            .into_dyn_signal()
+            .into_dyn()
         } else {
             self.corners.clone()
         };
@@ -141,7 +141,7 @@ where
             size: zip_pair(self.size.clone(), dpi.clone(), |s, dpi| {
                 s.resolve(*dpi).to_vector().to_size().cast_unit()
             })
-            .into_dyn_signal(),
+            .into_dyn(),
             renderable: Some(crate::render::shape::PreInstance::<KIND> {
                 padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)).into(),
                 border: self.border.clone(),

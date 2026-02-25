@@ -5,9 +5,9 @@ use guillotiere::euclid::Size2D;
 
 use super::{Desc, base};
 use crate::{
-    Pixel, PxRect,
+    Pixel, PxLimits, PxRect,
     layout::DynLayout,
-    reactive::{self, ConstSignal, DynSignal, SignalZip},
+    reactive::{self, ConstSignal, DynSignal, SignalZip, const_default},
 };
 use std::rc::Rc;
 
@@ -34,29 +34,29 @@ impl Desc for dyn Prop {
 
     fn stage<'a, T>(
         props: &Self::Props,
-        _: DynSignal<crate::PxDim>,
+        _: DynSignal<PxLimits>,
         child: DynSignal<Self::Children>,
         _: Option<T>,
         dpi: reactive::MutableSignal<crate::RelDim>,
         defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        let dim: DynSignal<crate::PxDim> = props.dim().clone().map(|d| d.to_f32()).into();
-        let sized = props.dim().map(|d| d.to_f32()).into_dyn_signal();
-
+        let sized = props.dim().map(|d| d.to_f32()).into_dyn();
+        let no_limit = const_default().into_dyn();
         (
             props.dim().map(|x| PxRect::from(x.to_f32())).into(),
-            Box::new(move |_, _| {
-                let dim = dim.clone();
+            Box::new(move |_, _, _| {
                 let dpi2 = dpi.clone();
                 let sized = sized.clone();
-                let final_area = sized.clone().map(|d| PxRect::from(*d)).into_dyn_signal();
+                let final_area = sized.clone().map(|d| PxRect::from(*d)).into_dyn();
+                let no_limit = no_limit.clone();
 
                 let presize = child.clone().map_ex(move |c| {
-                    let (_, f) = c.stage(dim.clone(), dpi2.clone());
+                    let (_, f) = c.stage(no_limit.clone(), dpi2.clone());
 
                     f(
                         ConstSignal::new(crate::PxPoint::default()).into(),
                         sized.clone(),
+                        no_limit.clone(),
                     )
                 });
 
@@ -68,7 +68,7 @@ impl Desc for dyn Prop {
                             presize
                                 .clone()
                                 .map_ex(|node| imbl::vector![node.clone()])
-                                .into_dyn_signal(),
+                                .into_dyn(),
                         ),
                         Some(Box::new(crate::layout::Concrete::<()> {
                             renderable: None,
@@ -77,7 +77,7 @@ impl Desc for dyn Prop {
                         })),
                     ),
                     &defer,
-                    (final_area, dpi.clone()).zip().value().into_dyn_signal(),
+                    (final_area, dpi.clone()).zip().value().into_dyn(),
                 )
             }),
         )

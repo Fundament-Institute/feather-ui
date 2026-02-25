@@ -3,7 +3,7 @@
 
 use crate::{
     DAbsRect, DPoint, DRect, ZERO_DRECT,
-    reactive::{ConstSignal, DynSignal, MutableSignal, SignalZip, ToSignal, zip_pair},
+    reactive::{ConstSignal, DynSignal, MutableSignal, SignalZip, ToSignal},
 };
 use std::rc::Rc;
 
@@ -41,20 +41,21 @@ impl crate::layout::Desc for dyn Empty {
 
     fn stage<'a, T: crate::render::Prerender + 'static>(
         _: &Self::Props,
-        predim: DynSignal<crate::PxDim>,
+        _: DynSignal<crate::PxLimits>,
         _: DynSignal<Self::Children>,
         renderable: Option<T>,
         dpi: MutableSignal<crate::RelDim>,
         defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        let area = predim.map(|dim| crate::PxRect::from(*dim)).into();
-
         (
-            area,
-            Box::new(move |offset, final_dim| {
-                let final_area =
-                    zip_pair(offset, final_dim, |o, dim| crate::Rect::offsetdim(*o, *dim))
-                        .into_dyn_signal();
+            crate::reactive::const_default().into(),
+            Box::new(move |offset, final_dim, final_limits| {
+                let final_area = (offset, final_dim, final_limits)
+                    .zip()
+                    .flatmap(|(o, dim, limits)| {
+                        super::limit_area(crate::Rect::offsetdim(*o, *dim), *limits)
+                    })
+                    .into_dyn();
 
                 super::resolve_defer_machine(
                     crate::rtree::Node::new(
@@ -67,7 +68,7 @@ impl crate::layout::Desc for dyn Empty {
                         ))),
                     ),
                     &defer,
-                    (final_area, dpi.clone()).zip().value().into_dyn_signal(),
+                    (final_area, dpi.clone()).zip().value().into_dyn(),
                 )
             }),
         )

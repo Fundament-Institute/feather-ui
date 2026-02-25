@@ -24,7 +24,8 @@ use crate::{
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-type StageThunk<'a> = Box<dyn Fn(DynSignal<PxPoint>, DynSignal<PxDim>) -> Rc<rtree::Node>>;
+type StageThunk<'a> =
+    Box<dyn Fn(DynSignal<PxPoint>, DynSignal<PxDim>, DynSignal<PxLimits>) -> Rc<rtree::Node>>;
 
 /// Represents an arbitrary layout node that hasn't been staged yet. The vast
 /// majority of the time, components should simply use the standard [`Node`]
@@ -35,9 +36,13 @@ pub trait Layout {
     type Props: ?Sized;
 
     fn get_props(&self) -> &Self::Props;
+
+    /// Returns the intrinsic size (sets relative coordinates to 0) of this node
+    /// based on the provided bounds, and a lambda that returns the true size once
+    /// given the final dimensions.
     fn stage<'a>(
         &self,
-        dim: DynSignal<PxDim>,
+        prelimits: DynSignal<PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
@@ -46,7 +51,7 @@ pub trait DynLayout<DynProps: ?Sized> {
     fn get_props(&self) -> &DynProps;
     fn stage<'a>(
         &self,
-        dim: DynSignal<PxDim>,
+        prelimits: DynSignal<PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>);
 }
@@ -60,10 +65,10 @@ where
     }
     fn stage<'a>(
         &self,
-        dim: DynSignal<PxDim>,
+        prelimits: DynSignal<PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>) {
-        Layout::stage(self, dim, dpi)
+        Layout::stage(self, prelimits, dpi)
     }
 }
 
@@ -81,7 +86,10 @@ pub fn resolve_defer_machine<P: reactive::SignalProvider + ?Sized>(
     let n = Rc::new(node);
     if let Some((machine, state)) = defer {
         machine.connect(n.clone()).unwrap();
-        state.resolve(target).expect("State already resolved!");
+        state
+            .resolve(target)
+            .map_err(|_| ())
+            .expect("State already resolved!");
     }
     n
 }
@@ -94,7 +102,7 @@ pub trait Desc {
 
     fn stage<'a, T: Prerender + 'static>(
         props: &Self::Props,
-        outer: DynSignal<PxDim>,
+        prelimits: DynSignal<PxLimits>,
         children: DynSignal<Self::Children>,
         renderable: Option<T>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
@@ -127,12 +135,12 @@ where
     }
     fn stage<'a>(
         &self,
-        dim: DynSignal<PxDim>,
+        prelimits: DynSignal<PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, StageThunk<'a>) {
         D::stage(
             self.props.as_ref().into(),
-            dim,
+            prelimits,
             self.children.clone(),
             self.renderable.clone(),
             dpi,
@@ -369,26 +377,19 @@ pub(crate) fn limit_dim_sized(v: crate::PxDim, limits: PxLimits) -> PxDim {
 
 #[must_use]
 #[inline]
-pub(crate) fn eval_dim(area: URect, dim: PxDim, limits: PxLimits) -> UnsizedDim {
+pub(crate) fn intrinsic_dim(area: URect, limits: PxLimits) -> UnsizedDim {
     let (unsized_x, unsized_y) = area.is_unsized();
+    let dim = unsafe { area.abs.dim_unchecked() };
     UnsizedDim::new(
         if unsized_x {
             area.bottomright().rel().x
         } else {
-            let left = area.topleft().abs().x + (area.topleft().rel().x * dim.width);
-            let right = area.bottomright().abs().x + (area.bottomright().rel().x * dim.width);
-            (right - left)
-                .max(limits.min().width)
-                .min(limits.max().width)
+            dim.width.max(limits.min().width).min(limits.max().width)
         },
         if unsized_y {
             area.bottomright().rel().y
         } else {
-            let top = area.topleft().abs().y + (area.topleft().rel().y * dim.height);
-            let bottom = area.bottomright().abs().y + (area.bottomright().rel().y * dim.height);
-            (bottom - top)
-                .max(limits.min().height)
-                .min(limits.max().height)
+            dim.height.max(limits.min().height).min(limits.max().height)
         },
     )
 }

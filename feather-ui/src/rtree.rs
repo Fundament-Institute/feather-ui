@@ -54,7 +54,7 @@ impl Node {
         children: Option<DynSignal<imbl::Vector<Rc<Node>>>>,
         staged: Option<Box<dyn Staged>>,
     ) -> Self {
-        let z = z.unwrap_or_else(|| 0.to_signal().into_dyn_signal());
+        let z = z.unwrap_or_else(|| 0.to_signal().into_dyn());
         if let Some(children) = children {
             let areas = children
                 .clone()
@@ -65,7 +65,7 @@ impl Node {
                 areas,
                 ConstSignal::new(PxRect::zero()).into(),
             ))
-            .into_dyn_signal();
+            .into_dyn();
 
             Self {
                 area,
@@ -101,7 +101,7 @@ impl Node {
             areas,
             ConstSignal::new(PxRect::zero()).into(),
         ))
-        .into_dyn_signal();
+        .into_dyn();
 
         let tops = children
             .clone()
@@ -110,25 +110,25 @@ impl Node {
         let top = reactive::join(fold_vec(
             |l, r| reactive::cmp::min(l, r).into(),
             tops,
-            0.to_signal().into_dyn_signal(),
+            0.to_signal().into_dyn(),
         ));
 
         let bottoms = children.clone().map_elements(
-            |v| (v.top.clone() + v.depth.clone()).into_dyn_signal(),
+            |v| (v.top.clone() + v.depth.clone()).into_dyn(),
             |v| Identity(v.clone()),
         );
 
         let bottom = reactive::join(fold_vec(
             |l, r| reactive::cmp::max(l, r).into(),
             bottoms,
-            0.to_signal().into_dyn_signal(),
+            0.to_signal().into_dyn(),
         ));
 
         Self {
             area: extent.clone(),
             extent,
-            depth: zip_pair(top.clone(), bottom, |t, b| b - t).into_dyn_signal(),
-            top: top.into_dyn_signal(),
+            depth: zip_pair(top.clone(), bottom, |t, b| b - t).into_dyn(),
+            top: top.into_dyn(),
             children: Some(children),
             mask: u64::MAX.into(),
             staged: None,
