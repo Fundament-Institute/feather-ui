@@ -56,8 +56,8 @@ impl<
 {
     fn from(value: PreInstance<P1, P2>) -> Self {
         Self {
-            text_buffer: value.text_buffer.clone().into_dyn_signal(),
-            padding: value.padding.clone().into_dyn_signal(),
+            text_buffer: value.text_buffer.clone().into_dyn(),
+            padding: value.padding.clone().into_dyn(),
             driver: value.driver.clone(),
         }
     }
@@ -100,7 +100,7 @@ impl Instance {
                         )
                     },
                 )
-                .into_dyn_signal(),
+                .into_dyn(),
         }
     }
 

@@ -222,6 +222,9 @@ impl Drop for LayerTarget {
             driver.layer_atlas[self.atlas as usize]
                 .write()
                 .destroy(&mut self.region);
+        } else {
+            // Don't need to destroy the region if the driver doesn't exist anymore
+            self.region.id = guillotiere::AllocId::deserialize(u32::MAX);
         }
     }
 }
@@ -263,15 +266,15 @@ impl Layer {
                     _unit: PhantomData,
                 }
             })
-            .into_dyn_signal();
+            .into_dyn();
 
         let target = if force {
-            MutableSignal::new(Some(RwLock::new(Default::default()))).into_dyn_signal()
+            MutableSignal::new(Some(RwLock::new(Default::default()))).into_dyn()
         } else {
             (
                 color.clone(),
                 rotation.clone(),
-                cmp::eq(area.clone(), dest.clone()).into_dyn_signal(),
+                cmp::eq(area.clone(), dest.clone()).into_dyn(),
             )
                 .zip()
                 .flatmap_mut(|(c, r, s), old| {
@@ -284,7 +287,7 @@ impl Layer {
                         Some(RwLock::new(Default::default()))
                     }
                 })
-                .into_dyn_signal()
+                .into_dyn()
         };
 
         Self {

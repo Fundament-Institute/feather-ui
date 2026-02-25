@@ -31,36 +31,41 @@ impl Desc for dyn Prop {
 
     fn stage<'a, T: crate::render::Prerender + 'static>(
         props: &Self::Props,
-        predim: DynSignal<crate::PxDim>,
+        prelimits: DynSignal<crate::PxLimits>,
         _: DynSignal<Self::Children>,
         renderable: Option<T>,
         dpi: crate::reactive::MutableSignal<RelDim>,
         defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        let limits = zip_pair(props.limits(), dpi.clone(), |limits, dpi| {
-            limits.resolve(*dpi)
-        });
+        let limits = (props.limits(), dpi.clone(), prelimits.clone())
+            .zip()
+            .flatmap(|(limits, dpi, prelimits)| limits.resolve(*dpi) + *prelimits);
 
         let myarea = zip_pair(props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
 
-        let evaluated_area = crate::reactive::zip((myarea.clone(), predim.clone(), limits.clone()))
-            .flatmap(|(a, dim, l)| super::limit_area(a.resolve(*dim, PxDim::zero()), *l));
+        let evaluated_area = crate::reactive::zip((myarea.clone(), limits.clone()))
+            .flatmap(|(a, l)| super::limit_area(a.preresolve(PxDim::zero()), *l));
 
         let anchor = props.anchor();
         (
             evaluated_area.into(),
-            Box::new(move |offset, final_dim| {
-                let final_area = (myarea.clone(), offset, final_dim, limits.clone())
+            Box::new(move |offset, final_dim, final_limits| {
+                let final_area = (
+                    myarea.clone(),
+                    offset,
+                    final_dim,
+                    limits.clone(),
+                    final_limits.clone(),
+                )
                     .zip()
-                    // .flatmap(|(padding, a, o, dim, limits)| super::limit_area(map_unsized_area(*a, padding.total()) * *dim, *limits) + *o)
-                    .flatmap(|(a, o, dim, limits)| {
-                        super::limit_area(a.resolve(*dim, PxDim::zero()), *limits) + *o
+                    .flatmap(|(a, o, dim, limits, l2)| {
+                        super::limit_area(a.resolve(*dim, PxDim::zero()), *limits + *l2) + *o
                     });
 
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
                     .zip()
-                    .flatmap(|(e, a, d)| *e - (a.resolve(*d) * e.dim()))
-                    .into_dyn_signal();
+                    .flatmap(|(area, a, d)| *area - (a.resolve(*d) * area.dim()))
+                    .into_dyn();
 
                 super::resolve_defer_machine(
                     rtree::Node::new(
@@ -73,7 +78,7 @@ impl Desc for dyn Prop {
                         ))),
                     ),
                     &defer,
-                    (anchored_area, dpi.clone()).zip().value().into_dyn_signal(),
+                    (anchored_area, dpi.clone()).zip().value().into_dyn(),
                 )
             }),
         )
@@ -81,8 +86,9 @@ impl Desc for dyn Prop {
 }
 
 /// A sized leaf is one with inherent size, like an image. This is used to
-/// preserve aspect ratio when encounting an unsized axis. This must be provided
-/// in pixels.
+/// preserve aspect ratio when encounting an unsized axis. If both axis are
+/// unsized, the inherent size is used as the intrinsic size of the node.
+/// This must be provided in pixels.
 #[derive_where::derive_where(Clone)]
 pub struct Sized<T, R: Clone> {
     pub props: Rc<T>,
@@ -123,12 +129,12 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
     }
     fn stage<'a>(
         &self,
-        predim: DynSignal<crate::PxDim>,
+        prelimits: DynSignal<crate::PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, super::StageThunk<'a>) {
-        let limits = zip_pair(self.props.limits(), dpi.clone(), |limits, dpi| {
-            limits.resolve(*dpi)
-        });
+        let limits = (self.props.limits(), dpi.clone(), prelimits.clone())
+            .zip()
+            .flatmap(|(limits, dpi, prelimits)| limits.resolve(*dpi) + *prelimits);
 
         let padding = zip_pair(self.props.padding(), dpi.clone(), |p, dpi| {
             p.as_perimeter(*dpi)
@@ -139,10 +145,10 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
         // If both axes are unsized, we simply set the area to the internal
         // size. If only one axis is unsized, we stretch it to maintain an aspect
         // ratio relative to the size of the other axis.
-        let mapped_area = (padding.clone(), area.clone(), self.size.clone(), predim)
+        let mapped_area = (padding.clone(), area.clone(), self.size.clone())
             .zip()
-            .flatmap(|(padding, area, size, outer)| {
-                calc_sized_area(*padding, *area, *size, *outer)
+            .flatmap(|(padding, area, size)| {
+                calc_sized_area(*padding, *area, *size, PxDim::zero())
             });
 
         let size = self.size.clone();
@@ -155,7 +161,7 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
 
         (
             evaluated_area.into(),
-            Box::new(move |offset, final_dim| {
+            Box::new(move |offset, final_dim, final_limits| {
                 let final_area = (
                     padding.clone(),
                     area.clone(),
@@ -163,14 +169,13 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
                     offset,
                     final_dim,
                     limits.clone(),
+                    final_limits.clone(),
                 )
                     .zip()
-                    .flatmap(move |(padding, area, size, o, outer, limits)| {
-                        calc_sized_area(
-                            *padding,
-                            *area,
-                            *size,
-                            super::limit_dim_sized(*outer, *limits),
+                    .flatmap(move |(padding, area, size, o, outer, limits, l2)| {
+                        super::limit_area(
+                            calc_sized_area(*padding, *area, *size, *outer),
+                            *limits + *l2,
                         ) + *o
                     });
 
@@ -178,7 +183,7 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
                 let anchored_area = (final_area.clone(), anchor.clone(), dpi.clone())
                     .zip()
                     .flatmap(|(area, a, d)| *area - (a.resolve(*d) * area.dim()))
-                    .into_dyn_signal();
+                    .into_dyn();
 
                 super::resolve_defer_machine(
                     rtree::Node::new(
@@ -188,7 +193,7 @@ impl<T: Padded, R: crate::render::Prerender + Clone + 'static> Layout for Sized<
                         Some(Box::new(Concrete::new(renderable.as_ref(), anchored_area))),
                     ),
                     &defer,
-                    (final_area, dpi.clone()).zip().value().into_dyn_signal(),
+                    (final_area, dpi.clone()).zip().value().into_dyn(),
                 )
             }),
         )

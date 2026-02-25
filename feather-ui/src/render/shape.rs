@@ -339,7 +339,7 @@ impl<const KIND: u8> Instance<KIND> {
                     }
                 },
             )
-            .into_dyn_signal();
+            .into_dyn();
 
         let wdriver = driver2.clone();
         let reservation = (
@@ -417,9 +417,9 @@ impl<const KIND: u8> Instance<KIND> {
                 )),
                 Err(e) => InstanceResult::Error(*e),
             })
-            .into_dyn_signal();
+            .into_dyn();
 
-        let empty = ConstSignal::new(InstanceResult::Empty).into_dyn_signal();
+        let empty = ConstSignal::new(InstanceResult::Empty).into_dyn();
         let blank = (area.clone(), padding.clone(), dim.clone(), fill.clone())
             .zip()
             .flatmap(|(area, padding, dim, fill)| {
@@ -435,7 +435,7 @@ impl<const KIND: u8> Instance<KIND> {
                     false,
                 ))
             })
-            .into_dyn_signal();
+            .into_dyn();
 
         let choice = join(
             (dim.clone(), corners.clone(), border.clone())
@@ -491,20 +491,20 @@ impl<const KIND: u8> Instance<KIND> {
                             && corners.iter().all(|x| x.is_zero())
                             && border.is_zero())
                     {
-                        none_reservation.clone().into_dyn_signal()
+                        none_reservation.clone().into_dyn()
                     } else if KIND == /*ShapeKind::RoundRect as u8*/ 0
                         && perimeter.iter().all(|x| *x >= 2.0)
                     {
-                        opt_reservation.clone().into_dyn_signal()
+                        opt_reservation.clone().into_dyn()
                     } else {
-                        reservation.clone().into_dyn_signal()
+                        reservation.clone().into_dyn()
                     }
                 }),
         );
 
         Self {
-            values: choice.into_dyn_signal(),
-            cache: crate::Sampler::new(region_choice.into_dyn_signal()),
+            values: choice.into_dyn(),
+            cache: crate::Sampler::new(region_choice.into_dyn()),
         }
     }
 }

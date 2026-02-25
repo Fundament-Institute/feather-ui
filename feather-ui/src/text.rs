@@ -314,3 +314,34 @@ impl From<EditBuffer> for EditView {
         }
     }
 }
+
+pub fn copy_buffer(
+    dest: &mut cosmic_text::Buffer,
+    font_system: &mut cosmic_text::FontSystem,
+    src: &cosmic_text::Buffer,
+) {
+    dest.set_metrics(font_system, src.metrics());
+    dest.set_wrap(font_system, src.wrap());
+    dest.set_monospace_width(font_system, src.monospace_width());
+    dest.set_tab_width(font_system, src.tab_width());
+    dest.set_scroll(src.scroll());
+
+    dest.lines.truncate(src.lines.len());
+
+    for i in 0..dest.lines.len() {
+        dest.lines[i].set_text(
+            src.lines[i].text(),
+            src.lines[i].ending(),
+            src.lines[i].attrs_list().clone(),
+        );
+    }
+
+    for i in dest.lines.len()..src.lines.len() {
+        dest.lines.push(cosmic_text::BufferLine::new(
+            src.lines[i].text(),
+            src.lines[i].ending(),
+            src.lines[i].attrs_list().clone(),
+            cosmic_text::Shaping::Advanced,
+        ));
+    }
+}

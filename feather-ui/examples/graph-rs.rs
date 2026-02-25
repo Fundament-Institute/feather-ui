@@ -92,7 +92,6 @@ impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Wi
 
             let button = {
                 let text = Text::<FixedData> {
-                    id: gen_id!(scope),
                     props: Rc::new(FixedData {
                         area: AbsRect::new(8.0, 0.0, 8.0, 0.0)
                             + RelRect::new(0.0, 0.5, UNSIZED_AXIS, UNSIZED_AXIS),
@@ -108,7 +107,6 @@ impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Wi
                 };
 
                 let rect = shape::round_rect::<DRect>(
-                    gen_id!(scope),
                     feather_ui::FILL_DRECT,
                     0.0,
                     0.0,
@@ -119,7 +117,6 @@ impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Wi
                 );
 
                 Button::<FixedData>::new(
-                    gen_id!(scope),
                     FixedData {
                         area: AbsRect::new(0.0, 20.0, 0.0, 0.0)
                             + RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
@@ -140,7 +137,6 @@ impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Wi
                 node_ids.push(point.id.clone());
 
                 let circle = shape::circle(
-                    gen_id!(point.id),
                     FILL_DRECT,
                     0.0,
                     0.0,
@@ -155,7 +151,6 @@ impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Wi
                 );
 
                 let bag = Region::<MinimalArea>::new(
-                    gen_id!(point.id),
                     MinimalArea {
                         area: AbsRect::new(
                             node.x - NODE_RADIUS,
@@ -173,7 +168,6 @@ impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Wi
 
             for ((a, b), id) in scope.iter(&args.edges) {
                 let line = DomainLine::<()> {
-                    id,
                     fill: sRGB::white(),
                     domain: domain.clone(),
                     start: node_ids[*a].clone(),

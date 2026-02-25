@@ -4,7 +4,7 @@
 use super::{Concrete, Desc, base};
 use crate::{
     PxRect, RelDim, Unsizable,
-    layout::{DynLayout, resolve_dim},
+    layout::DynLayout,
     reactive::{self, DynSignal, SignalZip, zip_pair},
     render::Prerender,
     rtree,
@@ -24,68 +24,35 @@ impl Child for crate::DRect {}
 
 fn stage<'a, T: Prerender + 'static>(
     props: &dyn Prop,
-    predim: DynSignal<crate::PxDim>,
+    prelimits: DynSignal<crate::PxLimits>,
     children: DynSignal<imbl::Vector<Rc<dyn DynLayout<dyn Child>>>>,
     renderable: Option<T>,
     dpi: reactive::MutableSignal<RelDim>,
     layer: Option<(DynSignal<crate::color::sRGB32>, DynSignal<f32>)>,
     defer: Option<super::DeferMachine<<dyn Prop as Desc>::Provider>>,
 ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-    // If we have an unsized outer_area, any sized object with relative dimensions
-    // must evaluate to 0 (or to the minimum limited size). An
-    // unsized object can never have relative dimensions, as that creates a logic
-    // loop - instead it can only have a single relative anchor.
-    // If both axes are sized, then all limits are applied as if outer_area was
-    // unsized, and children calculations are skipped.
-    //
-    // If we have an unsized outer_area and an unsized myarea.rel, then limits are
-    // applied as if outer_area was unsized, and furthermore,
-    // they are reduced by myarea.abs.bottomright(), because that will be added on
-    // to the total area later, which will still be subject to size
-    // limits, so we must anticipate this when calculating how much size the
-    // children will have available to them. This forces limits to be
-    // true infinite numbers, so we can subtract finite amounts and still have
-    // infinity. We can't use infinity anywhere else, because infinity times
-    // zero is NaN, so we cap certain calculations at f32::MAX
-    //
-    // If outer_area is sized and myarea.rel is zero or nonzero, all limits are
-    // applied normally and child calculations are skipped. If outer_area is
-    // sized and myarea.rel is unsized, limits are applied normally, but are once
-    // again reduced by myarea.abs.bottomright() to account for how the area
-    // calculations will interact with the limits later on.
-
-    let limits = zip_pair(props.limits(), dpi.clone(), |limits, dpi| {
-        limits.resolve(*dpi)
-    });
+    let limits = (props.limits(), dpi.clone(), prelimits)
+        .zip()
+        .flatmap(|(limits, dpi, bounds)| limits.resolve(*dpi) + *bounds);
 
     let myarea =
         zip_pair::<crate::DRect, RelDim, _, _, _, _>(props.area(), dpi.clone(), |p, dpi| {
             p.resolve(*dpi)
         });
 
-    let inner_dim = (myarea.clone(), predim.clone(), limits.clone())
+    let predim = (myarea.clone(), limits.clone())
         .zip()
-        .flatmap(|(a, o, l)| super::eval_dim(*a, *o, *l));
-
-    let inner_sized = inner_dim
-        .clone()
-        .map(|x| resolve_dim(*x, crate::PxDim::zero()))
-        .into_dyn_signal();
+        .flatmap(|(a, l)| 
+        // d
+        super::intrinsic_dim(*a, *l));
 
     let dpi2 = dpi.clone();
     let child_tuple = children.map_elements(
         move |child| {
             let rlimits = child.as_ref().get_props().rlimits();
-
-            let (stage, a) = child.as_ref().stage(inner_sized.clone(), dpi2.clone());
-            (
-                (stage, rlimits.clone(), inner_dim.clone())
-                    .zip()
-                    .flatmap(|(area, l, inner)| super::limit_area(*area, *l * *inner))
-                    .into_dyn_signal(),
-                Rc::<super::StageThunk>::from(a),
-                rlimits,
-            )
+            let inner_bounds = rlimits.clone() * predim.clone();
+            let (stage, a) = child.as_ref().stage(inner_bounds.into(), dpi2.clone());
+            (stage, Rc::<super::StageThunk>::from(a), rlimits)
         },
         |x| reactive::Identity(x.clone()),
     );
@@ -94,15 +61,13 @@ fn stage<'a, T: Prerender + 'static>(
         .clone()
         .map_elements(|x| x.0.clone(), |x| reactive::Identity(x.1.clone()));
 
-    let presize = reactive::join(reactive::fold_vec(
-        |l, r| {
-            zip_pair(l.clone(), r.clone(), |u: &PxRect, v: &PxRect| u.extend(*v)).into_dyn_signal()
-        },
+    let intrinsic_size = reactive::join(reactive::fold_vec(
+        |l, r| zip_pair(l.clone(), r.clone(), |u: &PxRect, v: &PxRect| u.extend(*v)).into_dyn(),
         child_presize,
-        crate::ConstSignal::new(PxRect::zero()).into_dyn_signal(),
+        crate::ConstSignal::new(PxRect::zero()).into_dyn(),
     ));
 
-    let presize = presize.map(|x| x.extend(PxRect::zero()));
+    let presize = intrinsic_size.map(|x| x.extend(PxRect::zero()));
 
     // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
     let is_unsized = myarea.clone().map(|x| {
@@ -110,20 +75,16 @@ fn stage<'a, T: Prerender + 'static>(
         l || r
     });
 
-    let unsized_area = (
-        myarea.clone(),
-        presize.clone(),
-        predim.clone(),
-        limits.clone(),
-    )
+    let unsized_area = (myarea.clone(), presize.clone(), limits.clone())
         .zip()
-        .flatmap(|(a, p, o, l)| super::limit_area(a.resolve(*o, p.dim()), *l));
+        .flatmap(|(a, p, l)| super::limit_area(a.preresolve(p.dim()), *l));
 
-    let sized_area = (myarea.clone(), predim.clone(), limits.clone())
+    // This is used if myarea has no unsized components, which makes it independent of the child area calculations.
+    let sized_area = (myarea.clone(), limits.clone())
         .zip()
-        .flatmap(|(a, o, l)| super::limit_area(a.resolve_sized(*o), *l));
+        .flatmap(|(a, l)| super::limit_area(a.preresolve_sized(), *l));
 
-    // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
+    // We are careful not to take a dependency on our children's presize if we don't have any unsized axis.
     let evaluated_area = is_unsized
         .clone()
         .cond(unsized_area.into(), sized_area.into());
@@ -134,41 +95,51 @@ fn stage<'a, T: Prerender + 'static>(
 
     (
         evaluated_area.into(),
-        Box::new(move |offset, final_dim| {
+        Box::new(move |offset, final_dim, final_limits| {
+            // We always calculate the final area using our previously calculated total intrinsic size (the presize). Any differences
+            // between this intrinsic size and our final size should be the result of relative coordinates, which we ignore to avoid
+            // cycles (although there are still a few cases we could theoretically evaluate via a fixed-point, see below).
             let unsized_final = (
                 myarea.clone(),
                 presize.clone(),
                 final_dim.clone(),
                 limits.clone(),
+                final_limits.clone(),
                 offset.clone(),
             )
                 .zip()
-                .flatmap(|(a, p, dim, l, o)| super::limit_area(a.resolve(*dim, p.dim()), *l) + *o);
+                .flatmap(|(a, p, dim, l, l2, o)| {
+                    super::limit_area(a.resolve(*dim, p.dim()), *l + *l2) + *o
+                });
 
             let sized_final = (
                 myarea.clone(),
                 final_dim.clone(),
                 limits.clone(),
+                final_limits.clone(),
                 offset.clone(),
             )
                 .zip()
-                .flatmap(|(a, dim, l, o)| super::limit_area(a.resolve_sized(*dim), *l) + *o);
+                .flatmap(|(a, dim, l, l2, o)| {
+                    super::limit_area(a.resolve_sized(*dim), *l + *l2) + *o
+                });
 
-            // We gate all our more complex operations behind whether or not this was unsized. If it was unsized, we skip the complex operations.
             let final_area = is_unsized
                 .clone()
                 .cond(unsized_final.into(), sized_final.into());
 
-            let child_area = final_area.clone();
+            let child_dim = final_area.clone().map(|a| a.dim());
+            let parent_limits = limits.clone();
             let nodes = child_tuple.clone().map_elements(
                 move |(_, f, rlimits)| {
-                    let dim = zip_pair(child_area.clone(), rlimits.clone(), |area, limits| {
-                        super::limit_dim_sized(area.dim(), *limits * area.dim())
-                    });
+                    let limits = (child_dim.clone(), rlimits.clone(), parent_limits.clone())
+                        .zip()
+                        .flatmap(|(dim, l1, l2)| (*l1 * *dim) + *l2);
 
                     f(
                         reactive::ConstSignal::new(crate::PxPoint::zero()).into(),
-                        dim.into(),
+                        child_dim.clone().into(),
+                        limits.into(),
                     )
                 },
                 |x| reactive::Identity(x.1.clone()),
@@ -186,7 +157,7 @@ fn stage<'a, T: Prerender + 'static>(
             let anchored_area = (final_area.clone(), anchor.clone(), dpi2.clone())
                 .zip()
                 .flatmap(|(area, anchor, d)| *area - (anchor.resolve(*d) * area.dim()))
-                .into_dyn_signal();
+                .into_dyn();
 
             super::resolve_defer_machine(
                 rtree::Node::new(
@@ -212,7 +183,7 @@ fn stage<'a, T: Prerender + 'static>(
                     })),
                 ),
                 &defer,
-                (final_area, dpi.clone()).zip().value().into_dyn_signal(),
+                (final_area, dpi.clone()).zip().value().into_dyn(),
             )
         }),
     )
@@ -226,13 +197,13 @@ impl Desc for dyn Prop {
 
     fn stage<'a, T: Prerender + 'static>(
         props: &Self::Props,
-        predim: DynSignal<crate::PxDim>,
+        prelimits: DynSignal<crate::PxLimits>,
         children: DynSignal<Self::Children>,
         renderable: Option<T>,
         dpi: reactive::MutableSignal<RelDim>,
         defer: Option<super::DeferMachine<Self::Provider>>,
     ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        stage(props, predim, children, renderable, dpi, None, defer)
+        stage(props, prelimits, children, renderable, dpi, None, defer)
     }
 }
 
@@ -253,12 +224,12 @@ impl<T: Prop + 'static, R: Prerender + Clone + 'static> super::Layout for Layer<
     }
     fn stage<'a>(
         &self,
-        outer: DynSignal<crate::PxDim>,
+        prelimits: DynSignal<crate::PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, super::StageThunk<'a>) {
         stage(
             self.props.as_ref().into(),
-            outer,
+            prelimits,
             self.children.clone(),
             self.renderable.clone(),
             dpi,

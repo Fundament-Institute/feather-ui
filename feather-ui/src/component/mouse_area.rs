@@ -308,7 +308,7 @@ where
     ) -> Self::R {
         layout::Node::<T, dyn leaf::Prop, ()> {
             props: self.props.clone(),
-            children: reactive::empty_signal().into_dyn_signal(),
+            children: reactive::empty_signal().into_dyn(),
             renderable: None,
             machine: Some(self.machine.clone()),
         }
