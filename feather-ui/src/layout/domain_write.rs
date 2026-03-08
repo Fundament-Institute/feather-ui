@@ -4,8 +4,8 @@
 use super::Desc;
 use super::base::{Empty, RLimits};
 use crate::component::ComponentMarker;
-use crate::reactive::{self, DynSignal};
-use crate::{CrossReferenceDomain, RelDim, render};
+use crate::reactive::{DynSignal, MutableSignal, zip_pair};
+use crate::{CrossReferenceDomain, Limited, RelDim, Unsizable, render};
 use std::sync::Arc;
 
 // A DomainWrite layout spawns a renderable that writes it's area to the target
@@ -38,50 +38,59 @@ impl Desc for dyn Prop {
     type Children = ();
     type Provider = dyn crate::reactive::SignalProvider<Item = (crate::PxRect, crate::RelDim)>;
 
-    fn stage<'a, T: render::Prerender + 'static>(
-        props: &Self::Props,
-        _: DynSignal<crate::PxLimits>,
+    type Staging = MutableSignal<RelDim>;
+
+    fn presize(
+        _: &Self::Props,
+        dpi: MutableSignal<crate::RelDim>,
         _: DynSignal<Self::Children>,
-        renderable: Option<T>,
-        dpi: reactive::MutableSignal<RelDim>,
-        defer: Option<super::DeferMachine<Self::Provider>>,
-    ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        use crate::reactive::SignalZip;
+    ) -> (DynSignal<crate::PxRect>, Self::Staging) {
+        (crate::reactive::const_default().into(), dpi)
+    }
 
-        let id = props.id();
-        let domain = props.domain();
+    fn size(
+        _: &Self::Props,
+        dim: DynSignal<crate::UnsizedDim>,
+        limits: DynSignal<crate::PxLimits>,
+        data: Self::Staging,
+    ) -> (DynSignal<crate::PxRect>, Self::Staging) {
         (
-            crate::reactive::const_default().into(),
-            Box::new(move |offset, final_dim, final_limits| {
-                let final_area = (offset, final_dim, final_limits)
-                    .zip()
-                    .flatmap(|(o, dim, limits)| {
-                        super::limit_area(crate::Rect::offsetdim(*o, *dim), *limits)
-                    })
-                    .into_dyn();
+            zip_pair(dim, limits, |dim, limits| {
+                crate::PxRect::from(dim.limit(*limits).zero_unsized())
+            })
+            .into_dyn(),
+            data,
+        )
+    }
 
-                super::resolve_defer_machine(
-                    crate::rtree::Node::new(
-                        final_area.clone(),
-                        None,
-                        None,
-                        Some(Box::new(crate::layout::Concrete {
-                            area: final_area.clone(),
-                            renderable: Some(render::domain::Write {
-                                id: id.clone(),
-                                domain: domain.clone(),
-                                base: renderable.as_ref().map(|x| x.prerender(final_area.clone())),
-                                area: final_area.clone(),
-                            }),
-                            layer: None,
-                        })),
-                    ),
-                    &defer,
-                    crate::reactive::zip((final_area, dpi.clone()))
-                        .value()
-                        .into_dyn(),
-                )
-            }),
+    fn stage<T: render::Prerender + 'static>(
+        props: &Self::Props,
+        offset: DynSignal<crate::PxPoint>,
+        area: DynSignal<crate::PxRect>,
+        renderable: Option<T>,
+        defer: Option<super::DeferMachine<Self::Provider>>,
+        data: Self::Staging,
+    ) -> std::rc::Rc<crate::rtree::Node> {
+        let final_area = (area + offset).into_dyn();
+
+        super::resolve_defer_machine(
+            crate::rtree::Node::new(
+                final_area.clone(),
+                None,
+                None,
+                Some(Box::new(crate::layout::Concrete {
+                    area: final_area.clone(),
+                    renderable: Some(render::domain::Write {
+                        id: props.id(),
+                        domain: props.domain(),
+                        base: renderable.as_ref().map(|x| x.prerender(final_area.clone())),
+                        area: final_area.clone(),
+                    }),
+                    layer: None,
+                })),
+            ),
+            &defer,
+            crate::reactive::zip((final_area, data)).value().into_dyn(),
         )
     }
 }

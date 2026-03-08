@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
+use crate::Resolve;
 use crate::color::sRGB;
 use crate::layout::leaf;
 use crate::reactive::{DynSignal, MutableSignal, zip_pair};
@@ -15,6 +16,8 @@ pub enum ShapeKind {
     Arc,
 }
 
+#[derive_where::derive_where(Clone)]
+#[derive(Debug)]
 pub struct Shape<T, const KIND: u8> {
     props: Rc<T>,
     border: DynSignal<f32>,
@@ -22,7 +25,7 @@ pub struct Shape<T, const KIND: u8> {
     corners: DynSignal<[f32; 4]>,
     fill: DynSignal<sRGB>,
     outline: DynSignal<sRGB>,
-    size: DynSignal<crate::DAbsPoint>,
+    size: DynSignal<crate::DSize>,
 }
 
 pub fn round_rect<T: leaf::Padded + 'static>(
@@ -32,7 +35,7 @@ pub fn round_rect<T: leaf::Padded + 'static>(
     corners: DynSignal<wide::f32x4>,
     fill: DynSignal<sRGB>,
     outline: DynSignal<sRGB>,
-    size: DynSignal<crate::DAbsPoint>,
+    size: DynSignal<crate::DSize>,
 ) -> Shape<T, { ShapeKind::RoundRect as u8 }> {
     Shape {
         props: props.into(),
@@ -53,7 +56,7 @@ pub fn triangle<T: leaf::Padded + 'static>(
     offset: DynSignal<f32>,
     fill: DynSignal<sRGB>,
     outline: DynSignal<sRGB>,
-    size: DynSignal<crate::DAbsPoint>,
+    size: DynSignal<crate::DSize>,
 ) -> Shape<T, { ShapeKind::Triangle as u8 }> {
     Shape {
         props: props.into(),
@@ -73,7 +76,7 @@ pub fn circle<T: leaf::Padded + 'static>(
     radii: DynSignal<[f32; 2]>,
     fill: DynSignal<sRGB>,
     outline: DynSignal<sRGB>,
-    size: DynSignal<crate::DAbsPoint>,
+    size: DynSignal<crate::DSize>,
 ) -> Shape<T, { ShapeKind::Circle as u8 }> {
     Shape {
         props: props.into(),
@@ -94,7 +97,7 @@ pub fn arcs<T: leaf::Padded + 'static>(
     arcs: DynSignal<[f32; 2]>,
     fill: DynSignal<sRGB>,
     outline: DynSignal<sRGB>,
-    size: DynSignal<crate::DAbsPoint>,
+    size: DynSignal<crate::DSize>,
 ) -> Shape<T, { ShapeKind::Arc as u8 }> {
     Shape {
         props: props.into(),
@@ -110,7 +113,8 @@ pub fn arcs<T: leaf::Padded + 'static>(
     }
 }
 
-impl<T: leaf::Padded + 'static, const KIND: u8> super::Component for Shape<T, KIND>
+impl<T: leaf::Padded + crate::reactive::SignalDebug + 'static, const KIND: u8> super::Component
+    for Shape<T, KIND>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
@@ -143,7 +147,7 @@ where
             })
             .into_dyn(),
             renderable: Some(crate::render::shape::PreInstance::<KIND> {
-                padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)).into(),
+                padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.resolve(*dpi)).into(),
                 border: self.border.clone(),
                 blur: self.blur.clone(),
                 fill: self.fill.clone(),

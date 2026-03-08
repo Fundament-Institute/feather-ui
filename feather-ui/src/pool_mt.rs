@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
+
 use static_assertions::const_assert_eq;
 use std::mem::MaybeUninit;
 use std::sync::atomic::Ordering;

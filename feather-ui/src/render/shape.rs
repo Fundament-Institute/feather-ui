@@ -18,7 +18,7 @@ use std::mem::MaybeUninit;
 use std::num::NonZero;
 use wgpu::BindGroupLayout;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PreInstance<const KIND: u8> {
     pub padding: DynSignal<crate::PxPerimeter>,
     pub border: DynSignal<f32>,
@@ -72,9 +72,7 @@ impl<const KIND: u8> Instance<KIND> {
         area: DynSignal<PxRect>,
         driver2: std::sync::Weak<graphics::Driver>,
     ) -> Self {
-        let dim = zip_pair(area.clone(), padding.clone(), |a, p| {
-            a.dim() - p.bottomright() - p.topleft()
-        });
+        let dim = zip_pair(area.clone(), padding.clone(), |a, p| a.dim() - p.total());
 
         let intcorners = zip_pair(corners.clone(), border.clone(), |c, b| {
             c.map(|x| x.max(*b)).map(|x| x.ceil() as i32)

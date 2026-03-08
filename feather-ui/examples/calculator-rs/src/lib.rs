@@ -8,12 +8,12 @@ use feather_ui::component::region::Region;
 use feather_ui::component::shape::{Shape, ShapeKind};
 use feather_ui::component::text::Text;
 use feather_ui::component::window::Window;
-use feather_ui::component::{mouse_area, ChildOf};
+use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::fixed;
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    gen_id, im, wide, AbsRect, AccessCell, App, DAbsPoint, DRect, InputResult, RelRect, ScopeID,
-    Slot, SourceID, WrapEventEx, FILL_DRECT,
+    AbsRect, AccessCell, App, DRect, DSize, FILL_DRECT, InputResult, RelRect, ScopeID, Slot,
+    SourceID, WrapEventEx, gen_id, im, wide,
 };
 use std::any::{Any, TypeId};
 use std::f32;
@@ -190,7 +190,7 @@ impl FnPersist2<&CalcFFI, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Windo
                 wide::f32x4::splat(10.0),
                 *color,
                 sRGB::transparent(),
-                DAbsPoint::zero(),
+                DSize::zero(),
             );
 
             let text = Text::<DRect> {
@@ -243,7 +243,7 @@ impl FnPersist2<&CalcFFI, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Windo
             wide::f32x4::splat(25.0),
             sRGB::new(0.2, 0.2, 0.2, 1.0),
             Default::default(),
-            DAbsPoint::zero(),
+            DSize::zero(),
         );
 
         children.push_back(Box::new(text_bg));

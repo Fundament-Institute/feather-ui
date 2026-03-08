@@ -50,6 +50,7 @@ use crate::render::atlas::AtlasKind;
 use crate::render::compositor::CompositorView;
 use bytemuck::Zeroable;
 use core::f32;
+use derive_where::derive_where;
 use dyn_clone::DynClone;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
@@ -68,7 +69,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use wgpu::{InstanceDescriptor, InstanceFlags};
-use wide::{CmpGe, CmpGt, f32x4};
+use wide::{CmpEq, CmpGe, CmpGt, f32x4};
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{WindowAttributes, WindowId};
@@ -151,7 +152,7 @@ const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 /// # Examples
 ///
 /// ```
-/// use feather_ui::{DRect, FILL_DRECT, gen_id, color::sRGB, wide, UNSIZED_AXIS, DAbsPoint, AbsRect, APP_SOURCE_ID};
+/// use feather_ui::{DRect, FILL_DRECT, gen_id, color::sRGB, wide, UNSIZED_AXIS, DSize, AbsRect, APP_SOURCE_ID};
 /// use feather_ui::layout::fixed;
 /// use feather_ui::component::{region::Region, shape};
 /// use std::sync::Arc;
@@ -164,7 +165,7 @@ const MINUS_BOTTOMRIGHT: f32x4 = f32x4::new([1.0, 1.0, -1.0, -1.0]);
 ///     wide::f32x4::splat(10.0),
 ///     sRGB::new(0.2, 0.7, 0.4, 1.0),
 ///     sRGB::transparent(),
-///     DAbsPoint::zero(),
+///     DSize::zero(),
 /// );
 /// let region = Region::<DRect>::new(
 ///     gen_id!(Arc::new(APP_SOURCE_ID)),
@@ -235,15 +236,54 @@ pub type RelDim = Size2D<f32, Relative>;
 /// A 2D dimension (or size) in physical pixels that could potentially be unsized.
 pub type UnsizedDim = Size2D<f32, Unsized>;
 
-pub trait Unsizable {
-    #[must_use]
-    fn is_unsized(&self) -> (bool, bool);
+pub trait Resolve<Factor = Self> {
+    type Output;
+
+    /// Resolves this type into a more concrete version using a scaling factor.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// foo.resolve(2.0);
+    /// ```
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    fn resolve(&self, factor: Factor) -> Self::Output;
 }
 
-impl Unsizable for UnsizedDim {
+pub trait Unsizable<Factor>: Resolve<Factor> {
+    #[must_use]
+    fn is_unsized(&self) -> (bool, bool);
+    #[must_use]
+    fn zero_unsized(&self) -> Self::Output;
+}
+
+impl Unsizable<PxDim> for UnsizedDim {
     #[inline]
     fn is_unsized(&self) -> (bool, bool) {
         (self.width == UNSIZED_AXIS, self.height == UNSIZED_AXIS)
+    }
+    #[inline]
+    fn zero_unsized(&self) -> Self::Output {
+        self.resolve(PxDim::zero())
+    }
+}
+
+impl Resolve<PxDim> for UnsizedDim {
+    type Output = PxDim;
+
+    fn resolve(&self, intrinsic_size: PxDim) -> Self::Output {
+        Self::Output::new(
+            if self.width == UNSIZED_AXIS {
+                intrinsic_size.width
+            } else {
+                self.width
+            },
+            if self.height == UNSIZED_AXIS {
+                intrinsic_size.height
+            } else {
+                self.height
+            },
+        )
     }
 }
 
@@ -298,7 +338,7 @@ impl Convert<Point2D<f64, Pixel>> for winit::dpi::PhysicalPosition<f64> {
 /// Represents a 2D Rectangle, similar to the Euclid rectangle, but SSE
 /// optimized and uses a LTRB absolute representation, instead of a position and
 /// a size.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive_where(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Rect<U> {
     pub v: f32x4,
     #[doc(hidden)]
@@ -337,8 +377,8 @@ impl Canonicalize for f64 {
 pub type AbsRect = Rect<Logical>;
 /// A 2D rectangle in physical pixels
 pub type PxRect = Rect<Pixel>;
-/// A 2D rectangle in relative values
-pub type RelRect = Rect<Relative>;
+/// A 2D rectangle in potentially unsized relative values
+pub type RelRect = Rect<Unsized>;
 
 impl<U> Rect<U> {
     #[inline]
@@ -525,7 +565,7 @@ impl<U> Rect<U> {
 
     /// Discard the units
     #[inline]
-    pub fn to_untyped(self) -> PxRect {
+    pub fn to_untyped(self) -> Rect<euclid::UnknownUnit> {
         self.cast_unit()
     }
 
@@ -554,8 +594,12 @@ impl<U> Display for Rect<U> {
         let ltrb = self.v.as_array_ref();
         write!(
             f,
-            "Rect[({},{});({},{})]",
-            ltrb[0], ltrb[1], ltrb[2], ltrb[3]
+            "Rect<{}>[({},{});({},{})]",
+            std::any::type_name::<U>(),
+            ltrb[0],
+            ltrb[1],
+            ltrb[2],
+            ltrb[3]
         )
     }
 }
@@ -570,6 +614,60 @@ impl<U> From<[f32; 4]> for Rect<U> {
     }
 }
 
+impl PxRect {
+    fn anchored(self, anchor: UPoint) -> Self {
+        self - anchor.resolve(self.dim().max(crate::PxDim::zero()))
+    }
+}
+
+pub trait Limited {
+    /// Applies a fully resolved limit to this type
+    #[must_use]
+    fn limit(self, limits: PxLimits) -> Self;
+}
+
+impl Limited for PxRect {
+    #[inline]
+    fn limit(mut self, limits: PxLimits) -> Self {
+        self.set_bottomright(
+            self.bottomright()
+                .max(self.topleft() + limits.min())
+                .min(self.topleft() + limits.max()),
+        );
+        self
+    }
+}
+
+impl Limited for UnsizedDim {
+    fn limit(self, limits: PxLimits) -> Self {
+        let (unsized_x, unsized_y) = self.is_unsized();
+        UnsizedDim::new(
+            if unsized_x {
+                self.width
+            } else {
+                self.width.max(limits.min().width).min(limits.max().width)
+            },
+            if unsized_y {
+                self.height
+            } else {
+                self.height
+                    .max(limits.min().height)
+                    .min(limits.max().height)
+            },
+        )
+    }
+}
+
+impl Limited for PxDim {
+    fn limit(self, limits: PxLimits) -> Self {
+        PxDim::new(
+            self.width.max(limits.min().width).min(limits.max().width),
+            self.height
+                .max(limits.min().height)
+                .min(limits.max().height),
+        )
+    }
+}
 #[inline]
 const fn splat_point<U>(v: Point2D<f32, U>) -> f32x4 {
     f32x4::new([v.x, v.y, v.x, v.y])
@@ -592,10 +690,26 @@ impl<U> Add<Point2D<f32, U>> for Rect<U> {
     }
 }
 
+impl<U> Add<&Point2D<f32, U>> for Rect<U> {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: &Point2D<f32, U>) -> Self::Output {
+        self.add(*rhs)
+    }
+}
+
 impl<U> AddAssign<Point2D<f32, U>> for Rect<U> {
     #[inline]
     fn add_assign(&mut self, rhs: Point2D<f32, U>) {
         self.v += splat_point(rhs)
+    }
+}
+
+impl<U> AddAssign<&Point2D<f32, U>> for Rect<U> {
+    #[inline]
+    fn add_assign(&mut self, rhs: &Point2D<f32, U>) {
+        self.add_assign(*rhs);
     }
 }
 
@@ -611,10 +725,26 @@ impl<U> Add<Vector2D<f32, U>> for Rect<U> {
     }
 }
 
+impl<U> Add<&Vector2D<f32, U>> for Rect<U> {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: &Vector2D<f32, U>) -> Self::Output {
+        self.add(*rhs)
+    }
+}
+
 impl<U> AddAssign<Vector2D<f32, U>> for Rect<U> {
     #[inline]
     fn add_assign(&mut self, rhs: Vector2D<f32, U>) {
         self.v += splat_point(rhs.to_point())
+    }
+}
+
+impl<U> AddAssign<&Vector2D<f32, U>> for Rect<U> {
+    #[inline]
+    fn add_assign(&mut self, rhs: &Vector2D<f32, U>) {
+        self.add_assign(*rhs);
     }
 }
 
@@ -630,10 +760,26 @@ impl<U> Sub<Point2D<f32, U>> for Rect<U> {
     }
 }
 
+impl<U> Sub<&Point2D<f32, U>> for Rect<U> {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: &Point2D<f32, U>) -> Self::Output {
+        self.sub(*rhs)
+    }
+}
+
 impl<U> SubAssign<Point2D<f32, U>> for Rect<U> {
     #[inline]
     fn sub_assign(&mut self, rhs: Point2D<f32, U>) {
         self.v -= splat_point(rhs)
+    }
+}
+
+impl<U> SubAssign<&Point2D<f32, U>> for Rect<U> {
+    #[inline]
+    fn sub_assign(&mut self, rhs: &Point2D<f32, U>) {
+        self.sub_assign(*rhs);
     }
 }
 
@@ -658,9 +804,9 @@ impl<U> From<Size2D<f32, U>> for Rect<U> {
 }
 
 /// A perimeter has the same top/left/right/bottom elements as a rectangle, but
-/// when used in calculations, the bottom and right elements are subtracted, not
-/// added.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+/// when added to rectangles, the bottom and right elements are subtracted, not
+/// added (when adding perimeters together, all elements are added like normal).
+#[derive_where(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Perimeter<U> {
     pub v: f32x4,
     #[doc(hidden)]
@@ -668,6 +814,22 @@ pub struct Perimeter<U> {
 }
 
 impl<U> Perimeter<U> {
+    #[inline]
+    pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
+        Self {
+            v: f32x4::new([left, top, right, bottom]),
+            _unit: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub const fn splat(x: f32) -> Self {
+        Self {
+            v: f32x4::new([x, x, x, x]), // f32x4::splat isn't a constant function (for some reason)
+            _unit: PhantomData,
+        }
+    }
+
     #[inline]
     pub fn topleft(&self) -> Size2D<f32, U> {
         let ltrb = self.v.as_array_ref();
@@ -712,9 +874,89 @@ impl<U> Perimeter<U> {
             _unit: PhantomData,
         }
     }
+
+    #[inline]
+    pub const fn zero() -> Self {
+        Self {
+            v: f32x4::ZERO,
+            _unit: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.v.abs() == f32x4::ZERO
+    }
 }
 
-pub type PxPerimeter = Perimeter<Pixel>;
+unsafe impl<U> Zeroable for Perimeter<U> {}
+unsafe impl<U: Copy + 'static> bytemuck::Pod for Perimeter<U> {}
+
+impl<U> Hash for Perimeter<U> {
+    fn hash<H: core::hash::Hasher>(&self, h: &mut H) {
+        let v = self.v.as_array_ref();
+        h.write_i128(bytemuck::cast(*v));
+    }
+}
+
+impl<U> Display for Perimeter<U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ltrb = self.v.as_array_ref();
+        write!(
+            f,
+            "Perimeter<{}>[({},{});({},{})]",
+            std::any::type_name::<U>(),
+            ltrb[0],
+            ltrb[1],
+            ltrb[2],
+            ltrb[3]
+        )
+    }
+}
+
+impl<U> From<[f32; 4]> for Perimeter<U> {
+    #[inline]
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            v: f32x4::new(value),
+            _unit: PhantomData,
+        }
+    }
+}
+
+impl<U> Add for Perimeter<U> {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            v: self.v + rhs.v,
+            _unit: PhantomData,
+        }
+    }
+}
+
+impl<U> AddAssign for Perimeter<U> {
+    fn add_assign(&mut self, rhs: Self) {
+        self.v += rhs.v;
+    }
+}
+
+impl<U> Sub for Perimeter<U> {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            v: self.v - rhs.v,
+            _unit: PhantomData,
+        }
+    }
+}
+
+impl<U> SubAssign for Perimeter<U> {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.v -= rhs.v;
+    }
+}
 
 impl<U> Add<Perimeter<U>> for Rect<U> {
     type Output = Self;
@@ -728,62 +970,220 @@ impl<U> Add<Perimeter<U>> for Rect<U> {
     }
 }
 
-impl<U> AddAssign<Perimeter<U>> for AbsRect {
+impl<U> AddAssign<Perimeter<U>> for Rect<U> {
     #[inline]
     fn add_assign(&mut self, rhs: Perimeter<U>) {
         self.v += rhs.v * MINUS_BOTTOMRIGHT
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// A rectangle with both pixel and display independent units, but no relative
-/// component.
-pub struct DAbsRect {
-    dp: AbsRect,
-    px: PxRect,
+impl<U> Neg for Perimeter<U> {
+    type Output = Perimeter<U>;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            v: -self.v,
+            _unit: PhantomData,
+        }
+    }
 }
 
-pub const ZERO_DABSRECT: DAbsRect = DAbsRect {
-    dp: AbsRect::zero(),
-    px: PxRect::zero(),
+pub type PxPerimeter = Perimeter<Pixel>;
+pub type AbsPerimeter = Perimeter<Logical>;
+pub type RelPerimeter = Perimeter<Relative>;
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct IPerimeter {
+    pub abs: Perimeter<Resolved>,
+    pub rel: RelPerimeter,
+}
+
+impl Resolve<PxDim> for IPerimeter {
+    type Output = PxPerimeter;
+
+    #[inline]
+    fn resolve(&self, factor: PxDim) -> PxPerimeter {
+        PxPerimeter {
+            v: self.abs.v + self.rel.v * splat_size(factor),
+            _unit: PhantomData,
+        }
+    }
+}
+
+/// Unified Display Perimeter with both per-pixel and display-independent
+/// pixels. Can be constructed by adding together any combination of [`PxPerimeter`],
+/// [`AbsPerimeter`] or [`RelPerimeter`].
+///
+/// # Examples
+/// ```
+/// use feather_ui::{DPerimeter, AbsPerimeter, PxPerimeter, RelPerimeter};
+/// let foo: DPerimeter = AbsPerimeter::new(1.0,2.0,3.0,4.0).into();
+///
+/// let bar = AbsPerimeter::new(1.0,2.0,3.0,4.0) + PxPerimeter::new(1.0,2.0,3.0,4.0);
+///
+/// let baz = RelPerimeter::new(1.0,2.0,3.0,4.0) + PxPerimeter::new(1.0,2.0,3.0,4.0);
+///
+/// // These can be added together because bar turned into a `DPerimeter` from adding `PxPerimeter`
+/// // and `AbsPerimeter` together
+/// let foobar = foo + bar;
+///
+/// let test = DPerimeter{
+///     px: PxPerimeter::new(1.0,2.0,3.0,4.0),
+///     dp: AbsPerimeter::new(1.0,2.0,3.0,4.0),
+///     rel: RelPerimeter::new(1.0,2.0,3.0,4.0),
+/// };
+///
+/// let baztest = baz + test;
+/// ```
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct DPerimeter {
+    pub px: PxPerimeter,
+    pub dp: AbsPerimeter,
+    pub rel: RelPerimeter,
+}
+
+pub const ZERO_DPERIMETER: DPerimeter = DPerimeter {
+    dp: AbsPerimeter::zero(),
+    px: PxPerimeter::zero(),
+    rel: RelPerimeter::zero(),
 };
 
-impl DAbsRect {
-    fn resolve(&self, dpi: RelDim) -> PxRect {
-        PxRect {
+impl Resolve<RelDim> for DPerimeter {
+    type Output = IPerimeter;
+
+    fn resolve(&self, dpi: RelDim) -> IPerimeter {
+        IPerimeter {
+            abs: Perimeter::<Resolved> {
+                v: self.px.v + (self.dp.v * splat_size(dpi)),
+                _unit: PhantomData,
+            },
+            rel: self.rel,
+        }
+    }
+}
+
+impl Neg for DPerimeter {
+    type Output = DPerimeter;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            dp: -self.dp,
+            px: -self.px,
+            rel: -self.rel,
+        }
+    }
+}
+
+impl AddAssign<AbsPerimeter> for DPerimeter {
+    fn add_assign(&mut self, rhs: AbsPerimeter) {
+        self.dp += rhs;
+    }
+}
+
+impl AddAssign<PxPerimeter> for DPerimeter {
+    fn add_assign(&mut self, rhs: PxPerimeter) {
+        self.px += rhs;
+    }
+}
+
+impl AddAssign<RelPerimeter> for DPerimeter {
+    fn add_assign(&mut self, rhs: RelPerimeter) {
+        self.rel += rhs;
+    }
+}
+
+impl Add<RelPerimeter> for PxPerimeter {
+    type Output = DPerimeter;
+
+    fn add(self, rhs: RelPerimeter) -> Self::Output {
+        DPerimeter {
+            dp: AbsPerimeter::zero(),
+            px: self,
+            rel: rhs,
+        }
+    }
+}
+
+impl Add<PxPerimeter> for RelPerimeter {
+    type Output = DPerimeter;
+
+    fn add(self, rhs: PxPerimeter) -> Self::Output {
+        DPerimeter {
+            dp: AbsPerimeter::zero(),
+            px: rhs,
+            rel: self,
+        }
+    }
+}
+
+impl Add<RelPerimeter> for AbsPerimeter {
+    type Output = DPerimeter;
+
+    fn add(self, rhs: RelPerimeter) -> Self::Output {
+        DPerimeter {
+            dp: self,
+            px: PxPerimeter::zero(),
+            rel: rhs,
+        }
+    }
+}
+
+impl Add<AbsPerimeter> for RelPerimeter {
+    type Output = DPerimeter;
+
+    fn add(self, rhs: AbsPerimeter) -> Self::Output {
+        DPerimeter {
+            dp: rhs,
+            px: PxPerimeter::zero(),
+            rel: self,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+/// A perimeter with both pixel and display independent units, but no relative
+/// component.
+pub struct UPerimeter {
+    dp: AbsPerimeter,
+    px: PxPerimeter,
+}
+
+pub const ZERO_PERIMETER: UPerimeter = UPerimeter {
+    dp: AbsPerimeter::zero(),
+    px: PxPerimeter::zero(),
+};
+
+impl Resolve<RelDim> for UPerimeter {
+    type Output = PxPerimeter;
+
+    fn resolve(&self, dpi: RelDim) -> PxPerimeter {
+        PxPerimeter {
             v: self.px.v + (self.dp.v * splat_size(dpi)),
             _unit: PhantomData,
         }
     }
-
-    fn as_perimeter(&self, dpi: RelDim) -> PxPerimeter {
-        PxPerimeter {
-            v: self.resolve(dpi).v,
-            _unit: PhantomData,
-        }
-    }
 }
 
-impl From<AbsRect> for DAbsRect {
-    fn from(value: AbsRect) -> Self {
-        DAbsRect {
+impl From<AbsPerimeter> for UPerimeter {
+    fn from(value: AbsPerimeter) -> Self {
+        UPerimeter {
             dp: value,
-            px: PxRect::zero(),
+            px: PxPerimeter::zero(),
         }
     }
 }
 
-impl From<PxRect> for DAbsRect {
-    fn from(value: PxRect) -> Self {
-        DAbsRect {
-            dp: AbsRect::zero(),
+impl From<PxPerimeter> for UPerimeter {
+    fn from(value: PxPerimeter) -> Self {
+        UPerimeter {
+            dp: AbsPerimeter::zero(),
             px: value,
         }
     }
 }
 
-impl Neg for DAbsRect {
-    type Output = DAbsRect;
+impl Neg for UPerimeter {
+    type Output = UPerimeter;
 
     fn neg(self) -> Self::Output {
         Self::Output {
@@ -793,7 +1193,22 @@ impl Neg for DAbsRect {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+impl Add<AbsPerimeter> for PxPerimeter {
+    type Output = UPerimeter;
+
+    fn add(self, rhs: AbsPerimeter) -> Self::Output {
+        UPerimeter { dp: rhs, px: self }
+    }
+}
+
+impl Add<PxPerimeter> for AbsPerimeter {
+    type Output = UPerimeter;
+
+    fn add(self, rhs: PxPerimeter) -> Self::Output {
+        UPerimeter { dp: self, px: rhs }
+    }
+}
+
 /// A point with both pixel and display independent units, but no relative
 /// component. Must be constructed manually or from a [`PxPoint`] or
 /// [`AbsPoint`]. This is commonly used in DPI sensitive values that could
@@ -802,26 +1217,28 @@ impl Neg for DAbsRect {
 ///
 /// # Examples
 /// ```
-/// use feather_ui::{DAbsPoint, AbsPoint, PxPoint, RelPoint};
-/// let foo: DAbsPoint = AbsPoint::new(1.0,2.0).into();
+/// use feather_ui::{DSize, AbsPoint, PxPoint, RelPoint};
+/// let foo: DSize = AbsPoint::new(1.0,2.0).into();
 ///
-/// let bar: DAbsPoint = PxPoint::new(2.0,3.0).into();
+/// let bar: DSize = PxPoint::new(2.0,3.0).into();
 ///
 /// let foobar = foo + bar;
 ///
-/// let test = DAbsPoint{
+/// let test = DSize{
 ///     px: PxPoint::new(1.0,2.0),
 ///     dp: AbsPoint::new(1.0,4.0),
 /// };
 ///
 /// let bartest = bar + test;
 /// ```
-pub struct DAbsPoint {
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct DSize {
+    // TODO: Unify into single f32x4 and SSE optimize
     pub dp: AbsPoint,
     pub px: PxPoint,
 }
 
-impl DAbsPoint {
+impl DSize {
     pub const fn zero() -> Self {
         Self {
             dp: AbsPoint::new(0.0, 0.0),
@@ -835,6 +1252,10 @@ impl DAbsPoint {
             px: PxPoint::new(1.0, 1.0),
         }
     }
+}
+
+impl Resolve<RelDim> for DSize {
+    type Output = ResPoint;
 
     fn resolve(&self, dpi: RelDim) -> ResPoint {
         ResPoint {
@@ -846,28 +1267,28 @@ impl DAbsPoint {
     }
 }
 
-impl From<AbsPoint> for DAbsPoint {
+impl From<AbsPoint> for DSize {
     fn from(value: AbsPoint) -> Self {
-        DAbsPoint {
+        DSize {
             dp: value,
             px: PxPoint::zero(),
         }
     }
 }
 
-impl From<PxPoint> for DAbsPoint {
+impl From<PxPoint> for DSize {
     fn from(value: PxPoint) -> Self {
-        DAbsPoint {
+        DSize {
             dp: AbsPoint::zero(),
             px: value,
         }
     }
 }
 
-impl Add<DAbsPoint> for DAbsPoint {
-    type Output = DAbsPoint;
+impl Add<DSize> for DSize {
+    type Output = DSize;
 
-    fn add(self, rhs: DAbsPoint) -> Self::Output {
+    fn add(self, rhs: DSize) -> Self::Output {
         Self::Output {
             dp: self.dp + rhs.dp.to_vector(),
             px: self.px + rhs.px.to_vector(),
@@ -875,15 +1296,29 @@ impl Add<DAbsPoint> for DAbsPoint {
     }
 }
 
-impl AddAssign<DAbsPoint> for DAbsPoint {
-    fn add_assign(&mut self, rhs: DAbsPoint) {
+impl Add<&DSize> for DSize {
+    type Output = DSize;
+
+    fn add(self, rhs: &DSize) -> Self::Output {
+        self.add(*rhs)
+    }
+}
+
+impl AddAssign<DSize> for DSize {
+    fn add_assign(&mut self, rhs: DSize) {
         self.dp += rhs.dp.to_vector();
         self.px += rhs.px.to_vector();
     }
 }
 
-impl Neg for DAbsPoint {
-    type Output = DAbsPoint;
+impl AddAssign<&DSize> for DSize {
+    fn add_assign(&mut self, rhs: &DSize) {
+        self.add_assign(*rhs);
+    }
+}
+
+impl Neg for DSize {
+    type Output = DSize;
 
     fn neg(self) -> Self::Output {
         Self::Output {
@@ -938,6 +1373,15 @@ impl Add for UPoint {
     }
 }
 
+impl Add<&Self> for UPoint {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: &Self) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
+
 impl Sub for UPoint {
     type Output = Self;
 
@@ -947,18 +1391,30 @@ impl Sub for UPoint {
     }
 }
 
+impl Sub<&Self> for UPoint {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: &Self) -> Self {
+        Self(self.0 - rhs.0)
+    }
+}
+
 impl Mul<PxDim> for UPoint {
     type Output = PxPoint;
 
     #[inline]
     fn mul(self, rhs: PxDim) -> Self::Output {
-        let rel = self.rel();
-        self.abs()
-            .add_size(&Size2D::<f32, Resolved>::new(
-                rel.x * rhs.width,
-                rel.y * rhs.height,
-            ))
-            .cast_unit()
+        self.resolve(rhs)
+    }
+}
+
+impl Mul<&PxDim> for UPoint {
+    type Output = PxPoint;
+
+    #[inline]
+    fn mul(self, rhs: &PxDim) -> Self::Output {
+        self.mul(*rhs)
     }
 }
 
@@ -967,6 +1423,21 @@ impl Neg for UPoint {
 
     fn neg(self) -> Self::Output {
         UPoint(-self.0)
+    }
+}
+
+impl Resolve<PxDim> for UPoint {
+    type Output = PxPoint;
+
+    fn resolve(&self, factor: PxDim) -> Self::Output {
+        // TODO: SSE optimize ???
+        let rel = self.rel();
+        self.abs()
+            .add_size(&Size2D::<f32, Resolved>::new(
+                rel.x * factor.width,
+                rel.y * factor.height,
+            ))
+            .cast_unit()
     }
 }
 
@@ -1009,21 +1480,25 @@ const fn zero_point<T: Zeroable, U>() -> Point2D<T, U> {
 pub const ZERO_DPOINT: DPoint = DPoint::zero();
 
 impl DPoint {
-    const fn resolve(&self, dpi: RelDim) -> UPoint {
-        UPoint(f32x4::new([
-            self.px.x + (self.dp.x * dpi.width),
-            self.px.y + (self.dp.y * dpi.height),
-            self.rel.x,
-            self.rel.y,
-        ]))
-    }
-
     pub const fn zero() -> Self {
         Self {
             px: zero_point(),
             dp: zero_point(),
             rel: zero_point(),
         }
+    }
+}
+
+impl Resolve<RelDim> for DPoint {
+    type Output = UPoint;
+
+    fn resolve(&self, dpi: RelDim) -> UPoint {
+        UPoint(f32x4::new([
+            self.px.x + (self.dp.x * dpi.width),
+            self.px.y + (self.dp.y * dpi.height),
+            self.rel.x,
+            self.rel.y,
+        ]))
     }
 }
 
@@ -1070,12 +1545,30 @@ impl Add<DPoint> for DPoint {
     }
 }
 
+impl Add<&DPoint> for DPoint {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: &DPoint) -> Self::Output {
+        self.add(*rhs)
+    }
+}
+
 impl Sub<DPoint> for DPoint {
     type Output = Self;
 
     #[inline]
     fn sub(self, rhs: DPoint) -> Self::Output {
         self + (-rhs)
+    }
+}
+
+impl Sub<&DPoint> for DPoint {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: &DPoint) -> Self::Output {
+        self.sub(*rhs)
     }
 }
 
@@ -1093,28 +1586,65 @@ impl Neg for DPoint {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 /// Partially resolved unified coordinate rectangle
-pub struct URect {
+pub struct URect<T> {
     pub abs: Rect<Resolved>,
-    pub rel: RelRect,
+    pub rel: Rect<T>,
 }
 
-impl Unsizable for URect {
-    #[inline]
-    fn is_unsized(&self) -> (bool, bool) {
-        (
-            self.bottomright().rel().x == UNSIZED_AXIS,
-            self.bottomright().rel().y == UNSIZED_AXIS,
-        )
+impl TryFrom<URect<Unsized>> for URect<Relative> {
+    type Error = URect<Unsized>;
+
+    // This will only succeed if a potentially unsized URect isn't actually unsized.
+    fn try_from(value: URect<Unsized>) -> Result<Self, Self::Error> {
+        if value.is_sized() {
+            Ok(URect {
+                abs: value.abs,
+                rel: value.rel.cast_unit(),
+            })
+        } else {
+            Err(value)
+        }
     }
 }
 
-impl URect {
+impl URect<Unsized> {
+    // This assumes the URect is sized without actually checking. Should only be
+    // used when is_sized() is true
+    pub unsafe fn into_sized(self) -> URect<Relative> {
+        debug_assert!(self.is_sized());
+        URect {
+            abs: self.abs,
+            rel: self.rel.cast_unit(),
+        }
+    }
+
+    #[inline]
+    pub fn is_sized(&self) -> bool {
+        use wide::CmpNe;
+        self.rel.v.cmp_ne(UNSIZE_QUAD).all()
+    }
+}
+
+impl Unsizable<PxDim> for URect<Unsized> {
+    #[inline]
+    fn is_unsized(&self) -> (bool, bool) {
+        let v = self.rel.v.as_array_ref();
+        (v[2] == UNSIZED_AXIS, v[3] == UNSIZED_AXIS)
+    }
+
+    #[inline]
+    fn zero_unsized(&self) -> Self::Output {
+        self.resolve(PxDim::zero())
+    }
+}
+
+impl<T> URect<T> {
     #[must_use]
     #[inline]
     pub const fn zero() -> Self {
         Self {
             abs: Rect::<Resolved>::zero(),
-            rel: RelRect::zero(),
+            rel: Rect::<T>::zero(),
         }
     }
 
@@ -1127,6 +1657,7 @@ impl URect {
     #[must_use]
     #[inline]
     pub fn topleft(&self) -> UPoint {
+        // TODO: SSE optimize with blend()
         let abs = self.abs.v.as_array_ref();
         let rel = self.rel.v.as_array_ref();
         UPoint(f32x4::new([abs[0], abs[1], rel[0], rel[1]]))
@@ -1135,116 +1666,101 @@ impl URect {
     #[must_use]
     #[inline]
     pub fn bottomright(&self) -> UPoint {
+        // TODO: SSE optimize with blend()
         let abs = self.abs.v.as_array_ref();
         let rel = self.rel.v.as_array_ref();
         UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
     }
+}
 
-    #[must_use]
+impl Resolve<PxDim> for URect<Unsized> {
+    type Output = URect<Relative>;
+
     #[inline]
-    fn map_unsized(&self, intrinsic_size: PxDim) -> (f32x4, f32x4) {
-        let (unsized_x, unsized_y) = self.is_unsized();
+    fn resolve(&self, intrinsic_size: PxDim) -> Self::Output {
+        if self.is_sized() {
+            return URect {
+                abs: self.abs,
+                rel: self.rel.cast_unit(),
+            };
+        }
+
+        // TODO: SSE optimize
         let mut abs = self.abs.v;
         let mut rel = self.rel.v;
         let v_abs = abs.as_array_mut();
         let v_rel = rel.as_array_mut();
+
         // Unsized objects must always have a single anchor point to make sense, so we
         // copy over from topleft.
-        if unsized_x {
+        if v_rel[2] == UNSIZED_AXIS {
             v_rel[2] = v_rel[0];
             // Fix the bottomright abs area in unsized scenarios, because it was relative to
             // the topleft instead of being independent.
             v_abs[2] += v_abs[0] + intrinsic_size.width;
         }
-        if unsized_y {
+        if v_rel[3] == UNSIZED_AXIS {
             v_rel[3] = v_rel[1];
             v_abs[3] += v_abs[1] + intrinsic_size.height;
         }
-        (abs, rel)
-    }
 
-    // A URect can always be potentially unsized, so any resolution step must handle that unless is_unsized()
-    // has been manually verified.
-    #[must_use]
-    #[inline]
-    pub fn resolve(&self, dim: PxDim, intrinsic_size: PxDim) -> PxRect {
-        let (abs, rel) = self.map_unsized(intrinsic_size);
-
-        PxRect {
-            v: abs + rel * splat_size(dim),
-            _unit: PhantomData,
+        Self::Output {
+            abs: Rect::<Resolved> {
+                v: abs,
+                _unit: PhantomData,
+            },
+            rel: Rect::<Relative> {
+                v: rel,
+                _unit: PhantomData,
+            },
         }
     }
+}
 
-    /// Preresolve is used in the presize step, which discards relative coordinates. It's functionally identical
-    /// to calling [`self.resolve(PxDim::zero(), presize)`], but doesn't rely on the optimizer finding the zeroes.
-    #[must_use]
+impl Resolve<PxDim> for URect<Relative> {
+    type Output = PxRect;
+
     #[inline]
-    pub fn preresolve(&self, intrinsic_size: PxDim) -> PxRect {
-        let (unsized_x, unsized_y) = self.is_unsized();
-        let mut abs = self.abs.v;
-        let v_abs = abs.as_array_mut();
-        // Unsized objects must always have a single anchor point to make sense, so we
-        // copy over from topleft.
-        if unsized_x {
-            // Fix the bottomright abs area in unsized scenarios, because it was relative to
-            // the topleft instead of being independent.
-            v_abs[2] += v_abs[0] + intrinsic_size.width;
-        }
-        if unsized_y {
-            v_abs[3] += v_abs[1] + intrinsic_size.height;
-        }
-
-        PxRect {
-            v: abs,
-            _unit: PhantomData,
-        }
-    }
-
-    /// Preresolve is used in the presize step, but if `is_unsized()` is false, it's equivelent to just returning
-    /// the abs component and casting the units, which is all this function does.
-    #[must_use]
-    #[inline]
-    pub fn preresolve_sized(&self) -> PxRect {
-        debug_assert!(!self.is_unsized().0);
-        debug_assert!(!self.is_unsized().1);
-
-        self.abs.cast_unit()
-    }
-
-    /// Can only be called if is_unsized() is (false, false)
-    #[must_use]
-    #[inline]
-    pub fn resolve_sized(&self, dim: PxDim) -> PxRect {
-        debug_assert!(!self.is_unsized().0);
-        debug_assert!(!self.is_unsized().1);
-
+    fn resolve(&self, dim: PxDim) -> PxRect {
         PxRect {
             v: self.abs.v + self.rel.v * splat_size(dim),
             _unit: PhantomData,
         }
     }
+}
 
-    /// Resolves this URect to a perimeter (cannot have unsized axis)
-    #[must_use]
+impl URect<Relative> {
+    /// This is equivelent to calling `resolve(PxDim::zero())`, but doesn't rely on the optimizer finding the zeroes.
     #[inline]
-    pub fn to_perimeter(&self, rect: PxRect) -> PxPerimeter {
-        debug_assert!(!self.is_unsized().0);
-        debug_assert!(!self.is_unsized().1);
+    pub fn preresolve(&self) -> PxRect {
+        self.abs.cast_unit()
+    }
 
-        let ltrb = rect.v.as_array_ref();
-        let topleft = f32x4::new([ltrb[0], ltrb[1], ltrb[0], ltrb[1]]);
-        let bottomright = f32x4::new([ltrb[2], ltrb[3], ltrb[2], ltrb[3]]);
+    /// This performs a *partial* resolve on the area, returning the potentially unsized dimensions of the result.
+    #[inline]
+    fn partial_resolve(&self, dim: UnsizedDim) -> UnsizedDim {
+        // TODO: SSE optimize with blend()
+        let v_abs = self.abs.v.as_array_ref();
+        let v_rel = self.rel.v.as_array_ref();
+        UnsizedDim {
+            width: if dim.width == UNSIZED_AXIS {
+                UNSIZED_AXIS
+            } else {
+                (v_abs[2] - v_abs[0]) + (v_rel[2] - v_rel[0]) * dim.width
+            },
 
-        PxPerimeter {
-            v: topleft + self.abs.v + self.rel.v * (bottomright - topleft),
+            height: if dim.height == UNSIZED_AXIS {
+                UNSIZED_AXIS
+            } else {
+                (v_abs[3] - v_abs[1]) + (v_rel[3] - v_rel[1]) * dim.height
+            },
             _unit: PhantomData,
         }
     }
 }
 
-impl Neg for URect {
-    type Output = URect;
+impl<U> Neg for URect<U> {
+    type Output = Self;
 
     fn neg(self) -> Self::Output {
         URect {
@@ -1286,24 +1802,27 @@ pub struct DRect {
     pub rel: RelRect,
 }
 
-impl DRect {
-    fn resolve(&self, dpi: RelDim) -> URect {
-        URect {
-            abs: Rect::<Resolved> {
-                v: self.px.v + (self.dp.v * splat_size(dpi)),
-                _unit: PhantomData,
-            },
-            rel: self.rel,
-        }
+impl Unsizable<RelDim> for DRect {
+    #[inline]
+    fn is_unsized(&self) -> (bool, bool) {
+        let v = self.rel.v.as_array_ref();
+        (v[2] == UNSIZED_AXIS, v[3] == UNSIZED_AXIS)
     }
 
+    #[inline]
+    fn zero_unsized(&self) -> Self::Output {
+        self.resolve(RelDim::zero())
+    }
+}
+
+impl DRect {
     /// Returns the top-left corner of the unified display rectangle as a
     /// unified display point.
     pub fn topleft(&self) -> DPoint {
         DPoint {
             dp: self.dp.topleft(),
             px: self.px.topleft(),
-            rel: self.rel.topleft(),
+            rel: self.rel.topleft().cast_unit(),
         }
     }
 
@@ -1315,13 +1834,22 @@ impl DRect {
         DPoint {
             dp: self.dp.bottomright(),
             px: self.px.bottomright(),
-            rel: self.rel.bottomright(),
+            rel: self.rel.bottomright().cast_unit(),
         }
     }
 
     /// Returns the size of the rectangle as a unified display point.
     pub fn size(&self) -> DPoint {
-        self.bottomright() - self.topleft()
+        // TODO: SSE optimize
+        let (ux, uy) = self.is_unsized();
+        let mut sz = self.bottomright() - self.topleft();
+        if ux {
+            sz.rel.x = UNSIZED_AXIS;
+        }
+        if uy {
+            sz.rel.x = UNSIZED_AXIS;
+        }
+        sz
     }
 
     /// Returns a degenerate zero-sized rectangle.
@@ -1333,8 +1861,15 @@ impl DRect {
         }
     }
 
+    #[inline]
     pub fn is_zero(&self) -> bool {
         self.px.is_zero() && self.dp.is_zero() && self.rel.is_zero()
+    }
+
+    #[inline]
+    pub fn is_sized(&self) -> bool {
+        use wide::CmpNe;
+        self.rel.v.cmp_ne(UNSIZE_QUAD).all()
     }
 
     /// Returns a DRect with a relative component mapped to the entire available
@@ -1364,7 +1899,21 @@ pub const ZERO_DRECT: DRect = DRect::zero();
 pub const FILL_DRECT: DRect = DRect::fill();
 pub const AUTO_DRECT: DRect = DRect::auto();
 
-impl Add<DRect> for DRect {
+impl Resolve<RelDim> for DRect {
+    type Output = URect<Unsized>;
+
+    fn resolve(&self, dpi: RelDim) -> Self::Output {
+        URect {
+            abs: Rect::<Resolved> {
+                v: self.px.v + (self.dp.v * splat_size(dpi)),
+                _unit: PhantomData,
+            },
+            rel: self.rel,
+        }
+    }
+}
+
+impl Add for DRect {
     type Output = Self;
 
     #[inline]
@@ -1386,12 +1935,29 @@ impl Add<DRect> for DRect {
     }
 }
 
-impl Sub<DRect> for DRect {
+impl Add<&DRect> for DRect {
+    type Output = Self;
+
+    fn add(self, rhs: &DRect) -> Self::Output {
+        self.add(*rhs)
+    }
+}
+
+impl Sub for DRect {
     type Output = Self;
 
     #[inline]
     fn sub(self, rhs: DRect) -> Self::Output {
         self + (-rhs)
+    }
+}
+
+impl Sub<&DRect> for DRect {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: &DRect) -> Self::Output {
+        self.sub(*rhs)
     }
 }
 
@@ -1475,7 +2041,7 @@ where
 /// assert_eq!(merged.min(), Size2D::<f32, Logical>::new(0.0, 10.0));
 /// assert_eq!(merged.max(), Size2D::<f32, Logical>::new(f32::INFINITY, 100.0));
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive_where(Copy, Clone, Debug, PartialEq)]
 pub struct Limits<U> {
     v: f32x4,
     #[doc(hidden)]
@@ -1485,7 +2051,6 @@ pub struct Limits<U> {
 pub type PxLimits = Limits<Pixel>;
 pub type AbsLimits = Limits<Logical>;
 pub type RelLimits = Limits<Relative>;
-pub type ResLimits = Limits<Resolved>;
 
 //pub const Unbounded: std::ops::Range<f32> = std::ops::Range
 // It would be cheaper to avoid using actual infinities here but we currently
@@ -1514,6 +2079,8 @@ pub const DEFAULT_RLIMITS: RelLimits = RelLimits {
     v: DEFAULT_LIMITS,
     _unit: PhantomData,
 };
+
+const UNSIZE_QUAD: f32x4 = f32x4::new([UNSIZED_AXIS, UNSIZED_AXIS, UNSIZED_AXIS, UNSIZED_AXIS]);
 
 impl<U> Limits<U> {
     #[inline]
@@ -1562,6 +2129,7 @@ impl<U> Limits<U> {
 
     #[inline]
     pub fn apply_min(self, min: Size2D<f32, U>) -> Self {
+        // TODO: SSE optimize
         let mut v = self.v;
         let minmax = v.as_array_mut();
         minmax[0] = minmax[0].max(min.width);
@@ -1574,6 +2142,7 @@ impl<U> Limits<U> {
 
     #[inline]
     pub fn apply_max(self, max: Size2D<f32, U>) -> Self {
+        // TODO: SSE optimize
         let mut v = self.v;
         let minmax = v.as_array_mut();
         minmax[2] = minmax[2].min(max.width);
@@ -1610,7 +2179,7 @@ impl<U> Default for Limits<U> {
     }
 }
 
-impl<U> Add<Limits<U>> for Limits<U> {
+impl<U> Add for Limits<U> {
     type Output = Self;
 
     #[inline]
@@ -1618,6 +2187,7 @@ impl<U> Add<Limits<U>> for Limits<U> {
         let minmax = self.v.as_array_ref();
         let r = rhs.v.as_array_ref();
 
+        // TODO: SSE optimize
         Self {
             v: f32x4::new([
                 minmax[0].max(r[0]),
@@ -1627,6 +2197,15 @@ impl<U> Add<Limits<U>> for Limits<U> {
             ]),
             _unit: PhantomData,
         }
+    }
+}
+
+impl<U> Add<&Limits<U>> for Limits<U> {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: &Limits<U>) -> Self::Output {
+        self.add(*rhs)
     }
 }
 
@@ -1647,13 +2226,29 @@ pub const DEFAULT_DLIMITS: DLimits = DLimits {
     },
 };
 
-impl DLimits {
-    pub fn resolve(&self, dpi: RelDim) -> PxLimits {
+impl Resolve<RelDim> for DLimits {
+    type Output = PxLimits;
+
+    #[inline]
+    fn resolve(&self, dpi: RelDim) -> PxLimits {
         self.px.cast_unit()
             + PxLimits {
                 v: self.dp.v * splat_size(dpi),
                 _unit: PhantomData,
             }
+    }
+}
+
+impl Resolve<UnsizedDim> for RelLimits {
+    type Output = PxLimits;
+
+    fn resolve(&self, dim: UnsizedDim) -> Self::Output {
+        let d = splat_size(dim);
+
+        PxLimits {
+            v: d.cmp_eq(UNSIZE_QUAD).blend(DEFAULT_LIMITS, d * self.v),
+            _unit: PhantomData,
+        }
     }
 }
 
@@ -1721,6 +2316,15 @@ impl Mul<UnsizedDim> for RelLimits {
     }
 }
 
+impl Mul<&UnsizedDim> for RelLimits {
+    type Output = PxLimits;
+
+    #[inline]
+    fn mul(self, rhs: &UnsizedDim) -> Self::Output {
+        self.mul(*rhs)
+    }
+}
+
 impl Mul<PxDim> for RelLimits {
     type Output = PxLimits;
 
@@ -1744,6 +2348,15 @@ impl Mul<PxDim> for RelLimits {
     }
 }
 
+impl Mul<&PxDim> for RelLimits {
+    type Output = PxLimits;
+
+    #[inline]
+    fn mul(self, rhs: &PxDim) -> Self::Output {
+        self.mul(*rhs)
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct UValue {
     pub abs: f32,
@@ -1751,15 +2364,21 @@ pub struct UValue {
 }
 
 impl UValue {
-    pub const fn resolve(&self, outer_dim: f32) -> f32 {
+    pub const fn is_unsized(&self) -> bool {
+        self.rel == UNSIZED_AXIS
+    }
+}
+
+impl Resolve<f32> for UValue {
+    type Output = f32;
+
+    #[inline]
+    fn resolve(&self, outer_dim: f32) -> f32 {
         if self.rel == UNSIZED_AXIS {
             UNSIZED_AXIS
         } else {
             self.abs + (self.rel * outer_dim)
         }
-    }
-    pub const fn is_unsized(&self) -> bool {
-        self.rel == UNSIZED_AXIS
     }
 }
 
@@ -1780,14 +2399,20 @@ pub struct DValue {
 }
 
 impl DValue {
-    pub const fn resolve(&self, dpi: f32) -> UValue {
+    pub const fn is_unsized(&self) -> bool {
+        self.rel == UNSIZED_AXIS
+    }
+}
+
+impl Resolve<f32> for DValue {
+    type Output = UValue;
+
+    #[inline]
+    fn resolve(&self, dpi: f32) -> UValue {
         UValue {
             abs: self.px + (self.dp * dpi),
             rel: self.rel,
         }
-    }
-    pub const fn is_unsized(&self) -> bool {
-        self.rel == UNSIZED_AXIS
     }
 }
 
@@ -1829,7 +2454,7 @@ pub enum RowDirection {
 #[derive(Default)]
 pub struct CrossReferenceDomain {
     mappings: RwLock<
-        imbl::GenericHashMap<
+        imbl::HashMap<
             Identity<Arc<dyn ComponentMarker + Send + Sync>>,
             PxRect,
             rapidhash::fast::RandomState,
@@ -1837,6 +2462,22 @@ pub struct CrossReferenceDomain {
     >,
 }
 
+impl std::fmt::Debug for CrossReferenceDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut smol =
+            small_map::SmallMap::<8, *const (dyn ComponentMarker + Send + Sync), PxRect>::new();
+
+        for (k, v) in self.mappings.read().iter() {
+            let _ = smol.insert(
+                k.0.as_ref() as *const (dyn ComponentMarker + Send + Sync),
+                *v,
+            );
+        }
+        f.debug_struct("CrossReferenceDomain")
+            .field("mappings", &smol)
+            .finish()
+    }
+}
 impl CrossReferenceDomain {
     pub fn write_area(&self, target: Arc<dyn ComponentMarker + Send + Sync>, area: PxRect) {
         self.mappings.write().insert(Identity(target), area);
@@ -2268,19 +2909,29 @@ impl<AppData: 'static, T> App<AppData, T> {
         let windows2 = windows.clone();
         let nodes = reactive::join(layouts).map_elements(
             move |tuple: &(
-                Rc<dyn layout::Layout<Props = DynSignal<Size2D<u32, crate::Pixel>>>>,
+                Rc<
+                    dyn layout::Layout<
+                            Props = DynSignal<Size2D<u32, crate::Pixel>>,
+                            Staging = <dyn layout::root::Prop as crate::layout::Desc>::Staging,
+                        >,
+                >,
                 Rc<Window>,
             )| {
                 let (v, w) = tuple;
                 if let Some((state, _)) = windows2.borrow().get(&Identity((*w).clone())) {
-                    let (_, f) = v.stage(const_default().into(), state.dpi.clone());
+                    let limits = const_default().into_dyn();
+                    let (_, data) = v.presize(state.dpi.clone());
+
+                    let dim = state
+                        .surface_dim
+                        .clone()
+                        .map(|x| x.to_f32().cast_unit())
+                        .into_dyn();
+
+                    let (area, data) = v.size(dim.clone(), limits.clone(), data);
 
                     (
-                        f(
-                            ConstSignal::new(PxPoint::zero()).into_dyn(),
-                            state.surface_dim.clone().map(|x| x.to_f32()).into_dyn(),
-                            const_default().into(),
-                        ),
+                        v.stage(const_default().into_dyn(), area, data),
                         (*w).clone(),
                     )
                 } else {
@@ -2388,166 +3039,178 @@ impl<AppData: 'static, T: 'static> winit::application::ApplicationHandler<Feathe
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let trees = sample(&self.trees);
-        if let Some(id) = self.window_map.get(&window_id)
-            && let Some(root) = trees.get(&Identity(id.clone()))
-            && let Some((state, _)) = self.windows.borrow_mut().get_mut(&Identity(id.clone()))
-        {
-            let _ = match event {
-                WindowEvent::CloseRequested => {
-                    // TODO: Figure out how to handle close events properly
-                    if Window::on_window_event(state, root.clone(), event, self.driver.clone()) {
-                        event_loop.exit()
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let trees = sample(&self.trees);
+            if let Some(id) = self.window_map.get(&window_id)
+                && let Some(root) = trees.get(&Identity(id.clone()))
+                && let Some((state, _)) = self.windows.borrow_mut().get_mut(&Identity(id.clone()))
+            {
+                let _ = match event {
+                    WindowEvent::CloseRequested => {
+                        // TODO: Figure out how to handle close events properly
+                        if Window::on_window_event(state, root.clone(), event, self.driver.clone())
+                        {
+                            event_loop.exit()
+                        }
+                        true
                     }
-                    true
-                }
-                WindowEvent::RedrawRequested => {
-                    // TODO: this doesn't properly update all window aspects
-                    if let Some(driver) = self.driver.upgrade() {
-                        state.redraw.reset();
-                        let surface_dim = sample(&state.surface_dim).to_f32();
+                    WindowEvent::RedrawRequested => {
+                        // TODO: this doesn't properly update all window aspects
+                        if let Some(driver) = self.driver.upgrade() {
+                            state.redraw.reset();
+                            let surface_dim = sample(&state.surface_dim).to_f32();
 
-                        loop {
-                            // Construct a default compositor view with no offset.
-                            let mut viewer = CompositorView {
-                                index: 0,
-                                window: &mut state.compositor,
-                                layer0: &mut driver.layer_composite[0].write(),
-                                layer1: &mut driver.layer_composite[1].write(),
-                                clipstack: &mut state.clipstack,
-                                offset: PxVector::zero(),
-                                surface_dim,
-                                pass: 0,
-                                slice: 0,
-                                redraw: &mut state.redraw,
-                            };
+                            loop {
+                                // Construct a default compositor view with no offset.
+                                let mut viewer = CompositorView {
+                                    index: 0,
+                                    window: &mut state.compositor,
+                                    layer0: &mut driver.layer_composite[0].write(),
+                                    layer1: &mut driver.layer_composite[1].write(),
+                                    clipstack: &mut state.clipstack,
+                                    offset: PxVector::zero(),
+                                    surface_dim,
+                                    pass: 0,
+                                    slice: 0,
+                                    redraw: &mut state.redraw,
+                                };
 
-                            // Reset our layer tracker before beginning a render
-                            state.layers.clear();
-                            viewer.clipstack.clear();
-                            if let Err(e) = root.render(
-                                PxPoint::zero(),
-                                &driver,
-                                &mut viewer,
-                                &mut state.layers,
-                            ) {
-                                match e {
-                                    RenderError::ResizeTextureAtlas(layers, kind) => {
-                                        // Resize the texture atlas with the requested
-                                        // number of layers (the extent has already been
-                                        // changed)
-                                        match kind {
-                                            AtlasKind::Primary => driver.atlas.write(),
-                                            AtlasKind::Layer0 => driver.layer_atlas[0].write(),
-                                            AtlasKind::Layer1 => driver.layer_atlas[1].write(),
+                                // Reset our layer tracker before beginning a render
+                                state.layers.clear();
+                                viewer.clipstack.clear();
+                                if let Err(e) = root.render(
+                                    PxPoint::zero(),
+                                    &driver,
+                                    &mut viewer,
+                                    &mut state.layers,
+                                ) {
+                                    match e {
+                                        RenderError::ResizeTextureAtlas(layers, kind) => {
+                                            // Resize the texture atlas with the requested
+                                            // number of layers (the extent has already been
+                                            // changed)
+                                            match kind {
+                                                AtlasKind::Primary => driver.atlas.write(),
+                                                AtlasKind::Layer0 => driver.layer_atlas[0].write(),
+                                                AtlasKind::Layer1 => driver.layer_atlas[1].write(),
+                                            }
+                                            .resize(
+                                                &driver.device,
+                                                &driver.queue,
+                                                layers,
+                                            );
+                                            viewer.window.cleanup();
+                                            viewer.layer0.cleanup();
+                                            viewer.layer1.cleanup();
+                                            continue; // Retry frame
                                         }
-                                        .resize(
-                                            &driver.device,
-                                            &driver.queue,
-                                            layers,
-                                        );
-                                        viewer.window.cleanup();
-                                        viewer.layer0.cleanup();
-                                        viewer.layer1.cleanup();
-                                        continue; // Retry frame
+                                        e => panic!("Fatal draw error: {e}"),
                                     }
-                                    e => panic!("Fatal draw error: {e}"),
+                                }
+                                break;
+                            }
+
+                            let mut encoder = driver.device.create_command_encoder(
+                                &wgpu::CommandEncoderDescriptor {
+                                    label: Some("Root Encoder"),
+                                },
+                            );
+
+                            driver.atlas.write().process_mipmaps(&driver, &mut encoder);
+                            driver.atlas.read().draw(&driver, &mut encoder);
+
+                            let max_depth = driver.layer_composite[0]
+                                .read()
+                                .segments
+                                .len()
+                                .max(driver.layer_composite[1].read().segments.len());
+
+                            for i in 0..2 {
+                                let surface_dim = driver.layer_atlas[i].read().texture.size();
+                                driver.layer_composite[i].write().prepare(
+                                    &driver,
+                                    &mut encoder,
+                                    Size2D::<u32, Pixel>::new(
+                                        surface_dim.width,
+                                        surface_dim.height,
+                                    )
+                                    .to_f32(),
+                                );
+                            }
+
+                            // A depth of "zero" means the window compositor, so we only go down to
+                            // 1.
+                            for i in (1..max_depth).rev() {
+                                // Odd is layer0, even is layer1, so we add one before modulo to
+                                // reverse the result
+                                let idx: usize = (i + 1) % 2;
+                                let mut compositor = driver.layer_composite[idx].write();
+                                let atlas = driver.layer_atlas[idx].read();
+
+                                // We create one render pass for each slice of the layer atlas
+                                for slice in 0..atlas.texture.depth_or_array_layers() {
+                                    let name = format!(
+                                        "Layer {idx} (depth {i}) Atlas (slice {slice}) Pass"
+                                    );
+                                    let mut pass =
+                                        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                                            label: Some(&name),
+                                            color_attachments: &[Some(
+                                                wgpu::RenderPassColorAttachment {
+                                                    view: &atlas.targets[slice as usize],
+                                                    resolve_target: None,
+                                                    depth_slice: None,
+                                                    ops: wgpu::Operations {
+                                                        load: if true {
+                                                            wgpu::LoadOp::Clear(
+                                                                wgpu::Color::TRANSPARENT,
+                                                            )
+                                                        } else {
+                                                            wgpu::LoadOp::Load
+                                                        },
+                                                        store: wgpu::StoreOp::Store,
+                                                    },
+                                                },
+                                            )],
+                                            depth_stencil_attachment: None,
+                                            timestamp_writes: None,
+                                            occlusion_query_set: None,
+                                        });
+
+                                    pass.set_viewport(
+                                        0.0,
+                                        0.0,
+                                        atlas.texture.width() as f32,
+                                        atlas.texture.height() as f32,
+                                        0.0,
+                                        1.0,
+                                    );
+
+                                    compositor.draw(&driver, &mut pass, i as u8, slice as u8);
                                 }
                             }
-                            break;
+
+                            state.draw(encoder);
+                            driver.layer_composite[0].write().cleanup();
+                            driver.layer_composite[1].write().cleanup();
                         }
 
-                        let mut encoder =
-                            driver
-                                .device
-                                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                                    label: Some("Root Encoder"),
-                                });
-
-                        driver.atlas.write().process_mipmaps(&driver, &mut encoder);
-                        driver.atlas.read().draw(&driver, &mut encoder);
-
-                        let max_depth = driver.layer_composite[0]
-                            .read()
-                            .segments
-                            .len()
-                            .max(driver.layer_composite[1].read().segments.len());
-
-                        for i in 0..2 {
-                            let surface_dim = driver.layer_atlas[i].read().texture.size();
-                            driver.layer_composite[i].write().prepare(
-                                &driver,
-                                &mut encoder,
-                                Size2D::<u32, Pixel>::new(surface_dim.width, surface_dim.height)
-                                    .to_f32(),
-                            );
-                        }
-
-                        // A depth of "zero" means the window compositor, so we only go down to
-                        // 1.
-                        for i in (1..max_depth).rev() {
-                            // Odd is layer0, even is layer1, so we add one before modulo to
-                            // reverse the result
-                            let idx: usize = (i + 1) % 2;
-                            let mut compositor = driver.layer_composite[idx].write();
-                            let atlas = driver.layer_atlas[idx].read();
-
-                            // We create one render pass for each slice of the layer atlas
-                            for slice in 0..atlas.texture.depth_or_array_layers() {
-                                let name =
-                                    format!("Layer {idx} (depth {i}) Atlas (slice {slice}) Pass");
-                                let mut pass =
-                                    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                                        label: Some(&name),
-                                        color_attachments: &[Some(
-                                            wgpu::RenderPassColorAttachment {
-                                                view: &atlas.targets[slice as usize],
-                                                resolve_target: None,
-                                                depth_slice: None,
-                                                ops: wgpu::Operations {
-                                                    load: if true {
-                                                        wgpu::LoadOp::Clear(
-                                                            wgpu::Color::TRANSPARENT,
-                                                        )
-                                                    } else {
-                                                        wgpu::LoadOp::Load
-                                                    },
-                                                    store: wgpu::StoreOp::Store,
-                                                },
-                                            },
-                                        )],
-                                        depth_stencil_attachment: None,
-                                        timestamp_writes: None,
-                                        occlusion_query_set: None,
-                                    });
-
-                                pass.set_viewport(
-                                    0.0,
-                                    0.0,
-                                    atlas.texture.width() as f32,
-                                    atlas.texture.height() as f32,
-                                    0.0,
-                                    1.0,
-                                );
-
-                                compositor.draw(&driver, &mut pass, i as u8, slice as u8);
-                            }
-                        }
-
-                        state.draw(encoder);
-                        driver.layer_composite[0].write().cleanup();
-                        driver.layer_composite[1].write().cleanup();
+                        true
                     }
+                    WindowEvent::Resized(_) => {
+                        Window::on_window_event(state, root.clone(), event, self.driver.clone())
+                    }
+                    _ => Window::on_window_event(state, root.clone(), event, self.driver.clone()),
+                };
+            }
+        }));
 
-                    true
-                }
-                WindowEvent::Resized(_) => {
-                    Window::on_window_event(state, root.clone(), event, self.driver.clone())
-                }
-                _ => Window::on_window_event(state, root.clone(), event, self.driver.clone()),
-            };
+        if let Err(e) = res
+            && let Some(info) = e.downcast_ref::<reactive::UnwindPayload>()
+        {
+            eprintln!("{}", info);
+            std::panic::resume_unwind(e);
         }
-
         if sample(&self.sampler.inspect().children).is_empty() {
             event_loop.exit();
         }
@@ -2611,7 +3274,7 @@ fn test_basic() {
         ConstSignal::new(f32x4::splat(0.0)).into(),
         ConstSignal::new(sRGB::new(1.0, 0.0, 0.0, 1.0)).into(),
         ConstSignal::new(sRGB::transparent()).into(),
-        ConstSignal::new(DAbsPoint::zero()).into(),
+        ConstSignal::new(DSize::zero()).into(),
     );
     let window = Rc::new(Window::new(
         winit::window::Window::default_attributes()
@@ -2622,7 +3285,7 @@ fn test_basic() {
 
     let (mut app, event_loop) = App::<TestApp, ()>::new(
         reactive::MutableSignal::new(TestApp {}).into_dyn(),
-        move |x| component::UI {
+        move |_| component::UI {
             children: reactive::MutableSignal::new(imbl::vector![window.clone()]).into_dyn(),
         },
         Some(Box::new(|_, evt: &ActiveEventLoop, _| evt.exit())),
@@ -2768,4 +3431,91 @@ fn test_limits_add() {
     let merged = AbsLimits::new(0.0.., 5.0..100.0) + limits;
     assert_eq!(merged.min(), Size2D::<f32, _>::new(0.0, 10.0));
     assert_eq!(merged.max(), Size2D::<f32, _>::new(f32::INFINITY, 100.0));
+}
+
+#[test]
+fn test_basic_ops() {
+    assert_eq!(
+        AbsRect::new(1.0, 2.0, 3.0, 4.0) + AbsRect::new(4.0, 3.0, 2.0, 1.0),
+        AbsRect::splat(5.0).into()
+    );
+    assert_eq!(
+        PxPerimeter::new(1.0, 2.0, 3.0, 4.0) + PxPerimeter::new(4.0, 3.0, 2.0, 1.0),
+        PxPerimeter::splat(5.0)
+    );
+}
+
+#[test]
+fn test_resolve() {
+    let u: UPerimeter = AbsPerimeter::new(1.0, 2.0, 3.0, 4.0).into();
+    assert_eq!(
+        u.resolve(RelDim::new(2.0, 2.0)),
+        PxPerimeter::new(2.0, 4.0, 6.0, 8.0)
+    );
+
+    {
+        let p: DPerimeter =
+            AbsPerimeter::new(1.0, 2.0, 3.0, 4.0) + RelPerimeter::new(0.5, 1.0, 1.0, 2.0);
+
+        let ip = p.resolve(RelDim::new(2.0, 2.0));
+        assert_eq!(
+            ip,
+            IPerimeter {
+                abs: Perimeter::new(2.0, 4.0, 6.0, 8.0),
+                rel: RelPerimeter::new(0.5, 1.0, 1.0, 2.0)
+            }
+        );
+
+        assert_eq!(
+            ip.resolve(PxDim::new(4.0, 6.0)),
+            PxPerimeter::new(4.0, 10.0, 10.0, 20.0)
+        );
+    }
+
+    {
+        let r: DRect = AbsRect::new(1.0, 2.0, 3.0, 4.0) + RelRect::new(0.5, 1.0, 1.0, 2.0);
+
+        let ur = r.resolve(RelDim::new(2.0, 2.0));
+        assert_eq!(
+            ur,
+            URect {
+                abs: Rect::new(2.0, 4.0, 6.0, 8.0),
+                rel: Rect::new(0.5, 1.0, 1.0, 2.0)
+            }
+        );
+
+        assert_eq!(
+            ur.resolve(PxDim::new(2.0, 1.0))
+                .resolve(PxDim::new(4.0, 6.0)),
+            PxRect::new(4.0, 10.0, 10.0, 20.0)
+        );
+    }
+
+    {
+        let r: DRect =
+            AbsRect::new(1.0, 2.0, 3.0, 4.0) + RelRect::new(0.5, 1.0, UNSIZED_AXIS, UNSIZED_AXIS);
+
+        let ur = r.resolve(RelDim::new(2.0, 2.0));
+        assert_eq!(
+            ur,
+            URect {
+                abs: Rect::new(2.0, 4.0, 6.0, 8.0),
+                rel: Rect::new(0.5, 1.0, UNSIZED_AXIS, UNSIZED_AXIS)
+            }
+        );
+
+        let sr = ur.resolve(PxDim::new(2.0, 1.0));
+        assert_eq!(
+            sr,
+            URect::<Relative> {
+                abs: Rect::new(2.0, 4.0, 10.0, 13.0),
+                rel: Rect::new(0.5, 1.0, 0.5, 1.0)
+            }
+        );
+
+        assert_eq!(
+            sr.resolve(PxDim::new(4.0, 6.0)),
+            PxRect::new(4.0, 10.0, 12.0, 19.0)
+        );
+    }
 }

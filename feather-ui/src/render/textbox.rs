@@ -12,6 +12,7 @@ use crate::color::sRGB;
 use crate::render::compositor::DataFlags;
 use crate::render::{compositor, text};
 
+#[derive(Debug)]
 pub struct Instance {
     pub text_buffer: Rc<RefCell<cosmic_text::Buffer>>,
     pub padding: crate::PxPerimeter,

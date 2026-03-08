@@ -10,8 +10,8 @@ use feather_ui::component::window::Window;
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsPoint, AbsRect, App, DAbsRect, DPoint, DRect, PxRect, RelRect, ScopeID, SourceID,
-    UNSIZED_AXIS, gen_id, im, winit,
+    AbsPoint, AbsRect, App, DPoint, DRect, PxRect, RelRect, ScopeID, SourceID, UNSIZED_AXIS,
+    UPerimeter, gen_id, im, winit,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,7 +22,7 @@ struct FixedData {
     anchor: DPoint,
     limits: feather_ui::DLimits,
     rlimits: feather_ui::RelLimits,
-    padding: DAbsRect,
+    padding: UPerimeter,
     zindex: i32,
 }
 
@@ -56,7 +56,7 @@ impl FnPersist2<&i32, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>>
             wide::f32x4::splat(0.0),
             sRGB::new(1.0, 1.0, 1.0, 1.0),
             sRGB::transparent(),
-            feather_ui::DAbsPoint::zero(),
+            feather_ui::DSize::zero(),
         );
 
         let mut children: imbl::Vector<Rc<feather_ui::component::ChildOf<dyn fixed::Prop>>> =

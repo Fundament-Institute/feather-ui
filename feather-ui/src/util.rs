@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use std::marker::PhantomData;
 use wgpu::CompilationMessageType;
 
 use crate::graphics::Driver;
@@ -68,6 +67,8 @@ pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
         },
     )
 }
+
+/*
 pub struct RcGraphContext {
     map: small_map::SmallMap<4, *const (), *const ()>,
 }
@@ -90,7 +91,6 @@ impl<T: RcGraph> RcGraph for std::rc::Rc<T> {
     }
 }
 
-/*
 #[derive(RcGraph)]
 struct Foo {
   bar: Rc<Bar>
@@ -106,32 +106,3 @@ impl RcGraph for Foo {
     self.baz.handle(ctx);
   }
 }*/
-
-// Nonsense taken from `dtolnay/typeid` crate that lets us take a non-'static typeid.
-#[must_use]
-#[inline(always)]
-pub fn typeid_of<T>() -> std::any::TypeId
-where
-    T: ?Sized,
-{
-    trait NonStaticAny {
-        fn get_type_id(&self) -> std::any::TypeId
-        where
-            Self: 'static;
-    }
-
-    impl<T: ?Sized> NonStaticAny for PhantomData<T> {
-        #[inline(always)]
-        fn get_type_id(&self) -> std::any::TypeId
-        where
-            Self: 'static,
-        {
-            std::any::TypeId::of::<T>()
-        }
-    }
-
-    let phantom_data = PhantomData::<T>;
-    NonStaticAny::get_type_id(unsafe {
-        std::mem::transmute::<&dyn NonStaticAny, &(dyn NonStaticAny + 'static)>(&phantom_data)
-    })
-}

@@ -652,7 +652,7 @@ impl<T: Prop + 'static> super::Component for TextBox<T> {
 
         let instance = crate::render::textbox::Instance {
             text_buffer: self.props.textedit().obj.buffer.clone(),
-            padding: self.props.padding().as_perimeter(dpi),
+            padding: self.props.padding().resolve(dpi),
             selection: textstate
                 .editor
                 .selection_bounds(&self.props.textedit().obj.buffer.borrow()),

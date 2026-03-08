@@ -1,11 +1,12 @@
-// TODO: Remove this when it small-map ships it
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-FileCopyrightText: 2025 ChiHai <ihciah@gmail.com>
+// This file is taken from small-map and falls under their license terms (and should be
+// removed once it is shipped in small-map).
 //! A small inline SIMD-accelerated hash set based on [`SmallMap`].
 
-use core::{
-    fmt::{self, Debug},
-    hash::{BuildHasher, Hash},
-    iter::FusedIterator,
-};
+use core::fmt::{self, Debug};
+use core::hash::{BuildHasher, Hash};
+use core::iter::FusedIterator;
 use std::collections::hash_map::RandomState;
 
 use small_map::{DEFAULT_LINEAR_THRESHOLD, Equivalent, SmallMap};
@@ -985,7 +986,8 @@ mod tests {
 
     #[test]
     fn test_with_hasher() {
-        use std::{collections::hash_map::DefaultHasher, hash::BuildHasherDefault};
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::BuildHasherDefault;
 
         let s = BuildHasherDefault::<DefaultHasher>::default();
         let mut set = SmallSet::<8, i32, _>::with_hasher(s);

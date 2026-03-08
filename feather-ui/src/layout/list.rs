@@ -99,7 +99,7 @@ impl Desc for dyn Prop {
                         let child_margin = child_props
                             .margin()
                             .resolve(dpi)
-                            .to_perimeter(outer_safe);
+                            .resolve(outer_safe);
 
                         let stage = child.as_ref().stage(inner_area, child_limit, window);
                         let area = stage.get_area();

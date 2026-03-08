@@ -9,6 +9,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 // This draws a line between two points relative to the parent
+#[derive_where::derive_where(Clone)]
+#[derive(Debug)]
 pub struct Line<T> {
     pub start: DynSignal<PxPoint>,
     pub end: DynSignal<PxPoint>,
@@ -16,7 +18,7 @@ pub struct Line<T> {
     pub fill: DynSignal<sRGB>,
 }
 
-impl<T: base::Empty + 'static> super::Component for Line<T>
+impl<T: base::Empty + reactive::SignalDebug + 'static> super::Component for Line<T>
 where
     for<'a> &'a T: Into<&'a (dyn base::Empty + 'static)>,
 {

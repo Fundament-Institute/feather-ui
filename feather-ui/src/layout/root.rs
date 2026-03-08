@@ -4,11 +4,10 @@
 use guillotiere::euclid::Size2D;
 
 use super::{Desc, base};
-use crate::{
-    Pixel, PxLimits, PxRect,
-    layout::DynLayout,
-    reactive::{self, ConstSignal, DynSignal, SignalZip, const_default},
-};
+use crate::layout::DynLayout;
+use crate::reactive::{DynSignal, MutableSignal, SignalZip, const_default, zip_pair};
+use crate::{Pixel, PxLimits, PxRect, UnsizedDim};
+use std::any::Any;
 use std::rc::Rc;
 
 // The root node represents some area on the screen that contains a feather
@@ -31,55 +30,82 @@ impl Desc for dyn Prop {
     type Child = dyn base::Empty;
     type Children = Rc<dyn DynLayout<Self::Child>>;
     type Provider = dyn crate::reactive::SignalProvider<Item = (crate::PxRect, crate::RelDim)>;
+    type Staging = (
+        MutableSignal<crate::RelDim>,
+        DynSignal<Self::Children>,
+        DynSignal<(DynSignal<PxRect>, Box<dyn Any>)>,
+    );
 
-    fn stage<'a, T>(
+    fn presize(
         props: &Self::Props,
-        _: DynSignal<PxLimits>,
+        dpi: crate::reactive::MutableSignal<crate::RelDim>,
         child: DynSignal<Self::Children>,
-        _: Option<T>,
-        dpi: reactive::MutableSignal<crate::RelDim>,
-        defer: Option<super::DeferMachine<Self::Provider>>,
-    ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        let sized = props.dim().map(|d| d.to_f32()).into_dyn();
-        let no_limit = const_default().into_dyn();
+    ) -> (DynSignal<PxRect>, Self::Staging) {
+        let dpi2 = dpi.clone();
+
+        let child_presize = child.clone().map_ex(move |x| x.presize(dpi2.clone()));
         (
             props.dim().map(|x| PxRect::from(x.to_f32())).into(),
-            Box::new(move |_, _, _| {
-                let dpi2 = dpi.clone();
-                let sized = sized.clone();
-                let final_area = sized.clone().map(|d| PxRect::from(*d)).into_dyn();
-                let no_limit = no_limit.clone();
+            (dpi, child, child_presize.into_dyn()),
+        )
+    }
 
-                let presize = child.clone().map_ex(move |c| {
-                    let (_, f) = c.stage(no_limit.clone(), dpi2.clone());
+    fn size(
+        props: &Self::Props,
+        _: DynSignal<UnsizedDim>,
+        _: DynSignal<PxLimits>,
+        data: Self::Staging,
+    ) -> (DynSignal<PxRect>, Self::Staging) {
+        let (dpi, child, child_presize) = data;
+        let dim = props.dim().map(|d| d.to_f32().cast_unit()).into_dyn();
+        let child_limits = const_default().into_dyn();
+        let new_data = zip_pair(
+            child.clone(),
+            child_presize.clone(),
+            move |x, (_, child_data)| {
+                x.size(dim.clone(), child_limits.clone(), child_data.as_ref())
+            },
+        );
 
-                    f(
-                        ConstSignal::new(crate::PxPoint::default()).into(),
-                        sized.clone(),
-                        no_limit.clone(),
-                    )
-                });
+        (
+            props.dim().map(|d| PxRect::from(d.to_f32())).into_dyn(),
+            (dpi, child, new_data.into_dyn()),
+        )
+    }
 
-                super::resolve_defer_machine(
-                    crate::rtree::Node::new(
-                        final_area.clone(),
-                        None,
-                        Some(
-                            presize
-                                .clone()
-                                .map_ex(|node| imbl::vector![node.clone()])
-                                .into_dyn(),
-                        ),
-                        Some(Box::new(crate::layout::Concrete::<()> {
-                            renderable: None,
-                            layer: None,
-                            area: final_area.clone(),
-                        })),
-                    ),
-                    &defer,
-                    (final_area, dpi.clone()).zip().value().into_dyn(),
-                )
-            }),
+    fn stage<T: crate::render::Prerender + 'static>(
+        props: &Self::Props,
+        _: DynSignal<crate::PxPoint>,
+        _: DynSignal<PxRect>,
+        _: Option<T>,
+        defer: Option<super::DeferMachine<Self::Provider>>,
+        data: Self::Staging,
+    ) -> Rc<crate::rtree::Node> {
+        let (dpi, child, child_presize) = data;
+
+        let final_child = zip_pair(child, child_presize, |c, (area, data)| {
+            c.stage(const_default().into(), area.clone(), data.as_ref())
+        });
+
+        let final_area = props.dim().map(|x| PxRect::from(x.to_f32())).into_dyn();
+
+        super::resolve_defer_machine(
+            crate::rtree::Node::new(
+                final_area.clone(),
+                None,
+                Some(
+                    final_child
+                        .map_ex(|node| imbl::vector![node.clone()])
+                        .into_dyn(),
+                ),
+                Some(Box::new(crate::layout::Concrete::<()> {
+                    renderable: None,
+                    layer: None,
+                    area: final_area.clone(),
+                })),
+            ),
+            &defer,
+            (final_area, dpi.clone()).zip().value().into_dyn(),
         )
     }
 }

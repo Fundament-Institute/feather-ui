@@ -3,7 +3,7 @@
 
 use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, flex, leaf};
-use feather_ui::{DAbsRect, DValue, ScopeID, gen_id};
+use feather_ui::{DValue, ScopeID, UPerimeter, gen_id};
 
 use feather_ui::component::paragraph::Paragraph;
 use feather_ui::component::region::Region;
@@ -62,7 +62,7 @@ impl fixed::Prop for MinimalArea {}
 
 #[derive(Default, Clone, feather_macro::Empty, feather_macro::Area)]
 struct MinimalFlex {
-    obstacles: Vec<DAbsRect>,
+    obstacles: Vec<UPerimeter>,
     area: DRect,
 }
 impl base::Direction for MinimalFlex {}
@@ -72,7 +72,7 @@ impl base::RLimits for MinimalFlex {}
 impl fixed::Child for MinimalFlex {}
 
 impl base::Obstacles for MinimalFlex {
-    fn obstacles(&self) -> &[DAbsRect] {
+    fn obstacles(&self) -> &[UPerimeter] {
         &self.obstacles
     }
 }
@@ -121,7 +121,7 @@ impl FnPersist2<&Blocker, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Windo
                     wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
-                    feather_ui::DAbsPoint::zero(),
+                    feather_ui::DSize::zero(),
                 );
 
                 let mut p = Paragraph::new(

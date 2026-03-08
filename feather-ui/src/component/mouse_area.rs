@@ -3,7 +3,7 @@
 
 use crate::input::{MouseButton, MouseState, RawEvent};
 use crate::layout::leaf;
-use crate::reactive::{self, DeferProvider, Signal, SignalProvider};
+use crate::reactive::{self, DeferProvider, Signal, SignalDebug, SignalProvider};
 use crate::{AbsPoint, AbsVector, PxPoint, PxRect, RelDim, UnResolve, event, layout};
 use core::f32;
 use enum_variant_type::EnumVariantType;
@@ -254,6 +254,8 @@ impl<P1: SignalProvider<Item = f32> + ?Sized>
                 | RawEventKind::Key as u64,
 } */
 
+#[derive_where::derive_where(Clone)]
+#[derive(Debug)]
 pub struct MouseArea<T> {
     props: Rc<T>,
     machine: crate::layout::DeferMachine<<dyn leaf::Prop as crate::layout::Desc>::Provider>,
@@ -294,7 +296,7 @@ impl<'a, T: leaf::Prop> MouseArea<T> {
     }
 }
 
-impl<'l, T: leaf::Prop + 'static> super::Component for MouseArea<T>
+impl<'l, T: leaf::Prop + SignalDebug + 'static> super::Component for MouseArea<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Prop + 'static)>,
 {

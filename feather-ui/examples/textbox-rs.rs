@@ -4,7 +4,7 @@
 use feather_ui::color::sRGB;
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::text::{EditBuffer, EditView};
-use feather_ui::{DAbsRect, ScopeID, gen_id};
+use feather_ui::{ScopeID, UPerimeter, gen_id};
 
 use feather_ui::component::region::Region;
 use feather_ui::component::textbox;
@@ -41,7 +41,7 @@ impl fixed::Prop for MinimalArea {}
 )]
 struct MinimalText {
     area: DRect,
-    padding: DAbsRect,
+    padding: UPerimeter,
     textedit: EditView,
 }
 impl base::Direction for MinimalText {}
@@ -58,7 +58,9 @@ impl FnPersistStore for BasicApp {
     type Store = (TextState, imbl::HashMap<Arc<SourceID>, Option<Window>>);
 }
 
-impl FnPersist2<&TextState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+impl FnPersist2<&TextState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Window>>>
+    for BasicApp
+{
     fn init(&self) -> Self::Store {
         (
             TextState {

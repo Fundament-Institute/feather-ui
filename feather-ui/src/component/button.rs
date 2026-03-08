@@ -12,9 +12,20 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 // A button component that contains a mousearea alongside it's children
+#[derive_where::derive_where(Clone)]
 pub struct Button<T> {
     props: Rc<T>,
     children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>,
+}
+
+#[cfg(feature = "signal-debug")]
+impl<T: std::fmt::Debug> std::fmt::Debug for Button<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Button")
+            .field("props", &self.props)
+            .field("children", &self.children)
+            .finish()
+    }
 }
 
 impl<T: fixed::Prop> Button<T> {
@@ -46,7 +57,7 @@ impl<T: fixed::Prop> Button<T> {
     }
 }
 
-impl<T: fixed::Prop + 'static> super::Component for Button<T>
+impl<T: fixed::Prop + crate::reactive::SignalDebug + 'static> super::Component for Button<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {

@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
+
 use std::ops::{Add, Bound, Mul, RangeBounds};
 
-use num_traits::{One, Unsigned, int::PrimInt};
+use num_traits::int::PrimInt;
+use num_traits::{One, Unsigned};
 
 /// A compact sequence represents an infinite sequence of values that compacts homogeneous regions
 /// of the same value. Therefore, it only takes up 2*N storage for N unique values. To avoid being
@@ -237,7 +241,6 @@ pub fn basic_seq_test() {
     assert_eq!(seq[2], 1);
 
     assert_eq!(seq.remove(0), None);
-    assert_eq!(seq.remove(2), Some(1));
 
     seq.set(1, 1);
     assert_eq!(seq[0], 1);

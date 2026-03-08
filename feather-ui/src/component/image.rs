@@ -3,7 +3,7 @@
 
 use crate::layout::{Layout, leaf};
 use crate::render::atlas::Size;
-use crate::{DAbsPoint, SourceID, UNSIZED_AXIS};
+use crate::{DSize, SourceID, UNSIZED_AXIS};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -12,7 +12,7 @@ pub struct Image<T> {
     pub id: Arc<SourceID>,
     pub props: Rc<T>,
     pub resource: Box<dyn crate::resource::Location>,
-    pub size: DAbsPoint,
+    pub size: DSize,
     pub dynamic: bool,
 }
 
@@ -21,7 +21,7 @@ impl<T: leaf::Padded + 'static> Image<T> {
         id: Arc<SourceID>,
         props: T,
         resource: &dyn crate::resource::Location,
-        size: DAbsPoint,
+        size: DSize,
         dynamic: bool,
     ) -> Self {
         Self {
@@ -78,7 +78,7 @@ where
             size: uvsize.cast().cast_unit(),
             renderable: Some(Rc::new(crate::render::image::Instance {
                 image: self.resource.clone(),
-                padding: self.props.padding().as_perimeter(dpi),
+                padding: self.props.padding().resolve(dpi),
                 dpi: dpi.width,
                 resize: self.dynamic,
             })),

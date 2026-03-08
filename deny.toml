@@ -48,5 +48,5 @@ unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = [
     "https://github.com/pop-os/cosmic-text",
-    "https://github.com/Fundament-Institute/luajit-src-rs",
+    "https://github.com/Fundament-Institute/imbl",
 ]
