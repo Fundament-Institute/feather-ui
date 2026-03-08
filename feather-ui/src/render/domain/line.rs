@@ -6,9 +6,9 @@ use crate::color::sRGB;
 use crate::component::ComponentMarker;
 use crate::render::compositor::{self, DataFlags};
 
-use std::sync::Arc;
-use std::sync::Weak;
+use std::sync::{Arc, Weak};
 
+#[derive(Debug)]
 pub struct Instance {
     pub domain: Arc<CrossReferenceDomain>,
     pub start: Weak<dyn ComponentMarker + Sync + Send>,

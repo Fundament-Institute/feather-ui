@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
+use std::cell::RefCell;
+use std::marker::PhantomData;
+use std::rc::Rc;
 
 use small_map::SmallMap;
 
-use crate::{
-    DispatchCallback, Dispatchable,
-    reactive::{Signal, SignalProvider},
-};
+use crate::reactive::{self, Signal, SignalProvider};
+use crate::{DispatchCallback, Dispatchable};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct EventRes {
@@ -782,6 +782,16 @@ impl<'l, T: 'l + Dispatchable, S: EventStream<'l, T>> PrismState<'l, T, S> {
 /// on EventStreams, so instead we use a Box paired with a type_id to build our own knockoff Any.
 pub struct BoxedCallback<T>(pub Box<dyn StreamCallback<T>>, std::any::TypeId);
 
+impl<T> std::fmt::Debug for BoxedCallback<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ptr = self.0.as_ref() as *const dyn StreamCallback<T>;
+        f.debug_tuple(format!("BoxedCallback<{}>", std::any::type_name::<T>()).as_str())
+            .field(&ptr)
+            .field(&self.1)
+            .finish()
+    }
+}
+
 impl<T> BoxedCallback<T> {
     pub fn new<H: StreamCallback<T> + 'static>(h: H) -> Self {
         let boxed: Box<dyn StreamCallback<T>> = Box::new(h);
@@ -943,7 +953,7 @@ pub(crate) fn statemachine<
     InputEvent: 'a,
     InputState: 'a,
     OutputEvent: 'a,
-    OutputState: Clone + 'a,
+    OutputState: Clone + reactive::SignalDebug + 'a,
 >(
     machine: impl StateMachine<InputEvent, InputState, OutputEvent, OutputState> + 'a,
     events: impl EventStream<'a, InputEvent>,
@@ -1120,6 +1130,17 @@ enum BounceState<'a, T: 'a, S: EventStream<'a, T>> {
     Subscribed(*mut ()),
 }
 
+impl<'a, T: 'a, S: EventStream<'a, T>> std::fmt::Debug for BounceState<'a, T, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::None(arg0) => f.debug_tuple("None").field(arg0).finish(),
+            Self::Initialized(_) => f.debug_tuple("Initialized").finish_non_exhaustive(),
+            Self::Pending(_) => f.debug_tuple("Pending").finish_non_exhaustive(),
+            Self::Subscribed(arg0) => f.debug_tuple("Subscribed").field(arg0).finish(),
+        }
+    }
+}
+
 pub struct BounceSubscription<'a, T: 'a, H: 'a + StreamCallback<T>, S: EventStream<'a, T>> {
     origin: Rc<RefCell<BounceState<'a, T, S>>>,
     phantom: PhantomData<H>,
@@ -1183,7 +1204,7 @@ impl<'l, T, S: EventStream<'l, T>> BounceStream<'l, T, S> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AntiStream<'l, T, S: EventStream<'l, T>> {
     origin: Rc<RefCell<BounceState<'l, T, S>>>,
 }

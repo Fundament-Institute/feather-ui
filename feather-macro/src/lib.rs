@@ -52,7 +52,7 @@ pub fn derive_padding(input: TokenStream) -> TokenStream {
         input,
         "padding",
         "feather_ui::layout::base::Padding",
-        "feather_ui::DAbsRect",
+        "feather_ui::UPerimeter",
     )
 }
 
@@ -62,7 +62,7 @@ pub fn derive_margin(input: TokenStream) -> TokenStream {
         input,
         "margin",
         "feather_ui::layout::base::Margin",
-        "feather_ui::DRect",
+        "feather_ui::DPerimeter",
     )
 }
 

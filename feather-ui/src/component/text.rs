@@ -4,13 +4,13 @@
 use crate::graphics::point_to_pixel;
 use crate::layout::{self, leaf};
 use crate::reactive::{ConstSignal, DynSignal, MutableSignal, SignalZip, zip_pair};
-use crate::{Unsizable, reactive};
-use cosmic_text::LineIter;
+use crate::{Limited, Resolve, Unsizable, reactive};
 use derive_where::derive_where;
 use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive_where(Clone)]
+#[derive(Debug)]
 pub struct Text<T> {
     pub props: Rc<T>,
     pub font_size: DynSignal<f32>,
@@ -59,7 +59,7 @@ impl<T: leaf::Padded + 'static> Text<T> {
     }
 }
 
-impl<T: leaf::Padded + 'static> super::Component for Text<T>
+impl<T: leaf::Padded + reactive::SignalDebug + 'static> super::Component for Text<T>
 where
     for<'a> &'a T: Into<&'a (dyn leaf::Padded + 'static)>,
 {
@@ -151,10 +151,10 @@ where
                           (dpi, area, padding, limits): &(
                         crate::RelDim,
                         crate::DRect,
-                        crate::DAbsRect,
+                        crate::UPerimeter,
                         crate::Limits<crate::Pixel>,
                     )| {
-                        let padding = padding.as_perimeter(*dpi);
+                        let padding = padding.resolve(*dpi);
                         if let Some(driver) = wdriver5.upgrade() {
                             let (limitx, limity) = {
                                 let max = limits.max();
@@ -168,10 +168,9 @@ where
                             let mut font_system = driver.font_system.write();
 
                             let (unsized_x, unsized_y) = inner.is_unsized();
-                            let dim = crate::layout::limit_dim(
-                                unsafe { inner.abs.dim_unchecked().cast_unit() },
-                                *limits,
-                            ) - padding.total();
+                            let dim: crate::PxDim =
+                                unsafe { inner.abs.dim_unchecked().cast_unit() }.limit(*limits)
+                                    - padding.total();
 
                             buffer.set_size(
                                 &mut font_system,
@@ -186,36 +185,6 @@ where
                                     Some(dim.height.max(0.0))
                                 },
                             );
-
-                            // If we have indeterminate area, calculate the size
-                            if unsized_x || unsized_y {
-                                let mut h = 0.0;
-                                let mut w: f32 = 0.0;
-
-                                // TODO: In order to extract the width and height back out of the text buffer, we have to unconditionally
-                                // set the width/height here. If we replace buffer with a wrapper that can hold a realign and w/h values,
-                                // then we can restore this optimization.
-                                //let mut realign = self.realign;
-
-                                for run in buffer.layout_runs() {
-                                    w = w.max(run.line_w);
-                                    // If a line is RTL and we're unsized, we ALWAYS have to re-evaluate it!
-                                    //realign = realign || run.rtl;
-                                    h += run.line_height;
-                                }
-
-                                // Apply adjusted limits to inner size calculation
-                                w = w.max(limits.min().width).min(limits.max().width);
-                                h = h.max(limits.min().height).min(limits.max().height);
-
-                                // If we are centered or right aligned, we have to set the size again now that
-                                // we know how big it really is. This is true even if all the text
-                                // was originally marked as RTL - the layout will still be wrong because
-                                // it didn't know how big the text would be.
-                                //if realign {
-                                buffer.set_size(&mut font_system, Some(w), Some(h));
-                                //}
-                            };
                         }
                     },
                 ),
@@ -226,7 +195,7 @@ where
 
         let render = crate::render::text::PreInstance {
             text_buffer: final_buffer.clone(),
-            padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.as_perimeter(*dpi)),
+            padding: zip_pair(self.props.padding(), dpi, |x, dpi| x.resolve(*dpi)),
             driver: Arc::downgrade(driver2),
         };
 

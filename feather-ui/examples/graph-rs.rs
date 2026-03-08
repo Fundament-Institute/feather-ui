@@ -4,9 +4,7 @@
 use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
 use feather_ui::component::text::Text;
-use feather_ui::{
-    AbsPoint, AbsVector, DAbsPoint, InputResult, RelRect, ScopeID, UNSIZED_AXIS, gen_id,
-};
+use feather_ui::{AbsPoint, AbsVector, DSize, InputResult, RelRect, ScopeID, UNSIZED_AXIS, gen_id};
 
 use feather_macro as fm;
 use feather_ui::component::domain_line::DomainLine;
@@ -113,7 +111,7 @@ impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Wi
                     wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
-                    DAbsPoint::zero(),
+                    DSize::zero(),
                 );
 
                 Button::<FixedData>::new(
@@ -147,7 +145,7 @@ impl FnPersist2<&GraphState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<Wi
                         BASE
                     },
                     BASE,
-                    DAbsPoint::zero(),
+                    DSize::zero(),
                 );
 
                 let bag = Region::<MinimalArea>::new(

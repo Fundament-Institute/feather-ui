@@ -1,18 +1,80 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
+
+use crate::Limited;
 use crate::smallset::SmallSet;
-use imbl::GenericVector;
+use backtrace::BytesOrWideString;
+use imbl::Vector;
 use stable_deref_trait::CloneStableDeref;
-use std::{
-    cell::{OnceCell, Ref},
-    cmp::{PartialEq, PartialOrd},
-    fmt,
-    hash::Hash,
-    marker::PhantomData,
-    ops::Deref,
-    rc::Rc,
-};
+use std::cell::{OnceCell, Ref};
+use std::cmp::{PartialEq, PartialOrd};
+use std::fmt;
+use std::hash::Hash;
+use std::marker::PhantomData;
+use std::ops::Deref;
+use std::panic::AssertUnwindSafe;
+use std::path::Path;
+use std::rc::Rc;
 use tuple_list::{Tuple, TupleList};
 
 use std::cell::RefCell;
+
+#[cfg(feature = "signal-debug")]
+macro_rules! rewrite_panic_debug {
+    ($old:expr) => {
+        Some($old as *const dyn std::fmt::Debug)
+    };
+}
+
+#[cfg(not(feature = "signal-debug"))]
+macro_rules! rewrite_panic_debug {
+    ($old:expr) => {
+        None
+    };
+}
+
+#[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+macro_rules! rewrite_panic {
+    ($frame:expr, $e:expr) => {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $e)) {
+            Ok(v) => v,
+            Err(e) => std::panic::resume_unwind(Box::new(UnwindPayload {
+                inner: e,
+                frame: $frame.clone(),
+                value: None,
+            })),
+        }
+    };
+    ($frame:expr, $e:expr, $old:expr) => {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $e)) {
+            Ok(v) => v,
+            Err(e) => std::panic::resume_unwind(Box::new(UnwindPayload {
+                inner: e,
+                frame: $frame.clone(),
+                value: rewrite_panic_debug!($old),
+            })),
+        }
+    };
+}
+
+#[cfg(all(not(debug_assertions), not(feature = "signal-backtrace")))]
+macro_rules! rewrite_panic {
+    ($frame:expr, $e:expr) => {
+        $e
+    };
+}
+
+#[cfg(feature = "signal-debug")]
+pub trait SignalDebug: std::fmt::Debug {}
+
+#[cfg(not(feature = "signal-debug"))]
+pub trait SignalDebug {}
+
+#[cfg(feature = "signal-debug")]
+impl<T: std::fmt::Debug> SignalDebug for T {}
+
+#[cfg(not(feature = "signal-debug"))]
+impl<T> SignalDebug for T {}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum NodeColor {
@@ -87,31 +149,33 @@ impl<T> MultiCell<T> {
     }
 }
 
-mod internal {
-    use super::{Deref, DynRef, PhantomData};
+/// This UnsafeRef strips the lifetime information from the type and allows casting back
+/// into a DynRef<> type with *any* arbitrary lifetime. Obviously, this is EXTREMELY unsafe and is
+/// only constructed internally for managing signal references.
+#[repr(transparent)]
+pub struct UnsafeRef<T>(DynRef<'static, ()>, PhantomData<T>);
 
-    // This UnsafeRef strips the lifetime information from the type and allows casting back
-    // into a DynRef<> type with *any* arbitrary lifetime. Obviously, this is EXTREMELY unsafe and is only used
-    // internally for managing signal references.
-    #[repr(transparent)]
-    pub struct UnsafeRef<T>(DynRef<'static, ()>, PhantomData<T>);
+impl<T> Deref for UnsafeRef<T> {
+    type Target = T;
 
-    impl<T> Deref for UnsafeRef<T> {
-        type Target = T;
-
-        fn deref(&self) -> &Self::Target {
-            unsafe { std::mem::transmute::<_, &DynRef<'_, T>>(&self.0) }
-        }
+    fn deref(&self) -> &Self::Target {
+        unsafe { std::mem::transmute::<_, &DynRef<'_, T>>(&self.0) }
     }
+}
+
+/*mod internal {
+    use super::{Deref, DynRef, PhantomData, UnsafeRef};
 
     impl<'a, T> From<DynRef<'a, T>> for UnsafeRef<T> {
         fn from(value: DynRef<'a, T>) -> Self {
             UnsafeRef(unsafe { std::mem::transmute(value) }, PhantomData)
         }
     }
-}
+}*/
 
-use internal::UnsafeRef;
+fn into_unsafe_ref<'a, T>(value: DynRef<'a, T>) -> UnsafeRef<T> {
+    UnsafeRef(unsafe { std::mem::transmute(value) }, PhantomData)
+}
 
 pub enum DynRef<'a, T> {
     Ref(&'a T),
@@ -300,17 +364,61 @@ where
     Provider::Item: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Signal")
-            .field("node", self.0.get_node())
-            .field("value", &*self.0.get_ref())
-            .finish()
+        match std::panic::catch_unwind(AssertUnwindSafe(|| sample(self))) {
+            Ok(v) if !std::thread::panicking() => {
+                f.write_str("\u{00ab}")?;
+                v.fmt(f)?;
+                f.write_str("\u{00bb}")
+            }
+            _ => f
+                .debug_struct("Signal")
+                .field("node", self.0.get_node())
+                .field("value", &*self.0.get_ref())
+                .finish(),
+        }
+    }
+}
+
+use crate::Resolve;
+
+impl<P1: SignalProvider + ?Sized> Signal<P1> {
+    pub fn resolve<P2: SignalProvider + ?Sized>(
+        self,
+        factor: Signal<P2>,
+    ) -> Signal<impl SignalProvider<Item = <P1::Item as Resolve<P2::Item>>::Output>>
+    where
+        P1::Item: Resolve<P2::Item>,
+        P2::Item: Clone,
+        <P1::Item as Resolve<P2::Item>>::Output: PartialEq,
+    {
+        map(
+            move |arg| arg.0.resolve(arg.1.clone()),
+            zip((self, factor)),
+            PartialEq::eq,
+            never_debug,
+        )
+    }
+
+    pub fn limit(
+        self,
+        limits: Signal<impl SignalProvider<Item = crate::PxLimits> + ?Sized>,
+    ) -> Signal<impl SignalProvider<Item = P1::Item>>
+    where
+        P1::Item: Limited + Clone + PartialEq,
+    {
+        map(
+            move |arg| arg.0.clone().limit(*arg.1),
+            zip((self, limits)),
+            PartialEq::eq,
+            never_debug,
+        )
     }
 }
 
 // This has the same logic as From, but avoids needing manual type annotations in some situations.
 impl<Provider: SignalProvider + 'static> Signal<Provider> {
     pub fn into_dyn(self) -> Signal<dyn SignalProvider<Item = Provider::Item>> {
-        Signal(self.0.clone())
+        Signal(self.0)
     }
 }
 
@@ -318,7 +426,7 @@ impl<Provider: SignalProvider + 'static> From<Signal<Provider>>
     for Signal<dyn SignalProvider<Item = Provider::Item>>
 {
     fn from(value: Signal<Provider>) -> Self {
-        Self(value.0.clone())
+        Self(value.0)
     }
 }
 
@@ -426,7 +534,7 @@ where
         self.1.update_if_necessary();
     }
     fn build_ref(&self) -> Self::RefResult {
-        (self.0.get_ref().into(), self.1.build_ref())
+        (into_unsafe_ref(self.0.get_ref()), self.1.build_ref())
     }
     fn add_dependency(&self, node: SignalNodeId) {
         add_dependency(self.0.get_node(), node.clone());
@@ -596,7 +704,7 @@ pub struct ZipValueProvider<PList: ProviderTupleList>
 where
     PList::RefResult: UnsafeRefCloneTupleList,
 {
-    providers: PList,
+    provider: Rc<ZipProvider<PList>>,
     res: RefCell<
         Option<<<PList::RefResult as UnsafeRefCloneTupleList>::Result as TupleList>::Tuple>,
     >,
@@ -628,12 +736,13 @@ where
     fn update_if_necessary(&self) {
         let color = self.node.0.borrow().color;
         if color != NodeColor::Ready {
-            self.providers.update_if_necessary();
+            self.provider.update_if_necessary();
         }
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Changed => {
-                *self.res.borrow_mut() = Some(self.providers.build_ref().get_val().into_tuple());
+                *self.res.borrow_mut() =
+                    Some(self.provider.providers.build_ref().get_val().into_tuple());
                 notify_children_change(&self.node);
             }
             _ => {}
@@ -724,11 +833,10 @@ impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
     where
         <PList as ProviderTupleList>::RefResult: UnsafeRefCloneTupleList,
     {
-        let node = new_node::<Self>(NodeColor::Changed);
+        let node = new_node::<ZipValueProvider<PList>>(NodeColor::Changed);
         add_dependency(self.0.get_node(), node.clone());
-        verify_tree(&node);
         Signal(Rc::new(ZipValueProvider::<PList> {
-            providers: self.0.providers.clone(),
+            provider: self.0.clone(),
             node,
             res: Default::default(),
         }))
@@ -749,7 +857,6 @@ impl<PList: ProviderTupleList> Signal<ZipProvider<PList>> {
     {
         let node = new_node::<Self>(NodeColor::Changed);
         add_dependency(self.0.get_node(), node.clone());
-    verify_tree(&node);
         Signal(Rc::new(ZipMapProvider::<PList, R, F> {
             providers: self.0.providers.clone(),
             func: f,
@@ -763,7 +870,7 @@ macro_rules! gen_flatmap {
     ($($x:ident),*) => (
         impl<$($x: SignalProvider + ?Sized),*> Signal<ZipProvider<tuple_list::tuple_list_type!($(Rc<$x>),*)>> {
             #[allow(non_snake_case)]
-            pub fn flatmap<R, F: Fn(($(&$x::Item),*)) -> R>(&self, f: F) -> Signal<impl SignalProvider<Item = R> + use<R, F, $($x),*>> {
+            pub fn flatmap<R: SignalDebug, F: Fn(($(&$x::Item),*)) -> R>(&self, f: F) -> Signal<impl SignalProvider<Item = R> + use<R, F, $($x),*>> {
                 map(
                     move |($($x),*)| f(($(&*$x),*)),
                     self.clone(),
@@ -772,7 +879,7 @@ macro_rules! gen_flatmap {
                 )
             }
             #[allow(non_snake_case)]
-            pub fn flatmap_mut<R, F: Fn(($(&$x::Item),*), Option<R>) -> R>(
+            pub fn flatmap_mut<R: SignalDebug, F: Fn(($(&$x::Item),*), Option<R>) -> R>(
                 &self,
                 f: F,
             ) -> Signal<impl SignalProvider<Item = R> + use<R, F, $($x),*>> {
@@ -796,7 +903,7 @@ gen_flatmap!(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12);
 impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized>
     Signal<ZipProvider<(Rc<P1>, (Rc<P2>, ()))>>
 {
-    pub fn flatmap<R, F: Fn((&P1::Item, &P2::Item)) -> R>(
+    pub fn flatmap<R: SignalDebug, F: Fn((&P1::Item, &P2::Item)) -> R>(
         &self,
         f: F,
     ) -> Signal<impl SignalProvider<Item = R> + use<R, F, P1, P2>> {
@@ -808,7 +915,7 @@ impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized>
         )
     }
 
-    pub fn flatmap_mut<R, F: Fn((&P1::Item, &P2::Item), Option<R>) -> R>(
+    pub fn flatmap_mut<R: SignalDebug, F: Fn((&P1::Item, &P2::Item), Option<R>) -> R>(
         &self,
         f: F,
     ) -> Signal<impl SignalProvider<Item = R> + use<R, F, P1, P2>> {
@@ -844,6 +951,8 @@ pub struct MapProvider<
     node: SignalNodeId,
     eq: F2,
     debug: F3,
+    #[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+    debug_frame: backtrace::BacktraceFrame,
 }
 
 impl<
@@ -869,7 +978,7 @@ where
 
 impl<
     P: SignalProvider + ?Sized,
-    T2,
+    T2: SignalDebug,
     F: Fn(&P::Item) -> T2,
     F2: Fn(&T2, &T2) -> bool,
     F3: Fn(&T2) -> Option<&dyn fmt::Debug>,
@@ -887,13 +996,21 @@ impl<
         match color {
             NodeColor::Ready => {}
             _ => {
-                self.provider.update_if_necessary();
+                rewrite_panic!(
+                    self.debug_frame,
+                    self.provider.update_if_necessary(),
+                    self.res.as_ptr()
+                );
             }
         }
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Changed => {
-                let res = (self.func)(&self.provider.get_ref());
+                let res = rewrite_panic!(
+                    self.debug_frame,
+                    (self.func)(&self.provider.get_ref()),
+                    self.res.as_ptr()
+                );
 
                 let changed = if let Some(old) = &*self.res.borrow() {
                     !(self.eq)(old, &res)
@@ -918,9 +1035,9 @@ impl<
     }
 }
 
-pub fn map<
+fn map<
     T,
-    R,
+    R: SignalDebug,
     P: SignalProvider<Item = T> + ?Sized,
     F: Fn(&P::Item) -> R,
     FEq: Fn(&R, &R) -> bool,
@@ -934,7 +1051,6 @@ pub fn map<
     let node = new_node::<MapProvider<P, R, F, FEq, FDebug>>(NodeColor::Changed);
     let provider = signal.0;
     add_dependency(provider.get_node(), node.clone());
-    verify_tree(&node);
     Signal(Rc::new(MapProvider {
         provider,
         func: f,
@@ -942,6 +1058,7 @@ pub fn map<
         node,
         eq,
         debug,
+        debug_frame: backtrace::Backtrace::new_unresolved().frames()[6].clone(),
     }))
 }
 
@@ -950,6 +1067,8 @@ pub struct MapMutProvider<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option
     func: F,
     res: RefCell<Option<T2>>,
     node: SignalNodeId,
+    #[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+    debug_frame: backtrace::BacktraceFrame,
 }
 
 impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> fmt::Debug
@@ -968,7 +1087,7 @@ where
     }
 }
 
-impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalProvider
+impl<P: SignalProvider + ?Sized, T2: SignalDebug, F: Fn(&P::Item, Option<T2>) -> T2> SignalProvider
     for MapMutProvider<P, T2, F>
 {
     type Item = T2;
@@ -983,14 +1102,23 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalPr
         match color {
             NodeColor::Ready => {}
             _ => {
-                self.provider.update_if_necessary();
+                rewrite_panic!(
+                    self.debug_frame,
+                    self.provider.update_if_necessary(),
+                    self.res.as_ptr()
+                );
             }
         }
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Changed => {
                 let init = self.res.borrow_mut().take();
-                let res = (self.func)(&self.provider.get_ref(), init);
+
+                let res = rewrite_panic!(
+                    self.debug_frame,
+                    (self.func)(&self.provider.get_ref(), init),
+                    self.res.as_ptr()
+                );
 
                 *self.res.borrow_mut() = Some(res);
                 notify_children_change(&self.node);
@@ -1008,19 +1136,24 @@ impl<P: SignalProvider + ?Sized, T2, F: Fn(&P::Item, Option<T2>) -> T2> SignalPr
     }
 }
 
-pub fn map_mut<T, R, F: Fn(&P::Item, Option<R>) -> R, P: SignalProvider<Item = T> + ?Sized>(
+fn map_mut<
+    T,
+    R: SignalDebug,
+    F: Fn(&P::Item, Option<R>) -> R,
+    P: SignalProvider<Item = T> + ?Sized,
+>(
     f: F,
     p: Signal<P>,
 ) -> Signal<MapMutProvider<P, R, F>> {
     let node = new_node::<MapMutProvider<P, R, F>>(NodeColor::Changed);
     let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
-    verify_tree(&node);
     Signal(Rc::new(MapMutProvider {
         provider,
         func: f,
         res: RefCell::new(None),
         node,
+        debug_frame: backtrace::Backtrace::new_unresolved().frames()[6].clone(),
     }))
 }
 
@@ -1037,26 +1170,29 @@ fn always_debug<T: fmt::Debug>(t: &T) -> Option<&dyn fmt::Debug> {
 }
 
 impl<Elem, P: SignalProvider<Item = Elem> + ?Sized> Signal<P> {
-    pub fn map<T: PartialEq>(
+    pub fn map<T: PartialEq + SignalDebug, F: Fn(&P::Item) -> T>(
         self,
-        f: impl Fn(&P::Item) -> T,
+        f: F,
     ) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, PartialEq::eq, never_debug)
     }
-    pub fn map_pred<T>(
+    pub fn map_pred<T: SignalDebug>(
         self,
         f: impl Fn(&P::Item) -> T,
         eq: impl Fn(&T, &T) -> bool,
     ) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, eq, never_debug)
     }
-    pub fn map_mut<T>(
+    pub fn map_mut<T: SignalDebug>(
         self,
         f: impl Fn(&P::Item, Option<T>) -> T,
     ) -> Signal<impl SignalProvider<Item = T>> {
         map_mut(f, self)
     }
-    pub fn map_ex<T>(self, f: impl Fn(&P::Item) -> T) -> Signal<impl SignalProvider<Item = T>> {
+    pub fn map_ex<T: SignalDebug>(
+        self,
+        f: impl Fn(&P::Item) -> T,
+    ) -> Signal<impl SignalProvider<Item = T>> {
         map(f, self, never_eq, never_debug)
     }
     pub fn map_debug<T: fmt::Debug>(
@@ -1151,14 +1287,12 @@ impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<
 
     #[inline]
     fn get_ref(&self) -> DynRef<'_, T> {
-        let test = self.res.get_or_init(
-            DynRef::Cell(Ref::map(self.innerprovider.borrow(), |x| {
-                x.as_ref().expect("Must be updated before getting value.")
-            }))
-            .into(),
-        );
+        let test = self.res.get_or_init(into_unsafe_ref(DynRef::Cell(Ref::map(
+            self.innerprovider.borrow(),
+            |x| x.as_ref().expect("Must be updated before getting value."),
+        ))));
 
-        DynRef::Flatten(self.res2.get_or_init(test.get_ref().into()))
+        DynRef::Flatten(self.res2.get_or_init(into_unsafe_ref(test.get_ref())))
     }
 }
 
@@ -1272,7 +1406,6 @@ where
         let node = new_node::<Self>(NodeColor::Changed);
         let list = inputs.into_tuple_list();
         list.add_dependency(node.clone());
-        verify_tree(&node);
         Self {
             inputs: list,
             node,
@@ -1426,7 +1559,7 @@ impl<T> Signal<MutableProvider<T, ()>> {
 }
 
 impl<P: SignalProvider + ?Sized> Signal<DeferProvider<P>> {
-    pub fn resolve(&self, target: Signal<P>) -> Result<(), Rc<P>> {
+    pub fn set(&self, target: Signal<P>) -> Result<(), Rc<P>> {
         self.0.provider.set(target.0.clone())
     }
 }
@@ -1446,7 +1579,6 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
     pub fn new(signal: Signal<Provider>) -> Self {
         let node = new_node::<Self>(NodeColor::Changed);
         add_dependency(signal.0.get_node(), node.clone());
-        verify_tree(&node);
         Sampler {
             node,
             provider: signal.0,
@@ -1638,7 +1770,6 @@ impl NotifySignal {
     pub fn new(callback: Option<Box<dyn Fn()>>) -> Self {
         let node = new_node::<Self>(NodeColor::Ready);
         node.0.borrow_mut().callback = callback;
-        verify_tree(&node);
 
         Self {
             node,
@@ -1689,7 +1820,7 @@ pub fn empty_signal() -> Signal<ConstProvider<()>> {
 pub fn zip_pair<
     T1,
     T2,
-    R,
+    R: SignalDebug,
     F: Fn(&P1::Item, &P2::Item) -> R,
     P1: SignalProvider<Item = T1> + ?Sized,
     P2: SignalProvider<Item = T2> + ?Sized,
@@ -1761,6 +1892,8 @@ pub struct AnimProvider<
     anim: Anim,
     time: Rc<Time>,
     input: Rc<Source>,
+    #[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+    debug_frame: backtrace::BacktraceFrame,
 }
 
 #[repr(transparent)]
@@ -1967,7 +2100,6 @@ pub fn animate<
     let node = new_node::<AnimProvider<T, Anim, S, Time>>(NodeColor::Changed);
     let input = p.0;
     add_dependency(input.get_node(), node.clone());
-    verify_tree(&node);
     Signal(Rc::new(AnimProvider {
         node,
         val: RefCell::new(None),
@@ -1975,6 +2107,7 @@ pub fn animate<
         anim: anim,
         time: time.0,
         input,
+        debug_frame: backtrace::Backtrace::new_unresolved().frames()[6].clone(),
     }))
 }
 
@@ -2080,6 +2213,7 @@ pub struct OpProvider<
     res: RefCell<Option<Output>>,
     node: SignalNodeId,
     phantom: PhantomData<(P1::Item, P2::Item, OP)>,
+    debug_frame: backtrace::BacktraceFrame,
 }
 
 impl<
@@ -2100,7 +2234,7 @@ impl<
 }
 
 impl<
-    Output,
+    Output: SignalDebug,
     P1: SignalProvider + ?Sized,
     P2: SignalProvider + ?Sized,
     OP: SignalOp<P1::Item, P2::Item, Output>,
@@ -2120,17 +2254,25 @@ where
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
-            _ => {
-                self.provider1.update_if_necessary();
-                self.provider2.update_if_necessary();
-            }
+            _ => rewrite_panic!(
+                self.debug_frame,
+                {
+                    self.provider1.update_if_necessary();
+                    self.provider2.update_if_necessary();
+                },
+                self.res.as_ptr()
+            ),
         }
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Changed => {
-                let res = OP::apply(
-                    self.provider1.get_ref().clone(),
-                    self.provider2.get_ref().clone(),
+                let res = rewrite_panic!(
+                    self.debug_frame,
+                    OP::apply(
+                        self.provider1.get_ref().clone(),
+                        self.provider2.get_ref().clone(),
+                    ),
+                    self.res.as_ptr()
                 );
 
                 *self.res.borrow_mut() = Some(res);
@@ -2153,7 +2295,7 @@ where
 fn operate<
     P1: SignalProvider + ?Sized,
     P2: SignalProvider + ?Sized,
-    Output,
+    Output: SignalDebug,
     OP: SignalOp<P1::Item, P2::Item, Output>,
 >(
     lhs: Signal<P1>,
@@ -2168,13 +2310,13 @@ where
     let provider2 = rhs.0;
     add_dependency(provider1.get_node(), node.clone());
     add_dependency(provider2.get_node(), node.clone());
-    verify_tree(&node);
     Signal(Rc::new(OpProvider {
         provider1,
         provider2,
         res: RefCell::new(None),
         node,
         phantom: PhantomData,
+        debug_frame: backtrace::Backtrace::new_unresolved().frames()[6].clone(),
     }))
 }
 
@@ -2185,7 +2327,7 @@ macro_rules! gen_binop_impl {
         where
             AP::Item: std::ops::$t<BP::Item> + Clone,
             BP::Item: Clone,
-            <AP::Item as std::ops::$t<BP::Item>>::Output: Clone,
+            <AP::Item as std::ops::$t<BP::Item>>::Output: Clone + SignalDebug,
         {
             type Output =
                 Signal<OpProvider<AP, BP, <AP::Item as std::ops::$t<BP::Item>>::Output, $marker>>;
@@ -2223,7 +2365,8 @@ macro_rules! gen_cmpop_impl {
     };
 }
 pub mod cmp {
-    use super::{Signal, SignalProvider, marker::*, operate};
+    use super::marker::*;
+    use super::{Signal, SignalProvider, operate};
 
     pub fn eq<AP: SignalProvider + ?Sized, BP: SignalProvider + ?Sized>(
         a: Signal<AP>,
@@ -2246,7 +2389,7 @@ pub mod cmp {
         b: Signal<AP>,
     ) -> Signal<impl SignalProvider<Item = AP::Item>>
     where
-        AP::Item: Clone + Ord,
+        AP::Item: Clone + Ord + super::SignalDebug,
     {
         operate::<AP, AP, AP::Item, MinOp>(a, b)
     }
@@ -2256,7 +2399,7 @@ pub mod cmp {
         b: Signal<AP>,
     ) -> Signal<impl SignalProvider<Item = AP::Item>>
     where
-        AP::Item: Clone + Ord,
+        AP::Item: Clone + Ord + super::SignalDebug,
     {
         operate::<AP, AP, AP::Item, MaxOp>(a, b)
     }
@@ -2274,7 +2417,7 @@ pub mod cmp {
 }
 
 impl<P: SignalProvider<Item = bool> + ?Sized> Signal<P> {
-    pub fn cond<T: Clone>(
+    pub fn cond<T: Clone + SignalDebug>(
         self,
         t: DynSignal<T>,
         f: DynSignal<T>,
@@ -2299,14 +2442,16 @@ pub struct VecMapProvider<
     Key: Eq + Hash,
     F: Fn(&T1) -> T2,
     Ex: Fn(&T1) -> Key,
-    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized,
+    P: SignalProvider<Item = Vector<T1, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
 > {
     provider: Rc<P>,
     map: RefCell<imbl::vector::PersistentMap<T1, T2, Key, Ptr, F, Ex, CHUNK_SIZE>>,
-    res: RefCell<GenericVector<T2, Ptr, CHUNK_SIZE>>,
+    res: RefCell<Vector<T2, Ptr, CHUNK_SIZE>>,
     node: SignalNodeId,
+    #[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+    debug_frame: backtrace::BacktraceFrame,
 }
 
 impl<
@@ -2315,7 +2460,7 @@ impl<
     Key: Eq + Hash + 'static,
     F: (Fn(&T1) -> T2) + 'static,
     Ex: (Fn(&T1) -> Key) + 'static,
-    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static + fmt::Debug,
+    P: SignalProvider<Item = Vector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static + fmt::Debug,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
 > fmt::Debug for VecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
@@ -2334,16 +2479,16 @@ fn assert_static<T: 'static>() {}
 
 impl<
     T1: Clone + 'static,
-    T2: Clone + 'static,
+    T2: Clone + 'static + SignalDebug,
     Key: Eq + Hash + 'static,
     F: (Fn(&T1) -> T2) + 'static,
     Ex: (Fn(&T1) -> Key) + 'static,
-    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
+    P: SignalProvider<Item = Vector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
 > SignalProvider for VecMapProvider<T1, T2, Key, F, Ex, P, Ptr, CHUNK_SIZE>
 {
-    type Item = GenericVector<T2, Ptr, CHUNK_SIZE>;
+    type Item = Vector<T2, Ptr, CHUNK_SIZE>;
 
     #[inline]
     fn get_node(&self) -> &SignalNodeId {
@@ -2356,13 +2501,21 @@ impl<
         match color {
             NodeColor::Ready => {}
             _ => {
-                self.provider.update_if_necessary();
+                rewrite_panic!(
+                    self.debug_frame,
+                    self.provider.update_if_necessary(),
+                    self.res.as_ptr()
+                );
             }
         }
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Changed => {
-                let res = self.map.borrow_mut().map(&self.provider.get_ref());
+                let res = rewrite_panic!(
+                    self.debug_frame,
+                    self.map.borrow_mut().map(&self.provider.get_ref()),
+                    self.res.as_ptr()
+                );
                 let changed = !self.res.borrow().ptr_eq(&res);
                 *self.res.borrow_mut() = res;
                 if changed {
@@ -2375,7 +2528,7 @@ impl<
     }
 
     #[inline]
-    fn get_ref(&self) -> DynRef<'_, GenericVector<T2, Ptr, CHUNK_SIZE>> {
+    fn get_ref(&self) -> DynRef<'_, Vector<T2, Ptr, CHUNK_SIZE>> {
         DynRef::Cell(self.res.borrow())
     }
 }
@@ -2384,12 +2537,12 @@ impl<
     T1: Clone + 'static,
     Ptr: imbl::shared_ptr::SharedPointerKind + 'static,
     const CHUNK_SIZE: usize,
-    P: SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
+    P: SignalProvider<Item = Vector<T1, Ptr, CHUNK_SIZE>> + ?Sized + 'static,
 > Signal<P>
 {
     /// Creates a new immutable vector by mapping all elements of this vector into new elements.
     pub fn map_elements<
-        T2: Clone + 'static,
+        T2: Clone + SignalDebug + 'static,
         Key: Eq + Hash + 'static,
         F: (Fn(&T1) -> T2) + 'static,
         Ex: (Fn(&T1) -> Key) + 'static,
@@ -2401,12 +2554,12 @@ impl<
         let node = new_node::<Self>(NodeColor::Changed);
         let provider = self.0;
         add_dependency(provider.get_node(), node.clone());
-        verify_tree(&node);
         Signal(Rc::new(VecMapProvider {
             provider,
             map: RefCell::new(imbl::vector::PersistentMap::new(f, ex)),
             res: Default::default(),
             node,
+            debug_frame: backtrace::Backtrace::new_unresolved().frames()[6].clone(),
         }))
     }
 
@@ -2414,16 +2567,19 @@ impl<
     /// the type of the vector
     pub fn map_modify(
         self,
-        f: impl Fn(&P::Item) -> GenericVector<T1, Ptr, CHUNK_SIZE>,
-    ) -> Signal<impl SignalProvider<Item = GenericVector<T1, Ptr, CHUNK_SIZE>>> {
-        map(f, self, GenericVector::ptr_eq, never_debug)
+        f: impl Fn(&P::Item) -> Vector<T1, Ptr, CHUNK_SIZE>,
+    ) -> Signal<impl SignalProvider<Item = Vector<T1, Ptr, CHUNK_SIZE>>>
+    where
+        T1: SignalDebug,
+    {
+        map(f, self, Vector::ptr_eq, never_debug)
     }
 }
 
 pub struct VecFoldProvider<
     T,
     F: FnMut(T, T) -> T,
-    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
+    P: SignalProvider<Item = Vector<T, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
 > {
@@ -2432,12 +2588,14 @@ pub struct VecFoldProvider<
     res: RefCell<T>,
     node: SignalNodeId,
     z: T,
+    #[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+    debug_frame: backtrace::BacktraceFrame,
 }
 
 impl<
     T: Clone + fmt::Debug,
     F: FnMut(T, T) -> T,
-    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized + fmt::Debug,
+    P: SignalProvider<Item = Vector<T, Ptr, CHUNK_SIZE>> + ?Sized + fmt::Debug,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
 > fmt::Debug for VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
@@ -2452,9 +2610,9 @@ impl<
 }
 
 impl<
-    T: Clone,
+    T: Clone + SignalDebug,
     F: FnMut(T, T) -> T,
-    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
+    P: SignalProvider<Item = Vector<T, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
 > SignalProvider for VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>
@@ -2471,13 +2629,21 @@ impl<
         match color {
             NodeColor::Ready => {}
             _ => {
-                self.provider.update_if_necessary();
+                rewrite_panic!(
+                    self.debug_frame,
+                    self.provider.update_if_necessary(),
+                    self.res.as_ptr()
+                );
             }
         }
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Changed => {
-                let res = self.fold.borrow_mut().fold(&self.provider.get_ref());
+                let res = rewrite_panic!(
+                    self.debug_frame,
+                    self.fold.borrow_mut().fold(&self.provider.get_ref()),
+                    self.res.as_ptr()
+                );
                 // We use unwrap_or_else here because None is a cold branch which avoids a clone() most of the time.
                 *self.res.borrow_mut() = res.unwrap_or_else(|| self.z.clone());
                 notify_children_change(&self.node);
@@ -2494,9 +2660,9 @@ impl<
 }
 
 pub fn fold_vec<
-    T: Clone,
+    T: Clone + SignalDebug,
     F: FnMut(T, T) -> T,
-    P: SignalProvider<Item = GenericVector<T, Ptr, CHUNK_SIZE>> + ?Sized,
+    P: SignalProvider<Item = Vector<T, Ptr, CHUNK_SIZE>> + ?Sized,
     Ptr: imbl::shared_ptr::SharedPointerKind,
     const CHUNK_SIZE: usize,
 >(
@@ -2507,13 +2673,13 @@ pub fn fold_vec<
     let node = new_node::<VecFoldProvider<T, F, P, Ptr, CHUNK_SIZE>>(NodeColor::Changed);
     let provider = p.0;
     add_dependency(provider.get_node(), node.clone());
-    verify_tree(&node);
     Signal(Rc::new(VecFoldProvider {
         provider,
         fold: RefCell::new(imbl::vector::PersistentFold::new(f)),
         res: RefCell::new(z.clone()),
         node,
         z,
+        debug_frame: backtrace::Backtrace::new_unresolved().frames()[6].clone(),
     }))
 }
 
@@ -2560,7 +2726,6 @@ impl<P: SignalProvider + ?Sized> SignalProvider for DeferProvider<P> {
 
 pub fn defer<T1, P: SignalProvider<Item = T1> + ?Sized>() -> Signal<DeferProvider<P>> {
     let node = new_node::<DeferProvider<P>>(NodeColor::Changed);
-    verify_tree(&node);
     Signal(Rc::new(DeferProvider {
         provider: OnceCell::new(),
         node,
@@ -2661,12 +2826,15 @@ fn trace_deps_node(
                 .debug
                 .replace("feather_ui::", "")
                 .replace("reactive::", "")
-                .replace("alloc::rc::", "");
+                .replace("alloc::rc::", "")
+                .replace("alloc::string::", "")
+                .replace("cosmic_text::buffer::", "")
+                .replace("dyn SignalProvider", "DynSignal");
         result.push(format!(
             "id{} [shape=box style=\"filled\" fillcolor=\"{}\" label=\"{}\"];",
             this,
             color,
-            truncate_str(&label, 32)
+            truncate_str(&label, 90)
         ));
     }
 
@@ -2703,7 +2871,106 @@ pub fn verify_tree(id: &SignalNodeId) {
     verify_subtree(id, color);
 }
 
+#[cfg(debug_assertions)]
 // Verifies the subtree of node dependencies
 pub fn verify_signal<P: SignalProvider + ?Sized>(id: &Signal<P>) {
     verify_tree(id.0.get_node());
+}
+
+#[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+pub(super) struct UnwindPayload {
+    frame: backtrace::BacktraceFrame,
+    inner: Box<dyn std::any::Any + Send + 'static>,
+    value: Option<*const dyn std::fmt::Debug>,
+}
+
+// We don't actually care about value being Send because we never attempt to actually recover from an UnwindPayload error.
+unsafe impl Send for UnwindPayload {}
+
+#[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+impl UnwindPayload {
+    fn backtrace_fmt(&self, f: &mut backtrace::BacktraceFmt) -> fmt::Result {
+        if let Some(inner) = self.inner.downcast_ref::<UnwindPayload>() {
+            inner.backtrace_fmt(f)?;
+        } else {
+            let msg = match self.inner.downcast_ref::<&'static str>() {
+                Some(s) => *s,
+                None => match self.inner.downcast_ref::<String>() {
+                    Some(s) => &s[..],
+                    None => "Opaque Inner Payload",
+                },
+            };
+            let thread = std::thread::current();
+            let name = thread.name().unwrap_or("<unnamed>");
+            writeln!(f.formatter(), "thread '{}' panicked, {}", name, msg)?;
+        }
+
+        if let Some(v) = self.value {
+            write!(f.formatter(), "  ")?;
+            unsafe { v.as_ref().unwrap().fmt(f.formatter())? };
+            writeln!(f.formatter(), "")?;
+        }
+
+        let mut frame = self.frame.clone();
+        frame.resolve();
+        f.frame().backtrace_frame(&frame)
+    }
+}
+
+fn output_filename(
+    fmt: &mut fmt::Formatter<'_>,
+    bows: BytesOrWideString<'_>,
+    print_fmt: backtrace::PrintFmt,
+    cwd: Option<&std::path::PathBuf>,
+) -> fmt::Result {
+    let file: std::borrow::Cow<'_, Path> = match bows {
+        #[cfg(unix)]
+        BytesOrWideString::Bytes(bytes) => {
+            use crate::os::unix::prelude::*;
+            Path::new(crate::ffi::OsStr::from_bytes(bytes)).into()
+        }
+        #[cfg(not(unix))]
+        BytesOrWideString::Bytes(bytes) => {
+            Path::new(std::str::from_utf8(bytes).unwrap_or("<unknown>")).into()
+        }
+        #[cfg(windows)]
+        BytesOrWideString::Wide(wide) => {
+            use std::borrow::Cow;
+            use std::os::windows::prelude::*;
+            Cow::Owned(std::ffi::OsString::from_wide(wide).into())
+        }
+        #[cfg(not(windows))]
+        BytesOrWideString::Wide(_wide) => Path::new("<unknown>").into(),
+    };
+    if print_fmt == backtrace::PrintFmt::Short && file.is_absolute() {
+        if let Some(cwd) = cwd {
+            if let Ok(stripped) = file.strip_prefix(&cwd) {
+                if let Some(s) = stripped.to_str() {
+                    return write!(fmt, ".{}{s}", std::path::MAIN_SEPARATOR);
+                }
+            }
+        }
+    }
+    fmt::Display::fmt(&file.display(), fmt)
+}
+
+#[cfg(any(debug_assertions, feature = "signal-backtrace"))]
+impl std::fmt::Display for UnwindPayload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let style = if f.alternate() {
+            backtrace::PrintFmt::Full
+        } else {
+            backtrace::PrintFmt::Short
+        };
+
+        let cwd = std::env::current_dir();
+        let mut print_path = move |fmt: &mut fmt::Formatter<'_>, path: BytesOrWideString<'_>| {
+            output_filename(fmt, path, style, cwd.as_ref().ok())
+        };
+
+        let mut f = backtrace::BacktraceFmt::new(f, style, &mut print_path);
+        f.add_context()?;
+        self.backtrace_fmt(&mut f)?;
+        f.finish()
+    }
 }

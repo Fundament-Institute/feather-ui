@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::{
-    PxPoint,
-    color::sRGB,
-    reactive::{DynSignal, sample},
-};
+use crate::PxPoint;
+use crate::color::sRGB;
+use crate::reactive::{DynSignal, sample};
 
-use super::compositor::CompositorView;
-use super::compositor::Data;
+use super::compositor::{CompositorView, Data};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Instance {
     values: DynSignal<Data>,
 }

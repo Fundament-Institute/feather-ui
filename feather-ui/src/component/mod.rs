@@ -85,7 +85,7 @@ impl<T: Component> ComponentMarker for T {}
 
 pub type ChildOf<D> = dyn DynComponent<<D as Desc>::Child>;
 
-pub trait DynComponent<T: ?Sized> {
+pub trait DynComponent<T: ?Sized>: crate::reactive::SignalDebug {
     fn layout(
         &self,
         driver: &Arc<graphics::Driver>,
@@ -93,10 +93,11 @@ pub trait DynComponent<T: ?Sized> {
     ) -> Rc<dyn DynLayout<T>>;
 }
 
-impl<U: ?Sized, C: Component> DynComponent<U> for C
+impl<U: ?Sized, C: Component + crate::reactive::SignalDebug> DynComponent<U> for C
 where
     for<'a> &'a U: From<&'a <C as Component>::Props>,
     <C as Component>::Props: Sized + 'static,
+    <<C as Component>::R as Layout>::Staging: Clone,
 {
     fn layout(
         &self,
@@ -107,10 +108,12 @@ where
     }
 }
 
-impl<T: Component + 'static, U> From<Box<T>> for Box<dyn DynComponent<U>>
+impl<T: Component + 'static + crate::reactive::SignalDebug, U> From<Box<T>>
+    for Box<dyn DynComponent<U>>
 where
     for<'a> &'a U: std::convert::From<&'a <T as Component>::Props>,
     <T as Component>::Props: Sized,
+    <<T as Component>::R as Layout>::Staging: Clone,
 {
     fn from(value: Box<T>) -> Self {
         value
@@ -127,7 +130,7 @@ where
     }
 }*/
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UI {
     //children: imbl::Vector<Rc<dyn DynComponent<dyn root::Prop>>>,
     pub children: crate::DynSignal<imbl::Vector<Rc<Window>>>,

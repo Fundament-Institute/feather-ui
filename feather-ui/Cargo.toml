@@ -58,6 +58,8 @@ tga = ["dep:image", "image/tga", "fast_image_resize/image"]
 tiff = ["dep:image", "image/tiff", "fast_image_resize/image"]
 webp = ["dep:image", "image/webp", "fast_image_resize/image"]
 jxl = ["dep:jxl-oxide", "lcms2/static", "fast_image_resize/image"]
+signal-backtrace = []
+signal-debug = []
 
 [dependencies]
 imbl.workspace = true
@@ -116,6 +118,7 @@ tuple_list = "0.1.3"
 superslice = "1.0.0"
 small-map = "0.1.5"
 rapidhash = "4.4.0"
+backtrace = "0.3.76"
 
 [dev-dependencies]
 fastrand = "2"

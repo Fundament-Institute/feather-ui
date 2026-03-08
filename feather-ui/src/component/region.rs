@@ -16,6 +16,17 @@ pub struct Region<T> {
     children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>,
 }
 
+#[cfg(feature = "signal-debug")]
+impl<T: std::fmt::Debug> std::fmt::Debug for Region<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Region")
+            .field("layer", &self.layer)
+            .field("props", &self.props)
+            .field("children", &self.children)
+            .finish()
+    }
+}
+
 impl<T: fixed::Prop + 'static> Region<T> {
     pub fn new(props: T, children: DynSignal<imbl::Vector<Rc<ChildOf<dyn fixed::Prop>>>>) -> Self {
         Self {
@@ -39,7 +50,7 @@ impl<T: fixed::Prop + 'static> Region<T> {
     }
 }
 
-impl<T: fixed::Prop + 'static> super::Component for Region<T>
+impl<T: fixed::Prop + crate::reactive::SignalDebug + 'static> super::Component for Region<T>
 where
     for<'a> &'a T: Into<&'a (dyn fixed::Prop + 'static)>,
 {

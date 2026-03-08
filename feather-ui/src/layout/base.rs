@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
-use crate::{
-    DAbsRect, DPoint, DRect, ZERO_DRECT,
-    reactive::{ConstSignal, DynSignal, MutableSignal, SignalZip, ToSignal},
-};
+use crate::reactive::{ConstSignal, DynSignal, MutableSignal, SignalZip, ToSignal, zip_pair};
+use crate::{DPerimeter, DPoint, DRect, Limited, PxRect, UPerimeter, Unsizable, ZERO_DRECT};
 use std::rc::Rc;
 
 #[macro_export]
@@ -37,46 +35,60 @@ impl crate::layout::Desc for dyn Empty {
     type Props = dyn Empty;
     type Child = dyn Empty;
     type Children = ();
-    type Provider = dyn crate::reactive::SignalProvider<Item = (crate::PxRect, crate::RelDim)>;
+    type Provider = dyn crate::reactive::SignalProvider<Item = (PxRect, crate::RelDim)>;
+    type Staging = MutableSignal<crate::RelDim>;
 
-    fn stage<'a, T: crate::render::Prerender + 'static>(
+    fn presize(
         _: &Self::Props,
-        _: DynSignal<crate::PxLimits>,
-        _: DynSignal<Self::Children>,
-        renderable: Option<T>,
         dpi: MutableSignal<crate::RelDim>,
-        defer: Option<super::DeferMachine<Self::Provider>>,
-    ) -> (DynSignal<crate::PxRect>, super::StageThunk<'a>) {
-        (
-            crate::reactive::const_default().into(),
-            Box::new(move |offset, final_dim, final_limits| {
-                let final_area = (offset, final_dim, final_limits)
-                    .zip()
-                    .flatmap(|(o, dim, limits)| {
-                        super::limit_area(crate::Rect::offsetdim(*o, *dim), *limits)
-                    })
-                    .into_dyn();
+        _: DynSignal<Self::Children>,
+    ) -> (DynSignal<PxRect>, Self::Staging) {
+        (crate::reactive::const_default().into(), dpi)
+    }
 
-                super::resolve_defer_machine(
-                    crate::rtree::Node::new(
-                        final_area.clone(),
-                        None,
-                        None,
-                        Some(Box::new(crate::layout::Concrete::new(
-                            renderable.as_ref(),
-                            final_area.clone(),
-                        ))),
-                    ),
-                    &defer,
-                    (final_area, dpi.clone()).zip().value().into_dyn(),
-                )
-            }),
+    fn size(
+        _: &Self::Props,
+        dim: DynSignal<crate::UnsizedDim>,
+        limits: DynSignal<crate::PxLimits>,
+        data: Self::Staging,
+    ) -> (DynSignal<PxRect>, Self::Staging) {
+        (
+            zip_pair(dim, limits, |dim, limits| {
+                PxRect::from(dim.limit(*limits).zero_unsized())
+            })
+            .into_dyn(),
+            data,
+        )
+    }
+
+    fn stage<T: crate::render::Prerender + 'static>(
+        _: &Self::Props,
+        offset: DynSignal<crate::PxPoint>,
+        area: DynSignal<PxRect>,
+        renderable: Option<T>,
+        defer: Option<super::DeferMachine<Self::Provider>>,
+        data: Self::Staging,
+    ) -> Rc<crate::rtree::Node> {
+        let final_area = (area + offset).into_dyn();
+
+        super::resolve_defer_machine(
+            crate::rtree::Node::new(
+                final_area.clone(),
+                None,
+                None,
+                Some(Box::new(crate::layout::Concrete::new(
+                    renderable.as_ref(),
+                    final_area.clone(),
+                ))),
+            ),
+            &defer,
+            (final_area, data).zip().value().into_dyn(),
         )
     }
 }
 
 pub trait Obstacles {
-    fn obstacles(&self) -> DynSignal<&[DAbsRect]>;
+    fn obstacles(&self) -> DynSignal<&[UPerimeter]>;
 }
 
 pub trait ZIndex {
@@ -90,8 +102,8 @@ impl ZIndex for DRect {}
 // Padding is used so an element's actual area can be larger than the area it
 // draws children inside (like text).
 pub trait Padding {
-    fn padding(&self) -> DynSignal<DAbsRect> {
-        ConstSignal::new(crate::ZERO_DABSRECT).into()
+    fn padding(&self) -> DynSignal<UPerimeter> {
+        ConstSignal::new(crate::ZERO_PERIMETER).into()
     }
 }
 
@@ -100,8 +112,8 @@ impl Padding for DRect {}
 // Relative to parent's area, but only ever used to determine spacing between
 // child elements.
 pub trait Margin {
-    fn margin(&self) -> DynSignal<DRect> {
-        ConstSignal::new(ZERO_DRECT).into()
+    fn margin(&self) -> DynSignal<DPerimeter> {
+        ConstSignal::new(crate::ZERO_DPERIMETER).into()
     }
 }
 

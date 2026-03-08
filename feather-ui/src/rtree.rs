@@ -30,6 +30,28 @@ pub struct Node {
     pub callback: RefCell<Option<BoxedCallback<RawEvent>>>,
 }
 
+impl std::fmt::Debug for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut dbg = f.debug_struct("Node");
+
+        dbg.field("area", &self.area)
+            .field("extent", &self.extent)
+            .field("top", &self.top)
+            .field("depth", &self.depth)
+            .field("mask", &self.mask)
+            .field("children", &self.children);
+
+        if let Some(staged) = &self.staged {
+            let ptr = staged.as_ref() as *const dyn Staged;
+            dbg.field("staged", &Some(ptr));
+        } else {
+            dbg.field("staged", &Option::<*const dyn Staged>::None);
+        };
+
+        dbg.field("callback", &self.callback).finish()
+    }
+}
+
 // A tuple like this is necessary to build a chain of parent nodes down the
 // recursive process call, but we currently don't need it. This is left here as
 // reference.

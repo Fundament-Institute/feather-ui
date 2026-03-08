@@ -356,10 +356,7 @@ impl Desc for dyn Prop {
                 grow: imposed.grow(),
                 shrink: imposed.shrink(),
                 aux,
-                margin: imposed
-                    .margin()
-                    .resolve(window.dpi)
-                    .to_perimeter(outer_safe),
+                margin: imposed.margin().resolve(window.dpi).resolve(outer_safe),
                 limits: child_limit,
             };
             if cache.basis == UNSIZED_AXIS {

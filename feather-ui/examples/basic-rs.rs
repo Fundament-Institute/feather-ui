@@ -13,17 +13,18 @@ use feather_ui::component::window::Window;
 use feather_ui::event::{CONSUME, EventRes, EventStream, EventStreamPrism};
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::{
-    AbsRect, App, DAbsPoint, DAbsRect, DPoint, DRect, PxRect, RelRect, UNSIZED_AXIS, winit,
+    AbsPerimeter, AbsRect, App, DPoint, DRect, DSize, PxRect, RelRect, UNSIZED_AXIS, UPerimeter,
+    winit,
 };
 use std::rc::Rc;
 
-#[derive(Default, Empty, Area, Anchor, ZIndex, Limits, RLimits, Padding)]
+#[derive(Default, Debug, Empty, Area, Anchor, ZIndex, Limits, RLimits, Padding)]
 struct FixedData {
     area: DynSignal<DRect>,
     anchor: DynSignal<DPoint>,
     limits: DynSignal<feather_ui::DLimits>,
     rlimits: DynSignal<feather_ui::RelLimits>,
-    padding: DynSignal<DAbsRect>,
+    padding: DynSignal<UPerimeter>,
     zindex: DynSignal<i32>,
 }
 
@@ -77,12 +78,13 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
         Button::<FixedData>::new(
             FixedData {
                 area: const_new(
-                    AbsRect::new(45.0, 45.0, 0.0, 0.0) + RelRect::new(0.0, 0.0, UNSIZED_AXIS, 1.0),
+                    AbsRect::new(45.0, 45.0, 0.0, 0.0)
+                        + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
                 )
                 .into(),
                 ..Default::default()
             },
-            const_new(f32::INFINITY),
+            const_new(0.0),
             const_new(feather_ui::children![fixed::Prop, rect, text]).into(),
         )
     };
@@ -94,7 +96,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
                 limits: const_new(feather_ui::AbsLimits::new(.., 10.0..200.0).into()).into(),
                 rlimits: const_new(feather_ui::RelLimits::new(..1.0, ..)).into(),
                 anchor: const_new(feather_ui::RelPoint::new(0.5, 0.0).into()).into(),
-                padding: const_new(AbsRect::new(8.0, 8.0, 8.0, 8.0).into()).into(),
+                padding: const_new(AbsPerimeter::new(8.0, 8.0, 8.0, 8.0).into()).into(),
                 ..Default::default()
             }),
             text: app
@@ -137,11 +139,19 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
 
     let count = app.count.clone();
 
-    evt.prism().OnClick.subscribe(move |_| -> EventRes {
+    let prism = evt.prism();
+    prism.OnClick.subscribe(move |_| -> EventRes {
         {
-            println!("{}", feather_ui::reactive::trace_deps(count.clone()));
             *count.borrow_mut() += 1;
+            CONSUME
+        }
+    });
 
+    let count = app.count.clone();
+
+    prism.OnDrag.subscribe(move |_| -> EventRes {
+        {
+            *count.borrow_mut() += 1;
             CONSUME
         }
     });
@@ -153,7 +163,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
         const_new(wide::f32x4::zeroed()).into(),
         const_new(sRGB::new(1.0, 1.0, 1.0, 0.5)).into(),
         const_new(sRGB::transparent()).into(),
-        const_new(DAbsPoint::zero()).into(),
+        const_new(DSize::zero()).into(),
     );
 
     let region = Region::new(
@@ -165,7 +175,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
             zindex: const_new(0).into(),
             ..Default::default()
         },
-        const_new(feather_ui::children![fixed::Prop, button]).into_dyn(),
+        const_new(feather_ui::children![fixed::Prop, pixel, block, button]).into_dyn(),
     );
     let window = Window::new(
         winit::window::Window::default_attributes()
@@ -182,7 +192,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
 fn main() {
     let (mut app, event_loop) = App::<BasicApp, ()>::new(
         const_new(BasicApp {
-            count: MutableSignal::new(3),
+            count: MutableSignal::new(9),
         })
         .into_dyn(),
         basic_app_ui,

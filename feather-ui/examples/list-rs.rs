@@ -15,8 +15,8 @@ use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, flex, leaf, list};
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsRect, App, DAbsPoint, DRect, DValue, FILL_DRECT, InputResult, RelRect, ScopeID, Slot,
-    SourceID, UNSIZED_AXIS, gen_id, im,
+    AbsRect, App, DRect, DSize, DValue, FILL_DRECT, InputResult, RelRect, ScopeID, Slot, SourceID,
+    UNSIZED_AXIS, gen_id, im,
 };
 use std::sync::Arc;
 
@@ -93,7 +93,7 @@ struct MinimalFlex {
 }
 
 impl base::Obstacles for MinimalFlex {
-    fn obstacles(&self) -> &[feather_ui::DAbsRect] {
+    fn obstacles(&self) -> &[feather_ui::UPerimeter] {
         &[]
     }
 }
@@ -162,7 +162,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<
                     wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
-                    DAbsPoint::zero(),
+                    DSize::zero(),
                 );
 
                 Button::<FixedData>::new(
@@ -200,7 +200,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<
                                 1.0,
                             ),
                             sRGB::transparent(),
-                            DAbsPoint::zero(),
+                            DSize::zero(),
                         ),
                     ));
                 }
@@ -243,7 +243,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<
                             1.0,
                         ),
                         sRGB::transparent(),
-                        DAbsPoint::zero(),
+                        DSize::zero(),
                     );
 
                     // We include a "useless" region around the rectangle because this catches some

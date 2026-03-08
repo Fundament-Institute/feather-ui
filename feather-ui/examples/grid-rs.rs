@@ -14,8 +14,8 @@ use feather_ui::component::{ChildOf, mouse_area};
 use feather_ui::layout::{base, fixed, grid, leaf};
 use feather_ui::persist::{FnPersist2, FnPersistStore};
 use feather_ui::{
-    AbsPoint, AbsRect, App, DAbsPoint, DAbsRect, DRect, DValue, FILL_DRECT, InputResult, RelRect,
-    ScopeID, Slot, SourceID, UNSIZED_AXIS,
+    AbsPoint, AbsRect, App, DRect, DSize, DValue, FILL_DRECT, InputResult, RelRect, ScopeID, Slot,
+    SourceID, UNSIZED_AXIS, UPerimeter,
 };
 use std::sync::Arc;
 
@@ -47,7 +47,7 @@ struct GridData {
     rows: Vec<DValue>,
     columns: Vec<DValue>,
     spacing: feather_ui::DPoint,
-    padding: DAbsRect,
+    padding: UPerimeter,
 }
 
 impl base::Anchor for GridData {}
@@ -139,7 +139,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<
                     wide::f32x4::splat(10.0),
                     sRGB::new(0.2, 0.7, 0.4, 1.0),
                     sRGB::transparent(),
-                    DAbsPoint::zero(),
+                    DSize::zero(),
                 );
 
                 Button::<FixedData>::new(
@@ -180,7 +180,7 @@ impl FnPersist2<&CounterState, ScopeID<'_>, imbl::HashMap<Arc<SourceID>, Option<
                                 1.0,
                             ),
                             sRGB::transparent(),
-                            DAbsPoint::zero(),
+                            DSize::zero(),
                         )));
                     }
                 }

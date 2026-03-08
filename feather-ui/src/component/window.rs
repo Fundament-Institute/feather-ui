@@ -4,8 +4,7 @@
 use crate::component::{ChildOf, DynComponent};
 use crate::input::{ModifierKeys, MouseState, RawEvent};
 use crate::layout::root;
-use crate::reactive::DynSignal;
-use crate::reactive::{MutableSignal, sample, sample_val};
+use crate::reactive::{DynSignal, MutableSignal, sample, sample_val};
 use crate::render::compositor::Compositor;
 use crate::rtree::Node;
 use crate::{PxPoint, PxVector, RelDim, RelVector, graphics, layout, rtree};
@@ -222,6 +221,7 @@ impl WindowState {
 /// phase, because this is needed to acquire window-specific information that
 /// depends on which monitor the OS thinks the window belongs to, like DPI
 /// or orientation.
+#[derive(Clone)]
 pub struct Window {
     pub attributes: MutableSignal<WindowAttributes>,
     pub child: MutableSignal<Arc<ChildOf<dyn root::Prop>>>,
@@ -239,7 +239,12 @@ impl Window {
     pub(crate) fn layout(
         &self,
         state: &WindowState,
-    ) -> Box<dyn crate::layout::Layout<Props = DynSignal<Size2D<u32, crate::Pixel>>>> {
+    ) -> Box<
+        dyn crate::layout::Layout<
+                Props = DynSignal<Size2D<u32, crate::Pixel>>,
+                Staging = <dyn root::Prop as crate::layout::Desc>::Staging,
+            >,
+    > {
         let driver = Arc::downgrade(&state.driver);
         let size = state.surface_dim.clone();
         let dpi = state.dpi.clone();

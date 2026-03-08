@@ -35,6 +35,20 @@ pub struct PreInstance<
 impl<
     P1: SignalProvider<Item = cosmic_text::Buffer> + ?Sized + 'static,
     P2: SignalProvider<Item = crate::PxPerimeter> + ?Sized + 'static,
+> std::fmt::Debug for PreInstance<P1, P2>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PreInstance")
+            .field("text_buffer", &self.text_buffer)
+            .field("padding", &self.padding)
+            .field("driver", &self.driver)
+            .finish()
+    }
+}
+
+impl<
+    P1: SignalProvider<Item = cosmic_text::Buffer> + ?Sized + 'static,
+    P2: SignalProvider<Item = crate::PxPerimeter> + ?Sized + 'static,
 > crate::render::Prerender for PreInstance<P1, P2>
 {
     type R = Instance;
@@ -63,6 +77,7 @@ impl<
     }
 }
 
+#[derive(Debug)]
 pub struct Instance {
     pub cliprect: MutableSignal<PxRect>, // Holds the last known clipping rect
     pub values: DynSignal<Result<Vec<super::compositor::Data>, RenderError>>,

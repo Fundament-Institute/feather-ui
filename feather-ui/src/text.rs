@@ -328,20 +328,44 @@ pub fn copy_buffer(
 
     dest.lines.truncate(src.lines.len());
 
+    let font_size = dest.metrics().font_size;
+    let width_opt = dest.size().0;
+    let wrap = dest.wrap();
+    let monospace = dest.monospace_width();
+    let tab_width = dest.tab_width();
+
     for i in 0..dest.lines.len() {
-        dest.lines[i].set_text(
+        if dest.lines[i].set_text(
             src.lines[i].text(),
             src.lines[i].ending(),
             src.lines[i].attrs_list().clone(),
-        );
+        ) {
+            dest.lines[i].layout(
+                font_system,
+                font_size,
+                width_opt,
+                wrap,
+                monospace,
+                tab_width,
+            );
+        }
     }
 
     for i in dest.lines.len()..src.lines.len() {
-        dest.lines.push(cosmic_text::BufferLine::new(
+        let mut line = cosmic_text::BufferLine::new(
             src.lines[i].text(),
             src.lines[i].ending(),
             src.lines[i].attrs_list().clone(),
             cosmic_text::Shaping::Advanced,
-        ));
+        );
+        line.layout(
+            font_system,
+            font_size,
+            width_opt,
+            wrap,
+            monospace,
+            tab_width,
+        );
+        dest.lines.push(line);
     }
 }

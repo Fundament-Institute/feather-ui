@@ -21,7 +21,7 @@ use crate::layout::{fixed, flex, grid, list};
 use crate::persist::FnPersistStore;
 use crate::propbag::PropBag;
 use crate::{
-    APP_SOURCE_ID, AccessCell, DAbsPoint, DAbsRect, DPoint, DRect, DValue, DataID, FnPersist2,
+    APP_SOURCE_ID, AccessCell, DAbsRect, DPoint, DRect, DSize, DValue, DataID, FnPersist2,
     InputResult, Logical, Pixel, Rect, Relative, ScopeID, Slot, SourceID, UNSIZED_AXIS,
 };
 use guillotiere::euclid::Point2D;
@@ -458,7 +458,7 @@ impl FromLua for DRect {
     }
 }
 
-impl FromLua for DAbsPoint {
+impl FromLua for DSize {
     fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         let v = value.as_table().ok_or(LuaError::RuntimeError(format!(
             "Expected a point, but found {}",
@@ -468,13 +468,13 @@ impl FromLua for DAbsPoint {
         if name == "value_mt" {
             if v.contains_key("rel")? {
                 return Err(LuaError::RuntimeError(
-                    "DAbsPoint cannot have a relative component!".to_string(),
+                    "DSize cannot have a relative component!".to_string(),
                 ));
             }
             let v = DValue::from_lua(value, lua)?;
             let px = Point2D::splat(v.px);
             let dp = Point2D::splat(v.dp);
-            Ok(DAbsPoint { dp, px })
+            Ok(DSize { dp, px })
         } else if name == "pxpoint_mt" {
             Ok(LuaPoint::<Pixel>::from_lua(value, lua)?.0.into())
         } else if name == "abspoint_mt" {
@@ -484,10 +484,10 @@ impl FromLua for DAbsPoint {
             let dp = get_or_default::<LuaPoint<Logical>>(v, "dp")?.0;
             if v.contains_key("rel")? {
                 return Err(LuaError::RuntimeError(
-                    "DAbsPoint cannot have a relative component!".to_string(),
+                    "DSize cannot have a relative component!".to_string(),
                 ));
             }
-            Ok(DAbsPoint { dp, px })
+            Ok(DSize { dp, px })
         } else {
             Err(LuaError::RuntimeError(format!(
                 "Expected either an abs or a px point, but found {name}",
@@ -1072,7 +1072,7 @@ fn create_image(_: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compo
 
     let mut args = HashSet::from_iter(["props"]);
     let resource: String = get_arg_required(&mut args, &body, "resource")?;
-    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
+    let size: DSize = get_arg_default(&mut args, &body, "size")?;
     let dynamic: bool = get_arg_default(&mut args, &body, "dynamic")?;
     check_args("image", body, args)?;
 
@@ -1180,7 +1180,7 @@ fn create_round_rect(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResul
     let fill = get_arg_default(&mut args, &body, "fill")?;
     let outline = get_arg_default(&mut args, &body, "outline")?;
     let corners = get_array_arg(&mut args, lua, &body, "corners", [0.0; 4])?;
-    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
+    let size: DSize = get_arg_default(&mut args, &body, "size")?;
     check_args("round_rect", body, args)?;
 
     Ok(Box::new(shape::round_rect(
@@ -1205,7 +1205,7 @@ fn create_arc(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Compo
     let outline = get_arg_default(&mut args, &body, "outline")?;
     let angles = get_array_arg(&mut args, lua, &body, "angles", [0.0; 2])?;
     let inner_radius = get_arg_default(&mut args, &body, "innerRadius")?;
-    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
+    let size: DSize = get_arg_default(&mut args, &body, "size")?;
     check_args("arc", body, args)?;
 
     Ok(Box::new(shape::arcs(
@@ -1231,7 +1231,7 @@ fn create_triangle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<
     let outline = get_arg_default(&mut args, &body, "outline")?;
     let corners = get_array_arg(&mut args, lua, &body, "corners", [0.0; 3])?;
     let offset = get_arg_default(&mut args, &body, "offset")?;
-    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
+    let size: DSize = get_arg_default(&mut args, &body, "size")?;
     check_args("triangle", body, args)?;
 
     Ok(Box::new(shape::triangle(
@@ -1248,7 +1248,7 @@ fn create_circle(lua: &Lua, (id, body): (LuaSourceID, LuaTable)) -> LuaResult<Co
     let fill = get_arg_default(&mut args, &body, "fill")?;
     let outline = get_arg_default(&mut args, &body, "outline")?;
     let radii = get_array_arg(&mut args, lua, &body, "radii", [0.0; 2])?;
-    let size: DAbsPoint = get_arg_default(&mut args, &body, "size")?;
+    let size: DSize = get_arg_default(&mut args, &body, "size")?;
     check_args("circle", body, args)?;
 
     Ok(Box::new(shape::circle(
