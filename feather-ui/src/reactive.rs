@@ -62,6 +62,9 @@ macro_rules! rewrite_panic {
     ($frame:expr, $e:expr) => {
         $e
     };
+    ($frame:expr, $e:expr, $old:expr) => {
+        $e
+    };
 }
 
 #[cfg(feature = "signal-debug")]
@@ -335,7 +338,7 @@ pub trait SignalProvider {
 
     fn get_node(&self) -> &SignalNodeId;
     fn get_ref(&self) -> DynRef<'_, Self::Item>;
-    fn update_if_necessary(&self);
+    fn update(&self);
 }
 
 //This wrapper type is required to make the trait resolution allow any constant to be used as a signal with AsSignal, which in addition to being a nice convenience feature is necessary for the idiom macro to work
@@ -452,7 +455,7 @@ pub fn const_default<T: Default>() -> ConstSignal<T> {
 impl<T> SignalProvider for ConstProvider<T> {
     type Item = T;
 
-    fn update_if_necessary(&self) {}
+    fn update(&self) {}
 
     #[inline]
     fn get_node(&self) -> &SignalNodeId {
@@ -506,7 +509,7 @@ where
 {
     type RefResult: TupleList;
 
-    fn update_if_necessary(&self);
+    fn update(&self);
     fn build_ref(&self) -> Self::RefResult;
     fn add_dependency(&self, node: SignalNodeId);
 }
@@ -514,7 +517,7 @@ where
 impl ProviderTupleList for () {
     type RefResult = ();
 
-    fn update_if_necessary(&self) {}
+    fn update(&self) {}
     fn build_ref(&self) -> Self::RefResult {
         ()
     }
@@ -529,9 +532,9 @@ where
 {
     type RefResult = (UnsafeRef<Head::Item>, Tail::RefResult);
 
-    fn update_if_necessary(&self) {
-        self.0.update_if_necessary();
-        self.1.update_if_necessary();
+    fn update(&self) {
+        self.0.update();
+        self.1.update();
     }
     fn build_ref(&self) -> Self::RefResult {
         (into_unsafe_ref(self.0.get_ref()), self.1.build_ref())
@@ -564,10 +567,10 @@ impl<PList: ProviderTupleList> SignalProvider for ZipProvider<PList> {
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         if color != NodeColor::Ready {
-            self.providers.update_if_necessary();
+            self.providers.update();
         }
         let color = self.node.0.borrow().color;
         if color == NodeColor::Changed {
@@ -733,10 +736,10 @@ where
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         if color != NodeColor::Ready {
-            self.provider.update_if_necessary();
+            self.provider.update();
         }
         let color = self.node.0.borrow().color;
         match color {
@@ -802,10 +805,10 @@ where
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         if color != NodeColor::Ready {
-            self.providers.update_if_necessary();
+            self.providers.update();
         }
         let color = self.node.0.borrow().color;
         match color {
@@ -991,16 +994,12 @@ impl<
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
             _ => {
-                rewrite_panic!(
-                    self.debug_frame,
-                    self.provider.update_if_necessary(),
-                    self.res.as_ptr()
-                );
+                rewrite_panic!(self.debug_frame, self.provider.update(), self.res.as_ptr());
             }
         }
         let color = self.node.0.borrow().color;
@@ -1097,16 +1096,12 @@ impl<P: SignalProvider + ?Sized, T2: SignalDebug, F: Fn(&P::Item, Option<T2>) ->
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
             _ => {
-                rewrite_panic!(
-                    self.debug_frame,
-                    self.provider.update_if_necessary(),
-                    self.res.as_ptr()
-                );
+                rewrite_panic!(self.debug_frame, self.provider.update(), self.res.as_ptr());
             }
         }
         let color = self.node.0.borrow().color;
@@ -1239,12 +1234,12 @@ impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
             _ => {
-                self.provider.update_if_necessary();
+                self.provider.update();
                 let color = self.node.0.borrow().color;
                 match color {
                     NodeColor::Changed => {
@@ -1272,7 +1267,7 @@ impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<
                     }
                     _ => {}
                 }
-                self.provider.get_ref().0.update_if_necessary();
+                self.provider.get_ref().0.update();
                 let color = self.node.0.borrow().color;
                 match color {
                     NodeColor::Changed => {
@@ -1434,7 +1429,7 @@ where
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         self.inputs
             .update_check(&mut self.val.borrow_mut(), self.node.clone());
         let color = self.node.0.borrow().color;
@@ -1495,23 +1490,23 @@ impl<T: Default + 'static> Default for Signal<dyn SignalProvider<Item = T>> {
 impl<MutProvider: SignalProviderMut + ?Sized> Signal<MutProvider> {
     // Instead of using `borrow` most things should use map() or sample()
     /*pub fn borrow(&self) -> Ref<'_, T> {
-        self.0.update_if_necessary();
+        self.0.update();
         self.0.val.borrow()
     }*/
     #[inline]
     pub fn borrow_mut(&self) -> SignalRefMut<'_, MutProvider> {
-        self.0.update_if_necessary();
+        self.0.update();
         SignalRefMut(self.0.refcell().borrow_mut(), self.0.clone())
     }
     /*pub fn try_borrow(&self) -> Result<Ref<'_, T>, std::cell::BorrowError> {
-        self.0.update_if_necessary();
+        self.0.update();
         self.0.val.try_borrow()
     }*/
     #[inline]
     pub fn try_borrow_mut(
         &self,
     ) -> Result<SignalRefMut<'_, MutProvider>, std::cell::BorrowMutError> {
-        self.0.update_if_necessary();
+        self.0.update();
         self.0
             .refcell()
             .try_borrow_mut()
@@ -1600,7 +1595,7 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
                 }
             }
             _ => {
-                self.provider.update_if_necessary();
+                self.provider.update();
                 let color = self.node.0.borrow().color;
                 match color {
                     NodeColor::Changed => {
@@ -1622,7 +1617,7 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
         match color {
             NodeColor::Ready => None,
             _ => {
-                self.provider.update_if_necessary();
+                self.provider.update();
                 let color = self.node.0.borrow().color;
                 match color {
                     NodeColor::Changed => {
@@ -1641,7 +1636,7 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
 
     /// This is an unconditional sample()
     pub fn inspect(&mut self) -> DynRef<'_, Provider::Item> {
-        self.provider.update_if_necessary();
+        self.provider.update();
         self.provider.get_ref()
     }
 
@@ -1688,7 +1683,7 @@ impl<T, F: Fn() -> T> SignalProvider for DynamicSignalProvider<T, F> {
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         //TODO: Make this smarter so it only runs updates on the minimally required set and avoid unneeded recomputation
         let color = self.node.0.borrow().color;
         match color {
@@ -1746,7 +1741,7 @@ impl<T: Clone, Provider: SignalProvider<Item = T>> DynamicSignalGettable<T> for 
             None => None,
             Some(deps) => {
                 deps.insert(self.0.get_node().clone());
-                self.0.update_if_necessary();
+                self.0.update();
                 Some(self.0.get_ref().clone())
             }
         })
@@ -1838,13 +1833,13 @@ pub fn zip_pair<
 }
 
 pub fn sample<T, P: SignalProvider<Item = T> + ?Sized>(signal: &Signal<P>) -> DynRef<'_, T> {
-    signal.0.update_if_necessary();
+    signal.0.update();
     signal.0.get_ref()
 }
 
 pub fn sample_val<T: Clone, P: SignalProvider<Item = T> + ?Sized>(signal: &Signal<P>) -> T {
     let p = signal;
-    p.0.update_if_necessary();
+    p.0.update();
     p.0.get_ref().clone()
 }
 
@@ -1946,17 +1941,17 @@ impl<
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         //eprintln!("animprovider state {:?}", *self.state.borrow());
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
             _ => {
-                self.input.update_if_necessary();
+                self.input.update();
                 match color {
                     NodeColor::Changed => {
                         let inval = self.input.get_ref().clone(); // FIXME: Can this be made a reference?
-                        self.time.update_if_necessary();
+                        self.time.update();
                         let timeval = *self.time.get_ref();
                         let mut state = self.state.borrow_mut();
                         match &mut *state {
@@ -2011,7 +2006,7 @@ impl<
                     }
                     _ => {
                         let inval = self.input.get_ref().clone();
-                        self.time.update_if_necessary();
+                        self.time.update();
                         match color {
                             _ => {
                                 panic!("what should be here?");
@@ -2250,15 +2245,15 @@ where
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
             _ => rewrite_panic!(
                 self.debug_frame,
                 {
-                    self.provider1.update_if_necessary();
-                    self.provider2.update_if_necessary();
+                    self.provider1.update();
+                    self.provider2.update();
                 },
                 self.res.as_ptr()
             ),
@@ -2496,16 +2491,12 @@ impl<
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
             _ => {
-                rewrite_panic!(
-                    self.debug_frame,
-                    self.provider.update_if_necessary(),
-                    self.res.as_ptr()
-                );
+                rewrite_panic!(self.debug_frame, self.provider.update(), self.res.as_ptr());
             }
         }
         let color = self.node.0.borrow().color;
@@ -2624,16 +2615,12 @@ impl<
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         let color = self.node.0.borrow().color;
         match color {
             NodeColor::Ready => {}
             _ => {
-                rewrite_panic!(
-                    self.debug_frame,
-                    self.provider.update_if_necessary(),
-                    self.res.as_ptr()
-                );
+                rewrite_panic!(self.debug_frame, self.provider.update(), self.res.as_ptr());
             }
         }
         let color = self.node.0.borrow().color;
@@ -2705,9 +2692,9 @@ impl<P: SignalProvider + ?Sized> SignalProvider for DeferProvider<P> {
         &self.node
     }
 
-    fn update_if_necessary(&self) {
+    fn update(&self) {
         if let Some(p) = self.provider.get() {
-            p.update_if_necessary();
+            p.update();
         }
     }
 

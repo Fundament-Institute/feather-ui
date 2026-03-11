@@ -4,7 +4,9 @@
 use std::rc::Rc;
 
 use crate::layout::resolve_dim;
-use crate::reactive::{DynDeferSignal, DynSignal, MutableSignal, SignalDebug, SignalZip, zip_pair};
+use crate::reactive::{
+    DynDeferSignal, DynSignal, MutableSignal, SignalDebug, SignalZip, const_default, zip_pair,
+};
 use crate::render::Prerender;
 use crate::{Limited, PxDim, PxLimits, PxRect, Resolve, Unsizable, rtree};
 
@@ -53,12 +55,9 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
     }
 
     fn presize(&self, dpi: MutableSignal<crate::RelDim>) -> (DynSignal<PxRect>, Self::Staging) {
-        let limits = (self.props.limits(), dpi.clone())
-            .zip()
-            .flatmap(|(limits, dpi)| limits.resolve(*dpi));
-
-        let padding = zip_pair(self.props.padding(), dpi.clone(), |p, dpi| p.resolve(*dpi));
-        let myarea = zip_pair(self.props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
+        let limits = self.props.limits().resolve(dpi.clone());
+        let padding = self.props.padding().resolve(dpi.clone());
+        let myarea = self.props.area().resolve(dpi.clone());
 
         let inner_limits = (limits.clone(), myarea.clone(), padding.clone())
             .zip()
@@ -107,34 +106,20 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
             },
         );
 
-        // Now we get the intrinsic size from the first buffer to calculate the unsized_area.
-        // TODO: It's important to skip this and buffer_size if the area isn't actually unsized.
-        let unsized_area = (
-            buffer_dim.clone(),
-            myarea.clone(),
-            padding.clone(),
-            inner_limits.clone(),
-        )
-            .zip()
-            .flatmap(|(buffer_size, area, padding, limits)| {
-                area.resolve(*buffer_size + padding.total())
-                    .preresolve()
-                    .limit(*limits)
-            });
-
-        let sized_area = (myarea.clone(), inner_limits.clone())
-            .zip()
-            .flatmap(|(area, limits)| unsafe { area.into_sized() }.preresolve().limit(*limits));
-
-        // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
+        // Now we get the intrinsic size from the first buffer, but only if area is unsized.
         let is_sized = myarea.clone().map(|x| x.is_sized());
-        let evaluated_area = is_sized
-            .clone()
-            .cond(sized_area.into(), unsized_area.into());
+        let intrinsic_size = is_sized.cond(
+            zip_pair(buffer_dim.clone(), padding.clone(), |b, p| *b + p.total()).into_dyn(),
+            const_default().into_dyn(),
+        );
+
+        let evaluated_area = (intrinsic_size.clone(), myarea.clone(), inner_limits.clone())
+            .zip()
+            .flatmap(|(size, area, limits)| area.resolve(*size).preresolve().limit(*limits));
 
         (
             evaluated_area.into(),
-            (self.buffer.clone(), dpi, buffer_dim.into()),
+            (self.buffer.clone(), dpi, intrinsic_size.into()),
         )
     }
 
@@ -144,7 +129,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
         limits: DynSignal<PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        let (prev, dpi, prev_dim) = data;
+        let (prev, dpi, prev_size) = data;
 
         let limits = (self.props.limits(), limits, dpi.clone())
             .zip()
@@ -153,13 +138,13 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
         let wdriver = self.driver.clone();
         let wdriver2 = self.driver.clone();
 
-        let padding = zip_pair(self.props.padding(), dpi.clone(), |p, dpi| p.resolve(*dpi));
-        let myarea = zip_pair(self.props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
+        let padding = self.props.padding().resolve(dpi.clone());
+        let myarea = self.props.area().resolve(dpi.clone());
 
         // If we are unsized, we do a second text shaping here
         let buffer = (
             prev.clone(),
-            prev_dim,
+            prev_size,
             limits.clone(),
             padding.clone(),
             myarea.clone(),
