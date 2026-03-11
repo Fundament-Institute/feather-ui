@@ -244,7 +244,10 @@ pub trait Resolve<Factor = Self> {
     /// # Example
     ///
     /// ```
-    /// foo.resolve(2.0);
+    /// let foo = DRect::new(1.0, 2.0, 3.0, 4.0);
+    /// let bar: URect<Unsized> = foo.resolve(2.0);
+    /// assert_eq!(bar.abs.bottomright().x, 6.0);
+    /// assert_eq!(bar.abs.bottomright().y, 8.0);
     /// ```
     #[must_use = "this returns the result of the operation, without modifying the original"]
     fn resolve(&self, factor: Factor) -> Self::Output;
@@ -631,8 +634,8 @@ impl Limited for PxRect {
     fn limit(mut self, limits: PxLimits) -> Self {
         self.set_bottomright(
             self.bottomright()
-                .max(self.topleft() + limits.min())
-                .min(self.topleft() + limits.max()),
+                .min(self.topleft() + limits.max())
+                .max(self.topleft() + limits.min()),
         );
         self
     }
@@ -645,14 +648,14 @@ impl Limited for UnsizedDim {
             if unsized_x {
                 self.width
             } else {
-                self.width.max(limits.min().width).min(limits.max().width)
+                self.width.min(limits.max().width).max(limits.min().width)
             },
             if unsized_y {
                 self.height
             } else {
                 self.height
-                    .max(limits.min().height)
                     .min(limits.max().height)
+                    .max(limits.min().height)
             },
         )
     }
@@ -661,10 +664,10 @@ impl Limited for UnsizedDim {
 impl Limited for PxDim {
     fn limit(self, limits: PxLimits) -> Self {
         PxDim::new(
-            self.width.max(limits.min().width).min(limits.max().width),
+            self.width.min(limits.max().width).max(limits.min().width),
             self.height
-                .max(limits.min().height)
-                .min(limits.max().height),
+                .min(limits.max().height)
+                .max(limits.min().height),
         )
     }
 }
@@ -1585,7 +1588,7 @@ impl Neg for DPoint {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-/// Partially resolved unified coordinate rectangle
+/// Unified coordinate rectangle (may containe either unsized or sized relative coordinates)
 pub struct URect<T> {
     pub abs: Rect<Resolved>,
     pub rel: Rect<T>,
