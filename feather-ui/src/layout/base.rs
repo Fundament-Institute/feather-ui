@@ -19,10 +19,9 @@ macro_rules! gen_dyn_prop {
 pub trait Empty {}
 
 impl Empty for () {}
-impl RLimits for () {}
+impl Limits for () {}
 impl Margin for () {}
 impl Order for () {}
-impl crate::layout::fixed::Child for () {}
 //impl crate::layout::list::Child for () {}
 
 impl<T: Empty> Empty for Rc<T> {}
@@ -40,23 +39,21 @@ impl crate::layout::Desc for dyn Empty {
 
     fn presize(
         _: &Self::Props,
+        bounds: DynSignal<crate::PxLimits>,
         dpi: MutableSignal<crate::RelDim>,
         _: DynSignal<Self::Children>,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        (crate::reactive::const_default().into(), dpi)
+        (bounds.map(|x| PxRect::zero().limit(*x)).into_dyn(), dpi)
     }
 
     fn size(
         _: &Self::Props,
         dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<crate::PxLimits>,
+        bounds: DynSignal<crate::PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
         (
-            zip_pair(dim, limits, |dim, limits| {
-                PxRect::from(dim.limit(*limits).zero_unsized())
-            })
-            .into_dyn(),
+            zip_pair(dim, bounds, |d, b| PxRect::zero().limit(b.to_bounds(*d))).into_dyn(),
             data,
         )
     }
@@ -97,8 +94,6 @@ pub trait ZIndex {
     }
 }
 
-impl ZIndex for DRect {}
-
 // Padding is used so an element's actual area can be larger than the area it
 // draws children inside (like text).
 pub trait Padding {
@@ -106,8 +101,6 @@ pub trait Padding {
         ConstSignal::new(crate::ZERO_PERIMETER).into()
     }
 }
-
-impl Padding for DRect {}
 
 // Relative to parent's area, but only ever used to determine spacing between
 // child elements.
@@ -122,12 +115,6 @@ pub trait Area {
     fn area(&self) -> DynSignal<DRect>;
 }
 
-impl Area for DRect {
-    fn area(&self) -> DynSignal<DRect> {
-        ConstSignal::new(self.clone()).into() // TODO: This doesn't make sense
-    }
-}
-
 gen_dyn_prop!(Area);
 
 // Relative to child's evaluated area (inner area)
@@ -137,18 +124,9 @@ pub trait Anchor {
     }
 }
 
-impl Anchor for DRect {}
-
 pub trait Limits {
     fn limits(&self) -> DynSignal<crate::DLimits> {
         ConstSignal::new(crate::DEFAULT_DLIMITS).into()
-    }
-}
-
-// Relative to parent's area
-pub trait RLimits {
-    fn rlimits(&self) -> DynSignal<crate::RelLimits> {
-        ConstSignal::new(crate::DEFAULT_RLIMITS).into()
     }
 }
 
@@ -164,8 +142,15 @@ pub trait Direction {
     }
 }
 
+impl Area for DRect {
+    fn area(&self) -> DynSignal<DRect> {
+        ConstSignal::new(self.clone()).into() // TODO: This doesn't make sense
+    }
+}
+impl Padding for DRect {}
+impl ZIndex for DRect {}
+impl Anchor for DRect {}
 impl Limits for DRect {}
-impl RLimits for DRect {}
 
 pub trait TextEdit {
     fn textedit(&self) -> &crate::text::EditView;

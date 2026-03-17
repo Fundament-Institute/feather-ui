@@ -18,8 +18,8 @@ use crate::reactive::{self, MutableSignal, SignalDebug};
 use crate::render::compositor::{CompositorView, Layer};
 use crate::render::{Prerender, Renderable};
 use crate::{
-    DEFAULT_LIMITS, DynSignal, Limited, PxDim, PxLimits, PxPoint, PxRect, RelDim, RelLimits,
-    RenderError, Resolve, UNSIZED_AXIS, UPerimeter, URect, Unsizable, Unsized, UnsizedDim, rtree,
+    DynSignal, Limited, PxDim, PxLimits, PxPoint, PxRect, RelDim, RelLimits, RenderError, Resolve,
+    UNSIZED_AXIS, UPerimeter, URect, Unsizable, Unsized, UnsizedDim, rtree,
 };
 use std::any::Any;
 use std::marker::PhantomData;
@@ -38,12 +38,16 @@ pub trait Layout: reactive::SignalDebug {
 
     /// Returns the intrinsic size (sets relative coordinates to 0) of this node
     /// based on the provided bounds
-    fn presize(&self, dpi: MutableSignal<RelDim>) -> (DynSignal<PxRect>, Self::Staging);
+    fn presize(
+        &self,
+        bounds: DynSignal<PxLimits>,
+        dpi: MutableSignal<RelDim>,
+    ) -> (DynSignal<PxRect>, Self::Staging);
     /// Returns either a partial area (if `dim` is partially unsized) or a final true area (if `dim` is sized)
     fn size(
         &self,
         dim: DynSignal<UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        bounds: DynSignal<PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging);
     /// Stages the layout using a previously calculated true area returned from [`Self::size()`]
@@ -59,12 +63,16 @@ pub trait DynLayout<DynProps: ?Sized>: reactive::SignalDebug {
     fn get_props(&self) -> &DynProps;
     /// Returns the intrinsic size (sets relative coordinates to 0) of this node
     /// based on the provided bounds
-    fn presize(&self, dpi: MutableSignal<RelDim>) -> (DynSignal<PxRect>, Box<dyn Any>);
+    fn presize(
+        &self,
+        bounds: DynSignal<PxLimits>,
+        dpi: MutableSignal<RelDim>,
+    ) -> (DynSignal<PxRect>, Box<dyn Any>);
     /// Returns either a partial area (if `dim` is partially unsized) or a final true area (if `dim` is sized)
     fn size(
         &self,
         dim: DynSignal<UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        bounds: DynSignal<PxLimits>,
         data: &dyn Any,
     ) -> (DynSignal<PxRect>, Box<dyn Any>);
     /// Stages the layout using a previously calculated true area returned from [`Self::size()`]
@@ -86,21 +94,25 @@ where
         &Layout::get_props(self).into()
     }
 
-    fn presize(&self, dpi: MutableSignal<RelDim>) -> (DynSignal<PxRect>, Box<dyn Any>) {
-        let (presize, data) = Layout::presize(self, dpi);
+    fn presize(
+        &self,
+        bounds: DynSignal<PxLimits>,
+        dpi: MutableSignal<RelDim>,
+    ) -> (DynSignal<PxRect>, Box<dyn Any>) {
+        let (presize, data) = Layout::presize(self, bounds, dpi);
         (presize, Box::new(data))
     }
 
     fn size(
         &self,
         dim: DynSignal<UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        bounds: DynSignal<PxLimits>,
         data: &dyn Any,
     ) -> (DynSignal<PxRect>, Box<dyn Any>) {
         let (area, data) = Layout::size(
             self,
             dim,
-            limits,
+            bounds,
             data.downcast_ref::<U::Staging>()
                 .expect("Wrong Staging type passed to Layout")
                 .clone(),
@@ -156,6 +168,7 @@ pub trait Desc {
 
     fn presize(
         props: &Self::Props,
+        bounds: DynSignal<PxLimits>,
         dpi: MutableSignal<RelDim>,
         children: DynSignal<Self::Children>,
     ) -> (DynSignal<PxRect>, Self::Staging);
@@ -163,7 +176,7 @@ pub trait Desc {
     fn size(
         props: &Self::Props,
         dim: DynSignal<UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        bounds: DynSignal<PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging);
 
@@ -222,17 +235,26 @@ where
         self.props.as_ref()
     }
 
-    fn presize(&self, dpi: MutableSignal<RelDim>) -> (DynSignal<PxRect>, Self::Staging) {
-        D::presize(self.props.as_ref().into(), dpi, self.children.clone())
+    fn presize(
+        &self,
+        bounds: DynSignal<PxLimits>,
+        dpi: MutableSignal<RelDim>,
+    ) -> (DynSignal<PxRect>, Self::Staging) {
+        D::presize(
+            self.props.as_ref().into(),
+            bounds,
+            dpi,
+            self.children.clone(),
+        )
     }
 
     fn size(
         &self,
         dim: DynSignal<UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        bounds: DynSignal<PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        D::size(self.props.as_ref().into(), dim, limits, data)
+        D::size(self.props.as_ref().into(), dim, bounds, data)
     }
 
     fn stage(
@@ -565,7 +587,6 @@ fn merge_margin(prev: f32, margin: f32) -> f32 {
 }
 
 struct ReferenceProps {
-    rlimits: RelLimits,
     area: crate::DRect,
     limits: crate::DLimits,
     anchor: crate::DPoint,
@@ -574,24 +595,37 @@ struct ReferenceProps {
     prev_size: PxDim,
 }
 
-// Presize doesn't have a limits parameter because the only time you can safely estimate the limits in the presize stage
-// is if the area is sized, so any axis that you could estimate the limits on won't even use the result of the child presize
-// stage.
+impl Default for ReferenceProps {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            limits: Default::default(),
+            anchor: Default::default(),
+            padding: Default::default(),
+            intrinsic: either::Either::Left(PxDim::default()),
+            prev_size: Default::default(),
+        }
+    }
+}
+
 fn reference_presize(
+    bounds: PxLimits,
     dpi: RelDim,
     area: crate::DRect,
-    limits: crate::DLimits,
+    dlimits: crate::DLimits,
     anchor: crate::DPoint,
     padding: UPerimeter,
     intrinsic: &mut either::Either<PxDim, Vec<ReferenceProps>>,
     prev_size: &mut PxDim,
 ) -> PxRect {
+    let limits = dlimits.resolve(dpi).preresolve(bounds);
     *prev_size = match intrinsic {
         either::Either::Left(size) => *size,
         either::Either::Right(children) => children
             .iter_mut()
             .fold(PxRect::zero(), |size, child| {
                 size.extend(reference_presize(
+                    limits,
                     dpi,
                     child.area,
                     child.limits,
@@ -609,27 +643,27 @@ fn reference_presize(
     area.resolve(dpi)
         .resolve(*prev_size + padding.resolve(dpi).total())
         .preresolve()
-        .limit(limits.resolve(dpi))
+        .limit(limits)
         .anchored(anchor.resolve(dpi))
 }
 
 fn reference_size(
     dim: UnsizedDim,
-    rlimits: PxLimits,
+    bounds: PxLimits,
     dpi: RelDim,
     area: crate::DRect,
-    limits: crate::DLimits,
+    dlimits: crate::DLimits,
     anchor: crate::DPoint,
     padding: UPerimeter,
     intrinsic: &mut either::Either<PxDim, Vec<ReferenceProps>>,
     prev_size: &mut PxDim,
 ) -> PxRect {
-    let l = rlimits + limits.resolve(dpi);
+    let limits = dlimits.resolve(dpi).resolve(bounds.to_bounds(dim));
     let child_dim = area
         .resolve(dpi)
         .resolve(*prev_size + padding.resolve(dpi).total())
         .partial_resolve(dim)
-        .limit(l);
+        .limit(limits);
 
     let size = match intrinsic {
         either::Either::Left(size) => *size,
@@ -638,7 +672,10 @@ fn reference_size(
             .fold(PxRect::zero(), |size, child| {
                 size.extend(reference_size(
                     child_dim,
-                    child.rlimits.resolve(dim),
+                    // This is redundant in a standard fixed-size layout, but necessary because children
+                    // control how they utilize their own bounds, so we must provide a maximally correct
+                    // bounds even if a normal fixed-size layout doesn't need it.
+                    limits.to_bounds(child_dim),
                     dpi,
                     child.area,
                     child.limits,
@@ -657,10 +694,38 @@ fn reference_size(
     area.resolve(dpi)
         .resolve(size + padding.resolve(dpi).total())
         .resolve(dim.zero_unsized())
-        .limit(l)
+        .limit(limits)
         .anchored(anchor.resolve(dpi))
 }
 
 fn reference_stage(offset: PxPoint, area: PxRect) -> PxRect {
     area + offset
+}
+
+#[test]
+fn test_counterexamples() {
+    // anchored counter-example to using bottomright instead of dim
+
+    // limits counterexample for text
+
+    // limits counterexample for why fully seperate RLimits doesn't work
+
+    // Nested RLimit example
+    {
+        let child_auto = ReferenceProps {
+            area: AUTO_DRECT,
+            intrinsic: either::Either::Left(PxDim::new(150.0, 150.0)),
+            ..Default::default()
+        };
+        let child_fill = ReferenceProps {
+            area: FILL_DRECT,
+            ..Default::default()
+        };
+        let parent = ReferenceProps {
+            area: PxRect::new(0.0, 0.0, 300.0, 300.0).into(),
+            limits: PxLimits::new(..200.0, ..).into(),
+            intrinsic: either::Either::Right(vec![child_auto, child_fill]),
+            ..Default::default()
+        };
+    }
 }

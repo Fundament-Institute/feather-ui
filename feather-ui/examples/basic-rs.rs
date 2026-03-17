@@ -13,23 +13,21 @@ use feather_ui::component::window::Window;
 use feather_ui::event::{CONSUME, EventRes, EventStream, EventStreamPrism};
 use feather_ui::layout::{fixed, leaf};
 use feather_ui::{
-    AbsPerimeter, AbsRect, App, DPoint, DRect, DSize, PxRect, RelRect, UNSIZED_AXIS, UPerimeter,
-    winit,
+    AbsLimits, AbsPerimeter, AbsRect, App, DPoint, DRect, DSize, PxRect, RelLimits, RelRect,
+    UNSIZED_AXIS, UPerimeter, winit,
 };
 use std::rc::Rc;
 
-#[derive(Default, Debug, Empty, Area, Anchor, ZIndex, Limits, RLimits, Padding)]
+#[derive(Default, Debug, Empty, Area, Anchor, ZIndex, Limits, Padding)]
 struct FixedData {
     area: DynSignal<DRect>,
     anchor: DynSignal<DPoint>,
     limits: DynSignal<feather_ui::DLimits>,
-    rlimits: DynSignal<feather_ui::RelLimits>,
     padding: DynSignal<UPerimeter>,
     zindex: DynSignal<i32>,
 }
 
 impl fixed::Prop for FixedData {}
-impl fixed::Child for FixedData {}
 impl leaf::Prop for FixedData {}
 impl leaf::Padded for FixedData {}
 
@@ -37,9 +35,7 @@ struct BasicApp {
     count: MutableSignal<i32>,
 }
 
-use feather_ui::reactive::{
-    DynSignal, MutableSignal, SignalNode, const_default, const_new, empty_signal,
-};
+use feather_ui::reactive::{DynSignal, MutableSignal, const_default, const_new};
 
 fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
     let (button, evt, _) = {
@@ -93,8 +89,8 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
         let text = Text::<FixedData> {
             props: Rc::new(FixedData {
                 area: const_new(RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS).into()).into(),
-                limits: const_new(feather_ui::AbsLimits::new(.., 10.0..200.0).into()).into(),
-                rlimits: const_new(feather_ui::RelLimits::new(..1.0, ..)).into(),
+                limits: const_new(AbsLimits::new(.., 10.0..200.0) + RelLimits::new(..1.0, ..))
+                    .into(),
                 anchor: const_new(feather_ui::RelPoint::new(0.5, 0.0).into()).into(),
                 padding: const_new(AbsPerimeter::new(8.0, 8.0, 8.0, 8.0).into()).into(),
                 ..Default::default()
@@ -124,11 +120,59 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
         Region::<FixedData>::new_layer(
             FixedData {
                 area: const_new(
-                    AbsRect::new(45.0, 245.0, 0.0, 0.0)
+                    AbsRect::new(15.0, 245.0, 0.0, 0.0)
                         + RelRect::new(0.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
                 )
                 .into(),
-                limits: const_new(feather_ui::AbsLimits::new(100.0..300.0, ..).into()).into(),
+                limits: const_new(AbsLimits::new(100.0..300.0, ..).into()).into(),
+                ..Default::default()
+            },
+            const_new(sRGB32::from_alpha(128)).into(),
+            const_default().into(),
+            const_new(feather_ui::children![fixed::Prop, rect, text]).into(),
+        )
+    };
+
+    let block2 = {
+        let text = Text::<FixedData> {
+            props: Rc::new(FixedData {
+                area: const_new(RelRect::new(0.5, 0.0, UNSIZED_AXIS, UNSIZED_AXIS).into()).into(),
+                limits: const_new(AbsLimits::new(.., 10.0..200.0) + RelLimits::new(..1.0, ..))
+                    .into(),
+                anchor: const_new(feather_ui::RelPoint::new(0.5, 0.0).into()).into(),
+                padding: const_new(AbsPerimeter::new(8.0, 8.0, 8.0, 8.0).into()).into(),
+                ..Default::default()
+            }),
+            text: app
+                .count
+                .clone()
+                .map_ex(|count| (0..*count).map(|_| "█").collect::<String>())
+                .into(),
+            font_size: const_new(40.0).into(),
+            line_height: const_new(56.0).into(),
+            wrap: const_new(feather_ui::cosmic_text::Wrap::WordOrGlyph).into(),
+            align: const_new(Some(cosmic_text::Align::Center)).into(),
+            ..Default::default()
+        };
+
+        let rect = shape::round_rect::<DRect>(
+            feather_ui::FILL_DRECT,
+            const_default().into(),
+            const_default().into(),
+            const_new(wide::f32x4::splat(10.0)).into(),
+            const_new(sRGB::new(0.7, 0.2, 0.9, 1.0)).into(),
+            const_default().into(),
+            const_default().into(),
+        );
+
+        Region::<FixedData>::new_layer(
+            FixedData {
+                area: const_new(
+                    AbsRect::new(345.0, 245.0, 445.0, 0.0)
+                        + RelRect::new(0.0, 0.0, 0.0, UNSIZED_AXIS),
+                )
+                .into(),
+                limits: const_new(AbsLimits::new(100.0.., ..).into()).into(),
                 ..Default::default()
             },
             const_new(sRGB32::from_alpha(128)).into(),
@@ -175,7 +219,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
             zindex: const_new(0).into(),
             ..Default::default()
         },
-        const_new(feather_ui::children![fixed::Prop, pixel, block, button]).into_dyn(),
+        const_new(feather_ui::children![fixed::Prop, pixel, block, block2]).into_dyn(),
     );
     let window = Window::new(
         winit::window::Window::default_attributes()
@@ -192,7 +236,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
 fn main() {
     let (mut app, event_loop) = App::<BasicApp, ()>::new(
         const_new(BasicApp {
-            count: MutableSignal::new(9),
+            count: MutableSignal::new(30),
         })
         .into_dyn(),
         basic_app_ui,

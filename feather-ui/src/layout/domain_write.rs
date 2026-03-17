@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use super::Desc;
-use super::base::{Empty, RLimits};
+use super::base::Empty;
 use crate::component::ComponentMarker;
 use crate::reactive::{DynSignal, MutableSignal, zip_pair};
-use crate::{CrossReferenceDomain, Limited, RelDim, Unsizable, render};
+use crate::{CrossReferenceDomain, Limited, PxRect, RelDim, Unsizable, render};
 use std::sync::Arc;
 
 // A DomainWrite layout spawns a renderable that writes it's area to the target
@@ -29,36 +29,32 @@ impl Prop for Arc<CrossReferenceDomain> {
 }
 
 impl Empty for Arc<CrossReferenceDomain> {}
-impl RLimits for Arc<CrossReferenceDomain> {}
-impl super::fixed::Child for Arc<CrossReferenceDomain> {}
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
     type Child = dyn Empty;
     type Children = ();
-    type Provider = dyn crate::reactive::SignalProvider<Item = (crate::PxRect, crate::RelDim)>;
+    type Provider = dyn crate::reactive::SignalProvider<Item = (PxRect, RelDim)>;
 
     type Staging = MutableSignal<RelDim>;
 
     fn presize(
         _: &Self::Props,
-        dpi: MutableSignal<crate::RelDim>,
+        bounds: DynSignal<crate::PxLimits>,
+        dpi: MutableSignal<RelDim>,
         _: DynSignal<Self::Children>,
-    ) -> (DynSignal<crate::PxRect>, Self::Staging) {
-        (crate::reactive::const_default().into(), dpi)
+    ) -> (DynSignal<PxRect>, Self::Staging) {
+        (bounds.map(|x| PxRect::zero().limit(*x)).into_dyn(), dpi)
     }
 
     fn size(
         _: &Self::Props,
         dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<crate::PxLimits>,
+        bounds: DynSignal<crate::PxLimits>,
         data: Self::Staging,
-    ) -> (DynSignal<crate::PxRect>, Self::Staging) {
+    ) -> (DynSignal<PxRect>, Self::Staging) {
         (
-            zip_pair(dim, limits, |dim, limits| {
-                crate::PxRect::from(dim.limit(*limits).zero_unsized())
-            })
-            .into_dyn(),
+            zip_pair(dim, bounds, |d, b| PxRect::zero().limit(b.to_bounds(*d))).into_dyn(),
             data,
         )
     }
@@ -66,7 +62,7 @@ impl Desc for dyn Prop {
     fn stage<T: render::Prerender + 'static>(
         props: &Self::Props,
         offset: DynSignal<crate::PxPoint>,
-        area: DynSignal<crate::PxRect>,
+        area: DynSignal<PxRect>,
         renderable: Option<T>,
         defer: Option<super::DeferMachine<Self::Provider>>,
         data: Self::Staging,

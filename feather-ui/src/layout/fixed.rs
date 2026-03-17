@@ -3,6 +3,7 @@
 
 use super::{Concrete, Desc, base};
 use crate::layout::DynLayout;
+use crate::layout::base::Empty;
 use crate::reactive::{self, DynSignal, MutableSignal, SignalDebug, SignalZip, zip_pair};
 use crate::render::Prerender;
 use crate::{Limited, PxRect, RelDim, Resolve, Unsizable, rtree};
@@ -13,28 +14,29 @@ pub trait Prop: base::Area + base::Anchor + base::Limits + base::ZIndex {}
 
 crate::gen_dyn_prop!(Prop);
 
-pub trait Child: base::RLimits {}
-
-crate::gen_dyn_prop!(Child);
-
 impl Prop for crate::DRect {}
-impl Child for crate::DRect {}
 
 type Staging = (
     DynSignal<crate::URect<crate::Relative>>,
     MutableSignal<RelDim>,
-    DynSignal<imbl::Vector<(DynSignal<PxRect>, Rc<dyn DynLayout<dyn Child>>, Rc<dyn Any>)>>,
+    DynSignal<imbl::Vector<(DynSignal<PxRect>, Rc<dyn DynLayout<dyn Empty>>, Rc<dyn Any>)>>,
 );
 
 fn presize(
     props: &dyn Prop,
-    children: DynSignal<imbl::Vector<Rc<dyn DynLayout<dyn Child>>>>,
+    bounds: DynSignal<crate::PxLimits>,
+    children: DynSignal<imbl::Vector<Rc<dyn DynLayout<dyn Empty>>>>,
     dpi: MutableSignal<RelDim>,
 ) -> (DynSignal<crate::PxRect>, Staging) {
+    let limits = (props.limits(), bounds, dpi.clone())
+        .zip()
+        .flatmap(|(limits, bounds, dpi)| limits.resolve(*dpi).preresolve(*bounds));
+
+    let limits2 = limits.clone().into_dyn();
     let dpi2 = dpi.clone();
     let child_tuple = children.map_elements(
         move |child| {
-            let (presize, data) = child.as_ref().presize(dpi2.clone());
+            let (presize, data) = child.as_ref().presize(limits2.clone(), dpi2.clone());
             (presize, child.clone(), Rc::from(data))
         },
         |x| reactive::Identity(x.clone()),
@@ -49,9 +51,8 @@ fn presize(
         child_rects,
         crate::ConstSignal::new(PxRect::zero()).into_dyn(),
     ))
-    .map(|x| x.extend(PxRect::zero()).bottomright().to_vector().to_size());
+    .map(|x| x.extend(PxRect::zero()).dim());
 
-    let limits = props.limits().resolve(dpi.clone());
     let myarea = props.area().resolve(dpi.clone());
 
     // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
@@ -77,29 +78,31 @@ fn presize(
 fn size(
     props: &dyn Prop,
     dim: DynSignal<crate::UnsizedDim>,
-    rlimits: DynSignal<crate::PxLimits>,
+    bounds: DynSignal<crate::PxLimits>,
     data: Staging,
 ) -> (DynSignal<PxRect>, Staging) {
     let (prev_area, dpi, prev_tuple) = data;
 
-    // We always calculate the area using our previously calculated intrinsic size.
-    let limits = rlimits + props.limits().resolve(dpi.clone());
-    let myarea = props.area().resolve(dpi.clone());
-    //let is_sized = myarea.clone().map(|x| x.is_sized());
+    let limits =
+        props
+            .limits()
+            .resolve(dpi.clone())
+            .resolve(zip_pair(bounds, dim.clone(), |b, d| b.to_bounds(*d)));
 
     let child_dim = (prev_area, dim.clone(), limits.clone())
         .zip()
         .flatmap(|(a, dim, l)| a.partial_resolve(*dim).limit(*l));
+    let limits2 = limits.clone();
 
     let child_tuple = prev_tuple.map_elements(
         move |(_, child, prev)| {
+            // limits.to_bounds is redundant in a standard fixed-size layout, but necessary because
+            // children control how they utilize their own bounds, so we must provide maximally
+            // correct bounds even if a normal fixed-size layout doesn't need it.
+
             let (v, data) = child.size(
                 child_dim.clone().into(),
-                child
-                    .get_props()
-                    .rlimits()
-                    .resolve(child_dim.clone())
-                    .into_dyn(),
+                zip_pair(limits2.clone(), child_dim.clone(), |l, d| l.to_bounds(*d)).into(),
                 prev.as_ref(),
             );
             (v, child.clone(), Rc::from(data))
@@ -108,7 +111,7 @@ fn size(
     );
 
     let child_rects = child_tuple.clone().map_elements(
-        |x: &(DynSignal<PxRect>, Rc<dyn DynLayout<dyn Child>>, Rc<dyn Any>)| x.0.clone(),
+        |x: &(DynSignal<PxRect>, Rc<dyn DynLayout<dyn Empty>>, Rc<dyn Any>)| x.0.clone(),
         |x| reactive::Identity(x.1.clone()),
     );
 
@@ -117,7 +120,7 @@ fn size(
         child_rects,
         crate::ConstSignal::new(PxRect::zero()).into_dyn(),
     ))
-    .map(|x| x.extend(PxRect::zero()).bottomright().to_vector().to_size());
+    .map(|x| x.extend(PxRect::zero()).dim());
 
     let myarea = props.area().resolve(dpi.clone());
     let is_sized = myarea.clone().map(|x| x.is_sized());
@@ -193,26 +196,27 @@ fn stage<T: Prerender + 'static>(
 
 impl Desc for dyn Prop {
     type Props = dyn Prop;
-    type Child = dyn Child;
+    type Child = dyn Empty;
     type Children = imbl::Vector<Rc<dyn DynLayout<Self::Child>>>;
     type Provider = dyn crate::reactive::SignalProvider<Item = (PxRect, crate::RelDim)>;
     type Staging = Staging;
 
     fn presize(
         props: &Self::Props,
+        bounds: DynSignal<crate::PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
         children: DynSignal<Self::Children>,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        presize(props, children, dpi)
+        presize(props, bounds, children, dpi)
     }
 
     fn size(
         props: &Self::Props,
         dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<crate::PxLimits>,
+        bounds: DynSignal<crate::PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        size(props, dim, limits, data)
+        size(props, dim, bounds, data)
     }
 
     fn stage<T: Prerender + 'static>(
@@ -230,7 +234,7 @@ impl Desc for dyn Prop {
 #[derive_where::derive_where(Clone)]
 pub struct Layer<T, R: Clone> {
     pub props: Rc<T>,
-    pub children: DynSignal<imbl::Vector<Rc<dyn DynLayout<dyn Child>>>>,
+    pub children: DynSignal<imbl::Vector<Rc<dyn DynLayout<dyn Empty>>>>,
     pub renderable: Option<R>,
     pub layer: Option<(DynSignal<crate::color::sRGB32>, DynSignal<f32>)>,
     pub machine: Option<super::DeferMachine<<dyn Prop as Desc>::Provider>>,
@@ -261,18 +265,19 @@ impl<T: Prop + SignalDebug + 'static, R: Prerender + Clone + SignalDebug + 'stat
 
     fn presize(
         &self,
+        bounds: DynSignal<crate::PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        presize(&*self.props, self.children.clone(), dpi)
+        presize(&*self.props, bounds, self.children.clone(), dpi)
     }
 
     fn size(
         &self,
         dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<crate::PxLimits>,
+        bounds: DynSignal<crate::PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        size(&*self.props, dim, limits, data)
+        size(&*self.props, dim, bounds, data)
     }
 
     fn stage(
