@@ -76,16 +76,6 @@ pub fn derive_limits(input: TokenStream) -> TokenStream {
     )
 }
 
-#[proc_macro_derive(RLimits)]
-pub fn derive_rlimits(input: TokenStream) -> TokenStream {
-    derive_base_prop(
-        input,
-        "rlimits",
-        "feather_ui::layout::base::RLimits",
-        "feather_ui::RelLimits",
-    )
-}
-
 #[proc_macro_derive(Anchor)]
 pub fn derive_anchor(input: TokenStream) -> TokenStream {
     derive_base_prop(

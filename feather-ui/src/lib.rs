@@ -64,7 +64,7 @@ use std::f32::{INFINITY, NEG_INFINITY};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, BitAnd, Mul, Neg, Sub, SubAssign};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -342,6 +342,7 @@ impl Convert<Point2D<f64, Pixel>> for winit::dpi::PhysicalPosition<f64> {
 /// optimized and uses a LTRB absolute representation, instead of a position and
 /// a size.
 #[derive_where(Copy, Clone, Default, Debug, PartialEq)]
+#[repr(transparent)]
 pub struct Rect<U> {
     pub v: f32x4,
     #[doc(hidden)]
@@ -810,6 +811,7 @@ impl<U> From<Size2D<f32, U>> for Rect<U> {
 /// when added to rectangles, the bottom and right elements are subtracted, not
 /// added (when adding perimeters together, all elements are added like normal).
 #[derive_where(Copy, Clone, Default, Debug, PartialEq)]
+#[repr(transparent)]
 pub struct Perimeter<U> {
     pub v: f32x4,
     #[doc(hidden)]
@@ -1337,6 +1339,7 @@ pub fn build_aabb<U>(a: Point2D<f32, U>, b: Point2D<f32, U>) -> Rect<U> {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[repr(transparent)]
 /// Partially resolved unified coordinate
 pub struct UPoint(f32x4);
 
@@ -1611,8 +1614,8 @@ impl TryFrom<URect<Unsized>> for URect<Relative> {
 }
 
 impl URect<Unsized> {
-    // This assumes the URect is sized without actually checking. Should only be
-    // used when is_sized() is true
+    /// This assumes the URect is sized without actually checking. Should only be
+    /// used when is_sized() is true
     pub unsafe fn into_sized(self) -> URect<Relative> {
         debug_assert!(self.is_sized());
         URect {
@@ -1625,6 +1628,27 @@ impl URect<Unsized> {
     pub fn is_sized(&self) -> bool {
         use wide::CmpNe;
         self.rel.v.cmp_ne(UNSIZE_QUAD).all()
+    }
+
+    /// Used to calculate the presize bounds from this relative area
+    #[inline]
+    pub fn to_bounds(&self, bounds: PxLimits) -> PxLimits {
+        todo!();
+        let sized = Rect::<Relative> {
+            v: self
+                .rel
+                .v
+                .cmp_eq(UNSIZE_QUAD)
+                .blend(DEFAULT_LIMITS, self.rel.v),
+            _unit: PhantomData,
+        };
+
+        let reldim = sized.dim();
+        PxLimits {
+            // TODO: how does bottomright abs work here?
+            v: (splat_size(reldim) * bounds.v) + self.abs.v,
+            _unit: PhantomData,
+        }
     }
 }
 
@@ -1676,6 +1700,28 @@ impl<T> URect<T> {
     }
 }
 
+impl URect<Unsized> {
+    // Skips the instrinsic size resolution step and does a partial resolve instead.
+    fn skip_resolve(&self, dim: UnsizedDim) -> UnsizedDim {
+        // TODO: SSE optimize with blend()
+        let v_abs = self.abs.v.as_array_ref();
+        let v_rel = self.rel.v.as_array_ref();
+        UnsizedDim {
+            width: if dim.width == UNSIZED_AXIS || v_rel[2] == UNSIZED_AXIS {
+                UNSIZED_AXIS
+            } else {
+                (v_abs[2] - v_abs[0]) + (v_rel[2] - v_rel[0]) * dim.width
+            },
+
+            height: if dim.height == UNSIZED_AXIS || v_rel[3] == UNSIZED_AXIS {
+                UNSIZED_AXIS
+            } else {
+                (v_abs[3] - v_abs[1]) + (v_rel[3] - v_rel[1]) * dim.height
+            },
+            _unit: PhantomData,
+        }
+    }
+}
 impl Resolve<PxDim> for URect<Unsized> {
     type Output = URect<Relative>;
 
@@ -2045,6 +2091,7 @@ where
 /// assert_eq!(merged.max(), Size2D::<f32, Logical>::new(f32::INFINITY, 100.0));
 /// ```
 #[derive_where(Copy, Clone, Debug, PartialEq)]
+#[repr(transparent)]
 pub struct Limits<U> {
     v: f32x4,
     #[doc(hidden)]
@@ -2054,8 +2101,8 @@ pub struct Limits<U> {
 pub type PxLimits = Limits<Pixel>;
 pub type AbsLimits = Limits<Logical>;
 pub type RelLimits = Limits<Relative>;
+pub type ResLimits = Limits<Resolved>;
 
-//pub const Unbounded: std::ops::Range<f32> = std::ops::Range
 // It would be cheaper to avoid using actual infinities here but we currently
 // need them to make the math work
 
@@ -2069,20 +2116,6 @@ pub const DEFAULT_LIMITS: f32x4 = f32x4::new([
     f32::INFINITY,
 ]);
 
-/// Represents the default absolute value limit with a minimum size of
-/// [`f32::NEG_INFINITY`] and a maximum size of [`f32::INFINITY`]
-pub const DEFAULT_ABSLIMITS: AbsLimits = AbsLimits {
-    v: DEFAULT_LIMITS,
-    _unit: PhantomData,
-};
-
-/// Represents the default relative value limit with a minimum size of
-/// [`f32::NEG_INFINITY`] and a maximum size of [`f32::INFINITY`]
-pub const DEFAULT_RLIMITS: RelLimits = RelLimits {
-    v: DEFAULT_LIMITS,
-    _unit: PhantomData,
-};
-
 const UNSIZE_QUAD: f32x4 = f32x4::new([UNSIZED_AXIS, UNSIZED_AXIS, UNSIZED_AXIS, UNSIZED_AXIS]);
 
 impl<U> Limits<U> {
@@ -2093,6 +2126,8 @@ impl<U> Limits<U> {
             std::ops::Bound::Unbounded => inf,
         }
     }
+
+    #[inline]
     pub fn new(x: impl std::ops::RangeBounds<f32>, y: impl std::ops::RangeBounds<f32>) -> Self {
         Self {
             v: f32x4::new([
@@ -2182,11 +2217,11 @@ impl<U> Default for Limits<U> {
     }
 }
 
-impl<U> Add for Limits<U> {
+impl<U> BitAnd for Limits<U> {
     type Output = Self;
 
     #[inline]
-    fn add(self, rhs: Limits<U>) -> Self::Output {
+    fn bitand(self, rhs: Limits<U>) -> Self::Output {
         let minmax = self.v.as_array_ref();
         let r = rhs.v.as_array_ref();
 
@@ -2203,19 +2238,11 @@ impl<U> Add for Limits<U> {
     }
 }
 
-impl<U> Add<&Limits<U>> for Limits<U> {
-    type Output = Self;
-
-    #[inline]
-    fn add(self, rhs: &Limits<U>) -> Self::Output {
-        self.add(*rhs)
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct DLimits {
     dp: AbsLimits,
     px: PxLimits,
+    rel: RelLimits,
 }
 
 pub const DEFAULT_DLIMITS: DLimits = DLimits {
@@ -2227,136 +2254,140 @@ pub const DEFAULT_DLIMITS: DLimits = DLimits {
         v: DEFAULT_LIMITS,
         _unit: PhantomData,
     },
+    rel: RelLimits {
+        v: DEFAULT_LIMITS,
+        _unit: PhantomData,
+    },
 };
-
-impl Resolve<RelDim> for DLimits {
-    type Output = PxLimits;
-
-    #[inline]
-    fn resolve(&self, dpi: RelDim) -> PxLimits {
-        self.px.cast_unit()
-            + PxLimits {
-                v: self.dp.v * splat_size(dpi),
-                _unit: PhantomData,
-            }
-    }
-}
-
-impl Resolve<UnsizedDim> for RelLimits {
-    type Output = PxLimits;
-
-    fn resolve(&self, dim: UnsizedDim) -> Self::Output {
-        let d = splat_size(dim);
-
-        PxLimits {
-            v: d.cmp_eq(UNSIZE_QUAD).blend(DEFAULT_LIMITS, d * self.v),
-            _unit: PhantomData,
-        }
-    }
-}
 
 impl From<AbsLimits> for DLimits {
     fn from(value: AbsLimits) -> Self {
-        DLimits {
+        Self {
+            px: PxLimits::default(),
             dp: value,
-            px: Default::default(),
+            rel: RelLimits::default(),
         }
     }
 }
 
 impl From<PxLimits> for DLimits {
     fn from(value: PxLimits) -> Self {
-        DLimits {
-            dp: Default::default(),
+        Self {
             px: value,
+            dp: AbsLimits::default(),
+            rel: RelLimits::default(),
         }
     }
 }
 
-impl Mul<UnsizedDim> for RelLimits {
-    type Output = PxLimits;
+impl From<RelLimits> for DLimits {
+    fn from(value: RelLimits) -> Self {
+        Self {
+            px: PxLimits::default(),
+            dp: AbsLimits::default(),
+            rel: value,
+        }
+    }
+}
+
+impl BitAnd for DLimits {
+    type Output = Self;
 
     #[inline]
-    fn mul(self, rhs: UnsizedDim) -> Self::Output {
-        let (unsized_x, unsized_y) = rhs.is_unsized();
-        let minmax = self.v.as_array_ref();
-        // TODO: SSE optimize
-        let v = f32x4::new([
-            if unsized_x {
-                NEG_INFINITY
-            } else if minmax[0].is_infinite() {
-                minmax[0]
-            } else {
-                minmax[0] * rhs.width
-            },
-            if unsized_y {
-                NEG_INFINITY
-            } else if minmax[1].is_infinite() {
-                minmax[1]
-            } else {
-                minmax[1] * rhs.height
-            },
-            if unsized_x {
-                INFINITY
-            } else if minmax[2].is_infinite() {
-                minmax[2]
-            } else {
-                minmax[2] * rhs.width
-            },
-            if unsized_y {
-                INFINITY
-            } else if minmax[3].is_infinite() {
-                minmax[3]
-            } else {
-                minmax[3] * rhs.height
-            },
-        ]);
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self {
+            dp: self.dp & rhs.dp,
+            px: self.px & rhs.px,
+            rel: self.rel & rhs.rel,
+        }
+    }
+}
 
-        Self::Output {
-            v,
+impl<T, U: Into<DLimits>> Add<U> for Limits<T>
+where
+    Self: Into<DLimits>,
+{
+    type Output = DLimits;
+
+    #[inline]
+    fn add(self, rhs: U) -> Self::Output {
+        self.into() & rhs.into()
+    }
+}
+
+// When merging different kinds of limits together, finite limits override infinite, and
+// two finite values are added together.
+fn limit_merge(l: f32x4, r: f32x4) -> f32x4 {
+    l.is_inf().blend(r, l + r.is_inf().blend(f32x4::ZERO, r))
+}
+
+impl Resolve<RelDim> for DLimits {
+    type Output = ULimits;
+
+    #[inline]
+    fn resolve(&self, dpi: RelDim) -> ULimits {
+        ULimits {
+            abs: Limits {
+                v: limit_merge(self.dp.v * splat_size(dpi), self.px.v),
+                _unit: PhantomData,
+            },
+            rel: self.rel,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct ULimits {
+    abs: PxLimits,
+    rel: RelLimits,
+}
+
+impl ULimits {
+    /// Resolves the relative limits against the parent limits, if they exist, instead
+    /// of using the parent dimensions (for use in `presize`)
+    fn preresolve(&self, parent: PxLimits) -> PxLimits {
+        PxLimits {
+            v: limit_merge(
+                self.abs.v,
+                self.rel
+                    .v
+                    .is_inf()
+                    .blend(DEFAULT_LIMITS, self.rel.v * parent.v),
+            ),
             _unit: PhantomData,
         }
     }
 }
 
-impl Mul<&UnsizedDim> for RelLimits {
-    type Output = PxLimits;
+impl PxLimits {
+    /// Applies these limits to a set of unsized dimensions, which produces a set of bounds
+    /// that can be passed to a child.
+    fn to_bounds(&self, dim: UnsizedDim) -> Self {
+        let d = splat_size(dim);
 
-    #[inline]
-    fn mul(self, rhs: &UnsizedDim) -> Self::Output {
-        self.mul(*rhs)
-    }
-}
-
-impl Mul<PxDim> for RelLimits {
-    type Output = PxLimits;
-
-    #[inline]
-    fn mul(self, rhs: PxDim) -> Self::Output {
-        debug_assert!(!rhs.width.is_negative());
-        debug_assert!(!rhs.height.is_negative());
-
-        let minmax = self.v.as_array_ref();
-        let v = f32x4::new([
-            minmax[0] * rhs.width,
-            minmax[1] * rhs.height,
-            minmax[2] * rhs.width,
-            minmax[3] * rhs.height,
-        ]);
-
-        Self::Output {
-            v: self.v.is_finite().blend(v, self.v),
+        Self {
+            // TODO: is it necessary to apply self.v to d?
+            // v: d.cmp_eq(UNSIZE_QUAD).blend(self.v, (d * MINUS_BOTTOMRIGHT).max(self.v) * MINUS_BOTTOMRIGHT)
+            v: d.cmp_eq(UNSIZE_QUAD).blend(self.v, d),
             _unit: PhantomData,
         }
     }
 }
 
-impl Mul<&PxDim> for RelLimits {
+impl Resolve<PxLimits> for ULimits {
     type Output = PxLimits;
 
-    #[inline]
-    fn mul(self, rhs: &PxDim) -> Self::Output {
-        self.mul(*rhs)
+    fn resolve(&self, bounds: PxLimits) -> Self::Output {
+        PxLimits {
+            v: limit_merge(
+                self.abs.v,
+                self.rel
+                    .v
+                    .is_inf()
+                    .blend(DEFAULT_LIMITS, self.rel.v * bounds.v),
+            ),
+            _unit: PhantomData,
+        }
     }
 }
 
@@ -2923,7 +2954,7 @@ impl<AppData: 'static, T> App<AppData, T> {
                 let (v, w) = tuple;
                 if let Some((state, _)) = windows2.borrow().get(&Identity((*w).clone())) {
                     let limits = const_default().into_dyn();
-                    let (_, data) = v.presize(state.dpi.clone());
+                    let (_, data) = v.presize(limits.clone(), state.dpi.clone());
 
                     let dim = state
                         .surface_dim
@@ -2931,7 +2962,7 @@ impl<AppData: 'static, T> App<AppData, T> {
                         .map(|x| x.to_f32().cast_unit())
                         .into_dyn();
 
-                    let (area, data) = v.size(dim.clone(), limits.clone(), data);
+                    let (area, data) = v.size(dim.clone(), limits, data);
 
                     (
                         v.stage(const_default().into_dyn(), area, data),

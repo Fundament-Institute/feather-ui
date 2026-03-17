@@ -38,12 +38,15 @@ impl Desc for dyn Prop {
 
     fn presize(
         props: &Self::Props,
+        _: DynSignal<PxLimits>,
         dpi: crate::reactive::MutableSignal<crate::RelDim>,
         child: DynSignal<Self::Children>,
     ) -> (DynSignal<PxRect>, Self::Staging) {
         let dpi2 = dpi.clone();
-
-        let child_presize = child.clone().map_ex(move |x| x.presize(dpi2.clone()));
+        let bounds = crate::reactive::const_default().into_dyn();
+        let child_presize = child
+            .clone()
+            .map_ex(move |x| x.presize(bounds.clone(), dpi2.clone()));
         (
             props.dim().map(|x| PxRect::from(x.to_f32())).into(),
             (dpi, child, child_presize.into_dyn()),
@@ -53,18 +56,20 @@ impl Desc for dyn Prop {
     fn size(
         props: &Self::Props,
         _: DynSignal<UnsizedDim>,
-        _: DynSignal<PxLimits>,
+        _: DynSignal<crate::PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
         let (dpi, child, child_presize) = data;
-        let dim = props.dim().map(|d| d.to_f32().cast_unit()).into_dyn();
-        let child_limits = const_default().into_dyn();
+        let dim = props.dim().map(|d| d.to_f32().cast_unit());
+        let bounds = dim
+            .clone()
+            .map(|x| PxLimits::default().to_bounds(*x))
+            .into_dyn();
+        let dim = dim.into_dyn();
         let new_data = zip_pair(
             child.clone(),
             child_presize.clone(),
-            move |x, (_, child_data)| {
-                x.size(dim.clone(), child_limits.clone(), child_data.as_ref())
-            },
+            move |x, (_, child_data)| x.size(dim.clone(), bounds.clone(), child_data.as_ref()),
         );
 
         (

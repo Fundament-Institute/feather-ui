@@ -54,8 +54,15 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
         &self.props
     }
 
-    fn presize(&self, dpi: MutableSignal<crate::RelDim>) -> (DynSignal<PxRect>, Self::Staging) {
-        let limits = self.props.limits().resolve(dpi.clone());
+    fn presize(
+        &self,
+
+        bounds: DynSignal<PxLimits>,
+        dpi: MutableSignal<crate::RelDim>,
+    ) -> (DynSignal<PxRect>, Self::Staging) {
+        let limits = (self.props.limits(), dpi.clone(), bounds)
+            .zip()
+            .flatmap(|(limits, dpi, bounds)| limits.resolve(*dpi).preresolve(*bounds));
         let padding = self.props.padding().resolve(dpi.clone());
         let myarea = self.props.area().resolve(dpi.clone());
 
@@ -109,16 +116,20 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
         // Now we get the intrinsic size from the first buffer, but only if area is unsized.
         let is_sized = myarea.clone().map(|x| x.is_sized());
         let intrinsic_size = is_sized.cond(
-            zip_pair(buffer_dim.clone(), padding.clone(), |b, p| *b + p.total()).into_dyn(),
             const_default().into_dyn(),
+            zip_pair(buffer_dim.clone(), padding.clone(), |b, p| *b + p.total()).into_dyn(),
         );
 
         let evaluated_area = (intrinsic_size.clone(), myarea.clone(), inner_limits.clone())
             .zip()
             .flatmap(|(size, area, limits)| area.resolve(*size).preresolve().limit(*limits));
 
+        let anchored_area = (evaluated_area.clone(), self.props.anchor(), dpi.clone())
+            .zip()
+            .flatmap(|(area, anchor, dpi)| area.anchored(anchor.resolve(*dpi)));
+
         (
-            evaluated_area.into(),
+            anchored_area.into(),
             (self.buffer.clone(), dpi, intrinsic_size.into()),
         )
     }
@@ -126,34 +137,28 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
     fn size(
         &self,
         dim: DynSignal<crate::UnsizedDim>,
-        limits: DynSignal<PxLimits>,
+        bounds: DynSignal<crate::PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
         let (prev, dpi, prev_size) = data;
 
-        let limits = (self.props.limits(), limits, dpi.clone())
-            .zip()
-            .flatmap(|(l1, l2, dpi)| l1.resolve(*dpi) + l2);
+        let limits = self.props.limits().resolve(dpi.clone()).resolve(zip_pair(
+            bounds,
+            dim.clone(),
+            |b, d| b.to_bounds(*d),
+        ));
 
         let wdriver = self.driver.clone();
-        let wdriver2 = self.driver.clone();
 
         let padding = self.props.padding().resolve(dpi.clone());
         let myarea = self.props.area().resolve(dpi.clone());
 
         // If we are unsized, we do a second text shaping here
-        let buffer = (
-            prev.clone(),
-            prev_size,
-            limits.clone(),
-            padding.clone(),
-            myarea.clone(),
-            dim.clone(),
-        )
+        let buffer = (prev.clone(), limits.clone(), myarea.clone(), dim.clone())
             .zip()
-            .flatmap_mut(move |(prev, bufsize, limits, padding, area, dim), buffer| {
+            .flatmap_mut(move |(prev, limits, area, dim), buffer| {
                 let mut buffer = buffer.unwrap_or_else(|| prev.clone());
-                if let Some(driver) = wdriver2.upgrade() {
+                if let Some(driver) = wdriver.upgrade() {
                     let mut font_system = driver.font_system.write();
                     crate::text::copy_buffer(&mut buffer, &mut font_system, prev);
 
@@ -165,7 +170,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
                         )
                     };
 
-                    let mydim = resolve_dim(*dim, *area, *bufsize + padding.total());
+                    let mydim = area.skip_resolve(*dim);
 
                     let (unsized_x, unsized_y) = mydim.is_unsized();
                     buffer.set_size(
@@ -202,68 +207,31 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
             PxDim::new(w, h)
         });
 
-        let unsized_area = (
-            buffer_dim.clone(),
+        let is_sized = myarea.clone().map(|x| x.is_sized());
+        let intrinsic_size = is_sized.cond(
+            const_default().into_dyn(),
+            zip_pair(buffer_dim.clone(), padding.clone(), |b, p| *b + p.total()).into_dyn(),
+        );
+
+        let evaluated_area = (
+            intrinsic_size.clone(),
             myarea.clone(),
-            padding.clone(),
             limits.clone(),
             dim.clone(),
         )
             .zip()
-            .flatmap(|(buffer_size, area, padding, limits, d)| {
-                area.resolve(*buffer_size + padding.total())
-                    .resolve(d.zero_unsized())
-                    .limit(*limits)
-            });
-
-        let sized_area =
-            (myarea.clone(), limits.clone(), dim.clone())
-                .zip()
-                .flatmap(|(area, limits, d)| {
-                    unsafe { area.into_sized() }
-                        .resolve(d.zero_unsized())
-                        .limit(*limits)
-                });
-
-        // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
-        let is_sized = myarea.clone().map(|x| x.is_sized());
-
-        let evaluated_area = is_sized
-            .clone()
-            .cond(sized_area.clone().into(), unsized_area.into());
-
-        let buffer_sized = (prev, sized_area)
-            .zip()
-            .flatmap_mut(move |(prev, area), buffer| {
-                let mut buffer = buffer.unwrap_or_else(|| prev.clone());
-                if let Some(driver) = wdriver.upgrade() {
-                    let mut font_system = driver.font_system.write();
-                    crate::text::copy_buffer(&mut buffer, &mut font_system, prev);
-
-                    let mydim = area.dim().max(crate::PxDim::zero());
-
-                    // TODO: Add subtract padding?
-                    buffer.set_size(&mut font_system, Some(mydim.width), Some(mydim.height));
-                }
-
-                buffer
+            .flatmap(|(size, area, limits, d)| {
+                area.resolve(*size).resolve(d.zero_unsized()).limit(*limits)
             });
 
         let anchored_area = (evaluated_area.clone(), self.props.anchor(), dpi.clone())
             .zip()
-            .flatmap(|(area, a, d)| *area - (a.resolve(*d) * area.dim().max(crate::PxDim::zero())))
+            .flatmap(|(area, a, d)| area.anchored(a.resolve(*d)))
             .into_dyn();
 
         (
             anchored_area.into(),
-            (
-                is_sized
-                    .clone()
-                    .cond(buffer_sized.into_dyn(), buffer.into_dyn())
-                    .into(),
-                dpi,
-                buffer_dim.into(),
-            ),
+            (buffer.into_dyn(), dpi, buffer_dim.into()),
         )
     }
 
@@ -275,14 +243,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
     ) -> Rc<rtree::Node> {
         let (prev, dpi, _) = data;
 
-        //let final_area = (area + offset).into_dyn();
-        let final_area = zip_pair(
-            area,
-            offset,
-            // delete me
-            |a, o| *a + *o,
-        )
-        .into_dyn();
+        let final_area = (area + offset).into_dyn();
 
         self.final_buffer
             .set(prev)

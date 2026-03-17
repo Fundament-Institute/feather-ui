@@ -35,16 +35,17 @@ impl Desc for dyn Prop {
 
     fn presize(
         props: &Self::Props,
+        bounds: DynSignal<PxLimits>,
         dpi: MutableSignal<RelDim>,
         _: DynSignal<Self::Children>,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        let limits = (props.limits(), dpi.clone())
+        let limits = (props.limits(), dpi.clone(), bounds)
             .zip()
-            .flatmap(|(limits, dpi)| limits.resolve(*dpi));
+            .flatmap(|(limits, dpi, bounds)| limits.resolve(*dpi).preresolve(*bounds));
 
         let area = zip_pair(props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
 
-        let evaluated_area = crate::reactive::zip_pair(area.clone(), limits.clone(), |a, l| {
+        let evaluated_area = crate::reactive::zip_pair(area.clone(), limits, |a, l| {
             a.resolve(PxDim::zero()).preresolve().limit(*l)
         });
 
@@ -54,30 +55,23 @@ impl Desc for dyn Prop {
     fn size(
         props: &Self::Props,
         dim: DynSignal<UnsizedDim>,
-        rlimits: DynSignal<PxLimits>,
+        bounds: DynSignal<crate::PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
         let (area, dpi) = data;
-        let final_area = (
-            area.clone(),
-            dim,
-            props.limits(),
-            rlimits.clone(),
-            dpi.clone(),
-        )
+
+        let final_area = (area.clone(), dim, bounds, props.limits(), dpi.clone())
             .zip()
-            .flatmap(|(a, dim, limits, l2, dpi)| {
+            .flatmap(|(a, dim, b, limits, dpi)| {
                 a.resolve(PxDim::zero())
                     .resolve(dim.zero_unsized())
-                    .limit(limits.resolve(*dpi) + l2)
+                    .limit(limits.resolve(*dpi).resolve(b.to_bounds(*dim)))
             });
 
         (
             (final_area.clone(), props.anchor(), dpi.clone())
                 .zip()
-                .flatmap(|(area, a, d)| {
-                    *area - (a.resolve(*d) * area.dim().max(crate::PxDim::zero()))
-                })
+                .flatmap(|(area, a, dpi)| area.anchored(a.resolve(*dpi)))
                 .into_dyn(),
             (area, dpi),
         )
@@ -156,7 +150,6 @@ impl<T: Padded + SignalDebug, R: crate::render::Prerender + Clone + SignalDebug 
 {
     type Props = T;
     type Staging = (
-        DynSignal<PxLimits>,
         DynSignal<PxPerimeter>,
         DynSignal<crate::URect<Unsized>>,
         MutableSignal<RelDim>,
@@ -166,8 +159,15 @@ impl<T: Padded + SignalDebug, R: crate::render::Prerender + Clone + SignalDebug 
         &self.props
     }
 
-    fn presize(&self, dpi: MutableSignal<RelDim>) -> (DynSignal<PxRect>, Self::Staging) {
-        let limits = self.props.limits().resolve(dpi.clone());
+    fn presize(
+        &self,
+        bounds: DynSignal<PxLimits>,
+        dpi: MutableSignal<RelDim>,
+    ) -> (DynSignal<PxRect>, Self::Staging) {
+        let limits = (self.props.limits(), bounds, dpi.clone())
+            .zip()
+            .flatmap(|(limits, bounds, dpi)| limits.resolve(*dpi).preresolve(*bounds));
+
         let padding = self.props.padding().resolve(dpi.clone());
         let area = self.props.area().resolve(dpi.clone());
 
@@ -181,38 +181,38 @@ impl<T: Padded + SignalDebug, R: crate::render::Prerender + Clone + SignalDebug 
                 calc_sized_area(*padding, *area, *size, PxDim::zero())
             });
 
-        let evaluated_area = mapped_area.limit(limits.clone());
+        let evaluated_area = mapped_area.limit(limits);
 
         (
             evaluated_area.into_dyn(),
-            (
-                limits.into_dyn(),
-                padding.into_dyn(),
-                area.into_dyn(),
-                dpi.clone(),
-            ),
+            (padding.into_dyn(), area.into_dyn(), dpi.clone()),
         )
     }
 
     fn size(
         &self,
         dim: DynSignal<UnsizedDim>,
-        rlimits: DynSignal<PxLimits>,
+        bounds: DynSignal<crate::PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        let (limits, padding, area, dpi) = data;
+        let (padding, area, dpi) = data;
+
+        let limits = self.props.limits().resolve(dpi.clone()).resolve(zip_pair(
+            bounds,
+            dim.clone(),
+            |b, d| b.to_bounds(*d),
+        ));
+
         let final_area = (
             padding.clone(),
             area.clone(),
             self.size.clone(),
             dim,
-            limits.clone(),
-            rlimits.clone(),
+            limits,
         )
             .zip()
-            .flatmap(move |(padding, area, size, outer, limits, rlimits)| {
-                calc_sized_area(*padding, *area, *size, outer.zero_unsized())
-                    .limit(*limits + *rlimits)
+            .flatmap(move |(padding, area, size, outer, limits)| {
+                calc_sized_area(*padding, *area, *size, outer.zero_unsized()).limit(*limits)
             });
 
         (
@@ -220,7 +220,7 @@ impl<T: Padded + SignalDebug, R: crate::render::Prerender + Clone + SignalDebug 
                 .zip()
                 .flatmap(|(area, a, d)| area.anchored(a.resolve(*d)))
                 .into_dyn(),
-            (limits, padding, area, dpi),
+            (padding, area, dpi),
         )
     }
 
@@ -230,7 +230,7 @@ impl<T: Padded + SignalDebug, R: crate::render::Prerender + Clone + SignalDebug 
         area: DynSignal<PxRect>,
         data: Self::Staging,
     ) -> Rc<rtree::Node> {
-        let (_, _, _, dpi) = data;
+        let (_, _, dpi) = data;
 
         let final_area = (area + offset).into_dyn();
 

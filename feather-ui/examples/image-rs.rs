@@ -20,7 +20,7 @@ use std::sync::Arc;
 struct FixedData {
     area: DRect,
     anchor: DPoint,
-    limits: feather_ui::DLimits,
+    limits: feather_ui::ULimits,
     rlimits: feather_ui::RelLimits,
     padding: UPerimeter,
     zindex: i32,
