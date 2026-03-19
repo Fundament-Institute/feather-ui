@@ -39,11 +39,12 @@ impl Desc for dyn Prop {
         dpi: MutableSignal<RelDim>,
         _: DynSignal<Self::Children>,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        let limits = (props.limits(), dpi.clone(), bounds)
+        let area = props.area().resolve(dpi.clone());
+        let limits = (props.limits(), dpi.clone(), bounds, area.clone())
             .zip()
-            .flatmap(|(limits, dpi, bounds)| limits.resolve(*dpi).preresolve(*bounds));
-
-        let area = zip_pair(props.area(), dpi.clone(), |p, dpi| p.resolve(*dpi));
+            .flatmap(|(limits, dpi, bounds, area)| {
+                area.to_bounds(limits.resolve(*dpi).preresolve(*bounds))
+            });
 
         let evaluated_area = crate::reactive::zip_pair(area.clone(), limits, |a, l| {
             a.resolve(PxDim::zero()).preresolve().limit(*l)
@@ -129,7 +130,7 @@ fn calc_sized_area(
         (true, false, false) => {
             let mut presize = area.resolve(PxDim::zero()).resolve(outer);
             let adjust = presize.dim().height * aspect_ratio;
-            let v = presize.v.as_array_mut();
+            let v = presize.v.as_mut_array();
             v[2] += adjust;
             presize
         }
@@ -137,7 +138,7 @@ fn calc_sized_area(
             let mut presize = area.resolve(PxDim::zero()).resolve(outer);
             // Be careful, the aspect ratio here is being divided instead of multiplied
             let adjust = presize.dim().width / aspect_ratio;
-            let v = presize.v.as_array_mut();
+            let v = presize.v.as_mut_array();
             v[3] += adjust;
             presize
         }
@@ -164,12 +165,14 @@ impl<T: Padded + SignalDebug, R: crate::render::Prerender + Clone + SignalDebug 
         bounds: DynSignal<PxLimits>,
         dpi: MutableSignal<RelDim>,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        let limits = (self.props.limits(), bounds, dpi.clone())
+        let area = self.props.area().resolve(dpi.clone());
+        let limits = (self.props.limits(), bounds, area.clone(), dpi.clone())
             .zip()
-            .flatmap(|(limits, bounds, dpi)| limits.resolve(*dpi).preresolve(*bounds));
+            .flatmap(|(limits, bounds, area, dpi)| {
+                area.to_bounds(limits.resolve(*dpi).preresolve(*bounds))
+            });
 
         let padding = self.props.padding().resolve(dpi.clone());
-        let area = self.props.area().resolve(dpi.clone());
 
         // The way we handle unsized here is different from how we normally handle it.
         // If both axes are unsized, we simply set the area to the internal

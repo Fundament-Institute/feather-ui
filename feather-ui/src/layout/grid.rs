@@ -59,7 +59,7 @@ impl Desc for dyn Prop {
         let (unsized_x, unsized_y) = check_unsized(myarea);
         let padding = props.padding().as_perimeter(window.dpi);
         let allpadding = padding.total();
-        let minmax = limits.v.as_array_mut();
+        let minmax = limits.v.as_mut_array();
         if unsized_x {
             minmax[2] -= allpadding.width;
             minmax[0] -= allpadding.width;

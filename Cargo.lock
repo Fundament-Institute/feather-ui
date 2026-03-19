@@ -979,7 +979,7 @@ dependencies = [
  "tuple_list",
  "unicode-segmentation",
  "wgpu",
- "wide 0.7.33",
+ "wide",
  "windows-sys 0.61.2",
  "winit",
 ]
@@ -1375,7 +1375,7 @@ dependencies = [
  "rand_core 0.10.0",
  "rand_xoshiro",
  "version_check",
- "wide 1.2.0",
+ "wide",
 ]
 
 [[package]]
@@ -3094,15 +3094,6 @@ dependencies = [
 
 [[package]]
 name = "safe_arch"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96b02de82ddbe1b636e6170c21be622223aea188ef2e139be0a5b219ec215323"
-dependencies = [
- "bytemuck",
-]
-
-[[package]]
-name = "safe_arch"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f7caad094bd561859bcd467734a720c3c1f5d1f338995351fefe2190c45efed"
@@ -3508,18 +3499,18 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "toml_datetime"
-version = "1.0.0+spec-1.1.0"
+version = "1.0.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32c2555c699578a4f59f0cc68e5116c8d7cabbd45e1409b989d4be085b53f13e"
+checksum = "9b320e741db58cac564e26c607d3cc1fdc4a88fd36c879568c07856ed83ff3e9"
 dependencies = [
  "serde_core",
 ]
 
 [[package]]
 name = "toml_edit"
-version = "0.25.4+spec-1.1.0"
+version = "0.25.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7193cbd0ce53dc966037f54351dbbcf0d5a642c7f0038c382ef9e677ce8c13f2"
+checksum = "8ca1a40644a28bce036923f6a431df0b34236949d111cc07cb6dca830c9ef2e1"
 dependencies = [
  "indexmap",
  "toml_datetime",
@@ -3529,9 +3520,9 @@ dependencies = [
 
 [[package]]
 name = "toml_parser"
-version = "1.0.9+spec-1.1.0"
+version = "1.0.10+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "702d4415e08923e7e1ef96cd5727c0dfed80b4d2fa25db9647fe5eb6f7c5a4c4"
+checksum = "7df25b4befd31c4816df190124375d5a20c6b6921e2cad937316de3fccd63420"
 dependencies = [
  "winnow",
 ]
@@ -4070,22 +4061,12 @@ dependencies = [
 
 [[package]]
 name = "wide"
-version = "0.7.33"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ce5da8ecb62bcd8ec8b7ea19f69a51275e91299be594ea5cc6ef7819e16cd03"
-dependencies = [
- "bytemuck",
- "safe_arch 0.7.4",
-]
-
-[[package]]
-name = "wide"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "198f6abc41fab83526d10880fa5c17e2b4ee44e763949b4bb34e2fd1e8ca48e4"
 dependencies = [
  "bytemuck",
- "safe_arch 1.0.0",
+ "safe_arch",
 ]
 
 [[package]]
@@ -4452,9 +4433,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.15"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
+checksum = "a90e88e4667264a994d34e6d1ab2d26d398dcdca8b7f52bec8668957517fc7d8"
 dependencies = [
  "memchr",
 ]

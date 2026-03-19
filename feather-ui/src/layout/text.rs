@@ -47,7 +47,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
     type Staging = (
         DynSignal<cosmic_text::Buffer>,
         MutableSignal<crate::RelDim>,
-        DynSignal<PxDim>,
+        DynSignal<PxLimits>,
     );
 
     fn get_props(&self) -> &T {
@@ -56,22 +56,23 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
 
     fn presize(
         &self,
-
         bounds: DynSignal<PxLimits>,
         dpi: MutableSignal<crate::RelDim>,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        let limits = (self.props.limits(), dpi.clone(), bounds)
-            .zip()
-            .flatmap(|(limits, dpi, bounds)| limits.resolve(*dpi).preresolve(*bounds));
-        let padding = self.props.padding().resolve(dpi.clone());
         let myarea = self.props.area().resolve(dpi.clone());
+        let limits = (self.props.limits(), dpi.clone(), bounds, myarea.clone())
+            .zip()
+            .flatmap(|(limits, dpi, bounds, area)| {
+                area.to_bounds(limits.resolve(*dpi).preresolve(*bounds))
+            });
+        let padding = self.props.padding().resolve(dpi.clone());
 
         let inner_limits = (limits.clone(), myarea.clone(), padding.clone())
             .zip()
             .flatmap(|(limits, area, padding)| {
                 let (unsized_x, unsized_y) = area.is_unsized();
                 let mut l = *limits;
-                let minmax = l.v.as_array_mut();
+                let minmax = l.v.as_mut_array();
                 let allpadding =
                     padding.total() + area.bottomright().abs().to_vector().to_size().cast_unit();
                 if unsized_x {
@@ -130,7 +131,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
 
         (
             anchored_area.into(),
-            (self.buffer.clone(), dpi, intrinsic_size.into()),
+            (self.buffer.clone(), dpi, inner_limits.into()),
         )
     }
 
@@ -140,7 +141,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
         bounds: DynSignal<crate::PxLimits>,
         data: Self::Staging,
     ) -> (DynSignal<PxRect>, Self::Staging) {
-        let (prev, dpi, prev_size) = data;
+        let (prev, dpi, inner_limits) = data;
 
         let limits = self.props.limits().resolve(dpi.clone()).resolve(zip_pair(
             bounds,
@@ -154,7 +155,12 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
         let myarea = self.props.area().resolve(dpi.clone());
 
         // If we are unsized, we do a second text shaping here
-        let buffer = (prev.clone(), limits.clone(), myarea.clone(), dim.clone())
+        let buffer = (
+            prev.clone(),
+            inner_limits.clone(),
+            myarea.clone(),
+            dim.clone(),
+        )
             .zip()
             .flatmap_mut(move |(prev, limits, area, dim), buffer| {
                 let mut buffer = buffer.unwrap_or_else(|| prev.clone());
@@ -191,7 +197,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
                 buffer
             });
 
-        let buffer_dim = zip_pair(buffer.clone(), limits.clone(), |buffer, limits| {
+        let buffer_dim = zip_pair(buffer.clone(), inner_limits.clone(), |buffer, limits| {
             let mut h = 0.0;
             let mut w: f32 = 0.0;
 
@@ -216,7 +222,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
         let evaluated_area = (
             intrinsic_size.clone(),
             myarea.clone(),
-            limits.clone(),
+            inner_limits.clone(),
             dim.clone(),
         )
             .zip()
@@ -229,10 +235,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
             .flatmap(|(area, a, d)| area.anchored(a.resolve(*d)))
             .into_dyn();
 
-        (
-            anchored_area.into(),
-            (buffer.into_dyn(), dpi, buffer_dim.into()),
-        )
+        (anchored_area.into(), (buffer.into_dyn(), dpi, inner_limits))
     }
 
     fn stage(

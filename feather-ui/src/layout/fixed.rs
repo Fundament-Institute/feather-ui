@@ -28,9 +28,12 @@ fn presize(
     children: DynSignal<imbl::Vector<Rc<dyn DynLayout<dyn Empty>>>>,
     dpi: MutableSignal<RelDim>,
 ) -> (DynSignal<crate::PxRect>, Staging) {
-    let limits = (props.limits(), bounds, dpi.clone())
+    let myarea = props.area().resolve(dpi.clone());
+    let limits = (props.limits(), bounds, myarea.clone(), dpi.clone())
         .zip()
-        .flatmap(|(limits, bounds, dpi)| limits.resolve(*dpi).preresolve(*bounds));
+        .flatmap(|(limits, bounds, area, dpi)| {
+            area.to_bounds(limits.resolve(*dpi).preresolve(*bounds))
+        });
 
     let limits2 = limits.clone().into_dyn();
     let dpi2 = dpi.clone();
@@ -52,8 +55,6 @@ fn presize(
         crate::ConstSignal::new(PxRect::zero()).into_dyn(),
     ))
     .map(|x| x.extend(PxRect::zero()).dim());
-
-    let myarea = props.area().resolve(dpi.clone());
 
     // Check if any axis is unsized in a way that requires us to calculate baseline child sizes
     let is_sized = myarea.clone().map(|x| x.is_sized());

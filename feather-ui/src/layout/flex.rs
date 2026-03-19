@@ -365,7 +365,7 @@ impl Desc for dyn Prop {
 
             // Swap the margin axis if necessary
             if !xaxis {
-                let ltrb = cache.margin.v.as_array_mut();
+                let ltrb = cache.margin.v.as_mut_array();
                 ltrb.swap(0, 1);
                 ltrb.swap(2, 3);
             }
@@ -595,7 +595,7 @@ impl Desc for dyn Prop {
                 area.set_topleft(area.topleft().min(area.bottomright()));
                 // If our axis is swapped, swap the rectangle axis
                 if !xaxis {
-                    let ltrb = area.v.as_array_mut();
+                    let ltrb = area.v.as_mut_array();
                     ltrb.swap(0, 1);
                     ltrb.swap(2, 3);
                 }
