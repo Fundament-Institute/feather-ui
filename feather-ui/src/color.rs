@@ -7,7 +7,7 @@ use wide::f32x4;
 macro_rules! gen_channel_accessors {
     ($rgba:ident, $r:ident, $g:ident, $b:ident, $a:ident) => {
         pub fn as_array(&self) -> &[f32; 4] {
-            self.$rgba.as_array_ref()
+            self.$rgba.as_array()
         }
 
         pub const fn new($r: f32, $g: f32, $b: f32, $a: f32) -> Self {
@@ -35,7 +35,7 @@ macro_rules! gen_channel_accessors {
 }
 
 pub fn mat4_x_vec4(l: f32x4, r: [f32x4; 4]) -> f32x4 {
-    let v = l.as_array_ref();
+    let v = l.as_array();
     ((r[0]) * f32x4::splat(v[0]))
         + ((r[1]) * f32x4::splat(v[1]))
         + ((r[2]) * f32x4::splat(v[2]))
@@ -84,7 +84,7 @@ pub trait ColorSpace: Premultiplied {
 
         let mut lms = mat4_x_vec4(xyz.xyza, XYZ_OKLAB_M1);
 
-        let v = lms.as_array_mut();
+        let v = lms.as_mut_array();
         for v in v.iter_mut().take(3) {
             *v = v.powf(1.0 / 3.0);
         }
@@ -195,7 +195,7 @@ impl ColorSpace for OkLab {
     fn xyz(&self) -> XYZ {
         let mut lms = mat4_x_vec4(self.laba, OKLAB_XYZ_M2);
 
-        let v = lms.as_array_mut();
+        let v = lms.as_mut_array();
         for v in v.iter_mut().take(3) {
             *v = v.powf(3.0);
         }
@@ -211,7 +211,7 @@ impl ColorSpace for OkLab {
 
     // Based on the somewhat cursed code provided here: https://bottosson.github.io/posts/oklab/#converting-from-linear-srgb-to-oklab
     fn linear_srgb(&self) -> Raw_sRGB<true, false> {
-        let v = self.laba.as_array_ref();
+        let v = self.laba.as_array();
         let l_ = v[0] + 0.396_337_78 * v[1] + 0.215_803_76 * v[2];
         let m_ = v[0] - 0.105_561_346 * v[1] - 0.063_854_17 * v[2];
         let s_ = v[0] - 0.089_484_18 * v[1] - 1.291_485_5 * v[2];

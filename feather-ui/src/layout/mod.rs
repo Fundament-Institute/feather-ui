@@ -460,8 +460,8 @@ pub fn resolve_dim(dim: UnsizedDim, area: URect<Unsized>, intrinsic_size: PxDim)
 
     let (dim_unsized_x, dim_unsized_y) = dim.is_unsized();
     let (unsized_x, unsized_y) = area.is_unsized();
-    let v_abs = area.abs.v.as_array_ref();
-    let v_rel = area.rel.v.as_array_ref();
+    let v_abs = area.abs.v.as_array();
+    let v_rel = area.rel.v.as_array();
     // Unsized objects must always have a single anchor point to make sense, so we
     // copy over from topleft.
     let x = if unsized_x {
@@ -523,7 +523,7 @@ pub(crate) fn apply_limit(dim: UnsizedDim, limits: PxLimits, rlimits: RelLimits)
 }
 
 pub(crate) fn assert_sized(area: PxRect) {
-    let ltrb = area.v.as_array_ref();
+    let ltrb = area.v.as_array();
 
     for v in ltrb {
         assert_ne!(*v, UNSIZED_AXIS);
@@ -618,7 +618,8 @@ fn reference_presize(
     intrinsic: &mut either::Either<PxDim, Vec<ReferenceProps>>,
     prev_size: &mut PxDim,
 ) -> PxRect {
-    let limits = dlimits.resolve(dpi).preresolve(bounds);
+    let area = area.resolve(dpi);
+    let limits = area.to_bounds(dlimits.resolve(dpi).preresolve(bounds));
     *prev_size = match intrinsic {
         either::Either::Left(size) => *size,
         either::Either::Right(children) => children
@@ -640,8 +641,7 @@ fn reference_presize(
             .to_size(),
     };
 
-    area.resolve(dpi)
-        .resolve(*prev_size + padding.resolve(dpi).total())
+    area.resolve(*prev_size + padding.resolve(dpi).total())
         .preresolve()
         .limit(limits)
         .anchored(anchor.resolve(dpi))

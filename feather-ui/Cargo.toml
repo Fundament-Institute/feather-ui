@@ -73,7 +73,7 @@ smallvec = { version = "1.13", features = ["union", "const_generics"] }
 thiserror = "2.0"
 feather-macro.workspace = true
 derive_more = { version = "2.0.1", features = ["try_from", "display"] }
-wide = "0.7.32"
+wide = "1.2"
 alloca = "0.4.0"
 unicode-segmentation = "1.12.0"
 arboard = { version = "3.5.0", features = ["wayland-data-control"] }

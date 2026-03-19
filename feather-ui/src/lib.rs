@@ -52,9 +52,10 @@ use bytemuck::Zeroable;
 use core::f32;
 use derive_where::derive_where;
 use dyn_clone::DynClone;
+use either::IntoEither;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
-use num_traits::Signed;
+use num_traits::{Signed, Zero};
 use parking_lot::RwLock;
 use std::any::Any;
 use std::cell::RefCell;
@@ -425,9 +426,12 @@ impl<U> Rect<U> {
     #[inline]
     pub fn contains(&self, p: Point2D<f32, U>) -> bool {
         //let test: u32x4 = bytemuck::cast(f32x4::new([p.x, p.y, p.x,
-        // p.y]).cmp_ge(self.0));
+        // p.y]).simd_ge(self.0));
 
-        f32x4::new([p.x, p.y, p.x, p.y]).cmp_ge(self.v).move_mask() == 0b0011
+        f32x4::new([p.x, p.y, p.x, p.y])
+            .simd_ge(self.v)
+            .to_bitmask()
+            == 0b0011
 
         /*p.x >= self.0[0]
         && p.y >= self.0[1]
@@ -437,9 +441,9 @@ impl<U> Rect<U> {
 
     #[inline]
     pub fn collides(&self, rhs: &Self) -> bool {
-        let r = rhs.v.as_array_ref();
+        let r = rhs.v.as_array();
         f32x4::new([r[2], r[3], -r[0], -r[1]])
-            .cmp_gt(self.v * MINUS_BOTTOMRIGHT)
+            .simd_gt(self.v * MINUS_BOTTOMRIGHT)
             .all()
 
         /*rhs.0[2] > self.0[0]
@@ -461,8 +465,8 @@ impl<U> Rect<U> {
             _unit: PhantomData,
         }
 
-        /*let r = rhs.0.as_array_ref();
-        let l = self.0.as_array_ref();
+        /*let r = rhs.0.as_array();
+        let l = self.0.as_array();
         AbsRect::new(
             l[0].max(r[0]),
             l[1].max(r[1]),
@@ -485,53 +489,53 @@ impl<U> Rect<U> {
 
     #[inline]
     pub fn left(&self) -> f32 {
-        self.v.as_array_ref()[0]
+        self.v.as_array()[0]
     }
 
     #[inline]
     pub fn top(&self) -> f32 {
-        self.v.as_array_ref()[1]
+        self.v.as_array()[1]
     }
 
     #[inline]
     pub fn right(&self) -> f32 {
-        self.v.as_array_ref()[2]
+        self.v.as_array()[2]
     }
 
     #[inline]
     pub fn bottom(&self) -> f32 {
-        self.v.as_array_ref()[3]
+        self.v.as_array()[3]
     }
 
     #[inline]
     pub fn topleft(&self) -> Point2D<f32, U> {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         Point2D::new(ltrb[0], ltrb[1])
     }
 
     #[inline]
     pub fn set_topleft(&mut self, v: Point2D<f32, U>) {
-        let ltrb = self.v.as_array_mut();
+        let ltrb = self.v.as_mut_array();
         ltrb[0] = v.x;
         ltrb[1] = v.y;
     }
 
     #[inline]
     pub fn bottomright(&self) -> Point2D<f32, U> {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         Point2D::new(ltrb[2], ltrb[3])
     }
 
     #[inline]
     pub fn set_bottomright(&mut self, v: Point2D<f32, U>) {
-        let ltrb = self.v.as_array_mut();
+        let ltrb = self.v.as_mut_array();
         ltrb[2] = v.x;
         ltrb[3] = v.y;
     }
 
     #[inline]
     pub fn dim(&self) -> Size2D<f32, U> {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         debug_assert_ne!(ltrb[0], UNSIZED_AXIS);
         debug_assert_ne!(ltrb[1], UNSIZED_AXIS);
         debug_assert_ne!(ltrb[2], UNSIZED_AXIS);
@@ -542,7 +546,7 @@ impl<U> Rect<U> {
     // This is allowed to return an invalid dimension because it's up to the caller to verify that it is never used.
     #[inline]
     pub unsafe fn dim_unchecked(&self) -> Size2D<f32, U> {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         Size2D::new(ltrb[2] - ltrb[0], ltrb[3] - ltrb[1])
     }
 
@@ -588,14 +592,14 @@ unsafe impl<U: Copy + 'static> bytemuck::Pod for Rect<U> {}
 
 impl<U> Hash for Rect<U> {
     fn hash<H: core::hash::Hasher>(&self, h: &mut H) {
-        let v = self.v.as_array_ref();
+        let v = self.v.as_array();
         h.write_i128(bytemuck::cast(*v));
     }
 }
 
 impl<U> Display for Rect<U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         write!(
             f,
             "Rect<{}>[({},{});({},{})]",
@@ -837,7 +841,7 @@ impl<U> Perimeter<U> {
 
     #[inline]
     pub fn topleft(&self) -> Size2D<f32, U> {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         Size2D::<f32, U> {
             width: ltrb[0],
             height: ltrb[1],
@@ -847,7 +851,7 @@ impl<U> Perimeter<U> {
 
     #[inline]
     pub fn bottomright(&self) -> Size2D<f32, U> {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         Size2D::<f32, U> {
             width: ltrb[2],
             height: ltrb[3],
@@ -857,7 +861,7 @@ impl<U> Perimeter<U> {
 
     #[inline]
     pub fn total(&self) -> Size2D<f32, U> {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         Size2D::<f32, U> {
             width: ltrb[0] + ltrb[2],
             height: ltrb[1] + ltrb[3],
@@ -899,14 +903,14 @@ unsafe impl<U: Copy + 'static> bytemuck::Pod for Perimeter<U> {}
 
 impl<U> Hash for Perimeter<U> {
     fn hash<H: core::hash::Hasher>(&self, h: &mut H) {
-        let v = self.v.as_array_ref();
+        let v = self.v.as_array();
         h.write_i128(bytemuck::cast(*v));
     }
 }
 
 impl<U> Display for Perimeter<U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ltrb = self.v.as_array_ref();
+        let ltrb = self.v.as_array();
         write!(
             f,
             "Perimeter<{}>[({},{});({},{})]",
@@ -1352,7 +1356,7 @@ impl UPoint {
     }
     #[inline]
     pub fn abs(&self) -> ResPoint {
-        let ltrb = self.0.as_array_ref();
+        let ltrb = self.0.as_array();
         ResPoint {
             x: ltrb[0],
             y: ltrb[1],
@@ -1361,7 +1365,7 @@ impl UPoint {
     }
     #[inline]
     pub fn rel(&self) -> RelPoint {
-        let ltrb = self.0.as_array_ref();
+        let ltrb = self.0.as_array();
         RelPoint {
             x: ltrb[2],
             y: ltrb[3],
@@ -1627,26 +1631,53 @@ impl URect<Unsized> {
     #[inline]
     pub fn is_sized(&self) -> bool {
         use wide::CmpNe;
-        self.rel.v.cmp_ne(UNSIZE_QUAD).all()
+        self.rel.v.simd_ne(UNSIZE_QUAD).all()
     }
 
     /// Used to calculate the presize bounds from this relative area
     #[inline]
     pub fn to_bounds(&self, bounds: PxLimits) -> PxLimits {
-        todo!();
-        let sized = Rect::<Relative> {
-            v: self
-                .rel
-                .v
-                .cmp_eq(UNSIZE_QUAD)
-                .blend(DEFAULT_LIMITS, self.rel.v),
-            _unit: PhantomData,
-        };
-
-        let reldim = sized.dim();
+        // TODO: SSE optimize somehow???
+        // If unsized, we need to SUBTRACT the abs topleft and bottomright from the lower bounds,
+        // then keep the upper bounds untouched
+        // If sized AND we have a zero relative dimension, we discard the bounds and use the abs
+        // dimensions instead.
+        // If sized with non-zero relative dimension, we multiply against the bounds and add the
+        // abs dimensions to the result (which will be correct even if it's unbounded infinity).
+        let reldim = unsafe { self.rel.dim_unchecked() };
+        let absdim = self.abs.dim();
+        let (unsized_x, unsized_y) = self.is_unsized();
         PxLimits {
-            // TODO: how does bottomright abs work here?
-            v: (splat_size(reldim) * bounds.v) + self.abs.v,
+            v: f32x4::new([
+                if unsized_x {
+                    bounds.min().width - self.abs.topleft().x - self.abs.bottomright().x
+                } else if reldim.width.is_zero() {
+                    absdim.width.max(bounds.min().width)
+                } else {
+                    reldim.width * bounds.min().width + absdim.width
+                },
+                if unsized_y {
+                    bounds.min().height - self.abs.topleft().y - self.abs.bottomright().y
+                } else if reldim.height.is_zero() {
+                    absdim.height.max(bounds.min().height)
+                } else {
+                    reldim.height * bounds.min().height + absdim.height
+                },
+                if unsized_x {
+                    bounds.max().width - self.abs.topleft().x - self.abs.bottomright().x
+                } else if reldim.width.is_zero() {
+                    absdim.width.min(bounds.max().width)
+                } else {
+                    reldim.width * bounds.max().width + absdim.width
+                },
+                if unsized_y {
+                    bounds.max().height - self.abs.topleft().y - self.abs.bottomright().y
+                } else if reldim.height.is_zero() {
+                    absdim.height.min(bounds.max().height)
+                } else {
+                    reldim.height * bounds.max().height + absdim.height
+                },
+            ]),
             _unit: PhantomData,
         }
     }
@@ -1655,7 +1686,7 @@ impl URect<Unsized> {
 impl Unsizable<PxDim> for URect<Unsized> {
     #[inline]
     fn is_unsized(&self) -> (bool, bool) {
-        let v = self.rel.v.as_array_ref();
+        let v = self.rel.v.as_array();
         (v[2] == UNSIZED_AXIS, v[3] == UNSIZED_AXIS)
     }
 
@@ -1685,8 +1716,8 @@ impl<T> URect<T> {
     #[inline]
     pub fn topleft(&self) -> UPoint {
         // TODO: SSE optimize with blend()
-        let abs = self.abs.v.as_array_ref();
-        let rel = self.rel.v.as_array_ref();
+        let abs = self.abs.v.as_array();
+        let rel = self.rel.v.as_array();
         UPoint(f32x4::new([abs[0], abs[1], rel[0], rel[1]]))
     }
 
@@ -1694,8 +1725,8 @@ impl<T> URect<T> {
     #[inline]
     pub fn bottomright(&self) -> UPoint {
         // TODO: SSE optimize with blend()
-        let abs = self.abs.v.as_array_ref();
-        let rel = self.rel.v.as_array_ref();
+        let abs = self.abs.v.as_array();
+        let rel = self.rel.v.as_array();
         UPoint(f32x4::new([abs[2], abs[3], rel[2], rel[3]]))
     }
 }
@@ -1704,8 +1735,8 @@ impl URect<Unsized> {
     // Skips the instrinsic size resolution step and does a partial resolve instead.
     fn skip_resolve(&self, dim: UnsizedDim) -> UnsizedDim {
         // TODO: SSE optimize with blend()
-        let v_abs = self.abs.v.as_array_ref();
-        let v_rel = self.rel.v.as_array_ref();
+        let v_abs = self.abs.v.as_array();
+        let v_rel = self.rel.v.as_array();
         UnsizedDim {
             width: if dim.width == UNSIZED_AXIS || v_rel[2] == UNSIZED_AXIS {
                 UNSIZED_AXIS
@@ -1737,8 +1768,8 @@ impl Resolve<PxDim> for URect<Unsized> {
         // TODO: SSE optimize
         let mut abs = self.abs.v;
         let mut rel = self.rel.v;
-        let v_abs = abs.as_array_mut();
-        let v_rel = rel.as_array_mut();
+        let v_abs = abs.as_mut_array();
+        let v_rel = rel.as_mut_array();
 
         // Unsized objects must always have a single anchor point to make sense, so we
         // copy over from topleft.
@@ -1789,8 +1820,8 @@ impl URect<Relative> {
     #[inline]
     fn partial_resolve(&self, dim: UnsizedDim) -> UnsizedDim {
         // TODO: SSE optimize with blend()
-        let v_abs = self.abs.v.as_array_ref();
-        let v_rel = self.rel.v.as_array_ref();
+        let v_abs = self.abs.v.as_array();
+        let v_rel = self.rel.v.as_array();
         UnsizedDim {
             width: if dim.width == UNSIZED_AXIS {
                 UNSIZED_AXIS
@@ -1854,7 +1885,7 @@ pub struct DRect {
 impl Unsizable<RelDim> for DRect {
     #[inline]
     fn is_unsized(&self) -> (bool, bool) {
-        let v = self.rel.v.as_array_ref();
+        let v = self.rel.v.as_array();
         (v[2] == UNSIZED_AXIS, v[3] == UNSIZED_AXIS)
     }
 
@@ -1918,7 +1949,7 @@ impl DRect {
     #[inline]
     pub fn is_sized(&self) -> bool {
         use wide::CmpNe;
-        self.rel.v.cmp_ne(UNSIZE_QUAD).all()
+        self.rel.v.simd_ne(UNSIZE_QUAD).all()
     }
 
     /// Returns a DRect with a relative component mapped to the entire available
@@ -2142,25 +2173,25 @@ impl<U> Limits<U> {
 
     #[inline]
     pub fn min(&self) -> Size2D<f32, U> {
-        let minmax = self.v.as_array_ref();
+        let minmax = self.v.as_array();
         Size2D::new(minmax[0], minmax[1])
     }
     #[inline]
     pub fn max(&self) -> Size2D<f32, U> {
-        let minmax = self.v.as_array_ref();
+        let minmax = self.v.as_array();
         Size2D::new(minmax[2], minmax[3])
     }
 
     #[inline]
     pub(crate) fn set_min(&mut self, bound: Size2D<f32, U>) {
-        let minmax = self.v.as_array_mut();
+        let minmax = self.v.as_mut_array();
         minmax[0] = bound.width;
         minmax[1] = bound.height;
     }
 
     #[inline]
     pub(crate) fn set_max(&mut self, bound: Size2D<f32, U>) {
-        let minmax = self.v.as_array_mut();
+        let minmax = self.v.as_mut_array();
         minmax[2] = bound.width;
         minmax[3] = bound.height;
     }
@@ -2169,7 +2200,7 @@ impl<U> Limits<U> {
     pub fn apply_min(self, min: Size2D<f32, U>) -> Self {
         // TODO: SSE optimize
         let mut v = self.v;
-        let minmax = v.as_array_mut();
+        let minmax = v.as_mut_array();
         minmax[0] = minmax[0].max(min.width);
         minmax[1] = minmax[1].max(min.height);
         Self {
@@ -2182,7 +2213,7 @@ impl<U> Limits<U> {
     pub fn apply_max(self, max: Size2D<f32, U>) -> Self {
         // TODO: SSE optimize
         let mut v = self.v;
-        let minmax = v.as_array_mut();
+        let minmax = v.as_mut_array();
         minmax[2] = minmax[2].min(max.width);
         minmax[3] = minmax[3].min(max.height);
         Self {
@@ -2222,8 +2253,8 @@ impl<U> BitAnd for Limits<U> {
 
     #[inline]
     fn bitand(self, rhs: Limits<U>) -> Self::Output {
-        let minmax = self.v.as_array_ref();
-        let r = rhs.v.as_array_ref();
+        let minmax = self.v.as_array();
+        let r = rhs.v.as_array();
 
         // TODO: SSE optimize
         Self {
@@ -2345,14 +2376,12 @@ pub struct ULimits {
 impl ULimits {
     /// Resolves the relative limits against the parent limits, if they exist, instead
     /// of using the parent dimensions (for use in `presize`)
-    fn preresolve(&self, parent: PxLimits) -> PxLimits {
+    fn preresolve(&self, bounds: PxLimits) -> PxLimits {
         PxLimits {
             v: limit_merge(
                 self.abs.v,
-                self.rel
-                    .v
-                    .is_inf()
-                    .blend(DEFAULT_LIMITS, self.rel.v * parent.v),
+                (self.rel.v.is_inf() | bounds.v.is_inf())
+                    .blend(DEFAULT_LIMITS, self.rel.v * bounds.v),
             ),
             _unit: PhantomData,
         }
@@ -2367,8 +2396,8 @@ impl PxLimits {
 
         Self {
             // TODO: is it necessary to apply self.v to d?
-            // v: d.cmp_eq(UNSIZE_QUAD).blend(self.v, (d * MINUS_BOTTOMRIGHT).max(self.v) * MINUS_BOTTOMRIGHT)
-            v: d.cmp_eq(UNSIZE_QUAD).blend(self.v, d),
+            // v: d.simd_eq(UNSIZE_QUAD).blend(self.v, (d * MINUS_BOTTOMRIGHT).max(self.v) * MINUS_BOTTOMRIGHT)
+            v: d.simd_eq(UNSIZE_QUAD).blend(self.v, d),
             _unit: PhantomData,
         }
     }
@@ -2381,9 +2410,7 @@ impl Resolve<PxLimits> for ULimits {
         PxLimits {
             v: limit_merge(
                 self.abs.v,
-                self.rel
-                    .v
-                    .is_inf()
+                (self.rel.v.is_inf() | bounds.v.is_inf())
                     .blend(DEFAULT_LIMITS, self.rel.v * bounds.v),
             ),
             _unit: PhantomData,

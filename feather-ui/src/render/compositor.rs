@@ -255,7 +255,7 @@ impl Layer {
         // a pixel grid.
         let area = area
             .map(|x| {
-                let array = x.v.as_array_ref();
+                let array = x.v.as_array();
                 PxRect {
                     v: wide::f32x4::new([
                         array[0].floor(),
@@ -618,7 +618,7 @@ impl Compositor {
 
                     // If rotation is zero, we don't need to do per-pixel clipping, we can just
                     // modify the rect itself.
-                    let bounds = clip.v.as_array_ref();
+                    let bounds = clip.v.as_array();
                     let (min_x, min_y, max_x, max_y) = (bounds[0], bounds[1], bounds[2], bounds[3]);
 
                     // Get the ratio from our target rect to the source UV sampler rect
