@@ -522,7 +522,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                         pipeline.push(key.0, uv, index);
                     }
                 }),
-                Err(e) => return Err((*e).into()),
+                Err(e) => return Err(*e),
             }
         }
 
@@ -539,7 +539,7 @@ impl<const KIND: u8> super::Renderable for Instance<KIND> {
                 }
             }
             InstanceResult::Error(e) => {
-                return Err((*e).into());
+                return Err(*e);
             }
         }
 

@@ -133,8 +133,7 @@ impl WindowState {
 
     pub(crate) fn nodes(&self, tracker: WindowNodeTrack) -> SmallVec<[Weak<Node>; 4]> {
         self.trackers[tracker as usize]
-            .values()
-            .map(|node| node.clone())
+            .values().cloned()
             .collect()
     }
 
@@ -164,8 +163,7 @@ impl WindowState {
 
     pub(crate) fn get(&self, tracker: WindowNodeTrack, device_id: &DeviceId) -> Option<Weak<Node>> {
         self.trackers[tracker as usize]
-            .get(device_id)
-            .map(|v| v.clone())
+            .get(device_id).cloned()
     }
 
     pub(crate) fn draw(&mut self, mut encoder: wgpu::CommandEncoder) {
@@ -525,16 +523,12 @@ impl Window {
                         // elements. Later, we may map specific keyboards to
                         // specific mouse input device IDs. We use a fold instead of any() to avoid
                         // short-circuiting.
-                        if nodes.iter().fold(false, |ok, node| {
+                        nodes.iter().fold(false, |ok, node| {
                             ok | node
                                 .upgrade()
                                 .map(|n| n.inject_event(&e, e.kind(), window, &root, None).0)
                                 .unwrap_or(false)
-                        }) {
-                            true
-                        } else {
-                            false
-                        }
+                        })
                     }
                     RawEvent::MouseOff { .. } => {
                         // We have to collect this map so we aren't borrowing manager twice

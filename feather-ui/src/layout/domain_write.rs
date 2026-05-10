@@ -5,7 +5,7 @@ use super::Desc;
 use super::base::Empty;
 use crate::component::ComponentMarker;
 use crate::reactive::{DynSignal, MutableSignal, zip_pair};
-use crate::{CrossReferenceDomain, Limited, PxRect, RelDim, Unsizable, render};
+use crate::{CrossReferenceDomain, Limited, PxRect, RelDim, render};
 use std::sync::Arc;
 
 // A DomainWrite layout spawns a renderable that writes it's area to the target

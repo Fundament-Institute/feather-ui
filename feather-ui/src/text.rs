@@ -81,7 +81,7 @@ impl EditBuffer {
     pub fn get_content(&self) -> String {
         match self.buffer.borrow().as_ref() {
             Either::Left(b) => Self::as_string(b),
-            Either::Right(s) => Self::as_string(&sample(&s)),
+            Either::Right(s) => Self::as_string(&sample(s)),
         }
     }
 

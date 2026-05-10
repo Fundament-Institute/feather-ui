@@ -157,6 +157,5 @@ where
             }),
             machine: None,
         }
-        .into()
     }
 }

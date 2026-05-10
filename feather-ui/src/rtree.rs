@@ -176,7 +176,7 @@ impl Node {
                     driver,
                     compositor,
                     match &children {
-                        Some(x) => Some(&x),
+                        Some(x) => Some(x),
                         None => None,
                     },
                     dependents,
@@ -291,7 +291,7 @@ impl Node {
             }
             return (false, mask);
         }
-        return (false, u64::MAX);
+        (false, u64::MAX)
     }
 
     fn target_event_inner(
@@ -314,7 +314,7 @@ impl Node {
 
             if let Some(children) = &self.children {
                 // The ordering of children here is irrelevent, since we are searching for a particular node.
-                for child in crate::sample(&children).iter() {
+                for child in crate::sample(children).iter() {
                     if let Some(v) = child.target_event_inner(
                         event,
                         pos,
@@ -387,7 +387,7 @@ impl Node {
             let mut mask = 0;
             if let Some(children) = &self.children {
                 // Children should be sorted from top to bottom
-                for child in crate::sample(&children).iter().rev() {
+                for child in crate::sample(children).iter().rev() {
                     // TODO: Split these iterations into positive and negative z indexes, then call
                     // this node after processing index 0 but before negative indices.
                     let claimed = child.process(

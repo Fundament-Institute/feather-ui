@@ -35,8 +35,8 @@ pub trait Renderable {
 impl Prerender for () {
     type R = ();
 
-    fn prerender(&self, _: crate::DynSignal<PxRect>) -> () {
-        ()
+    fn prerender(&self, _: crate::DynSignal<PxRect>) {
+        
     }
 }
 

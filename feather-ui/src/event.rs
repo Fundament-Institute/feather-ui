@@ -80,7 +80,7 @@ impl<'l, T> EventStream<'l, T> for NeverStream<T> {
     fn subscribe<H: StreamCallback<T> + 'l>(self, h: H) -> Self::Subscription<H> {
         NeverSubscription {
             t: PhantomData,
-            h: h,
+            h,
         }
     }
 }
@@ -142,7 +142,7 @@ impl<'l, T: 'l, R: 'l, F: 'l + Fn(T) -> R, S: EventStream<'l, T>> EventStream<'l
         Self::Subscription {
             origin: self.origin.subscribe(MapCallback {
                 f: self.f,
-                h: h,
+                h,
                 phantom: PhantomData,
             }),
         }
@@ -212,7 +212,7 @@ impl<'l, T: 'l, F: 'l + Fn(&T) -> bool, S: EventStream<'l, T>> EventStream<'l, T
         Self::Subscription {
             origin: self.origin.subscribe(FilterCallback {
                 f: self.f,
-                h: h,
+                h,
                 phantom: PhantomData,
             }),
         }
@@ -265,7 +265,7 @@ impl<'l, T: 'l, S: EventStream<'l, T>> EventStream<'l, T> for ClaimStream<'l, T,
     fn subscribe<H: StreamCallback<T>>(self, h: H) -> Self::Subscription<H> {
         Self::Subscription {
             origin: self.origin.subscribe(ClaimCallback {
-                h: h,
+                h,
                 phantom: PhantomData,
             }),
         }
@@ -334,7 +334,7 @@ impl<'l, T: EventStream<'l, R>, R, H: StreamCallback<R>, S: EventStream<'l, T>>
         (
             FlattenStream {
                 origin: s,
-                tracker: tracker,
+                tracker,
                 phantom: PhantomData,
             },
             hh,
@@ -368,7 +368,7 @@ impl<'l, T: 'l + EventStream<'l, R>, R: 'l, S: EventStream<'l, T>> EventStream<'
         Self::Subscription {
             origin: self.origin.subscribe(FlattenOuterCallback {
                 h: hh,
-                tracker: tracker,
+                tracker,
             }),
         }
     }
@@ -441,7 +441,7 @@ impl<'l, T: Clone> StreamCallback<T> for DupCallback<'l, T> {
         });
         EventRes {
             cancel: self.queue.borrow().is_empty(),
-            claim: claim,
+            claim,
         }
     }
 }
@@ -463,12 +463,9 @@ impl<'l, T: Clone + 'l, S: EventStream<'l, T>> DupState<'l, T, S> {
     fn deactivate(&mut self) {
         let mut state = DupState::Invalid;
         std::mem::swap(self, &mut state);
-        match state {
-            DupState::Active(s, _) => {
-                let (dup, _) = s.unsubscribe();
-                state = Self::NoSubscriptions(dup);
-            }
-            _ => (),
+        if let DupState::Active(s, _) = state {
+            let (dup, _) = s.unsubscribe();
+            state = Self::NoSubscriptions(dup);
         }
         std::mem::swap(self, &mut state);
     }
@@ -588,14 +585,14 @@ where
     fn map<R: 'l>(self, f: impl Fn(T) -> R + 'l) -> impl EventStream<'l, R> {
         MapStream {
             origin: self,
-            f: f,
+            f,
             phantom: PhantomData,
         }
     }
     fn filter(self, f: impl Fn(&T) -> bool + 'l) -> impl EventStream<'l, T> {
         FilterStream {
             origin: self,
-            f: f,
+            f,
             phantom: PhantomData,
         }
     }
@@ -623,7 +620,7 @@ where
     {
         EachSubscription {
             origin: self.subscribe(EachCallback {
-                f: f,
+                f,
                 phantom: PhantomData,
             }),
             phantom: PhantomData,
@@ -717,7 +714,7 @@ impl<'l, T: 'l, R: 'l + core::convert::TryFrom<T>, S: EventStream<'l, T>> EventS
     fn subscribe<H: StreamCallback<R> + 'l>(self, h: H) -> Self::Subscription<H> {
         Self::Subscription {
             origin: self.origin.subscribe(NarrowCallback {
-                h: h,
+                h,
                 phantom: PhantomData,
             }),
         }
@@ -849,13 +846,13 @@ impl<
         };
 
         self.origin.borrow_mut().unsubscribe();
-        return (
+        (
             PrismStream::<'a, T, R, S> {
                 origin: self.origin.clone(),
                 phantom: PhantomData,
             },
             h,
-        );
+        )
     }
 }
 
@@ -927,7 +924,7 @@ impl Dispatchable for std::convert::Infallible {
     type Callback = ();
 
     fn callback() -> Self::Callback {
-        ()
+        
     }
 
     fn send(self, _: &mut Self::Callback) -> crate::event::EventRes {
@@ -935,7 +932,7 @@ impl Dispatchable for std::convert::Infallible {
     }
 
     fn prism<'a, S: 'a + crate::event::EventStream<'a, Self>>(_: S) -> Self::Prism<'a, S> {
-        ()
+        
     }
 }
 
@@ -1114,7 +1111,7 @@ impl<
         Self::Subscription {
             origin: self.origin.subscribe(StateMachineCallback {
                 m: self.m,
-                h: h,
+                h,
                 input: self.input,
                 output: self.output,
                 phantom: PhantomData,

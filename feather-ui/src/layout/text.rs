@@ -3,7 +3,6 @@
 
 use std::rc::Rc;
 
-use crate::layout::resolve_dim;
 use crate::reactive::{
     DynDeferSignal, DynSignal, MutableSignal, SignalDebug, SignalZip, const_default, zip_pair,
 };
@@ -99,7 +98,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
             inner_limits.clone(),
             |buffer, limits| {
                 let mut h = 0.0;
-                let mut w: f32 = 0.0;
+                let mut w: f32 = buffer.size().0.unwrap_or(0.0);
 
                 for run in buffer.layout_runs() {
                     w = w.max(run.line_w);
@@ -143,7 +142,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
     ) -> (DynSignal<PxRect>, Self::Staging) {
         let (prev, dpi, inner_limits) = data;
 
-        let limits = self.props.limits().resolve(dpi.clone()).resolve(zip_pair(
+        let _limits = self.props.limits().resolve(dpi.clone()).resolve(zip_pair(
             bounds,
             dim.clone(),
             |b, d| b.to_bounds(*d),
@@ -235,7 +234,7 @@ impl<T: leaf::Padded + SignalDebug, R: Prerender + Clone + SignalDebug + 'static
             .flatmap(|(area, a, d)| area.anchored(a.resolve(*d)))
             .into_dyn();
 
-        (anchored_area.into(), (buffer.into_dyn(), dpi, inner_limits))
+        (anchored_area, (buffer.into_dyn(), dpi, inner_limits))
     }
 
     fn stage(

@@ -28,7 +28,6 @@ pub mod layout;
 pub mod lua;
 //mod propbag;
 mod pool;
-//mod quadtree;
 pub mod reactive;
 pub mod render;
 pub mod resource;
@@ -52,16 +51,14 @@ use bytemuck::Zeroable;
 use core::f32;
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use either::IntoEither;
 pub use guillotiere::euclid;
 use guillotiere::euclid::{Point2D, Size2D, Vector2D};
-use num_traits::{Signed, Zero};
+use num_traits::Zero;
 use parking_lot::RwLock;
 use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::PartialEq;
 use std::collections::HashMap;
-use std::f32::{INFINITY, NEG_INFINITY};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -2341,6 +2338,7 @@ where
     type Output = DLimits;
 
     #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: U) -> Self::Output {
         self.into() & rhs.into()
     }

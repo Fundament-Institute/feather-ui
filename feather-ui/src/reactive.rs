@@ -192,10 +192,10 @@ impl<'a, T> Deref for DynRef<'a, T> {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            DynRef::Ref(v) => *v,
-            DynRef::Cell(v) => &*v,
-            DynRef::Multi(v) => &*v,
-            DynRef::Flatten(v) => &*v,
+            DynRef::Ref(v) => v,
+            DynRef::Cell(v) => v,
+            DynRef::Multi(v) => v,
+            DynRef::Flatten(v) => v,
         }
     }
 }
@@ -247,16 +247,13 @@ impl fmt::Debug for SignalNode {
 
 fn notify_check_node(nodeid: &SignalNodeId) {
     let mut node = nodeid.0.borrow_mut();
-    match node.color {
-        NodeColor::Ready => {
-            node.color = NodeColor::Check;
-            node.children.iter().for_each(notify_check_node);
+    if node.color == NodeColor::Ready {
+        node.color = NodeColor::Check;
+        node.children.iter().for_each(notify_check_node);
 
-            if let Some(f) = &node.callback {
-                f();
-            }
+        if let Some(f) = &node.callback {
+            f();
         }
-        _ => {}
     }
 }
 
@@ -270,11 +267,10 @@ fn notify_change_node(nodeid: &SignalNodeId) {
     node.color = NodeColor::Changed;
     node.children.iter().for_each(notify_check_node);
 
-    if was_ready {
-        if let Some(f) = &node.callback {
+    if was_ready
+        && let Some(f) = &node.callback {
             f();
         }
-    }
 }
 
 pub fn notify_change(signal: &Signal<impl SignalProvider + ?Sized>) {
@@ -304,7 +300,7 @@ fn remove_dependency(parent: &SignalNodeId, child: &SignalNodeId) {
 fn new_node<T>(color: NodeColor) -> SignalNodeId {
     Identity(Rc::new(RefCell::new(SignalNode {
         children: SmallSet::new(),
-        color: color,
+        color,
         callback: None,
         #[cfg(debug_assertions)]
         debug: std::any::type_name::<T>(),
@@ -519,7 +515,7 @@ impl ProviderTupleList for () {
 
     fn update(&self) {}
     fn build_ref(&self) -> Self::RefResult {
-        ()
+        
     }
     fn add_dependency(&self, _node: SignalNodeId) {}
 }
@@ -600,7 +596,7 @@ impl SignalTupleList for () {
     type Result = ();
 
     fn as_providers(&self) -> Self::Result {
-        ()
+        
     }
 }
 
@@ -643,7 +639,7 @@ impl UnsafeRefCloneTupleList for () {
     type Result = ();
 
     fn get_val(&self) -> Self::Result {
-        ()
+        
     }
 }
 
@@ -742,13 +738,10 @@ where
             self.provider.update();
         }
         let color = self.node.0.borrow().color;
-        match color {
-            NodeColor::Changed => {
-                *self.res.borrow_mut() =
-                    Some(self.provider.providers.build_ref().get_val().into_tuple());
-                notify_children_change(&self.node);
-            }
-            _ => {}
+        if color == NodeColor::Changed {
+            *self.res.borrow_mut() =
+                Some(self.provider.providers.build_ref().get_val().into_tuple());
+            notify_children_change(&self.node);
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
@@ -911,7 +904,7 @@ impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized>
         f: F,
     ) -> Signal<impl SignalProvider<Item = R> + use<R, F, P1, P2>> {
         map(
-            move |(a1, a2)| f((&*a1, &*a2)),
+            move |(a1, a2)| f((a1, a2)),
             self.clone(),
             never_eq,
             never_debug,
@@ -922,7 +915,7 @@ impl<P1: SignalProvider + ?Sized, P2: SignalProvider + ?Sized>
         &self,
         f: F,
     ) -> Signal<impl SignalProvider<Item = R> + use<R, F, P1, P2>> {
-        map_mut(move |(a1, a2), o| f((&*a1, &*a2), o), self.clone())
+        map_mut(move |(a1, a2), o| f((a1, a2), o), self.clone())
     }
 }
 
@@ -1003,25 +996,22 @@ impl<
             }
         }
         let color = self.node.0.borrow().color;
-        match color {
-            NodeColor::Changed => {
-                let res = rewrite_panic!(
-                    self.debug_frame,
-                    (self.func)(&self.provider.get_ref()),
-                    self.res.as_ptr()
-                );
+        if color == NodeColor::Changed {
+            let res = rewrite_panic!(
+                self.debug_frame,
+                (self.func)(&self.provider.get_ref()),
+                self.res.as_ptr()
+            );
 
-                let changed = if let Some(old) = &*self.res.borrow() {
-                    !(self.eq)(old, &res)
-                } else {
-                    true
-                };
-                *self.res.borrow_mut() = Some(res);
-                if changed {
-                    notify_children_change(&self.node);
-                }
+            let changed = if let Some(old) = &*self.res.borrow() {
+                !(self.eq)(old, &res)
+            } else {
+                true
+            };
+            *self.res.borrow_mut() = Some(res);
+            if changed {
+                notify_children_change(&self.node);
             }
-            _ => {}
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
@@ -1105,20 +1095,17 @@ impl<P: SignalProvider + ?Sized, T2: SignalDebug, F: Fn(&P::Item, Option<T2>) ->
             }
         }
         let color = self.node.0.borrow().color;
-        match color {
-            NodeColor::Changed => {
-                let init = self.res.borrow_mut().take();
+        if color == NodeColor::Changed {
+            let init = self.res.borrow_mut().take();
 
-                let res = rewrite_panic!(
-                    self.debug_frame,
-                    (self.func)(&self.provider.get_ref(), init),
-                    self.res.as_ptr()
-                );
+            let res = rewrite_panic!(
+                self.debug_frame,
+                (self.func)(&self.provider.get_ref(), init),
+                self.res.as_ptr()
+            );
 
-                *self.res.borrow_mut() = Some(res);
-                notify_children_change(&self.node);
-            }
-            _ => {}
+            *self.res.borrow_mut() = Some(res);
+            notify_children_change(&self.node);
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
@@ -1241,39 +1228,33 @@ impl<T, P1: SignalProvider<Item = T> + ?Sized, P2: SignalProvider<Item = Signal<
             _ => {
                 self.provider.update();
                 let color = self.node.0.borrow().color;
-                match color {
-                    NodeColor::Changed => {
-                        let innersig = self.provider.get_ref().0.clone();
-                        let old_innerprovider = self.innerprovider.borrow().clone();
-                        match old_innerprovider {
-                            Some(old_innerprovider_actual) => {
-                                if old_innerprovider_actual.get_node() == innersig.get_node() {
-                                    remove_dependency(
-                                        &old_innerprovider_actual.get_node(),
-                                        &self.node,
-                                    );
-                                    *self.innerprovider.borrow_mut() = Some(innersig.clone());
-                                    add_dependency(&innersig.get_node(), self.node.clone());
-                                }
-                            }
-                            None => {
+                if color == NodeColor::Changed {
+                    let innersig = self.provider.get_ref().0.clone();
+                    let old_innerprovider = self.innerprovider.borrow().clone();
+                    match old_innerprovider {
+                        Some(old_innerprovider_actual) => {
+                            if old_innerprovider_actual.get_node() == innersig.get_node() {
+                                remove_dependency(
+                                    old_innerprovider_actual.get_node(),
+                                    &self.node,
+                                );
                                 *self.innerprovider.borrow_mut() = Some(innersig.clone());
-                                add_dependency(&innersig.get_node(), self.node.clone());
+                                add_dependency(innersig.get_node(), self.node.clone());
                             }
                         }
-                        // TODO: Setting this to Check causes a problem with Res not being updated below. Does leaving
-                        // the color as Changed cause a performance issue?
-                        //self.node.0.borrow_mut().color = NodeColor::Check;
+                        None => {
+                            *self.innerprovider.borrow_mut() = Some(innersig.clone());
+                            add_dependency(innersig.get_node(), self.node.clone());
+                        }
                     }
-                    _ => {}
+                    // TODO: Setting this to Check causes a problem with Res not being updated below. Does leaving
+                    // the color as Changed cause a performance issue?
+                    //self.node.0.borrow_mut().color = NodeColor::Check;
                 }
                 self.provider.get_ref().0.update();
                 let color = self.node.0.borrow().color;
-                match color {
-                    NodeColor::Changed => {
-                        notify_children_change(&self.node);
-                    }
-                    _ => {}
+                if color == NodeColor::Changed {
+                    notify_children_change(&self.node);
                 }
                 self.node.0.borrow_mut().color = NodeColor::Ready;
             }
@@ -1347,7 +1328,7 @@ where
         let ((signal, handler), tail) = self;
         let color = signal.0.get_node().0.borrow().color;
         if color != NodeColor::Ready {
-            handler(val, &*sample(&signal));
+            handler(val, &*sample(signal));
             notify_change_node(&node);
         }
         tail.update_check(val, node);
@@ -1534,7 +1515,7 @@ impl<MutProvider: SignalProviderMut + ?Sized> Signal<MutProvider> {
     }
     #[inline]
     pub fn swap(&self, rhs: &Self) {
-        self.0.refcell().swap(&rhs.0.refcell());
+        self.0.refcell().swap(rhs.0.refcell());
     }
 }
 
@@ -1652,7 +1633,7 @@ impl<Provider: SignalProvider + ?Sized> Sampler<Provider> {
 //Languages with neither macros nor a built in applicative syntax can fake it with this tool.
 //However, they should follow the same guideline of preferring combinators for most large scale composition and use this only for specific things.
 thread_local! {
-static DYNAMIC_DEPS: std::cell::RefCell<Option<SmallSet<4, SignalNodeId>>> = std::cell::RefCell::new(None);
+static DYNAMIC_DEPS: std::cell::RefCell<Option<SmallSet<4, SignalNodeId>>> = const { std::cell::RefCell::new(None) };
 }
 
 pub struct DynamicSignalProvider<T, F: Fn() -> T> {
@@ -1721,7 +1702,7 @@ pub fn new_dynamic_signal<T, F: Fn() -> T>(f: F) -> Signal<DynamicSignalProvider
     Signal(Rc::new(DynamicSignalProvider {
         node: new_node::<DynamicSignalProvider<T, F>>(NodeColor::Changed),
         lastdeps: RefCell::new(SmallSet::new()),
-        f: f,
+        f,
         val: RefCell::new(None),
     }))
 }
@@ -1785,7 +1766,7 @@ impl NotifySignal {
     pub fn reset(&mut self) {
         // TODO: change to drain if SmallSet adds support for it.
         for id in self.track[(!self.flip) as usize].iter() {
-            remove_dependency(&id, &self.node);
+            remove_dependency(id, &self.node);
         }
         self.track[(!self.flip) as usize].clear();
         self.flip = !self.flip;
@@ -1797,7 +1778,7 @@ impl Drop for NotifySignal {
     fn drop(&mut self) {
         for s in &self.track {
             for id in s {
-                remove_dependency(&id, &self.node);
+                remove_dependency(id, &self.node);
             }
         }
     }
@@ -2099,7 +2080,7 @@ pub fn animate<
         node,
         val: RefCell::new(None),
         state: RefCell::new(None),
-        anim: anim,
+        anim,
         time: time.0,
         input,
         debug_frame: backtrace::Backtrace::new_unresolved().frames()[6].clone(),
@@ -2259,21 +2240,18 @@ where
             ),
         }
         let color = self.node.0.borrow().color;
-        match color {
-            NodeColor::Changed => {
-                let res = rewrite_panic!(
-                    self.debug_frame,
-                    OP::apply(
-                        self.provider1.get_ref().clone(),
-                        self.provider2.get_ref().clone(),
-                    ),
-                    self.res.as_ptr()
-                );
+        if color == NodeColor::Changed {
+            let res = rewrite_panic!(
+                self.debug_frame,
+                OP::apply(
+                    self.provider1.get_ref().clone(),
+                    self.provider2.get_ref().clone(),
+                ),
+                self.res.as_ptr()
+            );
 
-                *self.res.borrow_mut() = Some(res);
-                notify_children_change(&self.node);
-            }
-            _ => {}
+            *self.res.borrow_mut() = Some(res);
+            notify_children_change(&self.node);
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
@@ -2500,20 +2478,17 @@ impl<
             }
         }
         let color = self.node.0.borrow().color;
-        match color {
-            NodeColor::Changed => {
-                let res = rewrite_panic!(
-                    self.debug_frame,
-                    self.map.borrow_mut().map(&self.provider.get_ref()),
-                    self.res.as_ptr()
-                );
-                let changed = !self.res.borrow().ptr_eq(&res);
-                *self.res.borrow_mut() = res;
-                if changed {
-                    notify_children_change(&self.node);
-                }
+        if color == NodeColor::Changed {
+            let res = rewrite_panic!(
+                self.debug_frame,
+                self.map.borrow_mut().map(&self.provider.get_ref()),
+                self.res.as_ptr()
+            );
+            let changed = !self.res.borrow().ptr_eq(&res);
+            *self.res.borrow_mut() = res;
+            if changed {
+                notify_children_change(&self.node);
             }
-            _ => {}
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
@@ -2624,18 +2599,15 @@ impl<
             }
         }
         let color = self.node.0.borrow().color;
-        match color {
-            NodeColor::Changed => {
-                let res = rewrite_panic!(
-                    self.debug_frame,
-                    self.fold.borrow_mut().fold(&self.provider.get_ref()),
-                    self.res.as_ptr()
-                );
-                // We use unwrap_or_else here because None is a cold branch which avoids a clone() most of the time.
-                *self.res.borrow_mut() = res.unwrap_or_else(|| self.z.clone());
-                notify_children_change(&self.node);
-            }
-            _ => {}
+        if color == NodeColor::Changed {
+            let res = rewrite_panic!(
+                self.debug_frame,
+                self.fold.borrow_mut().fold(&self.provider.get_ref()),
+                self.res.as_ptr()
+            );
+            // We use unwrap_or_else here because None is a cold branch which avoids a clone() most of the time.
+            *self.res.borrow_mut() = res.unwrap_or_else(|| self.z.clone());
+            notify_children_change(&self.node);
         }
         self.node.0.borrow_mut().color = NodeColor::Ready;
     }
@@ -2833,7 +2805,7 @@ pub fn trace_deps<P: SignalProvider + ?Sized>(sig: Signal<P>) -> String {
     format!(
         "digraph G {{\n{}\n}}",
         trace_deps_node(
-            &sig.0.get_node(),
+            sig.0.get_node(),
             &mut std::collections::HashSet::new(),
             &mut std::collections::HashSet::new()
         )
@@ -2895,7 +2867,7 @@ impl UnwindPayload {
         if let Some(v) = self.value {
             write!(f.formatter(), "  ")?;
             unsafe { v.as_ref().unwrap().fmt(f.formatter())? };
-            writeln!(f.formatter(), "")?;
+            writeln!(f.formatter())?;
         }
 
         let mut frame = self.frame.clone();
@@ -2929,15 +2901,12 @@ fn output_filename(
         #[cfg(not(windows))]
         BytesOrWideString::Wide(_wide) => Path::new("<unknown>").into(),
     };
-    if print_fmt == backtrace::PrintFmt::Short && file.is_absolute() {
-        if let Some(cwd) = cwd {
-            if let Ok(stripped) = file.strip_prefix(&cwd) {
-                if let Some(s) = stripped.to_str() {
+    if print_fmt == backtrace::PrintFmt::Short && file.is_absolute()
+        && let Some(cwd) = cwd
+            && let Ok(stripped) = file.strip_prefix(cwd)
+                && let Some(s) = stripped.to_str() {
                     return write!(fmt, ".{}{s}", std::path::MAIN_SEPARATOR);
                 }
-            }
-        }
-    }
     fmt::Display::fmt(&file.display(), fmt)
 }
 

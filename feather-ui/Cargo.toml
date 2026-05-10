@@ -119,9 +119,8 @@ superslice = "1.0.0"
 small-map = "0.1.5"
 rapidhash = "4.4.0"
 backtrace = "0.3.76"
+partial_application = "0.2.1"
+itertools = "0.14.0"
 
 [dev-dependencies]
 fastrand = "2"
-
-[lints.clippy]
-too_many_arguments = { level = "allow" }
