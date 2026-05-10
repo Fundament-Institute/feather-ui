@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use crate::reactive::{ConstSignal, DynSignal, MutableSignal, SignalZip, ToSignal, zip_pair};
-use crate::{DPerimeter, DPoint, DRect, Limited, PxRect, UPerimeter, Unsizable, ZERO_DRECT};
+use crate::{DPerimeter, DPoint, DRect, Limited, PxRect, UPerimeter};
 use std::rc::Rc;
 
 #[macro_export]
@@ -144,7 +144,7 @@ pub trait Direction {
 
 impl Area for DRect {
     fn area(&self) -> DynSignal<DRect> {
-        ConstSignal::new(self.clone()).into() // TODO: This doesn't make sense
+        ConstSignal::new(*self).into() // TODO: This doesn't make sense
     }
 }
 impl Padding for DRect {}

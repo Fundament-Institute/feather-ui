@@ -90,13 +90,13 @@ impl<T: PartialEq, CT: PrimInt + Unsigned> CompactSequence<T, CT> {
 
     /// Sets the value of an entry. Increases storage size by up to 2 if it splits a previously homogeneous region,
     /// or it can reduce storage size by up to 2 if this change allow merging two homogeneous regions together.
-    pub fn set(&mut self, idx: CT, x: T) {
+    pub fn set(&mut self, _idx: CT, _x: T) {
         todo!()
     }
 
     /// Removes an entry. Fails if you attempt to remove the last entry. Can reduce storage size by up to 2 if this
     /// allows mergingn two homogeous regions together.
-    pub fn remove(&mut self, idx: CT) -> Option<T> {
+    pub fn remove(&mut self, _idx: CT) -> Option<T> {
         if self.0.len().is_one() {
             return None;
         }
@@ -156,7 +156,7 @@ impl<T: PartialEq, CT: PrimInt + Unsigned> CompactSequence<T, CT> {
     #[must_use]
     pub fn iter(&self) -> Iter<'_, T, CT> {
         Iter {
-            it: &self,
+            it: self,
             idx: CT::zero(),
         }
     }
@@ -219,7 +219,7 @@ impl<T: PartialEq + Clone, CT: PrimInt + Unsigned> FromIterator<T> for CompactSe
         );
         let mut idx = CT::one();
 
-        while let Some(v) = iter.next() {
+        for v in iter {
             seq.insert(idx, v);
             idx = idx + CT::one();
         }

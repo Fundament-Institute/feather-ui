@@ -177,17 +177,13 @@ fn stage<T: Prerender + 'static>(
             Some(Box::new(Concrete {
                 renderable: renderable.as_ref().map(|x| x.prerender(final_area.clone())),
                 area: final_area.clone(),
-                layer: if let Some(sig) = &layer {
-                    Some(Rc::new(crate::render::compositor::Layer::new(
+                layer: layer.as_ref().map(|sig| Rc::new(crate::render::compositor::Layer::new(
                         final_area.clone(),
                         final_area.clone(),
                         sig.0.clone(),
                         sig.1.clone(),
                         false,
-                    )))
-                } else {
-                    None
-                },
+                    ))),
             })),
         ),
         &defer,

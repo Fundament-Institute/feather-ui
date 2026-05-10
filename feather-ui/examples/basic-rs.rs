@@ -219,14 +219,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
             zindex: const_new(0).into(),
             ..Default::default()
         },
-        const_new(feather_ui::children![
-            fixed::Prop,
-            pixel,
-            button,
-            block,
-            block2
-        ])
-        .into_dyn(),
+        const_new(feather_ui::children![fixed::Prop, button, block2, block]).into_dyn(),
     );
     let window = Window::new(
         winit::window::Window::default_attributes()
@@ -243,7 +236,7 @@ fn basic_app_ui(app: &BasicApp) -> feather_ui::component::UI {
 fn main() {
     let (mut app, event_loop) = App::<BasicApp, ()>::new(
         const_new(BasicApp {
-            count: MutableSignal::new(0),
+            count: MutableSignal::new(1),
         })
         .into_dyn(),
         basic_app_ui,

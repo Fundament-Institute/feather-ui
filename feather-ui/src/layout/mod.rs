@@ -91,7 +91,7 @@ where
     U::Staging: Clone,
 {
     fn get_props(&self) -> &P {
-        &Layout::get_props(self).into()
+        Layout::get_props(self).into()
     }
 
     fn presize(
@@ -352,7 +352,7 @@ impl<T: Renderable> Staged for Concrete<T> {
             let (mut view, depview) = if let Some(target) = &*target {
                 // If this is a "real" layer with a texture target, mark it as a dependency of
                 // our parent
-                dependents.push(Rc::downgrade(&layer));
+                dependents.push(Rc::downgrade(layer));
 
                 // Acquire a region if we don't have one already. This is done carefully so that
                 // the layer can be moved to a different dependency layer and
@@ -430,7 +430,7 @@ impl<T: Renderable> Staged for Concrete<T> {
                 // dependencies, and append ourselves to the parent layer. We
                 // must be very careful not to use the wrong view here.
                 target.write().dependents = deps;
-                compositor.append_layer(&layer, parent_pos, target.read().region.uv);
+                compositor.append_layer(layer, parent_pos, target.read().region.uv);
             }
         } else {
             self.render_self(parent_pos, driver, compositor)?;

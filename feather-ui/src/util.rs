@@ -55,7 +55,7 @@ pub(crate) fn alloca_array<T, R>(n: usize, f: impl FnOnce(&mut [T]) -> R) -> R {
         (n * size_of::<T>()) + (align_of::<T>() - 1),
         |memory| unsafe {
             let mut raw_memory = memory.as_mut_ptr();
-            if raw_memory as usize % align_of::<T>() != 0 {
+            if !(raw_memory as usize).is_multiple_of(align_of::<T>()) {
                 raw_memory =
                     raw_memory.add(align_of::<T>() - raw_memory as usize % align_of::<T>());
             }

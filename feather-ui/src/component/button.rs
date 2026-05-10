@@ -69,7 +69,7 @@ where
         driver: &Arc<crate::graphics::Driver>,
         dpi2: MutableSignal<crate::RelDim>,
     ) -> Self::R {
-        let wdriver = Arc::downgrade(&driver);
+        let wdriver = Arc::downgrade(driver);
         let dpi = dpi2.clone();
         let children = self.children.clone().map_elements(
             move |child: &Rc<ChildOf<dyn fixed::Prop>>| {
@@ -85,6 +85,5 @@ where
             layer: None,
             machine: None,
         }
-        .into()
     }
 }

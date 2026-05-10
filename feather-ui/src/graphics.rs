@@ -441,7 +441,7 @@ impl Driver {
             let (raw, dim) = refload.preload(size, dpi)?;
             refload
                 .load(self, (raw, dim), resize)
-                .map_err(|e| Error::RenderError(e))?
+                .map_err(Error::RenderError)?
         };
 
         let key = ResourceInstance {

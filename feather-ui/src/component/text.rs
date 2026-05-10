@@ -130,7 +130,7 @@ where
                         if let Some(driver) = wdriver4.upgrade() {
                             b.set_text(
                                 &mut driver.font_system.write(),
-                                &text,
+                                text,
                                 &attrs.as_attrs(),
                                 cosmic_text::Shaping::Advanced,
                                 *align,
@@ -206,7 +206,7 @@ where
             //realign: self.align.is_some_and(|x| x != cosmic_text::Align::Left),
             driver: Arc::downgrade(driver2),
             machine: None,
-            inner_limits: inner_limits,
+            inner_limits,
             final_buffer,
         }
     }
